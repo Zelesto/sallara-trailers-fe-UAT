@@ -2,22 +2,35 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      // Optional: configure Babel for on-demand imports (e.g., Ant Design)
+      babel: {
+        plugins: [
+          [
+            "import",
+            { libraryName: "antd", libraryDirectory: "es", style: true }
+          ]
+        ]
+      }
+    })
+  ],
+
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src") // Allows imports like "@/components/Button"
+      "@": path.resolve(__dirname, "src") // Enables "@/..." imports
     }
   },
+
   server: {
     port: 5173,
-    open: true // automatically opens the browser
+    open: true // Auto-open browser on dev start
   },
+
   css: {
     preprocessorOptions: {
       scss: {
-        // Inject global variables and themes into every SCSS file
         additionalData: `
           @use "@/variables.scss" as *;
           @use "@/theme/styles/variables-light.scss" as *;
@@ -25,16 +38,17 @@ export default defineConfig({
       }
     }
   },
+
   build: {
     rollupOptions: {
       output: {
         manualChunks: {
           react: ["react", "react-dom"],
           antd: ["antd"],
-          // add other heavy libraries here if needed
+          // Add other heavy libraries here if needed
         }
       }
     },
-    chunkSizeWarningLimit: 1000 // optional: raise warning threshold
+    chunkSizeWarningLimit: 2000 // Raise threshold to reduce warnings
   }
 });

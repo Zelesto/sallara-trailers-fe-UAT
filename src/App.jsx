@@ -1,84 +1,71 @@
 // src/App.jsx
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React, { Suspense, lazy } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import Layout from './components/Layout/Layout';
-import PrivateRoute from './components/Layout/PrivateRoute';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Layout from "./components/Layout/Layout";
+import PrivateRoute from "./components/Layout/PrivateRoute";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 /* -------------------------------------------------------------------------- */
-/* Pages                                                                       */
+/* Lazy-loaded Pages (code splitting)                                          */
 /* -------------------------------------------------------------------------- */
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const UserProfile = lazy(() => import("./pages/UserProfile"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
-// Auth / Core
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import UserProfile from './pages/UserProfile';
-import SettingsPage from './pages/SettingsPage';
+const UserList = lazy(() => import("./pages/UserList"));
+const UserDetails = lazy(() => import("./pages/UserDetails"));
 
-// Users
-import UserList from './pages/UserList';
-import UserDetails from './pages/UserDetails';
+const DriverList = lazy(() => import("./pages/DriverList"));
+const DriverDetails = lazy(() => import("./pages/DriverDetails"));
+const DriverForm = lazy(() => import("./pages/DriverForm"));
 
-// Drivers
-import DriverList from './pages/DriverList';
-import DriverDetails from './pages/DriverDetails';
-import DriverForm from './pages/DriverForm';
+const VehicleList = lazy(() => import("./pages/VehicleList"));
+const VehicleDetails = lazy(() => import("./pages/VehicleDetails"));
+const VehicleForm = lazy(() => import("./pages/VehicleForm"));
 
-// Vehicles
-import VehicleList from './pages/VehicleList';
-import VehicleDetails from './pages/VehicleDetails';
-import VehicleForm from './pages/VehicleForm';
+const FuelSlips = lazy(() => import("./pages/FuelSlips"));
+const AddFuelSlip = lazy(() => import("./pages/AddFuelSlip"));
 
-// Fuel Management
-import FuelSlips from './pages/FuelSlips';
-import AddFuelSlip from './pages/AddFuelSlip';
+const TripList = lazy(() => import("./pages/TripList"));
+const TripDetails = lazy(() => import("./pages/TripDetails"));
 
-// Trips Management
-import TripList from './pages/TripList';
-import TripDetails from './pages/TripDetails';
-// REMOVED: TripForm import here - it's only used as a modal in TripList
+const FinanceDashboard = lazy(() => import("./pages/finance/FinanceDashboard"));
+const AccountsPage = lazy(() => import("./pages/finance/AccountsPage"));
+const ExpensesPage = lazy(() => import("./pages/finance/ExpensePage"));
+const InvoicesPage = lazy(() => import("./pages/finance/InvoicePage"));
+const ReceivablesPage = lazy(() => import("./pages/finance/ReceivablePage"));
+const PayablesPage = lazy(() => import("./pages/finance/PayablePage"));
 
-// Finance
-import FinanceDashboard from './pages/finance/FinanceDashboard';
-import AccountsPage from './pages/finance/AccountsPage';
-import ExpensesPage from './pages/finance/ExpensePage';
-import InvoicesPage from './pages/finance/InvoicePage';
-import ReceivablesPage from './pages/finance/ReceivablePage';
-import PayablesPage from './pages/finance/PayablePage';
+const PodList = lazy(() => import("./pages/PodList"));
+const PodForm = lazy(() => import("./pages/PodForm"));
+const PodDetails = lazy(() => import("./pages/PodDetails"));
 
-// POD Management (Proof of Delivery)
-import PodList from './pages/PodList';
-import PodForm from './pages/PodForm';
-import PodDetails from './pages/PodDetails';
+const TripReports = lazy(() => import("./pages/TripReports"));
+const TripAnalytics = lazy(() => import("./pages/TripAnalytics"));
 
-// Reports
-import TripReports from './pages/TripReports';
-import TripAnalytics from './pages/TripAnalytics';
-
-// Other
-import Logs from './pages/Logs';
-import Billing from './pages/Billing';
-import Inventory from './pages/Inventory';
-import Reports from './pages/Reports';
+const Logs = lazy(() => import("./pages/Logs"));
+const Billing = lazy(() => import("./pages/Billing"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Reports = lazy(() => import("./pages/Reports"));
 
 /* -------------------------------------------------------------------------- */
 /* Theme                                                                       */
 /* -------------------------------------------------------------------------- */
-
 const theme = createTheme({
   palette: {
-    mode: 'light',
-    primary: { main: '#1976d2' },
-    secondary: { main: '#dc004e' },
+    mode: "light",
+    primary: { main: "#1976d2" },
+    secondary: { main: "#dc004e" },
     background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
+      default: "#f5f5f5",
+      paper: "#ffffff",
     },
   },
   typography: {
@@ -89,7 +76,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+          boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
         },
       },
     },
@@ -99,7 +86,6 @@ const theme = createTheme({
 /* -------------------------------------------------------------------------- */
 /* React Query                                                                 */
 /* -------------------------------------------------------------------------- */
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -112,21 +98,14 @@ const queryClient = new QueryClient({
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
-
-// /me route wrapper
 const MyProfileRoute = () => {
   const { user } = useAuth();
-  return user ? (
-    <UserProfile user={user} isSelfView />
-  ) : (
-    <Navigate to="/login" replace />
-  );
+  return user ? <UserProfile user={user} isSelfView /> : <Navigate to="/login" replace />;
 };
 
 /* -------------------------------------------------------------------------- */
 /* App                                                                         */
 /* -------------------------------------------------------------------------- */
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -135,91 +114,88 @@ function App() {
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <Router>
             <AuthProvider>
-              <Routes>
-                {/* ---------------- Public ---------------- */}
-                <Route path="/login" element={<Login />} />
+              <Suspense fallback={<div>Loading...</div>}>
+                <Routes>
+                  {/* Public */}
+                  <Route path="/login" element={<Login />} />
 
-                {/* ---------------- Private ---------------- */}
-                <Route
-                  path="/"
-                  element={
-                    <PrivateRoute>
-                      <Layout />
-                    </PrivateRoute>
-                  }
-                >
-                  {/* Dashboard */}
-                  <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="dashboard" element={<Dashboard />} />
+                  {/* Private */}
+                  <Route
+                    path="/"
+                    element={
+                      <PrivateRoute>
+                        <Layout />
+                      </PrivateRoute>
+                    }
+                  >
+                    {/* Dashboard */}
+                    <Route index element={<Navigate to="/dashboard" replace />} />
+                    <Route path="dashboard" element={<Dashboard />} />
 
-                  {/* Profile */}
-                  <Route path="me" element={<MyProfileRoute />} />
-                  <Route path="users/:id" element={<UserProfile isSelfView={false} />} />
+                    {/* Profile */}
+                    <Route path="me" element={<MyProfileRoute />} />
+                    <Route path="users/:id" element={<UserProfile isSelfView={false} />} />
 
-                  {/* Settings */}
-                  <Route path="settings" element={<SettingsPage />} />
+                    {/* Settings */}
+                    <Route path="settings" element={<SettingsPage />} />
 
-                  {/* Users */}
-                  <Route path="users" element={<UserList />} />
-                  <Route path="users/:id/details" element={<UserDetails />} />
+                    {/* Users */}
+                    <Route path="users" element={<UserList />} />
+                    <Route path="users/:id/details" element={<UserDetails />} />
 
-                  {/* Drivers */}
-                  <Route path="drivers" element={<DriverList />} />
-                  <Route path="drivers/new" element={<DriverForm />} />
-                  <Route path="drivers/:id" element={<DriverDetails />} />
-                  <Route path="drivers/:id/edit" element={<DriverForm />} />
+                    {/* Drivers */}
+                    <Route path="drivers" element={<DriverList />} />
+                    <Route path="drivers/new" element={<DriverForm />} />
+                    <Route path="drivers/:id" element={<DriverDetails />} />
+                    <Route path="drivers/:id/edit" element={<DriverForm />} />
 
-                  {/* Vehicles */}
-                  <Route path="vehicles" element={<VehicleList />} />
-                  <Route path="vehicles/new" element={<VehicleForm />} />
-                  <Route path="vehicles/:id" element={<VehicleDetails />} />
-                  <Route path="vehicles/:id/edit" element={<VehicleForm />} />
+                    {/* Vehicles */}
+                    <Route path="vehicles" element={<VehicleList />} />
+                    <Route path="vehicles/new" element={<VehicleForm />} />
+                    <Route path="vehicles/:id" element={<VehicleDetails />} />
+                    <Route path="vehicles/:id/edit" element={<VehicleForm />} />
 
-                  {/* Trips Management */}
-                  <Route path="trips" element={<TripList />} />
-                  {/* REMOVED: TripForm routes - handled as modal in TripList */}
-                  <Route path="trips/:id" element={<TripDetails />} />
-                  {/* REMOVED: trips/:id/edit route - handled as modal */}
-                  {/* REMOVED: trips/:id/metrics route - handled as modal */}
-                  <Route path="trips/:id/finalize" element={<TripDetails />} />
+                    {/* Trips */}
+                    <Route path="trips" element={<TripList />} />
+                    <Route path="trips/:id" element={<TripDetails />} />
+                    <Route path="trips/:id/finalize" element={<TripDetails />} />
 
-                  {/* Fuel Management */}
-                  <Route path="fuel/slips" element={<FuelSlips />} />
-                  <Route path="fuel/slips/add" element={<AddFuelSlip />} />
-                  <Route path="fuel/slips/driver/:id" element={<FuelSlips />} />
-                  <Route path="fuel/slips/vehicle/:id" element={<FuelSlips />} />
-                  <Route path="fuel/slips/trip/:id" element={<FuelSlips />} />
+                    {/* Fuel */}
+                    <Route path="fuel/slips" element={<FuelSlips />} />
+                    <Route path="fuel/slips/add" element={<AddFuelSlip />} />
+                    <Route path="fuel/slips/driver/:id" element={<FuelSlips />} />
+                    <Route path="fuel/slips/vehicle/:id" element={<FuelSlips />} />
+                    <Route path="fuel/slips/trip/:id" element={<FuelSlips />} />
 
-                  {/* POD Management */}
-                  <Route path="pods" element={<PodList />} />
-                  <Route path="pods/new" element={<PodForm />} />
-                  <Route path="pods/:id" element={<PodDetails />} />
-                  <Route path="pods/trip/:tripId" element={<PodList />} />
+                    {/* POD */}
+                    <Route path="pods" element={<PodList />} />
+                    <Route path="pods/new" element={<PodForm />} />
+                    <Route path="pods/:id" element={<PodDetails />} />
+                    <Route path="pods/trip/:tripId" element={<PodList />} />
 
-                  {/* Finance */}
-                  <Route path="finance" element={<FinanceDashboard />} />
-                  <Route path="finance/dashboard" element={<FinanceDashboard />} />
-                  <Route path="finance/accounts" element={<AccountsPage />} />
-                  <Route path="finance/accounts/:id" element={<AccountsPage />} />
-                  <Route path="finance/expenses" element={<ExpensesPage />} />
-                  <Route path="finance/invoices" element={<InvoicesPage />} />
-                  <Route path="finance/receivables" element={<ReceivablesPage />} />
-                  <Route path="finance/payables" element={<PayablesPage />} />
+                    {/* Finance */}
+                    <Route path="finance" element={<FinanceDashboard />} />
+                    <Route path="finance/accounts" element={<AccountsPage />} />
+                    <Route path="finance/expenses" element={<ExpensesPage />} />
+                    <Route path="finance/invoices" element={<InvoicesPage />} />
+                    <Route path="finance/receivables" element={<ReceivablesPage />} />
+                    <Route path="finance/payables" element={<PayablesPage />} />
 
-                  {/* Reports & Analytics */}
-                  <Route path="reports/trips" element={<TripReports />} />
-                  <Route path="analytics/trips" element={<TripAnalytics />} />
-                  <Route path="reports" element={<Reports />} />
+                    {/* Reports */}
+                    <Route path="reports/trips" element={<TripReports />} />
+                    <Route path="analytics/trips" element={<TripAnalytics />} />
+                    <Route path="reports" element={<Reports />} />
 
-                  {/* Other */}
-                  <Route path="billing" element={<Billing />} />
-                  <Route path="logs" element={<Logs />} />
-                  <Route path="inventory" element={<Inventory />} />
-                </Route>
+                    {/* Other */}
+                    <Route path="billing" element={<Billing />} />
+                    <Route path="logs" element={<Logs />} />
+                    <Route path="inventory" element={<Inventory />} />
+                  </Route>
 
-                {/* ---------------- Fallback ---------------- */}
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </Suspense>
             </AuthProvider>
           </Router>
         </LocalizationProvider>

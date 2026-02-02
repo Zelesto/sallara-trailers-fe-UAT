@@ -1,0 +1,1 @@
+import{d as n,j as s}from"./index-OAIL4eDb.js";const r=n(s.jsx("path",{d:"m16 18 2.29-2.29-4.88-4.88-4 4L2 7.41 3.41 6l6 6 4-4 6.3 6.29L22 12v6z"}),"TrendingDown"),t=n(s.jsx("path",{d:"m16 6 2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"}),"TrendingUp");export{t as T,r as a};
