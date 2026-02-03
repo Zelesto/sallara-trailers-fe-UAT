@@ -1,16 +1,18 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'https://trailers-1.onrender.com';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Accept': 'application/json',
   },
-  timeout: 10000,
-  withCredentials: false, // Explicitly set to false
+  withCredentials: false,
 });
+
 
 // Debug request interceptor
 api.interceptors.request.use(
