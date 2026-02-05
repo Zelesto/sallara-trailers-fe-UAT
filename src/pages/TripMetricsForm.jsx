@@ -24,8 +24,8 @@ import {
   Stack,
   IconButton,
   CircularProgress,
-  LinearProgress,
-  Chip
+  Chip,
+  InputAdornment
 } from '@mui/material';
 import {
   Calculate as CalculatorIcon,
@@ -35,14 +35,12 @@ import {
   AccessTime as TimeIcon,
   AttachMoney as MoneyIcon,
   Timeline as RadarIcon,
-  Refresh as RefreshIcon,
   LocalGasStation as FuelIcon,
-  Speed as SpeedIcon,
   Warning as WarningIcon,
   Save as SaveIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Speed as SpeedIcon
 } from '@mui/icons-material';
-import { NumericFormat } from 'react-number-format';
 import { tripService } from '../services/tripService';
 
 /* -------------------- helpers -------------------- */
@@ -160,6 +158,13 @@ const TripMetricsForm = ({
   /* ---------- save ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (!formData.totalDistance || !formData.estimatedDuration || !formData.fuelConsumption) {
+      setRouteError('Please fill in all required metrics');
+      return;
+    }
+
     setLoading(true);
     
     try {
@@ -167,7 +172,7 @@ const TripMetricsForm = ({
         totalDistance: Number(formData.totalDistance),
         estimatedDuration: Number(formData.estimatedDuration),
         estimatedFuel: Number(formData.fuelConsumption),
-        estimatedCost: Number(formData.estimatedCost),
+        estimatedCost: Number(formData.estimatedCost) || 0,
         delays: formData.delays,
         incidents: formData.incidents
       });
@@ -176,6 +181,7 @@ const TripMetricsForm = ({
       onClose();
     } catch (err) {
       console.error('Failed to save metrics:', err);
+      setRouteError(err.response?.data?.error || 'Failed to save metrics');
     } finally {
       setLoading(false);
     }
@@ -184,6 +190,27 @@ const TripMetricsForm = ({
   /* ---------- form handlers ---------- */
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error when user starts typing
+    if (routeError) {
+      setRouteError('');
+    }
+  };
+
+  const handleNumberChange = (field, value) => {
+    // Allow only numbers and decimal point
+    const numericValue = value.replace(/[^\d.]/g, '');
+    // Remove extra decimal points
+    const parts = numericValue.split('.');
+    const filteredValue = parts.length > 2 
+      ? parts[0] + '.' + parts.slice(1).join('') 
+      : numericValue;
+    
+    setFormData(prev => ({ ...prev, [field]: filteredValue }));
+    
+    if (routeError) {
+      setRouteError('');
+    }
   };
 
   /* ---------- render summary ---------- */
@@ -269,7 +296,7 @@ const TripMetricsForm = ({
                 <Stack spacing={1} alignItems="center">
                   <MoneyIcon color="primary" />
                   <Typography variant="h5" fontWeight="bold">
-                    R {calculatedMetrics.costAmount?.toFixed(2) || '0'}
+                    R {calculatedMetrics.costAmount?.toFixed(2) || '0.00'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Estimated Cost
@@ -349,7 +376,11 @@ const TripMetricsForm = ({
                     onChange={(e) => handleInputChange('originLocation', e.target.value)}
                     required
                     InputProps={{
-                      startAdornment: <LocationIcon fontSize="small" sx={{ mr: 1, color: 'action.active' }} />
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LocationIcon fontSize="small" />
+                        </InputAdornment>
+                      )
                     }}
                     size="small"
                   />
@@ -363,7 +394,11 @@ const TripMetricsForm = ({
                     onChange={(e) => handleInputChange('destinationLocation', e.target.value)}
                     required
                     InputProps={{
-                      startAdornment: <LocationIcon fontSize="small" sx={{ mr: 1, color: 'action.active' }} />
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LocationIcon fontSize="small" />
+                        </InputAdornment>
+                      )
                     }}
                     size="small"
                   />
@@ -376,7 +411,11 @@ const TripMetricsForm = ({
                       value={vehicleType}
                       onChange={(e) => setVehicleType(e.target.value)}
                       label="Vehicle Type"
-                      startAdornment={<CarIcon fontSize="small" sx={{ mr: 1 }} />}
+                      startAdornment={
+                        <InputAdornment position="start">
+                          <CarIcon fontSize="small" />
+                        </InputAdornment>
+                      }
                     >
                       {VEHICLE_TYPES.map(type => (
                         <MenuItem key={type.value} value={type.value}>
@@ -428,70 +467,61 @@ const TripMetricsForm = ({
             <CardContent>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6} md={3}>
-                  <NumericFormat
-                    customInput={TextField}
-                    label="Distance (km)"
+                  <TextField
+                    fullWidth
+                    label="Distance"
                     value={formData.totalDistance}
-                    onValueChange={(values) => handleInputChange('totalDistance', values.value)}
-                    decimalScale={1}
-                    allowNegative={false}
-                    fullWidth
-                    size="small"
+                    onChange={(e) => handleNumberChange('totalDistance', e.target.value)}
                     required
+                    size="small"
                     InputProps={{
-                      endAdornment: 'km'
+                      endAdornment: <InputAdornment position="end">km</InputAdornment>
                     }}
+                    placeholder="0.0"
                   />
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <NumericFormat
-                    customInput={TextField}
-                    label="Duration (hours)"
+                  <TextField
+                    fullWidth
+                    label="Duration"
                     value={formData.estimatedDuration}
-                    onValueChange={(values) => handleInputChange('estimatedDuration', values.value)}
-                    decimalScale={1}
-                    allowNegative={false}
-                    fullWidth
-                    size="small"
+                    onChange={(e) => handleNumberChange('estimatedDuration', e.target.value)}
                     required
+                    size="small"
                     InputProps={{
-                      endAdornment: 'h'
+                      endAdornment: <InputAdornment position="end">hours</InputAdornment>
                     }}
+                    placeholder="0.0"
                   />
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <NumericFormat
-                    customInput={TextField}
-                    label="Fuel (liters)"
+                  <TextField
+                    fullWidth
+                    label="Fuel Consumption"
                     value={formData.fuelConsumption}
-                    onValueChange={(values) => handleInputChange('fuelConsumption', values.value)}
-                    decimalScale={1}
-                    allowNegative={false}
-                    fullWidth
-                    size="small"
+                    onChange={(e) => handleNumberChange('fuelConsumption', e.target.value)}
                     required
+                    size="small"
                     InputProps={{
-                      endAdornment: 'L'
+                      endAdornment: <InputAdornment position="end">L</InputAdornment>
                     }}
+                    placeholder="0.0"
                   />
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <NumericFormat
-                    customInput={TextField}
+                  <TextField
+                    fullWidth
                     label="Estimated Cost"
                     value={formData.estimatedCost}
-                    onValueChange={(values) => handleInputChange('estimatedCost', values.value)}
-                    decimalScale={2}
-                    prefix="R "
-                    allowNegative={false}
-                    fullWidth
+                    onChange={(e) => handleNumberChange('estimatedCost', e.target.value)}
                     size="small"
                     InputProps={{
-                      startAdornment: <MoneyIcon fontSize="small" sx={{ mr: 1 }} />
+                      startAdornment: <InputAdornment position="start">R</InputAdornment>
                     }}
+                    placeholder="0.00"
                   />
                 </Grid>
 
@@ -539,7 +569,7 @@ const TripMetricsForm = ({
           variant="contained"
           startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
           onClick={handleSubmit}
-          disabled={loading || !formData.totalDistance || !formData.estimatedDuration}
+          disabled={loading || !formData.totalDistance || !formData.estimatedDuration || !formData.fuelConsumption}
         >
           {loading ? 'Saving...' : 'Save Metrics'}
         </Button>
