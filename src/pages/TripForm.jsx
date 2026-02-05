@@ -1,597 +1,322 @@
-// src/pages/TripForm.jsx - FULLY REFACTORED
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import dayjs from 'dayjs';
+
 import {
-  Modal,
-  Form,
-  Input,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
   Select,
-  DatePicker,
+  MenuItem,
   Button,
-  Row,
-  Col,
-  message,
-  Spin,
+  Grid,
   Card,
+  CardContent,
+  Typography,
+  CircularProgress,
   Alert,
-  Typography
-} from 'antd';
+  Box,
+} from '@mui/material';
+
 import {
-  SaveOutlined,
-  CloseOutlined,
-  WarningOutlined
-} from '@ant-design/icons';
+  Save,
+  Close,
+  Warning,
+} from '@mui/icons-material';
+
+import {
+  LocalizationProvider,
+  DateTimePicker,
+} from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+
 import { tripService } from '../services/tripService';
 import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
-import dayjs from 'dayjs';
 
-const { Option } = Select;
-const { TextArea } = Input;
-const { Text } = Typography;
+/* ===================== Helpers ===================== */
 
-// Helper functions outside component to prevent recreation
-const formatDateForAPI = (dateValue) => {
-  if (!dateValue) return null;
-  return dayjs(dateValue).format('YYYY-MM-DDTHH:mm:ss');
-};
+const formatDateForAPI = (date) =>
+  date ? dayjs(date).format('YYYY-MM-DDTHH:mm:ss') : null;
 
-const extractArrayData = (response, endpointName = '') => {
-  const data = response?.data !== undefined ? response.data : response;
-
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (data?.content && Array.isArray(data.content)) {
-    return data.content;
-  }
-
-  if (data && typeof data === 'object') {
-    const arrayKey = Object.keys(data).find(key => Array.isArray(data[key]));
-    if (arrayKey) {
-      return data[arrayKey];
-    }
-  }
-
-  console.warn(`No array data found in ${endpointName} response:`, response);
-  return [];
-};
-
-const filterActiveVehicles = (vehicles) => {
-  return vehicles.filter(v =>
-    v.status === 'ACTIVE' ||
-    v.status === 'active' ||
-    v.status === 'Available' ||
-    v.status === 'OPERATIONAL' ||
-    v.available === true
+const filterActiveVehicles = (vehicles) =>
+  vehicles.filter(v =>
+    ['ACTIVE', 'OPERATIONAL', 'Available'].includes(v.status) || v.available
   );
-};
 
-const filterActiveDrivers = (drivers) => {
-  return drivers.filter(d =>
-    d.status === 'ACTIVE' ||
-    d.status === 'active' ||
-    d.status === 'Available' ||
-    d.status === 'AVAILABLE'
+const filterActiveDrivers = (drivers) =>
+  drivers.filter(d =>
+    ['ACTIVE', 'AVAILABLE', 'Available'].includes(d.status)
   );
-};
 
-const TripForm = ({
-  visible,
+/* ===================== Component ===================== */
+
+function TripForm({
+  open,
   onClose,
   onSuccess,
   mode = 'create',
   initialData = null,
-  tripId = null
-}) => {
-  const [form] = Form.useForm();
+  tripId = null,
+}) {
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [loadingData, setLoadingData] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [fetchError, setFetchError] = useState(null);
+  const [error, setError] = useState(null);
 
-  // Fetch vehicles and drivers
-  const fetchVehiclesAndDrivers = useCallback(async () => {
-    setLoadingData(true);
-    setFetchError(null);
+  const [form, setForm] = useState({
+    tripNumber: '',
+    originLocation: '',
+    destinationLocation: '',
+    status: 'PLANNED',
+    priority: 'MEDIUM',
+    cargoDescription: '',
+    plannedStartDate: null,
+    plannedEndDate: null,
+    startDate: null,
+    endDate: null,
+    vehicleId: '',
+    driverId: '',
+    notes: '',
+  });
+
+  /* ===================== Load data ===================== */
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
     try {
-      const [vehiclesResponse, driversResponse] = await Promise.allSettled([
+      const [vRes, dRes] = await Promise.all([
         vehicleService.getAllVehicles(),
-        driverService.getAllDrivers()
+        driverService.getAllDrivers(),
       ]);
 
-      const errors = [];
-
-      // Process vehicles
-      if (vehiclesResponse.status === 'fulfilled') {
-        const vehiclesData = extractArrayData(vehiclesResponse.value, 'vehicles');
-        const activeVehicles = filterActiveVehicles(vehiclesData);
-        setVehicles(activeVehicles);
-        console.log('Active Vehicles:', activeVehicles);
-      } else {
-        errors.push('vehicles');
-        console.error('Vehicles API error:', vehiclesResponse.reason);
-      }
-
-      // Process drivers
-      if (driversResponse.status === 'fulfilled') {
-        const driversData = extractArrayData(driversResponse.value, 'drivers');
-        const activeDrivers = filterActiveDrivers(driversData);
-        setDrivers(activeDrivers);
-        console.log('Active Drivers:', activeDrivers);
-      } else {
-        errors.push('drivers');
-        console.error('Drivers API error:', driversResponse.reason);
-      }
-
-      // Set error message if any API failed
-      if (errors.length > 0) {
-        setFetchError(`Failed to load: ${errors.join(' and ')}. You can still create a trip.`);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setFetchError('Failed to load form data. Please try again.');
+      setVehicles(filterActiveVehicles(vRes || []));
+      setDrivers(filterActiveDrivers(dRes || []));
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load vehicles or drivers');
     } finally {
-      setLoadingData(false);
+      setLoading(false);
     }
   }, []);
 
-  // Initialize form when modal opens
   useEffect(() => {
-    if (visible) {
-      fetchVehiclesAndDrivers();
+    if (!open) return;
 
-      // Reset form
-      form.resetFields();
+    loadData();
 
-      if (mode === 'edit' && initialData) {
-        const formData = {
-          originLocation: initialData.originLocation,
-          destinationLocation: initialData.destinationLocation,
-          status: initialData.status,
-          priority: initialData.priority || 'MEDIUM',
-          cargoDescription: initialData.cargoDescription,
-          plannedStartDate: initialData.plannedStartDate ? dayjs(initialData.plannedStartDate) : null,
-          plannedEndDate: initialData.plannedEndDate ? dayjs(initialData.plannedEndDate) : null,
-          startDate: initialData.startDate ? dayjs(initialData.startDate) : null,
-          endDate: initialData.endDate ? dayjs(initialData.endDate) : null,
-          vehicleId: initialData.vehicleId,
-          driverId: initialData.driverId,
-          notes: initialData.notes
-        };
-
-        if (mode === 'create') {
-          formData.tripNumber = initialData.tripNumber || `TRIP-${Date.now().toString(36).toUpperCase()}`;
-        }
-
-        form.setFieldsValue(formData);
-      } else {
-        // Set default values for create mode
-        form.setFieldsValue({
-          status: 'PLANNED',
-          priority: 'MEDIUM',
-          tripNumber: `TRIP-${Date.now().toString(36).toUpperCase()}`
-        });
-      }
+    if (mode === 'edit' && initialData) {
+      setForm({
+        ...form,
+        ...initialData,
+        plannedStartDate: initialData.plannedStartDate ? dayjs(initialData.plannedStartDate) : null,
+        plannedEndDate: initialData.plannedEndDate ? dayjs(initialData.plannedEndDate) : null,
+        startDate: initialData.startDate ? dayjs(initialData.startDate) : null,
+        endDate: initialData.endDate ? dayjs(initialData.endDate) : null,
+      });
+    } else {
+      setForm(f => ({
+        ...f,
+        tripNumber: `TRIP-${Date.now().toString(36).toUpperCase()}`,
+      }));
     }
-  }, [visible, mode, initialData, form, fetchVehiclesAndDrivers]);
+  }, [open, mode, initialData, loadData]);
 
-  // Memoized options
-  const statusOptions = useMemo(() => [
-    { value: 'PLANNED', label: 'Planned' },
-    { value: 'ACTIVE', label: 'Active' },
-    { value: 'IN_PROGRESS', label: 'In Progress' },
-    { value: 'COMPLETED', label: 'Completed' },
-    { value: 'CLOSED', label: 'Closed' },
-    { value: 'CANCELLED', label: 'Cancelled' }
-  ], []);
+  /* ===================== Submit ===================== */
 
-  const priorityOptions = useMemo(() => [
-    { value: 'LOW', label: 'Low' },
-    { value: 'MEDIUM', label: 'Medium' },
-    { value: 'HIGH', label: 'High' },
-    { value: 'URGENT', label: 'Urgent' }
-  ], []);
+  const handleSubmit = async () => {
+    setSubmitting(true);
 
-  const vehicleOptions = useMemo(() => [
-    <Option key="empty" value="">No vehicle assigned</Option>,
-    ...vehicles.map(vehicle => (
-      <Option key={vehicle.id} value={vehicle.id}>
-        {vehicle.registrationNumber} - {vehicle.make} {vehicle.model}
-        {vehicle.status && vehicle.status !== 'ACTIVE' ? ` (${vehicle.status})` : ''}
-      </Option>
-    ))
-  ], [vehicles]);
-
-  const driverOptions = useMemo(() => [
-    <Option key="empty" value="">No driver assigned</Option>,
-    ...drivers.map(driver => (
-      <Option key={driver.id} value={driver.id}>
-        {driver.firstName} {driver.lastName} ({driver.licenseNumber})
-        {driver.status && driver.status !== 'ACTIVE' ? ` (${driver.status})` : ''}
-      </Option>
-    ))
-  ], [drivers]);
-
-  // Form submission handler
-  const handleSubmit = useCallback(async () => {
     try {
-      const values = await form.validateFields();
-      setSubmitting(true);
-
-      // Format dates for API
-      const formattedValues = {
-        ...values,
-        startDate: formatDateForAPI(values.startDate) || formatDateForAPI(values.plannedStartDate),
-        endDate: formatDateForAPI(values.endDate),
-        plannedStartDate: formatDateForAPI(values.plannedStartDate),
-        plannedEndDate: formatDateForAPI(values.plannedEndDate),
-        vehicleId: values.vehicleId ? Number(values.vehicleId) : null,
-        driverId: values.driverId ? Number(values.driverId) : null,
-        // Ensure trip number for create mode
-        tripNumber: mode === 'create'
-          ? (values.tripNumber || `TRIP-${Date.now().toString(36).toUpperCase()}`)
-          : initialData?.tripNumber
+      const payload = {
+        ...form,
+        vehicleId: form.vehicleId ? Number(form.vehicleId) : null,
+        driverId: form.driverId ? Number(form.driverId) : null,
+        plannedStartDate: formatDateForAPI(form.plannedStartDate),
+        plannedEndDate: formatDateForAPI(form.plannedEndDate),
+        startDate: formatDateForAPI(form.startDate || form.plannedStartDate),
+        endDate: formatDateForAPI(form.endDate),
       };
 
-      // Validate required fields
-      if (!formattedValues.startDate) {
-        message.error('Please provide a start date (planned or actual)');
-        setSubmitting(false);
-        return;
+      if (!payload.startDate) {
+        throw new Error('Start date is required');
       }
 
-      console.log('Submitting trip data:', formattedValues);
-
-      let response;
+      let res;
       if (mode === 'create') {
-        response = await tripService.createTrip(formattedValues);
-        message.success('Trip created successfully!');
-      } else if (mode === 'edit' && (tripId || initialData?.id)) {
-        const idToUpdate = tripId || initialData.id;
-        response = await tripService.updateTrip(idToUpdate, formattedValues);
-        message.success('Trip updated successfully!');
-      }
-
-      if (onSuccess) {
-        onSuccess(response);
-      }
-      onClose();
-    } catch (error) {
-      console.error('Error submitting form:', error);
-
-      // Handle 409 Conflict (Duplicate Entry)
-      if (error.response?.status === 409) {
-        const errorDetail = error.response.data?.detail ||
-                          error.response.data?.message ||
-                          'Duplicate entry detected';
-
-        if (errorDetail.toLowerCase().includes('tripnumber') || errorDetail.includes('TRIP_NUMBER')) {
-          message.error('Trip number already exists. Please use a different trip number.');
-        } else if (errorDetail.toLowerCase().includes('vehicle') ||
-                  errorDetail.toLowerCase().includes('driver')) {
-          message.error('Vehicle or driver is already assigned to another trip during this period.');
-        } else {
-          message.error(`Duplicate entry: ${errorDetail}`);
-        }
-        setSubmitting(false);
-        return;
-      }
-
-      // Handle validation errors
-      if (error.errorFields) {
-        message.error('Please fill in all required fields correctly.');
-      }
-      // Handle API errors
-      else if (error.response?.data) {
-        const errorMessage = error.response.data.error ||
-                            error.response.data.message ||
-                            'Server error occurred';
-        message.error(`Error: ${errorMessage}`);
-      }
-      // Handle network/other errors
-      else if (error.message) {
-        message.error(error.message);
+        res = await tripService.createTrip(payload);
       } else {
-        message.error(`Failed to ${mode === 'create' ? 'create' : 'update'} trip`);
+        res = await tripService.updateTrip(tripId || initialData.id, payload);
       }
 
+      onSuccess?.(res);
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to save trip');
+    } finally {
       setSubmitting(false);
     }
-  }, [form, mode, tripId, initialData, onSuccess, onClose]);
+  };
 
-  const handleCancel = useCallback(() => {
-    form.resetFields();
-    onClose();
-  }, [form, onClose]);
-
-  // Render methods for better organization
-  const renderTripNumberSection = () => (
-    mode === 'edit' && initialData?.tripNumber ? (
-      <Card size="small" style={{ marginBottom: 16, backgroundColor: '#fafafa' }}>
-        <Row align="middle">
-          <Col span={6}>
-            <Text strong>Trip Number:</Text>
-          </Col>
-          <Col span={18}>
-            <Text style={{ fontSize: '16px', fontWeight: 'bold', color: '#1890ff' }}>
-              {initialData.tripNumber}
-            </Text>
-          </Col>
-        </Row>
-      </Card>
-    ) : null
-  );
-
-  const renderBasicInfoSection = () => (
-    <Card size="small" title="Basic Information" style={{ marginBottom: 16 }}>
-      {mode === 'create' && (
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="tripNumber"
-              label="Trip Number"
-              rules={[
-                { required: true, message: 'Please enter a trip number' },
-                { min: 3, message: 'Trip number must be at least 3 characters' }
-              ]}
-              help="Must be unique (e.g., TRIP-2024-001)"
-            >
-              <Input placeholder="e.g., TRIP-2024-001" />
-            </Form.Item>
-          </Col>
-        </Row>
-      )}
-
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="originLocation"
-            label="Origin Location"
-            rules={[{ required: true, message: 'Please enter origin location' }]}
-          >
-            <Input placeholder="e.g., New York Warehouse" />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="destinationLocation"
-            label="Destination Location"
-            rules={[{ required: true, message: 'Please enter destination location' }]}
-          >
-            <Input placeholder="e.g., Los Angeles Distribution Center" />
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: 'Please select trip status' }]}
-          >
-            <Select placeholder="Select status">
-              {statusOptions.map(option => (
-                <Option key={option.value} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="priority"
-            label="Priority"
-          >
-            <Select placeholder="Select priority">
-              {priorityOptions.map(option => (
-                <Option key={option.value} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col span={24}>
-          <Form.Item
-            name="cargoDescription"
-            label="Cargo Description"
-          >
-            <Input placeholder="e.g., Electronics, Food Supplies" />
-          </Form.Item>
-        </Col>
-      </Row>
-    </Card>
-  );
-
-  const renderScheduleSection = () => (
-    <Card size="small" title="Schedule" style={{ marginBottom: 16 }}>
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="plannedStartDate"
-            label="Planned Start Date & Time"
-            rules={[{ required: true, message: 'Please select planned start date' }]}
-          >
-            <DatePicker
-              showTime
-              format="YYYY-MM-DD HH:mm"
-              style={{ width: '100%' }}
-              placeholder="Select date and time"
-            />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="plannedEndDate"
-            label="Planned End Date & Time"
-          >
-            <DatePicker
-              showTime
-              format="YYYY-MM-DD HH:mm"
-              style={{ width: '100%' }}
-              placeholder="Select date and time"
-            />
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="startDate"
-            label="Actual Start Date & Time"
-          >
-            <DatePicker
-              showTime
-              format="YYYY-MM-DD HH:mm"
-              style={{ width: '100%' }}
-              placeholder="Select date and time"
-            />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="endDate"
-            label="Actual End Date & Time"
-          >
-            <DatePicker
-              showTime
-              format="YYYY-MM-DD HH:mm"
-              style={{ width: '100%' }}
-              placeholder="Select date and time"
-            />
-          </Form.Item>
-        </Col>
-      </Row>
-    </Card>
-  );
-
-  const renderAssignmentSection = () => (
-    <Card size="small" title="Assignment" style={{ marginBottom: 16 }}>
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="vehicleId"
-            label="Select Vehicle"
-            rules={[{ required: true, message: 'Please select a vehicle' }]}
-            help={vehicles.length === 0 ? "No active vehicles available" : ""}
-          >
-            <Select
-              placeholder="Select a vehicle"
-              loading={loadingData}
-              showSearch
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              disabled={vehicles.length === 0}
-            >
-              {vehicleOptions}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="driverId"
-            label="Select Driver"
-            rules={[{ required: true, message: 'Please select a driver' }]}
-            help={drivers.length === 0 ? "No active drivers available" : ""}
-          >
-            <Select
-              placeholder="Select a driver"
-              loading={loadingData}
-              showSearch
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              disabled={drivers.length === 0}
-            >
-              {driverOptions}
-            </Select>
-          </Form.Item>
-        </Col>
-      </Row>
-    </Card>
-  );
-
-  const renderAdditionalInfoSection = () => (
-    <Card size="small" title="Additional Information">
-      <Form.Item
-        name="notes"
-        label="Notes"
-      >
-        <TextArea
-          rows={3}
-          placeholder="Any additional notes or instructions..."
-          maxLength={500}
-          showCount
-        />
-      </Form.Item>
-    </Card>
-  );
-
-  const renderErrorAlert = () => (
-    fetchError && (
-      <Alert
-        message="Data Loading Issue"
-        description={fetchError}
-        type="warning"
-        showIcon
-        icon={<WarningOutlined />}
-        style={{ marginBottom: 16 }}
-      />
-    )
-  );
+  /* ===================== Render ===================== */
 
   return (
-    <Modal
-      title={mode === 'create' ? 'Create New Trip' : `Edit Trip ${initialData?.tripNumber ? `- ${initialData.tripNumber}` : ''}`}
-      open={visible}
-      onCancel={handleCancel}
-      width={800}
-      footer={[
-        <Button key="cancel" onClick={handleCancel} icon={<CloseOutlined />}>
-          Cancel
-        </Button>,
-        <Button
-          key="submit"
-          type="primary"
-          onClick={handleSubmit}
-          loading={submitting}
-          icon={<SaveOutlined />}
-        >
-          {mode === 'create' ? 'Create Trip' : 'Update Trip'}
-        </Button>
-      ]}
-      destroyOnClose
-    >
-      <Spin spinning={loadingData} tip="Loading vehicles and drivers...">
-        {renderErrorAlert()}
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {mode === 'create' ? 'Create Trip' : `Edit Trip – ${initialData?.tripNumber}`}
+        </DialogTitle>
 
-        <Form
-          form={form}
-          layout="vertical"
-          name="tripForm"
-          style={{ marginTop: 24 }}
-        >
-          {renderTripNumberSection()}
-          {renderBasicInfoSection()}
-          {renderScheduleSection()}
-          {renderAssignmentSection()}
-          {renderAdditionalInfoSection()}
-        </Form>
-      </Spin>
-    </Modal>
+        <DialogContent dividers>
+          {loading && (
+            <Box textAlign="center" my={3}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {error && (
+            <Alert severity="warning" icon={<Warning />} sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {/* ===== Basic Info ===== */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Basic Info</Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Trip Number"
+                    value={form.tripNumber}
+                    onChange={(e) => setForm({ ...form, tripNumber: e.target.value })}
+                    disabled={mode === 'edit'}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Select
+                    fullWidth
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  >
+                    {['PLANNED','ACTIVE','IN_PROGRESS','COMPLETED','CANCELLED'].map(s => (
+                      <MenuItem key={s} value={s}>{s}</MenuItem>
+                    ))}
+                  </Select>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Origin"
+                    value={form.originLocation}
+                    onChange={(e) => setForm({ ...form, originLocation: e.target.value })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Destination"
+                    value={form.destinationLocation}
+                    onChange={(e) => setForm({ ...form, destinationLocation: e.target.value })}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {/* ===== Schedule ===== */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Schedule</Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <DateTimePicker
+                    label="Planned Start"
+                    value={form.plannedStartDate}
+                    onChange={(v) => setForm({ ...form, plannedStartDate: v })}
+                    slotProps={{ textField: { fullWidth: true } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <DateTimePicker
+                    label="Planned End"
+                    value={form.plannedEndDate}
+                    onChange={(v) => setForm({ ...form, plannedEndDate: v })}
+                    slotProps={{ textField: { fullWidth: true } }}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {/* ===== Assignment ===== */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Assignment</Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Select
+                    fullWidth
+                    value={form.vehicleId}
+                    onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}
+                  >
+                    <MenuItem value="">No Vehicle</MenuItem>
+                    {vehicles.map(v => (
+                      <MenuItem key={v.id} value={v.id}>
+                        {v.registrationNumber}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Select
+                    fullWidth
+                    value={form.driverId}
+                    onChange={(e) => setForm({ ...form, driverId: e.target.value })}
+                  >
+                    <MenuItem value="">No Driver</MenuItem>
+                    {drivers.map(d => (
+                      <MenuItem key={d.id} value={d.id}>
+                        {d.firstName} {d.lastName}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </DialogContent>
+
+        <DialogActions>
+          <Button startIcon={<Close />} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Save />}
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {mode === 'create' ? 'Create Trip' : 'Update Trip'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </LocalizationProvider>
   );
-};
+}
 
 export default TripForm;
