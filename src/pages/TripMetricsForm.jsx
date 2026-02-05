@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -38,8 +38,7 @@ import {
   LocalGasStation as FuelIcon,
   Warning as WarningIcon,
   Save as SaveIcon,
-  Close as CloseIcon,
-  Speed as SpeedIcon
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { tripService } from '../services/tripService';
 
@@ -56,6 +55,8 @@ const inferVehicleType = (vehicle) => {
 };
 
 const formatDuration = (hours = 0) => {
+  if (!hours || isNaN(hours)) return '0h';
+  
   const minutes = Math.round(hours * 60);
   const d = Math.floor(minutes / 1440);
   const h = Math.floor((minutes % 1440) / 60);
@@ -69,23 +70,23 @@ const formatDuration = (hours = 0) => {
 };
 
 const VEHICLE_TYPES = [
-  { value: 'TRUCK', label: 'Truck', icon: <CarIcon fontSize="small" /> },
-  { value: 'TRAILER', label: 'Trailer', icon: <CarIcon fontSize="small" /> },
-  { value: 'VAN', label: 'Van', icon: <CarIcon fontSize="small" /> },
-  { value: 'CAR', label: 'Car', icon: <CarIcon fontSize="small" /> }
+  { value: 'TRUCK', label: 'Truck' },
+  { value: 'TRAILER', label: 'Trailer' },
+  { value: 'VAN', label: 'Van' },
+  { value: 'CAR', label: 'Car' }
 ];
 
 /* -------------------- component -------------------- */
 
-const TripMetricsForm = ({
-  open,
-  onClose,
-  onSuccess,
-  tripId,
-  initialMetrics,
-  originLocation = '',
-  destinationLocation = '',
-  vehicleInfo
+const TripMetricsForm = ({ 
+  open = false, 
+  onClose, 
+  onSuccess, 
+  tripId, 
+  initialMetrics = {}, 
+  originLocation = '', 
+  destinationLocation = '', 
+  vehicleInfo 
 }) => {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
@@ -93,6 +94,7 @@ const TripMetricsForm = ({
   const [calculatedMetrics, setCalculatedMetrics] = useState(null);
   const [routeError, setRouteError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
+  
   const [formData, setFormData] = useState({
     originLocation: '',
     destinationLocation: '',
@@ -105,29 +107,60 @@ const TripMetricsForm = ({
   });
 
   /* ---------- modal lifecycle ---------- */
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      // Reset state when dialog closes
+      const timer = setTimeout(() => {
+        setFormData({
+          originLocation: '',
+          destinationLocation: '',
+          totalDistance: '',
+          estimatedDuration: '',
+          fuelConsumption: '',
+          estimatedCost: '',
+          delays: '',
+          incidents: ''
+        });
+        setCalculatedMetrics(null);
+        setRouteError('');
+        setVehicleType('TRUCK');
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  // Initialize form when dialog opens
   useEffect(() => {
     if (!open) return;
 
-    setCalculatedMetrics(null);
-    setRouteError('');
-    setVehicleType(inferVehicleType(vehicleInfo));
+    const vehicleTypeValue = inferVehicleType(vehicleInfo);
+    setVehicleType(vehicleTypeValue);
 
     const initialValues = {
       originLocation: originLocation || initialMetrics?.originLocation || '',
       destinationLocation: destinationLocation || initialMetrics?.destinationLocation || '',
-      totalDistance: initialMetrics?.totalDistance || '',
-      estimatedDuration: initialMetrics?.estimatedDuration || '',
-      fuelConsumption: initialMetrics?.estimatedFuel || '',
-      estimatedCost: initialMetrics?.estimatedCost || '',
+      totalDistance: initialMetrics?.totalDistance?.toString() || '',
+      estimatedDuration: initialMetrics?.estimatedDuration?.toString() || '',
+      fuelConsumption: initialMetrics?.estimatedFuel?.toString() || '',
+      estimatedCost: initialMetrics?.estimatedCost?.toString() || '',
       delays: initialMetrics?.delays || '',
       incidents: initialMetrics?.incidents || ''
     };
 
     setFormData(initialValues);
+    setCalculatedMetrics(null);
+    setRouteError('');
   }, [open, initialMetrics, originLocation, destinationLocation, vehicleInfo]);
 
   /* ---------- calculate ---------- */
   const calculateMetrics = useCallback(async () => {
+    if (!formData.originLocation || !formData.destinationLocation) {
+      setRouteError('Please enter both origin and destination locations');
+      return;
+    }
+
     setCalculating(true);
     setRouteError('');
 
@@ -139,82 +172,85 @@ const TripMetricsForm = ({
         tripId
       );
 
-      setFormData(prev => ({
-        ...prev,
-        totalDistance: dto.totalDistanceKm || '',
-        estimatedDuration: dto.totalDurationHours || '',
-        fuelConsumption: dto.fuelUsedLiters || '',
-        estimatedCost: dto.costAmount || ''
-      }));
+      if (!dto) {
+        throw new Error('No response from calculation service');
+      }
 
+      const updatedFormData = {
+        ...formData,
+        totalDistance: dto.totalDistanceKm?.toString() || '',
+        estimatedDuration: dto.totalDurationHours?.toString() || '',
+        fuelConsumption: dto.fuelUsedLiters?.toString() || '',
+        estimatedCost: dto.costAmount?.toString() || ''
+      };
+
+      setFormData(updatedFormData);
       setCalculatedMetrics(dto);
-    } catch {
-      setRouteError('Unable to calculate route. Please check the locations and try again.');
+    } catch (err) {
+      console.error('Calculation error:', err);
+      setRouteError(err.message || 'Unable to calculate route. Please check the locations and try again.');
     } finally {
       setCalculating(false);
     }
-  }, [formData.originLocation, formData.destinationLocation, vehicleType, tripId]);
+  }, [formData, vehicleType, tripId]);
 
   /* ---------- save ---------- */
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
     // Basic validation
     if (!formData.totalDistance || !formData.estimatedDuration || !formData.fuelConsumption) {
-      setRouteError('Please fill in all required metrics');
+      setRouteError('Please fill in all required metrics (distance, duration, and fuel)');
       return;
     }
 
     setLoading(true);
     
     try {
-      await tripService.saveTripMetrics(tripId, {
-        totalDistance: Number(formData.totalDistance),
-        estimatedDuration: Number(formData.estimatedDuration),
-        estimatedFuel: Number(formData.fuelConsumption),
-        estimatedCost: Number(formData.estimatedCost) || 0,
-        delays: formData.delays,
-        incidents: formData.incidents
-      });
+      const payload = {
+        totalDistance: parseFloat(formData.totalDistance) || 0,
+        estimatedDuration: parseFloat(formData.estimatedDuration) || 0,
+        estimatedFuel: parseFloat(formData.fuelConsumption) || 0,
+        estimatedCost: parseFloat(formData.estimatedCost) || 0,
+        delays: formData.delays || '',
+        incidents: formData.incidents || ''
+      };
 
+      await tripService.saveTripMetrics(tripId, payload);
       onSuccess?.();
-      onClose();
+      if (onClose) onClose();
     } catch (err) {
-      console.error('Failed to save metrics:', err);
-      setRouteError(err.response?.data?.error || 'Failed to save metrics');
+      console.error('Save error:', err);
+      setRouteError(err.response?.data?.error || err.message || 'Failed to save metrics');
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData, tripId, onSuccess, onClose]);
 
   /* ---------- form handlers ---------- */
-  const handleInputChange = (field, value) => {
+  const handleInputChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear error when user starts typing
-    if (routeError) {
-      setRouteError('');
-    }
-  };
+    if (routeError) setRouteError('');
+  }, [routeError]);
 
-  const handleNumberChange = (field, value) => {
-    // Allow only numbers and decimal point
+  const handleNumberChange = useCallback((field, value) => {
+    // Allow only numbers and one decimal point
     const numericValue = value.replace(/[^\d.]/g, '');
-    // Remove extra decimal points
     const parts = numericValue.split('.');
-    const filteredValue = parts.length > 2 
-      ? parts[0] + '.' + parts.slice(1).join('') 
-      : numericValue;
     
-    setFormData(prev => ({ ...prev, [field]: filteredValue }));
-    
-    if (routeError) {
-      setRouteError('');
+    if (parts.length > 2) {
+      // If more than one decimal point, keep only the first
+      const filteredValue = parts[0] + '.' + parts.slice(1).join('');
+      setFormData(prev => ({ ...prev, [field]: filteredValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: numericValue }));
     }
-  };
+    
+    if (routeError) setRouteError('');
+  }, [routeError]);
 
   /* ---------- render summary ---------- */
-  const renderSummary = () => {
+  const renderSummary = useMemo(() => {
     if (!calculatedMetrics) return null;
 
     return (
@@ -254,7 +290,7 @@ const TripMetricsForm = ({
                 <Stack spacing={1} alignItems="center">
                   <RadarIcon color="primary" />
                   <Typography variant="h5" fontWeight="bold">
-                    {calculatedMetrics.totalDistanceKm?.toFixed(1) || '0'}
+                    {calculatedMetrics.totalDistanceKm?.toFixed(1) || '0.0'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Distance (km)
@@ -282,7 +318,7 @@ const TripMetricsForm = ({
                 <Stack spacing={1} alignItems="center">
                   <FuelIcon color="primary" />
                   <Typography variant="h5" fontWeight="bold">
-                    {calculatedMetrics.fuelUsedLiters?.toFixed(1) || '0'}
+                    {calculatedMetrics.fuelUsedLiters?.toFixed(1) || '0.0'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Fuel (L)
@@ -292,7 +328,7 @@ const TripMetricsForm = ({
             </Grid>
 
             <Grid item xs={12} sm={6} md={3}>
-              <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+              <Card variant="outlined" sx={{ p: 2, textAlign="center" }}>
                 <Stack spacing={1} alignItems="center">
                   <MoneyIcon color="primary" />
                   <Typography variant="h5" fontWeight="bold">
@@ -308,12 +344,25 @@ const TripMetricsForm = ({
         </CardContent>
       </Card>
     );
-  };
+  }, [calculatedMetrics]);
+
+  // Handle dialog close with validation
+  const handleDialogClose = useCallback((event, reason) => {
+    if (reason === 'backdropClick' && (loading || calculating)) {
+      return; // Prevent closing when loading or calculating
+    }
+    if (onClose) onClose();
+  }, [onClose, loading, calculating]);
+
+  // Generate form ID for accessibility
+  const formId = useMemo(() => `trip-metrics-form-${Date.now()}`, []);
+
+  if (!open) return null;
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleDialogClose}
       maxWidth="lg"
       fullWidth
       PaperProps={{
@@ -334,7 +383,7 @@ const TripMetricsForm = ({
         </Stack>
       </DialogTitle>
 
-      <DialogContent dividers>
+      <DialogContent dividers sx={{ overflowY: 'auto' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs 
             value={activeTab} 
@@ -349,7 +398,7 @@ const TripMetricsForm = ({
           </Tabs>
         </Box>
 
-        <Box component="form" onSubmit={handleSubmit}>
+        <Box component="form" id={formId} onSubmit={handleSubmit}>
           <Alert 
             severity="info" 
             icon={<InfoIcon />}
@@ -359,6 +408,17 @@ const TripMetricsForm = ({
               Using OpenStreetMap via OpenRouteService for free route calculation
             </Typography>
           </Alert>
+
+          {/* Error Alert */}
+          {routeError && (
+            <Alert 
+              severity="error" 
+              sx={{ mb: 3 }}
+              onClose={() => setRouteError('')}
+            >
+              {routeError}
+            </Alert>
+          )}
 
           {/* Trip Locations */}
           <Card variant="outlined" sx={{ mb: 3 }}>
@@ -375,6 +435,7 @@ const TripMetricsForm = ({
                     value={formData.originLocation}
                     onChange={(e) => handleInputChange('originLocation', e.target.value)}
                     required
+                    disabled={calculating}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -393,6 +454,7 @@ const TripMetricsForm = ({
                     value={formData.destinationLocation}
                     onChange={(e) => handleInputChange('destinationLocation', e.target.value)}
                     required
+                    disabled={calculating}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -405,7 +467,7 @@ const TripMetricsForm = ({
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small">
+                  <FormControl fullWidth size="small" disabled={calculating}>
                     <InputLabel>Vehicle Type</InputLabel>
                     <Select
                       value={vehicleType}
@@ -420,7 +482,7 @@ const TripMetricsForm = ({
                       {VEHICLE_TYPES.map(type => (
                         <MenuItem key={type.value} value={type.value}>
                           <Stack direction="row" alignItems="center" spacing={1}>
-                            {type.icon}
+                            <CarIcon fontSize="small" />
                             <Typography>{type.label}</Typography>
                           </Stack>
                         </MenuItem>
@@ -442,21 +504,11 @@ const TripMetricsForm = ({
                   </Button>
                 </Grid>
               </Grid>
-
-              {routeError && (
-                <Alert 
-                  severity="error" 
-                  icon={<WarningIcon />}
-                  sx={{ mt: 2 }}
-                >
-                  {routeError}
-                </Alert>
-              )}
             </CardContent>
           </Card>
 
           {/* Calculated Summary */}
-          {renderSummary()}
+          {renderSummary}
 
           {/* Metrics Input */}
           <Card variant="outlined">
@@ -473,6 +525,7 @@ const TripMetricsForm = ({
                     value={formData.totalDistance}
                     onChange={(e) => handleNumberChange('totalDistance', e.target.value)}
                     required
+                    disabled={loading}
                     size="small"
                     InputProps={{
                       endAdornment: <InputAdornment position="end">km</InputAdornment>
@@ -488,6 +541,7 @@ const TripMetricsForm = ({
                     value={formData.estimatedDuration}
                     onChange={(e) => handleNumberChange('estimatedDuration', e.target.value)}
                     required
+                    disabled={loading}
                     size="small"
                     InputProps={{
                       endAdornment: <InputAdornment position="end">hours</InputAdornment>
@@ -503,6 +557,7 @@ const TripMetricsForm = ({
                     value={formData.fuelConsumption}
                     onChange={(e) => handleNumberChange('fuelConsumption', e.target.value)}
                     required
+                    disabled={loading}
                     size="small"
                     InputProps={{
                       endAdornment: <InputAdornment position="end">L</InputAdornment>
@@ -517,6 +572,7 @@ const TripMetricsForm = ({
                     label="Estimated Cost"
                     value={formData.estimatedCost}
                     onChange={(e) => handleNumberChange('estimatedCost', e.target.value)}
+                    disabled={loading}
                     size="small"
                     InputProps={{
                       startAdornment: <InputAdornment position="start">R</InputAdornment>
@@ -531,6 +587,7 @@ const TripMetricsForm = ({
                     label="Delays"
                     value={formData.delays}
                     onChange={(e) => handleInputChange('delays', e.target.value)}
+                    disabled={loading}
                     size="small"
                     multiline
                     rows={2}
@@ -544,6 +601,7 @@ const TripMetricsForm = ({
                     label="Incidents"
                     value={formData.incidents}
                     onChange={(e) => handleInputChange('incidents', e.target.value)}
+                    disabled={loading}
                     size="small"
                     multiline
                     rows={2}
@@ -560,16 +618,17 @@ const TripMetricsForm = ({
         <Button 
           startIcon={<CloseIcon />} 
           onClick={onClose}
-          disabled={loading}
+          disabled={loading || calculating}
         >
           Cancel
         </Button>
         
         <Button
           variant="contained"
+          type="submit"
+          form={formId}
           startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-          onClick={handleSubmit}
-          disabled={loading || !formData.totalDistance || !formData.estimatedDuration || !formData.fuelConsumption}
+          disabled={loading || calculating || !formData.totalDistance || !formData.estimatedDuration || !formData.fuelConsumption}
         >
           {loading ? 'Saving...' : 'Save Metrics'}
         </Button>
