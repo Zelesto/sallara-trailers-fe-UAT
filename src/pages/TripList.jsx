@@ -247,10 +247,26 @@ function TripList() {
       </TableContainer>
 
       {/* Modals */}
-      {showCreateModal && <TripForm visible onClose={() => setShowCreateModal(false)} onSuccess={() => fetchTrips(0)} />}
-      {showEditModal && selectedTrip && <TripForm visible mode="edit" tripId={selectedTrip.id} initialData={selectedTrip} onClose={() => setShowEditModal(false)} onSuccess={() => fetchTrips(pagination.current - 1)} />}
-      {showMetricsModal && selectedTrip && <TripMetricsForm visible tripId={selectedTrip.id} originLocation={selectedTrip.originLocation} destinationLocation={selectedTrip.destinationLocation} onClose={() => setShowMetricsModal(false)} onSuccess={() => fetchTrips(pagination.current - 1)} />}
-      {showDetailsModal && selectedTrip && <TripDetails visible tripId={selectedTrip.id} onClose={() => setShowDetailsModal(false)} onUpdate={() => fetchTrips(pagination.current - 1)} />}
+      {showCreateModal && (<TripForm open={showCreateModal}onClose={() => setShowCreateModal(false)}onSuccess={() => fetchTrips(0)}/>)}
+      {showEditModal && selectedTrip && (<TripFormopen={showEditModal}mode="edit"tripId={selectedTrip.id}initialData={selectedTrip}onClose={() => setShowEditModal(false)}onSuccess={() => fetchTrips(pagination.current - 1)}  />)}
+      {showMetricsModal && selectedTrip && (
+  <TripMetricsForm
+    open={showMetricsModal}
+    tripId={selectedTrip.id}
+    originLocation={selectedTrip.originLocation}
+    destinationLocation={selectedTrip.destinationLocation}
+    onClose={() => setShowMetricsModal(false)}
+    onSuccess={() => fetchTrips(pagination.current - 1)}
+  />
+)}
+      {showDetailsModal && selectedTrip && (
+  <TripDetails
+    open={showDetailsModal}
+    tripId={selectedTrip.id}
+    onClose={() => setShowDetailsModal(false)}
+    onUpdate={() => fetchTrips(pagination.current - 1)}
+  />
+)}
     </Box>
   );
 }
