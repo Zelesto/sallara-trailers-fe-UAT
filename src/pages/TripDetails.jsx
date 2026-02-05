@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Box, Grid, Card, CardContent, CardHeader,
@@ -30,35 +30,27 @@ const statusColors = {
   CANCELLED: 'error'
 };
 
-const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
+const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [newStatus, setNewStatus] = useState(null);
+  const [newStatus, setNewStatus] = useState('');
   const [actualStartDate, setActualStartDate] = useState(null);
   const [actualStartTime, setActualStartTime] = useState(null);
   const [actualEndDate, setActualEndDate] = useState(null);
   const [actualEndTime, setActualEndTime] = useState(null);
   const [error, setError] = useState(null);
 
-  // Fetch trip details when modal opens
-  useEffect(() => {
-    if (open && tripId) {
-      fetchTripDetails();
-    } else {
-      // Reset state when dialog closes
-      setTrip(null);
-      setError(null);
-    }
-  }, [open, tripId]);
-
-  const fetchTripDetails = async () => {
+  // Fetch trip details - useCallback to prevent unnecessary re-renders
+  const fetchTripDetails = useCallback(async () => {
+    if (!tripId) return;
+    
     setLoading(true);
     setError(null);
     try {
       const data = await tripService.getTripById(tripId);
       setTrip(data);
-      setNewStatus(data.status);
+      setNewStatus(data.status || '');
       
       if (data.actualStartDate) {
         const startDate = dayjs(data.actualStartDate);
@@ -83,33 +75,65 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tripId]);
+
+  // Fetch trip details when modal opens
+  useEffect(() => {
+    if (open && tripId) {
+      fetchTripDetails();
+    }
+  }, [open, tripId, fetchTripDetails]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      // Use setTimeout to avoid state updates during render
+      const timer = setTimeout(() => {
+        setTrip(null);
+        setError(null);
+        setNewStatus('');
+        setActualStartDate(null);
+        setActualStartTime(null);
+        setActualEndDate(null);
+        setActualEndTime(null);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
 
   const handleUpdateTrip = async () => {
-    if (!trip) return;
+    if (!trip || !tripId) return;
+    
     setUpdating(true);
+    setError(null);
+    
     try {
       // Combine date and time for actual start
       let actualStartDateTime = null;
       if (actualStartDate && actualStartTime) {
-        actualStartDateTime = actualStartDate
-          .hour(actualStartTime.hour())
-          .minute(actualStartTime.minute())
-          .second(0);
+        actualStartDateTime = dayjs(actualStartDate)
+          .set('hour', actualStartTime.hour())
+          .set('minute', actualStartTime.minute())
+          .set('second', 0);
+      } else if (actualStartDate) {
+        actualStartDateTime = dayjs(actualStartDate).startOf('day');
       }
 
       // Combine date and time for actual end
       let actualEndDateTime = null;
       if (actualEndDate && actualEndTime) {
-        actualEndDateTime = actualEndDate
-          .hour(actualEndTime.hour())
-          .minute(actualEndTime.minute())
-          .second(0);
+        actualEndDateTime = dayjs(actualEndDate)
+          .set('hour', actualEndTime.hour())
+          .set('minute', actualEndTime.minute())
+          .set('second', 0);
+      } else if (actualEndDate) {
+        actualEndDateTime = dayjs(actualEndDate).endOf('day');
       }
 
       const payload = {
         ...trip,
-        status: newStatus,
+        status: newStatus || trip.status,
         actualStartDate: actualStartDateTime ? actualStartDateTime.toISOString() : null,
         actualEndDate: actualEndDateTime ? actualEndDateTime.toISOString() : null,
       };
@@ -119,7 +143,7 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
       await fetchTripDetails();
     } catch (err) {
       console.error('Update error:', err);
-      setError('Failed to update trip');
+      setError(err.message || 'Failed to update trip');
     } finally {
       setUpdating(false);
     }
@@ -131,37 +155,42 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
     // Check status change
     if (trip.status !== newStatus) return true;
     
-    // Check actual start date/time changes
-    const originalStart = trip.actualStartDate ? dayjs(trip.actualStartDate) : null;
-    let newStart = null;
-    if (actualStartDate && actualStartTime) {
-      newStart = actualStartDate
-        .hour(actualStartTime.hour())
-        .minute(actualStartTime.minute())
-        .second(0);
+    // Helper function to compare date times
+    const compareDateTimes = (original, date, time) => {
+      if (!original && (!date && !time)) return false;
+      if (original && !date && !time) return true;
+      if (!original && (date || time)) return true;
+      
+      if (date && time) {
+        const newDateTime = dayjs(date)
+          .set('hour', time.hour())
+          .set('minute', time.minute())
+          .set('second', 0);
+        return !dayjs(original).isSame(newDateTime);
+      }
+      
+      return false;
+    };
+    
+    // Check actual start changes
+    if (compareDateTimes(trip.actualStartDate, actualStartDate, actualStartTime)) {
+      return true;
     }
     
-    if ((originalStart && !newStart) || (!originalStart && newStart)) return true;
-    if (originalStart && newStart && !originalStart.isSame(newStart)) return true;
-    
-    // Check actual end date/time changes
-    const originalEnd = trip.actualEndDate ? dayjs(trip.actualEndDate) : null;
-    let newEnd = null;
-    if (actualEndDate && actualEndTime) {
-      newEnd = actualEndDate
-        .hour(actualEndTime.hour())
-        .minute(actualEndTime.minute())
-        .second(0);
+    // Check actual end changes
+    if (compareDateTimes(trip.actualEndDate, actualEndDate, actualEndTime)) {
+      return true;
     }
-    
-    if ((originalEnd && !newEnd) || (!originalEnd && newEnd)) return true;
-    if (originalEnd && newEnd && !originalEnd.isSame(newEnd)) return true;
     
     return false;
   }, [trip, newStatus, actualStartDate, actualStartTime, actualEndDate, actualEndTime]);
 
   const handleClose = () => {
-    onClose();
+    if (onClose) onClose();
+  };
+
+  const handleRefresh = () => {
+    fetchTripDetails();
   };
 
   return (
@@ -171,28 +200,39 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
         onClose={handleClose}
         maxWidth="lg"
         fullWidth
+        PaperProps={{
+          sx: { maxHeight: '90vh' }
+        }}
       >
         <DialogTitle>
-          Trip Details: {trip ? trip.tripNumber : 'Loading...'}
-          {trip && (
-            <Chip 
-              label={trip.status} 
-              color={statusColors[trip.status] || 'default'}
-              size="small"
-              sx={{ ml: 2 }}
-            />
-          )}
+          <Box display="flex" alignItems="center" flexWrap="wrap">
+            <Typography variant="h6" component="span">
+              Trip Details: {trip ? trip.tripNumber : 'Loading...'}
+            </Typography>
+            {trip && (
+              <Chip 
+                label={trip.status} 
+                color={statusColors[trip.status] || 'default'}
+                size="small"
+                sx={{ ml: 2 }}
+              />
+            )}
+          </Box>
         </DialogTitle>
         
-        <DialogContent>
+        <DialogContent dividers>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert 
+              severity="error" 
+              sx={{ mb: 2 }}
+              onClose={() => setError(null)}
+            >
               {error}
             </Alert>
           )}
           
           {loading && !trip ? (
-            <Box display="flex" justifyContent="center" p={3}>
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
               <CircularProgress />
             </Box>
           ) : trip ? (
@@ -203,47 +243,55 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                     <CardContent>
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="textSecondary">
-                            <LocationIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
-                            Origin
-                          </Typography>
+                          <Box display="flex" alignItems="center" mb={0.5}>
+                            <LocationIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Typography variant="subtitle2" color="textSecondary">
+                              Origin
+                            </Typography>
+                          </Box>
                           <Typography variant="body1">
-                            {trip.originLocation}
+                            {trip.originLocation || '-'}
                           </Typography>
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="textSecondary">
-                            <LocationIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
-                            Destination
-                          </Typography>
+                          <Box display="flex" alignItems="center" mb={0.5}>
+                            <LocationIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Typography variant="subtitle2" color="textSecondary">
+                              Destination
+                            </Typography>
+                          </Box>
                           <Typography variant="body1">
-                            {trip.destinationLocation}
+                            {trip.destinationLocation || '-'}
                           </Typography>
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="textSecondary">
-                            <PersonIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
-                            Driver
-                          </Typography>
+                          <Box display="flex" alignItems="center" mb={0.5}>
+                            <PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Typography variant="subtitle2" color="textSecondary">
+                              Driver
+                            </Typography>
+                          </Box>
                           <Typography variant="body1">
                             {trip.driverName || 'Not Assigned'}
                           </Typography>
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="textSecondary">
-                            <CarIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
-                            Vehicle
-                          </Typography>
+                          <Box display="flex" alignItems="center" mb={0.5}>
+                            <CarIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Typography variant="subtitle2" color="textSecondary">
+                              Vehicle
+                            </Typography>
+                          </Box>
                           <Typography variant="body1">
                             {trip.vehicleRegistration || 'Not Assigned'}
                           </Typography>
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="textSecondary">
+                          <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                             Planned Start
                           </Typography>
                           <Typography variant="body1">
@@ -255,7 +303,7 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="textSecondary">
+                          <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                             Planned End
                           </Typography>
                           <Typography variant="body1">
@@ -293,7 +341,7 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                           <FormControl fullWidth size="small">
                             <InputLabel>Change Status</InputLabel>
                             <Select
-                              value={newStatus || ''}
+                              value={newStatus}
                               label="Change Status"
                               onChange={(e) => setNewStatus(e.target.value)}
                             >
@@ -317,15 +365,32 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                           <DatePicker
                             label="Actual Start Date"
                             value={actualStartDate}
-                            onChange={setActualStartDate}
-                            slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                            onChange={(newValue) => {
+                              setActualStartDate(newValue);
+                              if (newValue && !actualStartTime) {
+                                setActualStartTime(dayjs(newValue));
+                              }
+                            }}
+                            slotProps={{ 
+                              textField: { 
+                                fullWidth: true, 
+                                size: 'small',
+                                error: false
+                              } 
+                            }}
                           />
                           <Box mt={1}>
                             <TimePicker
                               label="Actual Start Time"
                               value={actualStartTime}
                               onChange={setActualStartTime}
-                              slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                              slotProps={{ 
+                                textField: { 
+                                  fullWidth: true, 
+                                  size: 'small',
+                                  disabled: !actualStartDate
+                                } 
+                              }}
                             />
                           </Box>
                         </Grid>
@@ -334,15 +399,32 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                           <DatePicker
                             label="Actual End Date"
                             value={actualEndDate}
-                            onChange={setActualEndDate}
-                            slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                            onChange={(newValue) => {
+                              setActualEndDate(newValue);
+                              if (newValue && !actualEndTime) {
+                                setActualEndTime(dayjs(newValue));
+                              }
+                            }}
+                            slotProps={{ 
+                              textField: { 
+                                fullWidth: true, 
+                                size: 'small',
+                                error: false
+                              } 
+                            }}
                           />
                           <Box mt={1}>
                             <TimePicker
                               label="Actual End Time"
                               value={actualEndTime}
                               onChange={setActualEndTime}
-                              slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                              slotProps={{ 
+                                textField: { 
+                                  fullWidth: true, 
+                                  size: 'small',
+                                  disabled: !actualEndDate
+                                } 
+                              }}
                             />
                           </Box>
                         </Grid>
@@ -352,7 +434,7 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                 </Grid>
 
                 <Grid item xs={12} md={4}>
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={{ height: '100%' }}>
                     <CardHeader 
                       title="Cargo & Notes" 
                       titleTypographyProps={{ variant: 'subtitle1' }}
@@ -361,7 +443,7 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                       <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                         Description:
                       </Typography>
-                      <Typography variant="body2" paragraph>
+                      <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
                         {trip.cargoDescription || 'No description provided'}
                       </Typography>
                       
@@ -370,7 +452,7 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                       <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                         Notes:
                       </Typography>
-                      <Typography variant="body2">
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                         {trip.notes || 'No notes'}
                       </Typography>
                     </CardContent>
@@ -378,27 +460,36 @@ const TripDetails = ({ open, tripId, onClose, onUpdate }) => {
                 </Grid>
               </Grid>
             </Box>
+          ) : !loading && !trip ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+              <Typography color="text.secondary">No trip data available</Typography>
+            </Box>
           ) : null}
         </DialogContent>
         
-        <DialogActions>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
-            startIcon={<RefreshIcon />}
-            onClick={fetchTripDetails}
-            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            onClick={handleRefresh}
+            disabled={loading || updating}
           >
             Refresh
           </Button>
           
-          <Button onClick={handleClose}>
+          <Box flex={1} />
+          
+          <Button 
+            onClick={handleClose}
+            disabled={updating}
+          >
             Cancel
           </Button>
           
           <Button
             variant="contained"
-            startIcon={updating ? <CircularProgress size={20} /> : <SaveIcon />}
+            startIcon={updating ? <CircularProgress size={16} /> : <SaveIcon />}
             onClick={handleUpdateTrip}
-            disabled={!hasChanges || updating}
+            disabled={!hasChanges || updating || loading}
           >
             {updating ? 'Saving...' : 'Save Changes'}
           </Button>
