@@ -248,8 +248,17 @@ function TripList() {
 
       {/* Modals */}
       {showCreateModal && (<TripForm open={showCreateModal}onClose={() => setShowCreateModal(false)}onSuccess={() => fetchTrips(0)}/>)}
-      {showEditModal && selectedTrip && (<TripFormopen={showEditModal}mode="edit"tripId={selectedTrip.id}initialData={selectedTrip}onClose={() => setShowEditModal(false)}onSuccess={() => fetchTrips(pagination.current - 1)}  />)}
-      {showMetricsModal && selectedTrip && (
+      {showEditModal && selectedTrip && (
+  <TripForm
+    open={showEditModal}
+    mode="edit"
+    tripId={selectedTrip.id}
+    initialData={selectedTrip}
+    onClose={() => setShowEditModal(false)}
+    onSuccess={() => fetchTrips(pagination.current - 1)}
+  />
+)}
+{showMetricsModal && selectedTrip && (
   <TripMetricsForm
     open={showMetricsModal}
     tripId={selectedTrip.id}
