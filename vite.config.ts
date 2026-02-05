@@ -5,7 +5,6 @@ import path from "path";
 export default defineConfig({
   plugins: [
     react({
-      // Optional: configure Babel for on-demand imports (e.g., Ant Design)
       babel: {
         plugins: [
           [
@@ -19,13 +18,14 @@ export default defineConfig({
 
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src") // Enables "@/..." imports
+      "@": path.resolve(__dirname, "src")
     }
   },
 
   server: {
     port: 5173,
-    open: true // Auto-open browser on dev start
+    open: true,
+    historyApiFallback: true // 🔥 THIS IS THE FIX
   },
 
   css: {
@@ -44,11 +44,10 @@ export default defineConfig({
       output: {
         manualChunks: {
           react: ["react", "react-dom"],
-          antd: ["antd"],
-          // Add other heavy libraries here if needed
+          antd: ["antd"]
         }
       }
     },
-    chunkSizeWarningLimit: 2000 // Raise threshold to reduce warnings
+    chunkSizeWarningLimit: 2000
   }
 });
