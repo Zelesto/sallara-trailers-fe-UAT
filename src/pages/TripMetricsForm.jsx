@@ -62,11 +62,12 @@ const formatDuration = (hours = 0) => {
   const h = Math.floor((minutes % 1440) / 60);
   const m = minutes % 60;
 
-  return [
-    d > 0 && `${d}d`,
-    h > 0 && `${h}h`,
-    m > 0 && d === 0 && `${m}m`
-  ].filter(Boolean).join(' ') || '0h';
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 && d === 0) parts.push(`${m}m`);
+  
+  return parts.join(' ') || '0h';
 };
 
 const VEHICLE_TYPES = [
@@ -328,7 +329,7 @@ const TripMetricsForm = ({
             </Grid>
 
             <Grid item xs={12} sm={6} md={3}>
-              <Card variant="outlined" sx={{ p: 2, textAlign="center" }}>
+              <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
                 <Stack spacing={1} alignItems="center">
                   <MoneyIcon color="primary" />
                   <Typography variant="h5" fontWeight="bold">
