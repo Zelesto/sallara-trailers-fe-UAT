@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import dayjs from 'dayjs';
 import {
   Dialog,
@@ -76,7 +76,7 @@ const STATUS_OPTIONS = [
 ];
 
 /* ===================== Component ===================== */
-function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
+function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess }) {
   /* ===================== State ===================== */
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -103,39 +103,6 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
     specialInstructions: ''
   });
 
-  /* ===================== Validation ===================== */
-  const validateForm = () => {
-    const errors = {};
-    
-    if (!form.originLocation.trim()) {
-      errors.originLocation = 'Origin location is required';
-    }
-    
-    if (!form.destinationLocation.trim()) {
-      errors.destinationLocation = 'Destination location is required';
-    }
-    
-    if (!form.plannedStartDate) {
-      errors.plannedStartDate = 'Planned start date is required';
-    }
-    
-    if (form.plannedEndDate && form.plannedStartDate) {
-      if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
-        errors.plannedEndDate = 'End date must be after start date';
-      }
-    }
-    
-    if (form.cargoWeight && isNaN(form.cargoWeight)) {
-      errors.cargoWeight = 'Cargo weight must be a number';
-    }
-    
-    if (form.estimatedDuration && isNaN(form.estimatedDuration)) {
-      errors.estimatedDuration = 'Duration must be a number';
-    }
-    
-    return errors;
-  };
-
   /* ===================== Load Data ===================== */
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -157,9 +124,43 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
     }
   }, []);
 
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      // Use timeout to avoid state updates during render
+      const timer = setTimeout(() => {
+        setForm({
+          tripNumber: '',
+          originLocation: '',
+          destinationLocation: '',
+          status: 'PLANNED',
+          priority: 'MEDIUM',
+          cargoDescription: '',
+          cargoWeight: '',
+          cargoValue: '',
+          plannedStartDate: null,
+          plannedEndDate: null,
+          estimatedDuration: '',
+          vehicleId: '',
+          driverId: '',
+          notes: '',
+          specialInstructions: ''
+        });
+        setFormErrors({});
+        setError(null);
+        setVehicles([]);
+        setDrivers([]);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  // Load data and initialize form when dialog opens
   useEffect(() => {
     if (!open) return;
     
+    // Load vehicles and drivers
     loadData();
     
     if (mode === 'edit' && initialData) {
@@ -170,64 +171,105 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
         status: initialData.status || 'PLANNED',
         priority: initialData.priority || 'MEDIUM',
         cargoDescription: initialData.cargoDescription || '',
-        cargoWeight: initialData.cargoWeight || '',
-        cargoValue: initialData.cargoValue || '',
+        cargoWeight: initialData.cargoWeight?.toString() || '',
+        cargoValue: initialData.cargoValue?.toString() || '',
         plannedStartDate: initialData.plannedStartDate 
           ? dayjs(initialData.plannedStartDate)
           : null,
         plannedEndDate: initialData.plannedEndDate
           ? dayjs(initialData.plannedEndDate)
           : null,
-        estimatedDuration: initialData.estimatedDuration || '',
-        vehicleId: initialData.vehicleId || '',
-        driverId: initialData.driverId || '',
+        estimatedDuration: initialData.estimatedDuration?.toString() || '',
+        vehicleId: initialData.vehicleId?.toString() || '',
+        driverId: initialData.driverId?.toString() || '',
         notes: initialData.notes || '',
         specialInstructions: initialData.specialInstructions || ''
       });
     } else {
       // Generate trip number for new trips
+      const tripNumber = `TRIP-${Date.now().toString(36).toUpperCase()}`;
       setForm(prev => ({
         ...prev,
-        tripNumber: `TRIP-${Date.now().toString(36).toUpperCase()}`,
+        tripNumber,
         status: 'PLANNED',
         priority: 'MEDIUM'
       }));
     }
-    
-    // Clear errors when opening
-    setFormErrors({});
-    setError(null);
   }, [open, mode, initialData, loadData]);
 
+  /* ===================== Validation ===================== */
+  const validateForm = useCallback(() => {
+    const errors = {};
+    
+    if (!form.originLocation.trim()) {
+      errors.originLocation = 'Origin location is required';
+    }
+    
+    if (!form.destinationLocation.trim()) {
+      errors.destinationLocation = 'Destination location is required';
+    }
+    
+    if (!form.plannedStartDate) {
+      errors.plannedStartDate = 'Planned start date is required';
+    }
+    
+    if (form.plannedEndDate && form.plannedStartDate) {
+      if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
+        errors.plannedEndDate = 'End date must be after start date';
+      }
+    }
+    
+    if (form.cargoWeight && isNaN(parseFloat(form.cargoWeight))) {
+      errors.cargoWeight = 'Cargo weight must be a number';
+    }
+    
+    if (form.estimatedDuration && isNaN(parseFloat(form.estimatedDuration))) {
+      errors.estimatedDuration = 'Duration must be a number';
+    }
+    
+    return errors;
+  }, [form]);
+
   /* ===================== Form Handlers ===================== */
-  const handleFieldChange = (field, value) => {
+  const handleFieldChange = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
     
     // Clear error for this field when user starts typing
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: '' }));
     }
-  };
+  }, [formErrors]);
 
-  const handleDateTimeChange = (field, value) => {
-    handleFieldChange(field, value);
+  const handleDateTimeChange = useCallback((field, value) => {
+    setForm(prev => ({ 
+      ...prev, 
+      [field]: value,
+      // Clear error for this field
+      ...(formErrors[field] && { [field]: '' })
+    }));
     
     // Auto-calculate estimated duration if both dates are set
     if (field === 'plannedStartDate' && form.plannedEndDate && value) {
       const duration = dayjs(form.plannedEndDate).diff(value, 'hours');
       if (duration > 0) {
-        handleFieldChange('estimatedDuration', duration.toString());
+        setForm(prev => ({ ...prev, estimatedDuration: duration.toString() }));
+        if (formErrors.estimatedDuration) {
+          setFormErrors(prev => ({ ...prev, estimatedDuration: '' }));
+        }
       }
     } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
       const duration = dayjs(value).diff(form.plannedStartDate, 'hours');
       if (duration > 0) {
-        handleFieldChange('estimatedDuration', duration.toString());
+        setForm(prev => ({ ...prev, estimatedDuration: duration.toString() }));
+        if (formErrors.estimatedDuration) {
+          setFormErrors(prev => ({ ...prev, estimatedDuration: '' }));
+        }
       }
     }
-  };
+  }, [form.plannedEndDate, form.plannedStartDate, formErrors]);
 
   /* ===================== Submit ===================== */
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -240,11 +282,11 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
     try {
       const payload = {
         ...form,
-        vehicleId: form.vehicleId ? Number(form.vehicleId) : null,
-        driverId: form.driverId ? Number(form.driverId) : null,
-        cargoWeight: form.cargoWeight ? Number(form.cargoWeight) : null,
-        cargoValue: form.cargoValue ? Number(form.cargoValue) : null,
-        estimatedDuration: form.estimatedDuration ? Number(form.estimatedDuration) : null,
+        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
+        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
+        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate)
       };
@@ -264,21 +306,36 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
       }
       
       onSuccess?.(result);
-      onClose();
+      if (onClose) onClose();
     } catch (err) {
       console.error('Submit error:', err);
       setError(err.response?.data?.message || err.message || 'Failed to save trip');
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [form, mode, initialData, validateForm, onSuccess, onClose]);
 
-  /* ===================== Render ===================== */
+  // Memoized priority color
+  const priorityColor = useMemo(() => {
+    return PRIORITY_OPTIONS.find(p => p.value === form.priority)?.color || 'default';
+  }, [form.priority]);
+
+  // Handle dialog close with validation
+  const handleDialogClose = useCallback((event, reason) => {
+    if (reason === 'backdropClick' && submitting) {
+      return; // Prevent closing when submitting
+    }
+    if (onClose) onClose();
+  }, [onClose, submitting]);
+
+  // Generate a unique ID for the form
+  const formId = useMemo(() => `trip-form-${Date.now()}`, []);
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Dialog 
         open={open} 
-        onClose={onClose} 
+        onClose={handleDialogClose}
         maxWidth="md" 
         fullWidth
         PaperProps={{
@@ -287,11 +344,11 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
           <Typography variant="h6" component="div">
-            {mode === 'create' ? 'Create New Trip' : `Edit Trip – ${initialData?.tripNumber}`}
+            {mode === 'create' ? 'Create New Trip' : `Edit Trip – ${initialData?.tripNumber || ''}`}
           </Typography>
-          {mode === 'edit' && (
+          {mode === 'edit' && initialData?.id && (
             <Typography variant="caption" color="text.secondary">
-              ID: {initialData?.id}
+              ID: {initialData.id}
             </Typography>
           )}
         </DialogTitle>
@@ -304,322 +361,338 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
           )}
 
           {error && !loading && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Alert 
+              severity="error" 
+              sx={{ mb: 3 }}
+              onClose={() => setError(null)}
+            >
               {error}
             </Alert>
           )}
 
           {!loading && (
-            <Stack spacing={3}>
-              {/* ===== Basic Information ===== */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                    <Description fontSize="small" />
-                    <Typography variant="subtitle1" fontWeight="medium">
-                      Basic Information
-                    </Typography>
-                  </Stack>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Trip Number"
-                        value={form.tripNumber}
-                        disabled={mode === 'edit'}
-                        size="small"
-                        helperText="Auto-generated for new trips"
-                      />
-                    </Grid>
+            <Box component="form" id={formId} onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit();
+            }}>
+              <Stack spacing={3}>
+                {/* ===== Basic Information ===== */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <Description fontSize="small" />
+                      <Typography variant="subtitle1" fontWeight="medium">
+                        Basic Information
+                      </Typography>
+                    </Stack>
                     
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        required
-                        label="Origin Location"
-                        value={form.originLocation}
-                        onChange={(e) => handleFieldChange('originLocation', e.target.value)}
-                        error={!!formErrors.originLocation}
-                        helperText={formErrors.originLocation}
-                        size="small"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        required
-                        label="Destination Location"
-                        value={form.destinationLocation}
-                        onChange={(e) => handleFieldChange('destinationLocation', e.target.value)}
-                        error={!!formErrors.destinationLocation}
-                        helperText={formErrors.destinationLocation}
-                        size="small"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Status</InputLabel>
-                        <Select
-                          value={form.status}
-                          label="Status"
-                          onChange={(e) => handleFieldChange('status', e.target.value)}
-                        >
-                          {STATUS_OPTIONS.map((status) => (
-                            <MenuItem key={status} value={status}>
-                              {status}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Priority</InputLabel>
-                        <Select
-                          value={form.priority}
-                          label="Priority"
-                          onChange={(e) => handleFieldChange('priority', e.target.value)}
-                          startAdornment={
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Trip Number"
+                          value={form.tripNumber}
+                          disabled={mode === 'edit'}
+                          size="small"
+                          helperText="Auto-generated for new trips"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          required
+                          label="Origin Location"
+                          value={form.originLocation}
+                          onChange={(e) => handleFieldChange('originLocation', e.target.value)}
+                          error={!!formErrors.originLocation}
+                          helperText={formErrors.originLocation}
+                          size="small"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          required
+                          label="Destination Location"
+                          value={form.destinationLocation}
+                          onChange={(e) => handleFieldChange('destinationLocation', e.target.value)}
+                          error={!!formErrors.destinationLocation}
+                          helperText={formErrors.destinationLocation}
+                          size="small"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small" error={!!formErrors.status}>
+                          <InputLabel>Status</InputLabel>
+                          <Select
+                            value={form.status}
+                            label="Status"
+                            onChange={(e) => handleFieldChange('status', e.target.value)}
+                          >
+                            {STATUS_OPTIONS.map((status) => (
+                              <MenuItem key={status} value={status}>
+                                {status}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {formErrors.status && (
+                            <FormHelperText>{formErrors.status}</FormHelperText>
+                          )}
+                        </FormControl>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small" error={!!formErrors.priority}>
+                          <InputLabel>Priority</InputLabel>
+                          <Select
+                            value={form.priority}
+                            label="Priority"
+                            onChange={(e) => handleFieldChange('priority', e.target.value)}
+                          >
+                            {PRIORITY_OPTIONS.map((priority) => (
+                              <MenuItem key={priority.value} value={priority.value}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Chip 
+                                    label={priority.label} 
+                                    size="small" 
+                                    color={priority.color}
+                                  />
+                                </Stack>
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          <FormHelperText>
                             <PriorityHigh 
                               fontSize="small" 
-                              sx={{ mr: 1, color: PRIORITY_OPTIONS.find(p => p.value === form.priority)?.color }}
+                              sx={{ mr: 1, color: priorityColor, verticalAlign: 'middle' }}
                             />
-                          }
-                        >
-                          {PRIORITY_OPTIONS.map((priority) => (
-                            <MenuItem key={priority.value} value={priority.value}>
-                              <Chip 
-                                label={priority.label} 
-                                size="small" 
-                                color={priority.color}
-                                sx={{ mr: 1 }}
-                              />
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                            Priority level
+                          </FormHelperText>
+                        </FormControl>
+                      </Grid>
                     </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* ===== Schedule ===== */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                    <ScheduleIcon fontSize="small" />
-                    <Typography variant="subtitle1" fontWeight="medium">
-                      Schedule
+                {/* ===== Schedule ===== */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <ScheduleIcon fontSize="small" />
+                      <Typography variant="subtitle1" fontWeight="medium">
+                        Schedule
+                      </Typography>
+                    </Stack>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <DateTimePicker
+                          label="Planned Start *"
+                          value={form.plannedStartDate}
+                          onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              size: 'small',
+                              error: !!formErrors.plannedStartDate,
+                              helperText: formErrors.plannedStartDate,
+                              required: true
+                            }
+                          }}
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <DateTimePicker
+                          label="Planned End"
+                          value={form.plannedEndDate}
+                          onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              size: 'small',
+                              error: !!formErrors.plannedEndDate,
+                              helperText: formErrors.plannedEndDate
+                            }
+                          }}
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Estimated Duration (hours)"
+                          type="number"
+                          value={form.estimatedDuration}
+                          onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
+                          error={!!formErrors.estimatedDuration}
+                          helperText={formErrors.estimatedDuration}
+                          size="small"
+                          InputProps={{
+                            endAdornment: 'hrs'
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* ===== Assignment ===== */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <DirectionsCar fontSize="small" />
+                      <Typography variant="subtitle1" fontWeight="medium">
+                        Assignment
+                      </Typography>
+                    </Stack>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Vehicle</InputLabel>
+                          <Select
+                            value={form.vehicleId}
+                            label="Vehicle"
+                            onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
+                          >
+                            <MenuItem value="">
+                              <em>No vehicle assigned</em>
+                            </MenuItem>
+                            {vehicles.map((vehicle) => (
+                              <MenuItem key={vehicle.id} value={vehicle.id.toString()}>
+                                {vehicle.registrationNumber} 
+                                {vehicle.model && ` (${vehicle.model})`}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          <FormHelperText>
+                            {vehicles.length} available vehicles
+                          </FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Driver</InputLabel>
+                          <Select
+                            value={form.driverId}
+                            label="Driver"
+                            onChange={(e) => handleFieldChange('driverId', e.target.value)}
+                          >
+                            <MenuItem value="">
+                              <em>No driver assigned</em>
+                            </MenuItem>
+                            {drivers.map((driver) => (
+                              <MenuItem key={driver.id} value={driver.id.toString()}>
+                                {driver.firstName} {driver.lastName}
+                                {driver.licenseNumber && ` (${driver.licenseNumber})`}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          <FormHelperText>
+                            {drivers.length} available drivers
+                          </FormHelperText>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* ===== Cargo Details ===== */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                      Cargo Details
                     </Typography>
-                  </Stack>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <DateTimePicker
-                        label="Planned Start *"
-                        value={form.plannedStartDate}
-                        onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            error: !!formErrors.plannedStartDate,
-                            helperText: formErrors.plannedStartDate
-                          }
-                        }}
-                      />
-                    </Grid>
                     
-                    <Grid item xs={12} md={6}>
-                      <DateTimePicker
-                        label="Planned End"
-                        value={form.plannedEndDate}
-                        onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            error: !!formErrors.plannedEndDate,
-                            helperText: formErrors.plannedEndDate
-                          }
-                        }}
-                      />
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label="Cargo Description"
+                          value={form.cargoDescription}
+                          onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
+                          size="small"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Cargo Weight (kg)"
+                          type="number"
+                          value={form.cargoWeight}
+                          onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
+                          error={!!formErrors.cargoWeight}
+                          helperText={formErrors.cargoWeight}
+                          size="small"
+                          InputProps={{
+                            endAdornment: 'kg'
+                          }}
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Cargo Value"
+                          type="number"
+                          value={form.cargoValue}
+                          onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
+                          size="small"
+                          InputProps={{
+                            startAdornment: '$'
+                          }}
+                        />
+                      </Grid>
                     </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Estimated Duration (hours)"
-                        type="number"
-                        value={form.estimatedDuration}
-                        onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
-                        error={!!formErrors.estimatedDuration}
-                        helperText={formErrors.estimatedDuration}
-                        size="small"
-                        InputProps={{
-                          endAdornment: 'hrs'
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* ===== Assignment ===== */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                    <DirectionsCar fontSize="small" />
-                    <Typography variant="subtitle1" fontWeight="medium">
-                      Assignment
+                {/* ===== Additional Information ===== */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                      Additional Information
                     </Typography>
-                  </Stack>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Vehicle</InputLabel>
-                        <Select
-                          value={form.vehicleId}
-                          label="Vehicle"
-                          onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
-                        >
-                          <MenuItem value="">
-                            <em>No vehicle assigned</em>
-                          </MenuItem>
-                          {vehicles.map((vehicle) => (
-                            <MenuItem key={vehicle.id} value={vehicle.id}>
-                              {vehicle.registrationNumber} 
-                              {vehicle.model && ` (${vehicle.model})`}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        <FormHelperText>
-                          {vehicles.length} available vehicles
-                        </FormHelperText>
-                      </FormControl>
-                    </Grid>
                     
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Driver</InputLabel>
-                        <Select
-                          value={form.driverId}
-                          label="Driver"
-                          onChange={(e) => handleFieldChange('driverId', e.target.value)}
-                        >
-                          <MenuItem value="">
-                            <em>No driver assigned</em>
-                          </MenuItem>
-                          {drivers.map((driver) => (
-                            <MenuItem key={driver.id} value={driver.id}>
-                              {driver.firstName} {driver.lastName}
-                              {driver.licenseNumber && ` (${driver.licenseNumber})`}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        <FormHelperText>
-                          {drivers.length} available drivers
-                        </FormHelperText>
-                      </FormControl>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label="Special Instructions"
+                          value={form.specialInstructions}
+                          onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
+                          size="small"
+                          placeholder="Any special requirements or instructions..."
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          label="Notes"
+                          value={form.notes}
+                          onChange={(e) => handleFieldChange('notes', e.target.value)}
+                          size="small"
+                          placeholder="Additional notes or comments..."
+                        />
+                      </Grid>
                     </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-
-              {/* ===== Cargo Details ===== */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                    Cargo Details
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Cargo Description"
-                        value={form.cargoDescription}
-                        onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
-                        size="small"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Cargo Weight (kg)"
-                        type="number"
-                        value={form.cargoWeight}
-                        onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
-                        error={!!formErrors.cargoWeight}
-                        helperText={formErrors.cargoWeight}
-                        size="small"
-                        InputProps={{
-                          endAdornment: 'kg'
-                        }}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Cargo Value"
-                        value={form.cargoValue}
-                        onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: '$'
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-
-              {/* ===== Additional Information ===== */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                    Additional Information
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Special Instructions"
-                        value={form.specialInstructions}
-                        onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
-                        size="small"
-                        placeholder="Any special requirements or instructions..."
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        label="Notes"
-                        value={form.notes}
-                        onChange={(e) => handleFieldChange('notes', e.target.value)}
-                        size="small"
-                        placeholder="Additional notes or comments..."
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Stack>
+                  </CardContent>
+                </Card>
+              </Stack>
+            </Box>
           )}
         </DialogContent>
 
@@ -634,8 +707,9 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
           
           <Button
             variant="contained"
+            type="submit"
+            form={formId}
             startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
-            onClick={handleSubmit}
             disabled={submitting || loading}
           >
             {submitting ? 'Saving...' : (mode === 'create' ? 'Create Trip' : 'Update Trip')}
