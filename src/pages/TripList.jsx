@@ -1,44 +1,37 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  Card, Table, Button, Space, Tag, Input, Select, DatePicker,
-  Modal, message, Popconfirm, Row, Col, Empty, Tooltip, Spin
-} from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  EyeOutlined,
-  CheckCircleOutlined,
-  ReloadOutlined,
-  DashboardOutlined,
-  FilePdfOutlined
-} from '@ant-design/icons';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import dayjs from 'dayjs';
-
 import { tripService } from '../services/tripService';
 import TripForm from './TripForm';
 import TripMetricsForm from './TripMetricsForm';
 import TripDetails from './TripDetails';
 
-const { Search } = Input;
-const { Option } = Select;
-const { RangePicker } = DatePicker;
+import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  Typography, CircularProgress, Box, Select, MenuItem, FormControl, InputLabel,
+  Chip, IconButton, Button, Card, CardContent, Tooltip
+} from '@mui/material';
+import {
+  Add, Edit, Delete, Visibility, CheckCircle, Cancel, Dashboard, FileDownload, Refresh
+} from '@mui/icons-material';
 
+// Status colors mapping
 const statusColors = {
-  PLANNED: 'blue',
-  ACTIVE: 'green',
-  IN_PROGRESS: 'orange',
+  PLANNED: 'info.main',
+  ACTIVE: 'success.main',
+  IN_PROGRESS: 'warning.main',
   COMPLETED: 'cyan',
   CLOSED: 'purple',
-  CANCELLED: 'red'
+  CANCELLED: 'error.main'
 };
 
-const TripList = () => {
+function TripList() {
+  const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateRange, setDateRange] = useState(null);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -49,8 +42,7 @@ const TripList = () => {
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
-    total: 0,
-    showSizeChanger: true,
+    total: 0
   });
 
   const fetchTrips = useCallback(async (page = 0, size = pagination.pageSize) => {
@@ -65,7 +57,7 @@ const TripList = () => {
         pageSize: size
       }));
     } catch (err) {
-      message.error(`Failed to load trips: ${err.message}`);
+      alert(`Failed to load trips: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -75,28 +67,37 @@ const TripList = () => {
     fetchTrips(0);
   }, [fetchTrips]);
 
-  const handleTableChange = (newPagination) => {
-    fetchTrips(newPagination.current - 1, newPagination.pageSize);
-  };
+  const filteredTrips = useMemo(() => {
+    return trips.filter(trip => {
+      if (searchText) {
+        const s = searchText.toLowerCase();
+        if (!(
+          (trip.tripNumber || '').toLowerCase().includes(s) ||
+          (trip.originLocation || '').toLowerCase().includes(s) ||
+          (trip.destinationLocation || '').toLowerCase().includes(s)
+        )) return false;
+      }
+      if (statusFilter !== 'all' && trip.status !== statusFilter) return false;
+      if (dateRange.start && dateRange.end && trip.plannedStartDate) {
+        const start = dayjs(trip.plannedStartDate);
+        if (!start.isBetween(dayjs(dateRange.start), dayjs(dateRange.end), 'day', '[]')) return false;
+      }
+      return true;
+    });
+  }, [trips, searchText, statusFilter, dateRange]);
 
-  const handleDownloadReport = async () => {
-    try {
-      const filters = {
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        startDate: dateRange?.[0]?.format('YYYY-MM-DD'),
-        endDate: dateRange?.[1]?.format('YYYY-MM-DD'),
-      };
-      const response = await tripService.downloadReport(filters);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `trip-report-${dayjs().format('YYYYMMDD')}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      message.error('Failed to download report');
-    }
+  const summary = useMemo(() => {
+    if (!trips.length) return null;
+    const totalTrips = trips.length;
+    const completed = trips.filter(t => t.status === 'COMPLETED' || t.status === 'CLOSED').length;
+    const pending = totalTrips - completed;
+    return { totalTrips, completed, pending };
+  }, [trips]);
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setStatusFilter('all');
+    setDateRange({ start: '', end: '' });
   };
 
   const handleViewTrip = (trip) => {
@@ -117,195 +118,141 @@ const TripList = () => {
   const handleFinalizeTrip = async (id) => {
     try {
       await tripService.finalizeTrip(id);
-      message.success('Trip finalized successfully');
+      alert('Trip finalized');
       fetchTrips(pagination.current - 1);
-    } catch (err) {
-      message.error('Failed to finalize trip');
+    } catch {
+      alert('Failed to finalize trip');
     }
   };
 
   const handleDeleteTrip = async (id) => {
+    if (!window.confirm('Delete this trip?')) return;
     try {
       await tripService.deleteTrip(id);
-      message.success('Trip deleted successfully');
+      alert('Trip deleted');
       fetchTrips(0);
-    } catch (err) {
-      message.error('Failed to delete trip');
+    } catch {
+      alert('Failed to delete trip');
     }
   };
 
-  const columns = useMemo(() => [
-    {
-      title: 'Trip Number',
-      dataIndex: 'tripNumber',
-      key: 'tripNumber',
-      sorter: (a, b) => (a.tripNumber || '').localeCompare(b.tripNumber || '')
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: s => s ? <Tag color={statusColors[s]}>{s.replace('_', ' ')}</Tag> : '-'
-    },
-    { title: 'Origin', dataIndex: 'originLocation', key: 'originLocation' },
-    { title: 'Destination', dataIndex: 'destinationLocation', key: 'destinationLocation' },
-    {
-      title: 'Start Date',
-      dataIndex: 'plannedStartDate',
-      key: 'plannedStartDate',
-      render: d => d ? dayjs(d).format('YYYY-MM-DD HH:mm') : '-'
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 250,
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="View Details">
-            <Button type="text" icon={<EyeOutlined />} onClick={() => handleViewTrip(record)} />
-          </Tooltip>
-          <Tooltip title="Metrics & Calculator">
-            <Button type="text" icon={<DashboardOutlined />} onClick={() => handleOpenMetrics(record)} />
-          </Tooltip>
-          <Tooltip title="Edit">
-            <Button type="text" icon={<EditOutlined />} onClick={() => handleEditTrip(record)} />
-          </Tooltip>
-          {record.status !== 'COMPLETED' && record.status !== 'CLOSED' && (
-            <Tooltip title="Finalize">
-              <Button type="text" icon={<CheckCircleOutlined />} onClick={() => handleFinalizeTrip(record.id)} />
-            </Tooltip>
-          )}
-          <Popconfirm title="Delete this trip?" onConfirm={() => handleDeleteTrip(record.id)}>
-            <Tooltip title="Delete">
-              <Button type="text" danger icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
-      )
-    }
-  ], [fetchTrips, pagination.current]);
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress size={60} />
+      </Box>
+    );
+  }
 
-  const filteredTrips = useMemo(() => {
-    return trips.filter(trip => {
-      if (searchText) {
-        const s = searchText.toLowerCase();
-        const matchesSearch = 
-          (trip.tripNumber || '').toLowerCase().includes(s) ||
-          (trip.originLocation || '').toLowerCase().includes(s) ||
-          (trip.destinationLocation || '').toLowerCase().includes(s);
-        if (!matchesSearch) return false;
-      }
-      if (statusFilter !== 'all' && trip.status !== statusFilter) return false;
-      if (dateRange?.length === 2 && trip.plannedStartDate) {
-        const start = dayjs(trip.plannedStartDate);
-        if (!start.isBetween(dateRange[0], dateRange[1], 'day', '[]')) return false;
-      }
-      return true;
-    });
-  }, [trips, searchText, statusFilter, dateRange]);
-
- return (
-  <div>
-    {/* Header */}
-    <Row align="middle" justify="space-between" style={{ marginBottom: 16 }}>
-      <Col>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Trip Management
-        </Typography.Title>
-      </Col>
-      <Col>
-        <Space>
-          <Button icon={<FilePdfOutlined />} onClick={handleDownloadReport}>
+  return (
+    <Box m={3}>
+      {/* Header */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h4">Trip Management</Typography>
+        <Box>
+          <Button startIcon={<FileDownload />} onClick={() => alert('Download report')}>
             Report
           </Button>
-          <Button icon={<ReloadOutlined />} onClick={() => fetchTrips(pagination.current - 1)}>
+          <Button startIcon={<Refresh />} onClick={() => fetchTrips(pagination.current - 1)}>
             Refresh
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowCreateModal(true)}>
+          <Button startIcon={<Add />} onClick={() => setShowCreateModal(true)} variant="contained">
             Create Trip
           </Button>
-        </Space>
-      </Col>
-    </Row>
+        </Box>
+      </Box>
 
-    <Divider style={{ marginTop: 0 }} />
+      {/* Filters */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Search</InputLabel>
+            <Select
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              label="Search"
+            >
+              <MenuItem value="">All Trips</MenuItem>
+            </Select>
+          </FormControl>
 
-    {/* Filters */}
-    <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-      <Col xs={24} sm={8}>
-        <Search
-          placeholder="Search trips..."
-          allowClear
-          onSearch={setSearchText}
-          onChange={e => setSearchText(e.target.value)}
-        />
-      </Col>
-      <Col xs={24} sm={6}>
-        <Select style={{ width: '100%' }} value={statusFilter} onChange={setStatusFilter}>
-          <Option value="all">All Statuses</Option>
-          {Object.keys(statusColors).map(status => (
-            <Option key={status} value={status}>
-              {status}
-            </Option>
-          ))}
-        </Select>
-      </Col>
-      <Col xs={24} sm={10}>
-        <RangePicker style={{ width: '100%' }} onChange={setDateRange} />
-      </Col>
-    </Row>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              label="Status"
+            >
+              <MenuItem value="all">All Statuses</MenuItem>
+              {Object.keys(statusColors).map(s => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-    {/* Table */}
-    <Table
-      rowKey="id"
-      columns={columns}
-      dataSource={filteredTrips}
-      pagination={pagination}
-      loading={loading}
-      onChange={handleTableChange}
-    />
+          <Button onClick={handleClearFilters}>Clear Filters</Button>
+        </CardContent>
+      </Card>
 
-    {/* Modals */}
-    {showCreateModal && (
-      <TripForm
-        visible={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={() => fetchTrips(0)}
-      />
-    )}
+      {/* Table */}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Trip Number</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Origin</TableCell>
+              <TableCell>Destination</TableCell>
+              <TableCell>Start Date</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredTrips.map(trip => (
+              <TableRow key={trip.id} hover>
+                <TableCell>{trip.tripNumber}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={trip.status}
+                    color={trip.status in statusColors ? 'primary' : 'default'}
+                    sx={{ bgcolor: statusColors[trip.status], color: 'white' }}
+                  />
+                </TableCell>
+                <TableCell>{trip.originLocation}</TableCell>
+                <TableCell>{trip.destinationLocation}</TableCell>
+                <TableCell>{trip.plannedStartDate ? dayjs(trip.plannedStartDate).format('YYYY-MM-DD HH:mm') : '-'}</TableCell>
+                <TableCell>
+                  <Tooltip title="View">
+                    <IconButton onClick={() => handleViewTrip(trip)}><Visibility /></IconButton>
+                  </Tooltip>
+                  <Tooltip title="Metrics">
+                    <IconButton onClick={() => handleOpenMetrics(trip)}><Dashboard /></IconButton>
+                  </Tooltip>
+                  <Tooltip title="Edit">
+                    <IconButton onClick={() => handleEditTrip(trip)}><Edit /></IconButton>
+                  </Tooltip>
+                  {(trip.status !== 'COMPLETED' && trip.status !== 'CLOSED') && (
+                    <Tooltip title="Finalize">
+                      <IconButton onClick={() => handleFinalizeTrip(trip.id)}><CheckCircle /></IconButton>
+                    </Tooltip>
+                  )}
+                  <Tooltip title="Delete">
+                    <IconButton color="error" onClick={() => handleDeleteTrip(trip.id)}><Delete /></IconButton>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-    {showEditModal && selectedTrip && (
-      <TripForm
-        visible={showEditModal}
-        mode="edit"
-        tripId={selectedTrip.id}
-        initialData={selectedTrip}
-        onClose={() => setShowEditModal(false)}
-        onSuccess={() => fetchTrips(pagination.current - 1)}
-      />
-    )}
-
-    {showMetricsModal && selectedTrip && (
-      <TripMetricsForm
-        visible={showMetricsModal}
-        tripId={selectedTrip.id}
-        originLocation={selectedTrip.originLocation}
-        destinationLocation={selectedTrip.destinationLocation}
-        onClose={() => setShowMetricsModal(false)}
-        onSuccess={() => fetchTrips(pagination.current - 1)}
-      />
-    )}
-
-    {showDetailsModal && selectedTrip && (
-      <TripDetails
-        visible={showDetailsModal}
-        tripId={selectedTrip.id}
-        onClose={() => setShowDetailsModal(false)}
-        onUpdate={() => fetchTrips(pagination.current - 1)}
-      />
-    )}
-  </div>
-);
-
+      {/* Modals */}
+      {showCreateModal && <TripForm visible onClose={() => setShowCreateModal(false)} onSuccess={() => fetchTrips(0)} />}
+      {showEditModal && selectedTrip && <TripForm visible mode="edit" tripId={selectedTrip.id} initialData={selectedTrip} onClose={() => setShowEditModal(false)} onSuccess={() => fetchTrips(pagination.current - 1)} />}
+      {showMetricsModal && selectedTrip && <TripMetricsForm visible tripId={selectedTrip.id} originLocation={selectedTrip.originLocation} destinationLocation={selectedTrip.destinationLocation} onClose={() => setShowMetricsModal(false)} onSuccess={() => fetchTrips(pagination.current - 1)} />}
+      {showDetailsModal && selectedTrip && <TripDetails visible tripId={selectedTrip.id} onClose={() => setShowDetailsModal(false)} onUpdate={() => fetchTrips(pagination.current - 1)} />}
+    </Box>
+  );
+}
 
 export default TripList;
