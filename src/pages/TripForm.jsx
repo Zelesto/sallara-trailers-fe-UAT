@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import dayjs from 'dayjs';
 
 import {
@@ -19,11 +19,7 @@ import {
   Box,
 } from '@mui/material';
 
-import {
-  Save,
-  Close,
-  Warning,
-} from '@mui/icons-material';
+import { Save, Close, Warning } from '@mui/icons-material';
 
 import {
   LocalizationProvider,
@@ -41,25 +37,21 @@ const formatDateForAPI = (date) =>
   date ? dayjs(date).format('YYYY-MM-DDTHH:mm:ss') : null;
 
 const filterActiveVehicles = (vehicles) =>
-  vehicles.filter(v =>
-    ['ACTIVE', 'OPERATIONAL', 'Available'].includes(v.status) || v.available
+  vehicles.filter(
+    (v) =>
+      ['ACTIVE', 'OPERATIONAL', 'AVAILABLE'].includes(v.status) || v.available
   );
 
 const filterActiveDrivers = (drivers) =>
-  drivers.filter(d =>
-    ['ACTIVE', 'AVAILABLE', 'Available'].includes(d.status)
+  drivers.filter((d) =>
+    ['ACTIVE', 'AVAILABLE'].includes(d.status)
   );
 
 /* ===================== Component ===================== */
 
-function TripForm({
-  open,
-  onClose,
-  onSuccess,
-  mode = 'create',
-  initialData = null,
-  tripId = null,
-}) {
+function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
+  /* ===================== State ===================== */
+
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [vehicles, setVehicles] = useState([]);
@@ -82,7 +74,7 @@ function TripForm({
     notes: '',
   });
 
-  /* ===================== Load data ===================== */
+  /* ===================== Load Data ===================== */
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -111,15 +103,30 @@ function TripForm({
 
     if (mode === 'edit' && initialData) {
       setForm({
-        ...form,
-        ...initialData,
-        plannedStartDate: initialData.plannedStartDate ? dayjs(initialData.plannedStartDate) : null,
-        plannedEndDate: initialData.plannedEndDate ? dayjs(initialData.plannedEndDate) : null,
-        startDate: initialData.startDate ? dayjs(initialData.startDate) : null,
-        endDate: initialData.endDate ? dayjs(initialData.endDate) : null,
+        tripNumber: initialData.tripNumber ?? '',
+        originLocation: initialData.originLocation ?? '',
+        destinationLocation: initialData.destinationLocation ?? '',
+        status: initialData.status ?? 'PLANNED',
+        priority: initialData.priority ?? 'MEDIUM',
+        cargoDescription: initialData.cargoDescription ?? '',
+        plannedStartDate: initialData.plannedStartDate
+          ? dayjs(initialData.plannedStartDate)
+          : null,
+        plannedEndDate: initialData.plannedEndDate
+          ? dayjs(initialData.plannedEndDate)
+          : null,
+        startDate: initialData.startDate
+          ? dayjs(initialData.startDate)
+          : null,
+        endDate: initialData.endDate
+          ? dayjs(initialData.endDate)
+          : null,
+        vehicleId: initialData.vehicleId ?? '',
+        driverId: initialData.driverId ?? '',
+        notes: initialData.notes ?? '',
       });
     } else {
-      setForm(f => ({
+      setForm((f) => ({
         ...f,
         tripNumber: `TRIP-${Date.now().toString(36).toUpperCase()}`,
       }));
@@ -130,6 +137,7 @@ function TripForm({
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setError(null);
 
     try {
       const payload = {
@@ -138,7 +146,9 @@ function TripForm({
         driverId: form.driverId ? Number(form.driverId) : null,
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
-        startDate: formatDateForAPI(form.startDate || form.plannedStartDate),
+        startDate: formatDateForAPI(
+          form.startDate || form.plannedStartDate
+        ),
         endDate: formatDateForAPI(form.endDate),
       };
 
@@ -146,12 +156,10 @@ function TripForm({
         throw new Error('Start date is required');
       }
 
-      let res;
-      if (mode === 'create') {
-        res = await tripService.createTrip(payload);
-      } else {
-        res = await tripService.updateTrip(tripId || initialData.id, payload);
-      }
+      const res =
+        mode === 'create'
+          ? await tripService.createTrip(payload)
+          : await tripService.updateTrip(initialData.id, payload);
 
       onSuccess?.(res);
       onClose();
@@ -169,7 +177,9 @@ function TripForm({
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle>
-          {mode === 'create' ? 'Create Trip' : `Edit Trip – ${initialData?.tripNumber}`}
+          {mode === 'create'
+            ? 'Create Trip'
+            : `Edit Trip – ${initialData?.tripNumber}`}
         </DialogTitle>
 
         <DialogContent dividers>
@@ -188,7 +198,9 @@ function TripForm({
           {/* ===== Basic Info ===== */}
           <Card sx={{ mb: 2 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>Basic Info</Typography>
+              <Typography variant="h6" gutterBottom>
+                Basic Info
+              </Typography>
 
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
@@ -196,8 +208,10 @@ function TripForm({
                     fullWidth
                     label="Trip Number"
                     value={form.tripNumber}
-                    onChange={(e) => setForm({ ...form, tripNumber: e.target.value })}
                     disabled={mode === 'edit'}
+                    onChange={(e) =>
+                      setForm({ ...form, tripNumber: e.target.value })
+                    }
                   />
                 </Grid>
 
@@ -205,10 +219,20 @@ function TripForm({
                   <Select
                     fullWidth
                     value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, status: e.target.value })
+                    }
                   >
-                    {['PLANNED','ACTIVE','IN_PROGRESS','COMPLETED','CANCELLED'].map(s => (
-                      <MenuItem key={s} value={s}>{s}</MenuItem>
+                    {[
+                      'PLANNED',
+                      'ACTIVE',
+                      'IN_PROGRESS',
+                      'COMPLETED',
+                      'CANCELLED',
+                    ].map((s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
+                      </MenuItem>
                     ))}
                   </Select>
                 </Grid>
@@ -218,7 +242,9 @@ function TripForm({
                     fullWidth
                     label="Origin"
                     value={form.originLocation}
-                    onChange={(e) => setForm({ ...form, originLocation: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, originLocation: e.target.value })
+                    }
                   />
                 </Grid>
 
@@ -227,7 +253,12 @@ function TripForm({
                     fullWidth
                     label="Destination"
                     value={form.destinationLocation}
-                    onChange={(e) => setForm({ ...form, destinationLocation: e.target.value })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        destinationLocation: e.target.value,
+                      })
+                    }
                   />
                 </Grid>
               </Grid>
@@ -237,14 +268,18 @@ function TripForm({
           {/* ===== Schedule ===== */}
           <Card sx={{ mb: 2 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>Schedule</Typography>
+              <Typography variant="h6" gutterBottom>
+                Schedule
+              </Typography>
 
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <DateTimePicker
                     label="Planned Start"
                     value={form.plannedStartDate}
-                    onChange={(v) => setForm({ ...form, plannedStartDate: v })}
+                    onChange={(v) =>
+                      setForm({ ...form, plannedStartDate: v })
+                    }
                     slotProps={{ textField: { fullWidth: true } }}
                   />
                 </Grid>
@@ -253,7 +288,9 @@ function TripForm({
                   <DateTimePicker
                     label="Planned End"
                     value={form.plannedEndDate}
-                    onChange={(v) => setForm({ ...form, plannedEndDate: v })}
+                    onChange={(v) =>
+                      setForm({ ...form, plannedEndDate: v })
+                    }
                     slotProps={{ textField: { fullWidth: true } }}
                   />
                 </Grid>
@@ -264,17 +301,21 @@ function TripForm({
           {/* ===== Assignment ===== */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>Assignment</Typography>
+              <Typography variant="h6" gutterBottom>
+                Assignment
+              </Typography>
 
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <Select
                     fullWidth
                     value={form.vehicleId}
-                    onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, vehicleId: e.target.value })
+                    }
                   >
                     <MenuItem value="">No Vehicle</MenuItem>
-                    {vehicles.map(v => (
+                    {vehicles.map((v) => (
                       <MenuItem key={v.id} value={v.id}>
                         {v.registrationNumber}
                       </MenuItem>
@@ -286,10 +327,12 @@ function TripForm({
                   <Select
                     fullWidth
                     value={form.driverId}
-                    onChange={(e) => setForm({ ...form, driverId: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, driverId: e.target.value })
+                    }
                   >
                     <MenuItem value="">No Driver</MenuItem>
-                    {drivers.map(d => (
+                    {drivers.map((d) => (
                       <MenuItem key={d.id} value={d.id}>
                         {d.firstName} {d.lastName}
                       </MenuItem>
