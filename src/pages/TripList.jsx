@@ -204,72 +204,108 @@ const TripList = () => {
     });
   }, [trips, searchText, statusFilter, dateRange]);
 
-  return (
-    <Card
-      title="Trip Management"
-      extra={
+ return (
+  <div>
+    {/* Header */}
+    <Row align="middle" justify="space-between" style={{ marginBottom: 16 }}>
+      <Col>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          Trip Management
+        </Typography.Title>
+      </Col>
+      <Col>
         <Space>
-          <Button icon={<FilePdfOutlined />} onClick={handleDownloadReport}>Report</Button>
-          <Button icon={<ReloadOutlined />} onClick={() => fetchTrips(pagination.current - 1)}>Refresh</Button>
+          <Button icon={<FilePdfOutlined />} onClick={handleDownloadReport}>
+            Report
+          </Button>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchTrips(pagination.current - 1)}>
+            Refresh
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowCreateModal(true)}>
             Create Trip
           </Button>
         </Space>
-      }
-    >
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}>
-          <Search placeholder="Search trips..." allowClear onSearch={setSearchText} onChange={e => setSearchText(e.target.value)} />
-        </Col>
-        <Col xs={24} sm={6}>
-          <Select style={{ width: '100%' }} defaultValue="all" onChange={setStatusFilter}>
-            <Option value="all">All Statuses</Option>
-            {Object.keys(statusColors).map(status => <Option key={status} value={status}>{status}</Option>)}
-          </Select>
-        </Col>
-        <Col xs={24} sm={10}>
-          <RangePicker style={{ width: '100%' }} onChange={setDateRange} />
-        </Col>
-      </Row>
+      </Col>
+    </Row>
 
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={filteredTrips}
-        pagination={pagination}
-        loading={loading}
-        onChange={handleTableChange}
+    <Divider style={{ marginTop: 0 }} />
+
+    {/* Filters */}
+    <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+      <Col xs={24} sm={8}>
+        <Search
+          placeholder="Search trips..."
+          allowClear
+          onSearch={setSearchText}
+          onChange={e => setSearchText(e.target.value)}
+        />
+      </Col>
+      <Col xs={24} sm={6}>
+        <Select style={{ width: '100%' }} value={statusFilter} onChange={setStatusFilter}>
+          <Option value="all">All Statuses</Option>
+          {Object.keys(statusColors).map(status => (
+            <Option key={status} value={status}>
+              {status}
+            </Option>
+          ))}
+        </Select>
+      </Col>
+      <Col xs={24} sm={10}>
+        <RangePicker style={{ width: '100%' }} onChange={setDateRange} />
+      </Col>
+    </Row>
+
+    {/* Table */}
+    <Table
+      rowKey="id"
+      columns={columns}
+      dataSource={filteredTrips}
+      pagination={pagination}
+      loading={loading}
+      onChange={handleTableChange}
+    />
+
+    {/* Modals */}
+    {showCreateModal && (
+      <TripForm
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => fetchTrips(0)}
       />
+    )}
 
-      {showCreateModal && (
-        <TripForm visible={showCreateModal} onClose={() => setShowCreateModal(false)} onSuccess={() => fetchTrips(0)} />
-      )}
-      
-      {showEditModal && selectedTrip && (
-        <TripForm 
-          visible={showEditModal} mode="edit" tripId={selectedTrip.id} initialData={selectedTrip} 
-          onClose={() => setShowEditModal(false)} onSuccess={() => fetchTrips(pagination.current - 1)}
-        />
-      )}
+    {showEditModal && selectedTrip && (
+      <TripForm
+        visible={showEditModal}
+        mode="edit"
+        tripId={selectedTrip.id}
+        initialData={selectedTrip}
+        onClose={() => setShowEditModal(false)}
+        onSuccess={() => fetchTrips(pagination.current - 1)}
+      />
+    )}
 
-      {showMetricsModal && selectedTrip && (
-        <TripMetricsForm 
-          visible={showMetricsModal} tripId={selectedTrip.id} 
-          originLocation={selectedTrip.originLocation} destinationLocation={selectedTrip.destinationLocation}
-          onClose={() => setShowMetricsModal(false)} onSuccess={() => fetchTrips(pagination.current - 1)}
-        />
-      )}
+    {showMetricsModal && selectedTrip && (
+      <TripMetricsForm
+        visible={showMetricsModal}
+        tripId={selectedTrip.id}
+        originLocation={selectedTrip.originLocation}
+        destinationLocation={selectedTrip.destinationLocation}
+        onClose={() => setShowMetricsModal(false)}
+        onSuccess={() => fetchTrips(pagination.current - 1)}
+      />
+    )}
 
-      {showDetailsModal && selectedTrip && (
-        <TripDetails
-          visible={showDetailsModal}
-          tripId={selectedTrip.id}
-          onClose={() => setShowDetailsModal(false)}
-          onUpdate={() => fetchTrips(pagination.current - 1)}
-        />
-      )}
-    </Card>
-  );
-};
+    {showDetailsModal && selectedTrip && (
+      <TripDetails
+        visible={showDetailsModal}
+        tripId={selectedTrip.id}
+        onClose={() => setShowDetailsModal(false)}
+        onUpdate={() => fetchTrips(pagination.current - 1)}
+      />
+    )}
+  </div>
+);
+
 
 export default TripList;
