@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -87,6 +87,9 @@ const TripMetricsForm = ({
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState(0);
   const [hasExistingMetrics, setHasExistingMetrics] = useState(false);
+  
+  // Track if we've initialized the form for the current tripId
+  const initializedRef = useRef(null);
 
   const [formData, setFormData] = useState({
     originLocation: "",
@@ -99,24 +102,61 @@ const TripMetricsForm = ({
     incidents: "",
   });
 
-  // Reset form when modal opens
-  useEffect(() => {
-    if (!open) return;
+  // Load existing metrics from service
+  const loadExistingMetrics = useCallback(async (currentTripId) => {
+    try {
+      setLoading(true);
+      const data = await tripService.getTripMetrics(currentTripId);
+      
+      if (data && (data.totalDistanceKm || data.totalDurationHours || data.fuelUsedLiters)) {
+        setHasExistingMetrics(true);
+        setFormData(prev => ({
+          ...prev,
+          originLocation: data.originLocation || prev.originLocation,
+          destinationLocation: data.destinationLocation || prev.destinationLocation,
+          totalDistance: data.totalDistanceKm || prev.totalDistance,
+          estimatedDuration: data.totalDurationHours || prev.estimatedDuration,
+          fuelConsumption: data.fuelUsedLiters || prev.fuelConsumption,
+          estimatedCost: data.costAmount || prev.estimatedCost,
+          delays: data.idleTimeHours || prev.delays,
+          incidents: data.incidentCount || prev.incidents,
+        }));
+        
+        if (data.totalDistanceKm && data.totalDurationHours) {
+          setCalculatedMetrics({
+            totalDistanceKm: data.totalDistanceKm,
+            totalDurationHours: data.totalDurationHours,
+            fuelUsedLiters: data.fuelUsedLiters,
+            costAmount: data.costAmount,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load metrics", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    console.log("TripMetricsForm opened with data:", {
-      tripId,
-      originLocation,
-      destinationLocation,
-      vehicleInfo,
-      tripData,
-      initialMetrics
-    });
+  // Initialize form when modal opens or tripId changes
+  useEffect(() => {
+    if (!open) {
+      initializedRef.current = null;
+      return;
+    }
+
+    // Only initialize if we haven't for this tripId yet
+    if (initializedRef.current === tripId) return;
+    initializedRef.current = tripId;
+
+    console.log("Initializing TripMetricsForm for trip:", tripId);
 
     const inferredType = inferVehicleType(vehicleInfo || tripData.vehicle);
     setVehicleType(inferredType);
     setError("");
     setCalculatedMetrics(null);
     setHasExistingMetrics(false);
+    setActiveTab(0);
     
     // Get origin and destination from multiple possible sources
     const origin = originLocation || 
@@ -132,7 +172,7 @@ const TripMetricsForm = ({
                         "";
     
     // Initialize form data
-    const newFormData = {
+    setFormData({
       originLocation: origin,
       destinationLocation: destination,
       totalDistance: 
@@ -161,56 +201,18 @@ const TripMetricsForm = ({
         "",
       delays: initialMetrics.idleTimeHours || tripData.delays || "",
       incidents: initialMetrics.incidentCount || tripData.incidents || "",
-    };
+    });
     
-    setFormData(newFormData);
-    
-    // Check if we have existing metrics to load
     if (tripId) {
-      loadExistingMetrics();
+      loadExistingMetrics(tripId);
     }
-  }, [open, tripId, initialMetrics, originLocation, destinationLocation, vehicleInfo, tripData]);
-
-  const loadExistingMetrics = async () => {
-    try {
-      setLoading(true);
-      const data = await tripService.getTripMetrics(tripId);
-      
-      if (data && (data.totalDistanceKm || data.totalDurationHours || data.fuelUsedLiters)) {
-        setHasExistingMetrics(true);
-        setFormData(prev => ({
-          ...prev,
-          originLocation: data.originLocation || prev.originLocation,
-          destinationLocation: data.destinationLocation || prev.destinationLocation,
-          totalDistance: data.totalDistanceKm || prev.totalDistance,
-          estimatedDuration: data.totalDurationHours || prev.estimatedDuration,
-          fuelConsumption: data.fuelUsedLiters || prev.fuelConsumption,
-          estimatedCost: data.costAmount || prev.estimatedCost,
-          delays: data.idleTimeHours || prev.delays,
-          incidents: data.incidentCount || prev.incidents,
-        }));
-        
-        if (data.totalDistanceKm && data.totalDurationHours) {
-          setCalculatedMetrics({
-            totalDistanceKm: data.totalDistanceKm,
-            totalDurationHours: data.totalDurationHours,
-            fuelUsedLiters: data.fuelUsedLiters,
-            costAmount: data.costAmount,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load metrics", err);
-      // Don't show error if no metrics exist yet
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [open, tripId, initialMetrics, originLocation, destinationLocation, vehicleInfo, tripData, loadExistingMetrics]);
 
   const handleInputChange = (field) => (event) => {
+    const value = event.target.value;
     setFormData(prev => ({
       ...prev,
-      [field]: event.target.value
+      [field]: value
     }));
   };
 
@@ -224,6 +226,7 @@ const TripMetricsForm = ({
 
       if (!origin || !destination) {
         setError("Please enter both origin and destination locations.");
+        setCalculating(false);
         return;
       }
 
@@ -238,19 +241,19 @@ const TripMetricsForm = ({
 
       if (!dto) {
         setError("No data returned from calculation service.");
+        setCalculating(false);
         return;
       }
 
       // Update form with calculated values
-      const updatedFormData = {
-        ...formData,
+      setFormData(prev => ({
+        ...prev,
         totalDistance: dto.totalDistanceKm || dto.totalDistance || "",
         estimatedDuration: dto.totalDurationHours || dto.estimatedDuration || "",
         fuelConsumption: dto.fuelUsedLiters || dto.fuelConsumption || "",
         estimatedCost: dto.costAmount || dto.estimatedCost || "",
-      };
-
-      setFormData(updatedFormData);
+      }));
+      
       setCalculatedMetrics(dto);
       
       // Switch to manual tab to show calculated values
@@ -264,7 +267,9 @@ const TripMetricsForm = ({
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    if (event && event.preventDefault) {
+      event.preventDefault();
+    }
     
     try {
       setLoading(true);
@@ -273,6 +278,7 @@ const TripMetricsForm = ({
       // Validate required fields
       if (!formData.totalDistance || !formData.estimatedDuration) {
         setError("Distance and duration are required fields.");
+        setLoading(false);
         return;
       }
 
@@ -313,7 +319,7 @@ const TripMetricsForm = ({
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <AutoGraph color="primary" />
-        <Typography variant="h6">
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Trip Metrics {tripId && `#${tripId}`}
         </Typography>
         {hasExistingMetrics && (
@@ -333,11 +339,7 @@ const TripMetricsForm = ({
             Existing Metrics
           </Box>
         )}
-        <IconButton
-          onClick={onClose}
-          sx={{ ml: 'auto' }}
-          size="small"
-        >
+        <IconButton onClick={onClose} size="small">
           <Close />
         </IconButton>
       </DialogTitle>
@@ -512,7 +514,7 @@ const TripMetricsForm = ({
         )}
 
         {activeTab === 1 && (
-          <form onSubmit={handleSubmit}>
+          <Box component="form" noValidate>
             <Stack spacing={2}>
               <Typography variant="subtitle1" color="text.secondary">
                 Enter or edit trip metrics manually
@@ -611,7 +613,7 @@ const TripMetricsForm = ({
                 </Alert>
               )}
             </Stack>
-          </form>
+          </Box>
         )}
       </DialogContent>
 
