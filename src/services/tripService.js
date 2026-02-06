@@ -146,10 +146,12 @@ export const tripService = {
   // Metrics
   // --------------------------
 
- calculateTripMetrics: async (tripId, origin, destination, vehicleType = 'TRUCK') => {
+ calculateTripMetrics: async (origin, destination, tripId,vehicleType = 'TRUCK') => {
   try {
-    // Option 1: Use the dedicated calculate endpoint
-    const response = await api.post(`/api/trip-metrics/${tripId}/calculate`, {
+    // Make sure tripId is a number, not a string location
+    const numericTripId = Number(tripId);
+    
+    const response = await api.post(`/api/trip-metrics/${numericTripId}/calculate`, {
       originLocation: origin,
       destinationLocation: destination,
       vehicleType: vehicleType
