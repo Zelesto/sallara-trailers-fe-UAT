@@ -186,7 +186,7 @@ const menuSections = [
     title: 'Finance',
     icon: <MoneyIcon />,
     items: [
-      { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
+      { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/financeDashboard' },
       { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/finance/expenses' },
       { text: 'Accounts', icon: <AccountBalanceIcon />, path: '/finance/accounts' },
       { text: 'Invoices', icon: <DescriptionIcon />, path: '/finance/invoices' },
