@@ -146,7 +146,7 @@ export const tripService = {
   // Metrics
   // --------------------------
 
-calculateTripMetrics: async (tripId, origin, destination, vehicleType = 'TRUCK') => {
+calculateTripMetrics: async ( origin, destination,tripId, vehicleType = 'TRUCK') => {
   try {
     // Make sure tripId is a number
     const numericTripId = Number(tripId);
