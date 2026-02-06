@@ -1,135 +1,265 @@
+// src/services/tripService.js
 import api from './api';
 import dayjs from 'dayjs';
 
-/* =============================
-   Helpers
-============================= */
-const formatDate = (date, includeTime = true) =>
-  date
-    ? dayjs(date).format(includeTime ? 'YYYY-MM-DDTHH:mm:ss' : 'YYYY-MM-DD')
-    : null;
+const formatDateForBackend = (date) =>
+  date ? dayjs(date).format('YYYY-MM-DDTHH:mm:ss') : null;
 
-const extract = (res) =>
-  res?.data !== undefined ? res.data : res;
+const sanitizeField = (value) => (value === undefined ? null : value);
 
-/* =============================
-   Service
-============================= */
 export const tripService = {
-  async getAllTrips(params = {}) {
-    const {
-      page = 0,
-      size = 10,
-      sort = 'plannedStartDate,desc',
-      ...filters
-    } = params;
+  // --------------------------
+  // Trips CRUD
+  // --------------------------
 
-    const query = { page, size, sort };
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        query[key] = value;
+  getAllTrips: async (params = {}) => {
+    try {
+      // Supporting both the old simple call and the new paginated call
+      const response = await api.get('/api/trips', { params });
+      
+      // Handle different response structures
+      const rawData = response?.data !== undefined ? response.data : response;
+      
+      if (rawData?.content !== undefined) {
+        return {
+          content: rawData.content ?? [],
+          totalElements: rawData.totalElements ?? 0,
+          totalPages: rawData.totalPages ?? 1,
+          number: rawData.number ?? 0,
+          size: rawData.size ?? 10,
+        };
       }
-    });
-
-    const response = await api.get('/api/trips', { params: query });
-    const data = extract(response);
-
-    if (data?.content !== undefined) {
-      return {
-        content: data.content ?? [],
-        totalElements: data.totalElements ?? 0,
-        totalPages: data.totalPages ?? 1,
-        number: data.number ?? 0,
-        size: data.size ?? size,
-      };
-    }
-
-    if (Array.isArray(data)) {
-      return {
-        content: data,
-        totalElements: data.length,
+      
+      const dataArray = Array.isArray(rawData) ? rawData : (rawData?.data ?? []);
+      return { 
+        content: dataArray,
+        totalElements: dataArray.length,
         totalPages: 1,
         number: 0,
-        size: data.length,
+        size: dataArray.length
       };
+    } catch (error) {
+      console.error('Error fetching trips:', error);
+      throw error;
     }
-
-    return {
-      content: [],
-      totalElements: 0,
-      totalPages: 0,
-      number: 0,
-      size,
-    };
   },
 
-  async getTripById(id) {
-    return extract(await api.get(`/api/trips/${id}`));
-  },
-
-  async createTrip(data) {
-    return extract(await api.post('/api/trips', {
-      ...data,
-      plannedStartDate: formatDate(data.plannedStartDate),
-      plannedEndDate: formatDate(data.plannedEndDate),
-      actualStartDate: formatDate(data.actualStartDate),
-      actualEndDate: formatDate(data.actualEndDate),
-    }));
-  },
-
-  async updateTrip(id, data) {
-    return extract(await api.put(`/api/trips/${id}`, {
-      ...data,
-      plannedStartDate: formatDate(data.plannedStartDate),
-      plannedEndDate: formatDate(data.plannedEndDate),
-      actualStartDate: formatDate(data.actualStartDate),
-      actualEndDate: formatDate(data.actualEndDate),
-    }));
-  },
-
-  async deleteTrip(id) {
-    return extract(await api.delete(`/api/trips/${id}`));
-  },
-
-  async finalizeTrip(id) {
-    return extract(await api.post(`/api/trips/${id}/finalize`));
-  },
-
-  /* =============================
-     Metrics Methods
-  ============================= */
-  
-  /**
-   * Calculates trip metrics based on origin, destination and vehicle type
-   * Updated path to follow common REST patterns: /api/trips/{id}/calculate-metrics
-   */
-  async calculateTripMetrics(origin, destination, vehicleType, tripId) {
-    const params = {
-      origin,
-      destination,
-      vehicleType
-    };
-    
-    // If tripId is provided, we use the specific trip's calculation endpoint
-    if (tripId) {
-      return extract(await api.get(`/api/trips/${tripId}/calculate-metrics`, { params }));
+  getTripById: async (id) => {
+    try {
+      const response = await api.get(`/api/trips/${id}`);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error fetching trip ${id}:`, error);
+      throw error;
     }
-    
-    // Fallback to a general calculation endpoint if no tripId
-    return extract(await api.get('/api/trips/calculate-metrics', { params }));
   },
 
-  /**
-   * Retrieves existing metrics for a specific trip
-   */
-  async getTripMetrics(tripId) {
-    return extract(await api.get(`/api/trips/${tripId}/metrics`));
+  createTrip: async (tripData) => {
+    try {
+      const payload = {
+        ...tripData,
+        startDate: formatDateForBackend(tripData.startDate),
+        endDate: formatDateForBackend(tripData.endDate),
+        plannedStartDate: formatDateForBackend(tripData.plannedStartDate),
+        plannedEndDate: formatDateForBackend(tripData.plannedEndDate),
+        cargoDescription: sanitizeField(tripData.cargoDescription),
+      };
+      const response = await api.post('/api/trips', payload);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error('Error creating trip:', error);
+      throw error;
+    }
   },
 
-  /**
-   * Saves or updates metrics for a specific trip
-   */
-  async saveTripMetrics(tripId, metricsData) {
-    return extract(await api.post(`/api/trips/${tripId}/metrics`, metricsData));
+  createTripFromDto: async (tripDto) => {
+    try {
+      const response = await api.post('/api/trips/dto', tripDto);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error('Error creating trip from DTO:', error);
+      throw error;
+    }
+  },
+
+  updateTrip: async (tripId, tripData) => {
+    try {
+      const payload = {
+        ...tripData,
+        startDate: formatDateForBackend(tripData.startDate),
+        endDate: formatDateForBackend(tripData.endDate),
+        plannedStartDate: formatDateForBackend(tripData.plannedStartDate),
+        plannedEndDate: formatDateForBackend(tripData.plannedEndDate),
+        cargoDescription: sanitizeField(tripData.cargoDescription),
+      };
+
+      console.log('Updating trip payload:', payload);
+      const response = await api.put(`/api/trips/${tripId}`, payload);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error updating trip ${tripId}:`, error);
+      throw error;
+    }
+  },
+
+  updateTripFromDto: async (id, tripDto) => {
+    try {
+      const response = await api.put(`/api/trips/dto/${id}`, tripDto);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error updating trip ${id} from DTO:`, error);
+      throw error;
+    }
+  },
+
+  deleteTrip: async (id) => {
+    try {
+      const response = await api.delete(`/api/trips/${id}`);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error deleting trip ${id}:`, error);
+      throw error;
+    }
+  },
+
+  finalizeTrip: async (id) => {
+    try {
+      const response = await api.post(`/api/trips/${id}/finalize`);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error finalizing trip ${id}:`, error);
+      throw error;
+    }
+  },
+
+  batchFinalizeTrips: async (tripIds) => {
+    try {
+      const response = await api.post('/api/trips/batch-finalize', tripIds);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error('Error batch finalizing trips:', error);
+      throw error;
+    }
+  },
+
+  // --------------------------
+  // Metrics
+  // --------------------------
+
+  calculateTripMetrics: async (origin, destination, vehicleType = 'TRUCK') => {
+    try {
+      // RESTORED: The working version uses POST with a body
+      const response = await api.post('/api/trips/calculate-metrics', { origin, destination, vehicleType });
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error('Error calculating trip metrics:', error);
+      throw error;
+    }
+  },
+
+  saveTripMetrics: async (tripId, metrics) => {
+    try {
+      // RESTORED: The working version uses PUT
+      const response = await api.put(`/api/trips/${tripId}/metrics`, metrics);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error saving trip metrics for trip ${tripId}:`, error);
+      throw error;
+    }
+  },
+
+  getTripMetrics: async (tripId) => {
+    try {
+      const response = await api.get(`/api/trips/${tripId}/metrics`);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error fetching trip metrics for trip ${tripId}:`, error);
+      return null;
+    }
+  },
+
+  // --------------------------
+  // Filters & queries
+  // --------------------------
+
+  filterTrips: async (filters = {}) => {
+    try {
+      const response = await api.get('/api/trips/filter', { params: filters });
+      const data = response?.data !== undefined ? response.data : response;
+      return { data: Array.isArray(data) ? data : (data?.data ?? []) };
+    } catch (error) {
+      console.error('Error filtering trips:', error);
+      throw error;
+    }
+  },
+
+  getTripsByDriver: async (driverId) => {
+    try {
+      const response = await api.get(`/api/trips/driver/${driverId}`);
+      const data = response?.data !== undefined ? response.data : response;
+      return { data: Array.isArray(data) ? data : (data?.data ?? []) };
+    } catch (error) {
+      console.error(`Error fetching trips for driver ${driverId}:`, error);
+      throw error;
+    }
+  },
+
+  getTripsByVehicle: async (vehicleId) => {
+    try {
+      const response = await api.get(`/api/trips/vehicle/${vehicleId}`);
+      const data = response?.data !== undefined ? response.data : response;
+      return { data: Array.isArray(data) ? data : (data?.data ?? []) };
+    } catch (error) {
+      console.error(`Error fetching trips for vehicle ${vehicleId}:`, error);
+      throw error;
+    }
+  },
+
+  // --------------------------
+  // KPIs & Statistics
+  // --------------------------
+
+  getTripStatistics: async () => {
+    try {
+      const response = await api.get('/api/trips/statistics');
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error('Error fetching trip statistics:', error);
+      throw error;
+    }
+  },
+
+  getTripKPIs: async (fromDate, toDate) => {
+    try {
+      const response = await api.get('/api/trips/kpi', { params: { from: fromDate, to: toDate } });
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error('Error fetching trip KPIs:', error);
+      throw error;
+    }
+  },
+
+  // --------------------------
+  // Utilities
+  // --------------------------
+
+  checkTripNumberExists: async (tripNumber) => {
+    try {
+      const response = await api.get(`/api/trips/exists/${tripNumber}`);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error checking trip number ${tripNumber}:`, error);
+      throw error;
+    }
+  },
+
+  getTripByTripNumber: async (tripNumber) => {
+    try {
+      const response = await api.get(`/api/trips/number/${tripNumber}`);
+      return response.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error(`Error fetching trip by number ${tripNumber}:`, error);
+      throw error;
+    }
   }
 };
