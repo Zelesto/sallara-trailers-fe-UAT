@@ -135,21 +135,6 @@ const handleOpenMetrics = (trip) => {
   setShowMetricsModal(true);
 };
 
-// Then in the modal section, update the TripMetricsForm props:
-{showMetricsModal && selectedTrip && (
-  <TripMetricsForm
-    open={showMetricsModal}
-    tripId={selectedTrip.id}
-    originLocation={selectedTrip.originLocation}
-    destinationLocation={selectedTrip.destinationLocation}
-    vehicleInfo={selectedTrip.vehicle} // Pass vehicle info if available
-    onClose={() => setShowMetricsModal(false)}
-    onSuccess={() => {
-      setShowMetricsModal(false);
-      fetchTrips(pagination.page);
-    }}
-  />
-)}
 
   const handleFinalizeTrip = async (id) => {
     try {
@@ -383,43 +368,52 @@ const handleOpenMetrics = (trip) => {
         </Paper>
       )}
 
-      {/* Modals */}
-      {showCreateModal && (
-        <TripForm
-          open
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => fetchTrips({ page: 0 })}
-        />
-      )}
+      // In TripList.jsx - ONLY show the modals section at the bottom:
 
-      {showEditModal && selectedTrip && (
-        <TripForm
-          open
-          mode="edit"
-          tripId={selectedTrip.id}
-          initialData={selectedTrip}
-          onClose={() => setShowEditModal(false)}
-          onSuccess={() => fetchTrips({ page: pagination.page })}
-        />
-      )}
+{/* Modals */}
+{showCreateModal && (
+  <TripForm
+    open={showCreateModal}
+    onClose={() => setShowCreateModal(false)}
+    onSuccess={() => fetchTrips({ page: 0 })}
+  />
+)}
 
-      {showMetricsModal && selectedTrip && (
-        <TripMetricsForm
-          open
-          tripId={selectedTrip.id}
-          onClose={() => setShowMetricsModal(false)}
-          onSuccess={() => fetchTrips({ page: pagination.page })}
-        />
-      )}
+{showEditModal && selectedTrip && (
+  <TripForm
+    open={showEditModal}
+    mode="edit"
+    tripId={selectedTrip.id}
+    initialData={selectedTrip}
+    onClose={() => setShowEditModal(false)}
+    onSuccess={() => fetchTrips({ page: pagination.page })}
+  />
+)}
 
-      {showDetailsModal && selectedTrip && (
-        <TripDetails
-          open
-          tripId={selectedTrip.id}
-          onClose={() => setShowDetailsModal(false)}
-          onUpdate={() => fetchTrips({ page: pagination.page })}
-        />
-      )}
+{showMetricsModal && selectedTrip && (
+  <TripMetricsForm
+    open={showMetricsModal}
+    tripId={selectedTrip.id}
+    originLocation={selectedTrip.originLocation}
+    destinationLocation={selectedTrip.destinationLocation}
+    vehicleInfo={selectedTrip.vehicle}
+    tripData={selectedTrip}
+    onClose={() => setShowMetricsModal(false)}
+    onSuccess={() => {
+      setShowMetricsModal(false);
+      fetchTrips({ page: pagination.page });
+    }}
+  />
+)}
+
+{showDetailsModal && selectedTrip && (
+  <TripDetails
+    open={showDetailsModal}
+    tripId={selectedTrip.id}
+    onClose={() => setShowDetailsModal(false)}
+    onUpdate={() => fetchTrips({ page: pagination.page })}
+  />
+)}
     </Box>
   );
 }
