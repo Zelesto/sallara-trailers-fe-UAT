@@ -101,15 +101,22 @@ export const tripService = {
   
   /**
    * Calculates trip metrics based on origin, destination and vehicle type
+   * Updated path to follow common REST patterns: /api/trips/{id}/calculate-metrics
    */
   async calculateTripMetrics(origin, destination, vehicleType, tripId) {
     const params = {
       origin,
       destination,
-      vehicleType,
-      tripId
+      vehicleType
     };
-    return extract(await api.get('/api/trips/metrics/calculate', { params }));
+    
+    // If tripId is provided, we use the specific trip's calculation endpoint
+    if (tripId) {
+      return extract(await api.get(`/api/trips/${tripId}/calculate-metrics`, { params }));
+    }
+    
+    // Fallback to a general calculation endpoint if no tripId
+    return extract(await api.get('/api/trips/calculate-metrics', { params }));
   },
 
   /**
