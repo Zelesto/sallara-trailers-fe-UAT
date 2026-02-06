@@ -146,7 +146,7 @@ export const tripService = {
   // Metrics
   // --------------------------
 
-calculateTripMetrics: async function(params) {  // Changed to regular function
+calculateTripMetrics: async function(params) {
   try {
     // Handle both object and positional parameter styles
     let tripId, origin, destination, vehicleType;
@@ -160,17 +160,18 @@ calculateTripMetrics: async function(params) {  // Changed to regular function
         vehicleType = 'TRUCK' 
       } = params);
     } else {
-      // Legacy positional parameter style: calculateTripMetrics(origin, destination, tripId, vehicleType)
-      // Using arguments object
+      // LEGACY: The actual parameter order is: origin, destination, vehicleType, tripId
       const args = arguments;
       
-      if (args.length >= 3) {
+      if (args.length >= 4) {
+        // Current wrong order: origin, destination, tripId, vehicleType
+        // Actual order: origin, destination, vehicleType, tripId
         origin = args[0];
         destination = args[1];
-        tripId = args[2];
-        vehicleType = args[3] || 'TRUCK';
+        vehicleType = args[2] || 'TRUCK'; // This is actually vehicleType
+        tripId = args[3]; // This is actually tripId
       } else {
-        throw new Error(`Invalid arguments. Expected object or 3+ parameters. Got: ${args.length} arguments`);
+        throw new Error(`Invalid arguments. Expected object or 4 parameters. Got: ${args.length} arguments`);
       }
     }
     
