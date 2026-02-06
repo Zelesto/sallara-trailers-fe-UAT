@@ -4,7 +4,6 @@ import dayjs from 'dayjs';
 /* =============================
    Helpers
 ============================= */
-
 const formatDate = (date, includeTime = true) =>
   date
     ? dayjs(date).format(includeTime ? 'YYYY-MM-DDTHH:mm:ss' : 'YYYY-MM-DD')
@@ -16,9 +15,7 @@ const extract = (res) =>
 /* =============================
    Service
 ============================= */
-
 export const tripService = {
-
   async getAllTrips(params = {}) {
     const {
       page = 0,
@@ -28,7 +25,6 @@ export const tripService = {
     } = params;
 
     const query = { page, size, sort };
-
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         query[key] = value;
@@ -99,4 +95,34 @@ export const tripService = {
     return extract(await api.post(`/api/trips/${id}/finalize`));
   },
 
+  /* =============================
+     Metrics Methods
+  ============================= */
+  
+  /**
+   * Calculates trip metrics based on origin, destination and vehicle type
+   */
+  async calculateTripMetrics(origin, destination, vehicleType, tripId) {
+    const params = {
+      origin,
+      destination,
+      vehicleType,
+      tripId
+    };
+    return extract(await api.get('/api/trips/metrics/calculate', { params }));
+  },
+
+  /**
+   * Retrieves existing metrics for a specific trip
+   */
+  async getTripMetrics(tripId) {
+    return extract(await api.get(`/api/trips/${tripId}/metrics`));
+  },
+
+  /**
+   * Saves or updates metrics for a specific trip
+   */
+  async saveTripMetrics(tripId, metricsData) {
+    return extract(await api.post(`/api/trips/${tripId}/metrics`, metricsData));
+  }
 };
