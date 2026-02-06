@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
 import TripForm from './TripForm';
@@ -11,12 +11,12 @@ import {
   Chip, IconButton, Button, Card, CardContent, Tooltip,
   TablePagination, TextField
 } from '@mui/material';
+
 import {
-  Add, Edit, Delete, Visibility, CheckCircle, Dashboard, FileDownload, Refresh,
+  Add, Edit, Delete, Visibility, CheckCircle, Refresh,
   Search as SearchIcon
 } from '@mui/icons-material';
 
-// Status colors mapping
 const statusColors = {
   PLANNED: '#0288d1',
   ACTIVE: '#2e7d32',
@@ -28,7 +28,8 @@ const statusColors = {
 
 function TripList() {
   const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -44,96 +45,78 @@ function TripList() {
     total: 0,
   });
 
-  const fetchTrips = useCallback(async (page = 0, size = pagination.pageSize) => {
+  /* =============================
+     Fetch Trips
+  ============================== */
+  const fetchTrips = async ({
+    page = 0,
+    size = pagination.pageSize,
+    search = searchText,
+    status = statusFilter,
+  } = {}) => {
     setLoading(true);
     try {
-      const params = {
+      const response = await tripService.getAllTrips({
         page,
-        size
-      };
-      
-      // Add optional filters
-      if (searchText.trim()) {
-        params.search = searchText;
-      }
-      
-      if (statusFilter !== 'all') {
-        params.status = statusFilter;
-      }
+        size,
+        ...(search && { search }),
+        ...(status !== 'all' && { status }),
+      });
 
-      console.log('Calling tripService.getAllTrips with:', params);
-      const response = await tripService.getAllTrips(params);
-      console.log('Response from service:', response);
+      setTrips(response.content);
 
-      setTrips(response.content || []);
       setPagination({
-        page: response.number || page,
-        pageSize: response.size || size,
-        total: response.totalElements || 0
+        page: response.number,
+        pageSize: response.size,
+        total: response.totalElements,
       });
     } catch (err) {
-      console.error('Error fetching trips:', err);
-      alert(`Failed to load trips: ${err.message}`);
+      console.error('Failed to fetch trips:', err);
       setTrips([]);
     } finally {
       setLoading(false);
     }
-  }, [searchText, statusFilter, pagination.pageSize]);
+  };
 
-  // Initial fetch
+  /* =============================
+     Initial Load
+  ============================== */
   useEffect(() => {
-    fetchTrips(0);
+    fetchTrips();
   }, []);
 
-  // Handle pagination changes
-  const handlePageChange = (event, newPage) => {
-    fetchTrips(newPage);
+  /* =============================
+     Debounced Filters
+  ============================== */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTrips({ page: 0 });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchText, statusFilter]);
+
+  /* =============================
+     Pagination Handlers
+  ============================== */
+  const handlePageChange = (_, newPage) => {
+    fetchTrips({ page: newPage });
   };
 
   const handleRowsPerPageChange = (event) => {
     const newSize = parseInt(event.target.value, 10);
-    setPagination(prev => ({ ...prev, pageSize: newSize }));
-    fetchTrips(0, newSize);
+    fetchTrips({ page: 0, size: newSize });
   };
 
-  // Handle filter changes with debounce
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      fetchTrips(0);
-    }, 500);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchText, statusFilter, fetchTrips]);
-
-  const handleClearFilters = () => {
-    setSearchText('');
-    setStatusFilter('all');
-  };
-
-  const handleViewTrip = (trip) => {
-    setSelectedTrip(trip);
-    setShowDetailsModal(true);
-  };
-
-  const handleEditTrip = (trip) => {
-    setSelectedTrip(trip);
-    setShowEditModal(true);
-  };
-
-  const handleOpenMetrics = (trip) => {
-    setSelectedTrip(trip);
-    setShowMetricsModal(true);
-  };
-
+  /* =============================
+     Actions
+  ============================== */
   const handleFinalizeTrip = async (id) => {
     try {
       await tripService.finalizeTrip(id);
-      alert('Trip finalized');
-      fetchTrips(pagination.page);
+      fetchTrips({ page: pagination.page });
     } catch (err) {
-      alert(`Failed to finalize trip: ${err.message}`);
+      console.error(err);
     }
   };
 
@@ -141,12 +124,20 @@ function TripList() {
     if (!window.confirm('Delete this trip?')) return;
     try {
       await tripService.deleteTrip(id);
-      alert('Trip deleted');
-      fetchTrips(0);
+      fetchTrips({ page: 0 });
     } catch (err) {
-      alert(`Failed to delete trip: ${err.message}`);
+      console.error(err);
     }
   };
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setStatusFilter('all');
+  };
+
+  /* =============================
+     UI
+  ============================== */
 
   if (loading && trips.length === 0) {
     return (
@@ -162,21 +153,23 @@ function TripList() {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
           <Typography variant="h4">Trip Management</Typography>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography variant="subtitle2" color="text.secondary">
             Total trips: {pagination.total}
           </Typography>
         </Box>
+
         <Box display="flex" gap={1}>
-          <Button 
-            startIcon={<Refresh />} 
-            onClick={() => fetchTrips(pagination.page)} 
+          <Button
+            startIcon={<Refresh />}
+            onClick={() => fetchTrips({ page: pagination.page })}
             variant="outlined"
           >
             Refresh
           </Button>
-          <Button 
-            startIcon={<Add />} 
-            onClick={() => setShowCreateModal(true)} 
+
+          <Button
+            startIcon={<Add />}
+            onClick={() => setShowCreateModal(true)}
             variant="contained"
           >
             Create Trip
@@ -190,13 +183,13 @@ function TripList() {
           <TextField
             size="small"
             label="Search"
-            placeholder="Trip #, Origin, Destination..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             InputProps={{
-              startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: 'action.active' }} />,
+              startAdornment: (
+                <SearchIcon fontSize="small" sx={{ mr: 1 }} />
+              ),
             }}
-            sx={{ width: 250 }}
           />
 
           <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -206,101 +199,83 @@ function TripList() {
               onChange={(e) => setStatusFilter(e.target.value)}
               label="Status"
             >
-              <MenuItem value="all">All Statuses</MenuItem>
-              {Object.keys(statusColors).map(s => (
+              <MenuItem value="all">All</MenuItem>
+              {Object.keys(statusColors).map((s) => (
                 <MenuItem key={s} value={s}>{s}</MenuItem>
               ))}
             </Select>
           </FormControl>
 
-          <Button onClick={handleClearFilters}>Clear Filters</Button>
+          <Button onClick={handleClearFilters}>
+            Clear
+          </Button>
         </CardContent>
       </Card>
 
       {/* Table */}
-      <TableContainer component={Paper} sx={{ mb: 2 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell><strong>Trip Number</strong></TableCell>
+              <TableCell><strong>Trip #</strong></TableCell>
               <TableCell><strong>Status</strong></TableCell>
               <TableCell><strong>Origin</strong></TableCell>
               <TableCell><strong>Destination</strong></TableCell>
-              <TableCell><strong>Start Date</strong></TableCell>
+              <TableCell><strong>Start</strong></TableCell>
               <TableCell><strong>Actions</strong></TableCell>
             </TableRow>
           </TableHead>
+
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">
-                    {searchText || statusFilter !== 'all' 
-                      ? 'No trips match your filters' 
-                      : 'No trips found'}
-                  </Typography>
-                  {(searchText || statusFilter !== 'all') && (
-                    <Button onClick={handleClearFilters} sx={{ mt: 1 }}>
-                      Clear Filters
-                    </Button>
-                  )}
+                <TableCell colSpan={6} align="center">
+                  No trips found
                 </TableCell>
               </TableRow>
             ) : (
-              trips.map(trip => (
+              trips.map((trip) => (
                 <TableRow key={trip.id} hover>
-                  <TableCell>
-                    <Typography fontWeight="medium">{trip.tripNumber}</Typography>
-                  </TableCell>
+                  <TableCell>{trip.tripNumber}</TableCell>
                   <TableCell>
                     <Chip
                       label={trip.status}
                       size="small"
-                      sx={{ 
-                        bgcolor: statusColors[trip.status], 
-                        color: 'white',
-                        fontWeight: 'medium'
+                      sx={{
+                        bgcolor: statusColors[trip.status],
+                        color: '#fff',
                       }}
                     />
                   </TableCell>
                   <TableCell>{trip.originLocation}</TableCell>
                   <TableCell>{trip.destinationLocation}</TableCell>
                   <TableCell>
-                    {trip.plannedStartDate ? dayjs(trip.plannedStartDate).format('YYYY-MM-DD HH:mm') : '-'}
+                    {trip.plannedStartDate
+                      ? dayjs(trip.plannedStartDate).format('YYYY-MM-DD HH:mm')
+                      : '-'}
                   </TableCell>
                   <TableCell>
-                    <Box display="flex" gap={0.5}>
-                      <Tooltip title="View Details">
-                        <IconButton size="small" onClick={() => handleViewTrip(trip)}>
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit Trip">
-                        <IconButton size="small" onClick={() => handleEditTrip(trip)}>
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {(trip.status !== 'COMPLETED' && trip.status !== 'CLOSED') && (
-                        <Tooltip title="Finalize Trip">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleFinalizeTrip(trip.id)}
-                            color="success"
-                          >
-                            <CheckCircle fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Delete Trip">
-                        <IconButton 
-                          size="small" 
-                          color="error" 
-                          onClick={() => handleDeleteTrip(trip.id)}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
+                    <IconButton onClick={() => setShowDetailsModal(true)}>
+                      <Visibility fontSize="small" />
+                    </IconButton>
+                    <IconButton onClick={() => {
+                      setSelectedTrip(trip);
+                      setShowEditModal(true);
+                    }}>
+                      <Edit fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => handleFinalizeTrip(trip.id)}
+                      color="success"
+                    >
+                      <CheckCircle fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => handleDeleteTrip(trip.id)}
+                      color="error"
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))
@@ -309,57 +284,42 @@ function TripList() {
         </Table>
       </TableContainer>
 
-      {/* Pagination */}
-      {trips.length > 0 && (
-        <Paper sx={{ p: 1 }}>
-          <TablePagination
-            component="div"
-            count={pagination.total}
-            page={pagination.page}
-            onPageChange={handlePageChange}
-            rowsPerPage={pagination.pageSize}
-            onRowsPerPageChange={handleRowsPerPageChange}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            labelRowsPerPage="Trips per page:"
-          />
-        </Paper>
-      )}
+      <TablePagination
+        component="div"
+        count={pagination.total}
+        page={pagination.page}
+        onPageChange={handlePageChange}
+        rowsPerPage={pagination.pageSize}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        rowsPerPageOptions={[5, 10, 25, 50]}
+      />
 
       {/* Modals */}
       {showCreateModal && (
         <TripForm
-          open={showCreateModal}
+          open
           onClose={() => setShowCreateModal(false)}
-          onSuccess={() => fetchTrips(0)}
+          onSuccess={() => fetchTrips({ page: 0 })}
         />
       )}
-      
+
       {showEditModal && selectedTrip && (
         <TripForm
-          open={showEditModal}
+          open
           mode="edit"
           tripId={selectedTrip.id}
           initialData={selectedTrip}
           onClose={() => setShowEditModal(false)}
-          onSuccess={() => fetchTrips(pagination.page)}
+          onSuccess={() => fetchTrips({ page: pagination.page })}
         />
       )}
-      
-      {showMetricsModal && selectedTrip && (
-        <TripMetricsForm
-          open={showMetricsModal}
-          tripId={selectedTrip.id}
-          onClose={() => setShowMetricsModal(false)}
-          onSuccess={() => fetchTrips(pagination.page)}
-        />
-      )}
-      
+
       {showDetailsModal && selectedTrip && (
         <TripDetails
-          open={showDetailsModal}
+          open
           tripId={selectedTrip.id}
           onClose={() => setShowDetailsModal(false)}
-          onUpdate={() => fetchTrips(pagination.page)}
+          onUpdate={() => fetchTrips({ page: pagination.page })}
         />
       )}
     </Box>
