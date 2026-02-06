@@ -146,23 +146,15 @@ export const tripService = {
   // Metrics
   // --------------------------
 
- calculateTripMetrics: async (origin, destination, tripId,vehicleType = 'TRUCK') => {
-  try {
-    // Make sure tripId is a number, not a string location
-    const numericTripId = Number(tripId);
-    
-    const response = await api.post(`/api/trip-metrics/${numericTripId}/calculate`, {
-      originLocation: origin,
-      destinationLocation: destination,
-      vehicleType: vehicleType
-    });
-    return response.data !== undefined ? response.data : response;
-  } catch (error) {
-    console.error('Error calculating trip metrics:', error);
-    throw error;
-  }
-},
-
+ calculateTripMetrics: async (origin, destination, vehicleType = 'TRUCK') => {
+    try {
+      const response = await api.post('/api/trips/calculate-metrics', { origin, destination, vehicleType });
+      return response.data;
+    } catch (error) {
+      console.error('Error calculating trip metrics:', error);
+      throw error;
+    }
+  },
 // OR if you want a preview-only version (no tripId needed):
 calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') => {
   try {
