@@ -149,7 +149,7 @@ export const tripService = {
   calculateTripMetrics: async (origin, destination, vehicleType = 'TRUCK') => {
     try {
       // RESTORED: The working version uses POST with a body
-      const response = await api.post('/api/trips/calculate-metrics', { origin, destination, vehicleType });
+      const response = await api.get('/api/trips/calculate-metrics', { origin, destination, vehicleType });
       return response.data !== undefined ? response.data : response;
     } catch (error) {
       console.error('Error calculating trip metrics:', error);
