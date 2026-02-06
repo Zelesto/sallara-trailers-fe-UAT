@@ -80,13 +80,23 @@ api.interceptors.response.use(
         error.message;
     }
 
-    if (status === 401) {
-      const isLoginPage = window.location.pathname === '/login';
-      const isLoginRequest = error.config?.url?.includes('/auth/login');
-
-
-      message = response?.data?.message || 'Invalid credentials';
-    }
+if (status === 401) {
+  const isLoginPage = window.location.pathname.includes('/login');
+  const isLoginRequest = error.config?.url?.includes('/auth/login');
+  const isSignupPage = window.location.pathname.includes('/signup');
+  const isAuthPage = isLoginPage || isSignupPage;
+  
+  if (!isAuthPage && !isLoginRequest) {
+    console.warn('Session expired, redirecting to login');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setTimeout(() => {
+      window.location.href = '/login?session=expired';
+    }, 100);
+  }
+  
+  message = response?.data?.message || 'Invalid credentials';
+}
 
     const normalizedError = {
       status,
