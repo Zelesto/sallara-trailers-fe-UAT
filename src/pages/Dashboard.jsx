@@ -23,7 +23,7 @@ import {
   Stack,
   Tooltip,
   Divider,
-  CircularProgress  // Fixed - use the actual name
+  CircularProgress  // Fixed: This is the correct import name
 } from '@mui/material';
 import {
   DirectionsCar,
@@ -102,12 +102,20 @@ const Dashboard = () => {
           startDate.setDate(endDate.getDate() - 30);
       }
 
+      // Format dates as YYYY-MM-DD
+      const formatDate = (date) => date.toISOString().split('T')[0];
+      
       const response = await analyticsService.getDashboardKPIs(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
+        formatDate(startDate),
+        formatDate(endDate)
       );
 
-      setDashboardData(response);
+      // Ensure response has expected structure
+      if (response && response.success !== false) {
+        setDashboardData(response);
+      } else {
+        throw new Error(response?.message || 'Invalid response structure');
+      }
 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -146,7 +154,7 @@ const Dashboard = () => {
       <CardContent sx={{ p: 3, position: 'relative' }}>
         {cardLoading && (
           <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
-            <MuiCircularProgress size={20} />
+            <CircularProgress size={20} /> {/* Fixed: Changed from MuiCircularProgress */}
           </Box>
         )}
 
@@ -179,7 +187,7 @@ const Dashboard = () => {
              unit === 'km/L' ? `${value.toFixed(1)} km/L` :
              unit === 'rand/km' ? `${formatCurrency(value)}/km` :
              formatNumber(value, 1))
-            : value}
+            : value || 'N/A'}
         </Typography>
 
         {subtitle && (
@@ -239,7 +247,9 @@ const Dashboard = () => {
 
   // Top Drivers Table Component
   const TopDriversTable = () => {
-    if (!dashboardData?.topDrivers?.length) {
+    const topDrivers = dashboardData?.topDrivers || dashboardData?.summary?.topDrivers || [];
+    
+    if (!topDrivers.length) {
       return (
         <Paper sx={{
           borderRadius: 2,
@@ -301,7 +311,7 @@ const Dashboard = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {dashboardData.topDrivers.slice(0, 5).map((driver, index) => (
+                {topDrivers.slice(0, 5).map((driver, index) => (
                   <TableRow
                     key={index}
                     hover
@@ -325,7 +335,7 @@ const Dashboard = () => {
                         </Avatar>
                         <Box>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {driver.name || `Driver ${index + 1}`}
+                            {driver.name || driver.driverName || `Driver ${index + 1}`}
                           </Typography>
                           <Typography variant="body2" color="textSecondary">
                             {index === 0 ? '🥇 Best Driver' :
@@ -337,27 +347,27 @@ const Dashboard = () => {
                     </TableCell>
                     <TableCell align="center">
                       <Chip
-                        label={`${driver.efficiency?.toFixed(1) || '0.0'} km/L`}
+                        label={`${(driver.efficiency || driver.kmPerLiter || 0).toFixed(1)} km/L`}
                         size="small"
                         sx={{
-                          backgroundColor: driver.efficiency > 8 ? '#E6FFFA' :
-                                         driver.efficiency > 7 ? '#FEF5E5' : '#FDEDE8',
-                          color: driver.efficiency > 8 ? '#13DEB9' :
-                                driver.efficiency > 7 ? '#FFAE1F' : '#FA896B',
+                          backgroundColor: (driver.efficiency || driver.kmPerLiter || 0) > 8 ? '#E6FFFA' :
+                                         (driver.efficiency || driver.kmPerLiter || 0) > 7 ? '#FEF5E5' : '#FDEDE8',
+                          color: (driver.efficiency || driver.kmPerLiter || 0) > 8 ? '#13DEB9' :
+                                (driver.efficiency || driver.kmPerLiter || 0) > 7 ? '#FFAE1F' : '#FA896B',
                           fontWeight: 600
                         }}
                       />
                     </TableCell>
                     <TableCell align="center">
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {driver.tripCount || 0}
+                        {driver.tripCount || driver.tripsCompleted || 0}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
                       <Typography variant="body2" sx={{
                         fontWeight: 600,
-                        color: driver.costPerKm < 2 ? '#13DEB9' :
-                               driver.costPerKm < 3 ? '#FFAE1F' : '#FA896B'
+                        color: (driver.costPerKm || 0) < 2 ? '#13DEB9' :
+                               (driver.costPerKm || 0) < 3 ? '#FFAE1F' : '#FA896B'
                       }}>
                         {formatCurrency(driver.costPerKm || 0)}/km
                       </Typography>
@@ -390,7 +400,9 @@ const Dashboard = () => {
 
   // Recent Activity Component
   const RecentActivity = () => {
-    const activities = dashboardData?.recentActivities || [
+    // Use data from backend or fallback to mock data
+    const activities = dashboardData?.recentActivities || 
+                     dashboardData?.summary?.recentActivities || [
       { type: 'fuel', message: 'Fuel refill completed', vehicle: 'ABC-123', time: '2 hours ago', status: 'success' },
       { type: 'maintenance', message: 'Maintenance scheduled', vehicle: 'XYZ-789', time: '5 hours ago', status: 'warning' },
       { type: 'trip', message: 'New trip completed', vehicle: 'DEF-456', time: '1 day ago', status: 'info' },
@@ -430,7 +442,7 @@ const Dashboard = () => {
             Recent Activity
           </Typography>
           <Stack spacing={2}>
-            {activities.map((activity, index) => (
+            {activities.slice(0, 5).map((activity, index) => (
               <Paper
                 key={index}
                 sx={{
@@ -451,11 +463,11 @@ const Dashboard = () => {
                       {activity.message}
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Vehicle: {activity.vehicle}
+                      {activity.vehicle ? `Vehicle: ${activity.vehicle}` : 'System update'}
                     </Typography>
                   </Box>
                   <Typography variant="caption" color="textSecondary">
-                    {activity.time}
+                    {activity.time || 'Recently'}
                   </Typography>
                 </Stack>
               </Paper>
@@ -503,7 +515,7 @@ const Dashboard = () => {
   }
 
   const summary = dashboardData?.summary || {};
-  const vehicleKpis = dashboardData?.vehicleKpis || [];
+  const vehicleKpis = dashboardData?.vehicleKpis || dashboardData?.topVehicles || [];
   const periodStats = dashboardData?.period || {};
 
   return (
@@ -577,7 +589,7 @@ const Dashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Active Vehicles"
-            value={summary.activeVehicles || 0}
+            value={summary.activeVehicles || summary.totalVehicles || 0}
             icon={DirectionsCar}
             color="primary"
             trend={periodStats.vehicleTrend}
@@ -589,7 +601,7 @@ const Dashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Active Drivers"
-            value={summary.activeDrivers || 0}
+            value={summary.activeDrivers || summary.totalDrivers || 0}
             icon={People}
             color="success"
             trend={periodStats.driverTrend}
@@ -601,7 +613,7 @@ const Dashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Fuel Efficiency"
-            value={summary.avgFuelEfficiency || 0}
+            value={summary.avgFuelEfficiency || summary.fuelEfficiency || 0}
             icon={LocalGasStation}
             unit="km/L"
             color="warning"
@@ -614,7 +626,7 @@ const Dashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Fuel Cost"
-            value={summary.totalFuelCost || 0}
+            value={summary.totalFuelCost || summary.fuelCost || 0}
             icon={AttachMoney}
             unit="currency"
             color="error"
@@ -717,7 +729,7 @@ const Dashboard = () => {
             {vehicleKpis.length > 0 ? (
               <Stack spacing={2}>
                 {vehicleKpis
-                  .sort((a, b) => (b.kmPerLiter || 0) - (a.kmPerLiter || 0))
+                  .sort((a, b) => (b.kmPerLiter || b.efficiency || 0) - (a.kmPerLiter || a.efficiency || 0))
                   .slice(0, 4)
                   .map((vehicle, index) => (
                     <Paper
@@ -740,22 +752,23 @@ const Dashboard = () => {
                               />
                             )}
                             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                              {vehicle.registrationNumber || `Vehicle ${index + 1}`}
+                              {vehicle.registrationNumber || vehicle.vehicleName || `Vehicle ${index + 1}`}
                             </Typography>
                           </Stack>
                           <Stack direction="row" spacing={2} mt={1}>
                             <Typography variant="body2" color="textSecondary">
-                              Efficiency: {vehicle.kmPerLiter?.toFixed(1) || '0.0'} km/L
+                              Efficiency: {(vehicle.kmPerLiter || vehicle.efficiency || 0).toFixed(1)} km/L
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                              Distance: {formatNumber(vehicle.totalKm || 0)} km
+                              Distance: {formatNumber(vehicle.totalKm || vehicle.distance || 0)} km
                             </Typography>
                           </Stack>
                         </Box>
                         <Box sx={{ textAlign: 'right' }}>
                           <Chip
                             label={formatCurrency(vehicle.costPerKm || 0) + '/km'}
-                            color={vehicle.kmPerLiter > 8 ? 'success' : vehicle.kmPerLiter > 6 ? 'warning' : 'error'}
+                            color={(vehicle.kmPerLiter || vehicle.efficiency || 0) > 8 ? 'success' : 
+                                   (vehicle.kmPerLiter || vehicle.efficiency || 0) > 6 ? 'warning' : 'error'}
                             size="small"
                             sx={{ fontWeight: 600, mb: 1 }}
                           />
