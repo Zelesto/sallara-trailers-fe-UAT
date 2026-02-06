@@ -1,5 +1,5 @@
 // src/components/Layout/Layout.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -24,6 +24,7 @@ import {
   Menu,
   MenuItem,
   Collapse,
+  Tooltip,
 } from '@mui/material';
 
 import {
@@ -119,6 +120,16 @@ const SectionHeader = styled(ListItemButton)(({ theme }) => ({
   },
 }));
 
+// User profile container with fixed position at bottom
+const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
+  borderTop: `1px solid ${theme.palette.divider}`,
+  padding: collapsed ? theme.spacing(2, 1) : theme.spacing(2),
+  position: 'sticky',
+  bottom: 0,
+  backgroundColor: theme.palette.background.paper,
+  zIndex: 2,
+}));
+
 // Updated menu structure with Trip Management section
 const menuSections = [
   {
@@ -210,10 +221,11 @@ const menuSections = [
 
 const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Start with sidebar collapsed by default
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [expandedSections, setExpandedSections] = useState(
     menuSections.reduce((acc, _, index) => {
-      acc[index] = true; // All sections expanded by default
+      acc[index] = false; // All sections collapsed by default
       return acc;
     }, {})
   );
@@ -224,6 +236,19 @@ const MainLayout = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Load sidebar state from localStorage on mount
+  useEffect(() => {
+    const savedSidebarState = localStorage.getItem('sidebarCollapsed');
+    if (savedSidebarState !== null) {
+      setSidebarCollapsed(JSON.parse(savedSidebarState));
+    }
+  }, []);
+
+  // Save sidebar state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -435,7 +460,7 @@ const MainLayout = () => {
         )}
       </LogoContainer>
 
-      <Box sx={{ flex: 1, overflow: 'auto', py: 2 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', py: 2, pb: 8 }}>
         {menuSections.map((section, index) => (
           <React.Fragment key={section.title}>
             {!sidebarCollapsed ? (
@@ -568,42 +593,42 @@ const MainLayout = () => {
                     const isSelected = location.pathname === item.path ||
                                       (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
                     return (
-                      <ListItemButton
-                        key={item.text}
-                        onClick={() => handleNavigation(item.path)}
-                        selected={isSelected}
-                        sx={{
-                          justifyContent: 'center',
-                          py: 1.25,
-                          borderRadius: 1,
-                          margin: 0.5,
-                          minHeight: 44,
-                          '&.Mui-selected': {
-                            backgroundColor: theme.palette.primary.light + '20',
-                            position: 'relative',
-                            '&::after': {
-                              content: '""',
-                              position: 'absolute',
-                              left: 0,
-                              top: '50%',
-                              transform: 'translateY(-50%)',
-                              width: 3,
-                              height: 20,
-                              backgroundColor: theme.palette.primary.main,
-                              borderRadius: '0 3px 3px 0',
+                      <Tooltip key={item.text} title={item.text} placement="right" arrow>
+                        <ListItemButton
+                          onClick={() => handleNavigation(item.path)}
+                          selected={isSelected}
+                          sx={{
+                            justifyContent: 'center',
+                            py: 1.25,
+                            borderRadius: 1,
+                            margin: 0.5,
+                            minHeight: 44,
+                            '&.Mui-selected': {
+                              backgroundColor: theme.palette.primary.light + '20',
+                              position: 'relative',
+                              '&::after': {
+                                content: '""',
+                                position: 'absolute',
+                                left: 0,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                width: 3,
+                                height: 20,
+                                backgroundColor: theme.palette.primary.main,
+                                borderRadius: '0 3px 3px 0',
+                              },
                             },
-                          },
-                        }}
-                        title={item.text}
-                      >
-                        <ListItemIcon sx={{
-                          minWidth: 'auto',
-                          justifyContent: 'center',
-                          color: isSelected ? theme.palette.primary.main : 'inherit'
-                        }}>
-                          {item.icon}
-                        </ListItemIcon>
-                      </ListItemButton>
+                          }}
+                        >
+                          <ListItemIcon sx={{
+                            minWidth: 'auto',
+                            justifyContent: 'center',
+                            color: isSelected ? theme.palette.primary.main : 'inherit'
+                          }}>
+                            {item.icon}
+                          </ListItemIcon>
+                        </ListItemButton>
+                      </Tooltip>
                     );
                   })}
                 </List>
@@ -616,8 +641,10 @@ const MainLayout = () => {
         ))}
       </Box>
 
-      {!sidebarCollapsed && (
-        <Box sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+      {/* User Profile - Always visible at bottom */}
+      <UserProfileContainer collapsed={sidebarCollapsed}>
+        {!sidebarCollapsed ? (
+          // Expanded user profile view
           <Stack direction="row" spacing={2} alignItems="center">
             <Avatar
               sx={{
@@ -649,32 +676,31 @@ const MainLayout = () => {
               </Typography>
             </Box>
           </Stack>
-        </Box>
-      )}
-
-      {sidebarCollapsed && !isMobile && (
-        <Box sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-          <ListItemButton
-            onClick={handleUserMenuOpen}
-            sx={{
-              justifyContent: 'center',
-              borderRadius: 1,
-              py: 1.5,
-            }}
-            title="User Profile"
-          >
-            <Avatar
+        ) : (
+          // Collapsed user profile view
+          <Tooltip title={user?.username || "User Profile"} placement="right" arrow>
+            <ListItemButton
+              onClick={handleUserMenuOpen}
               sx={{
-                width: 32,
-                height: 32,
-                bgcolor: 'primary.main',
+                justifyContent: 'center',
+                borderRadius: 1,
+                py: 1.5,
+                px: 0,
               }}
             >
-              {user?.username?.charAt(0).toUpperCase() || <Person />}
-            </Avatar>
-          </ListItemButton>
-        </Box>
-      )}
+              <Avatar
+                sx={{
+                  width: 32,
+                  height: 32,
+                  bgcolor: 'primary.main',
+                }}
+              >
+                {user?.username?.charAt(0).toUpperCase() || <Person />}
+              </Avatar>
+            </ListItemButton>
+          </Tooltip>
+        )}
+      </UserProfileContainer>
     </Box>
   );
 
@@ -767,18 +793,6 @@ const MainLayout = () => {
             <IconButton size="small" sx={{ borderRadius: 1 }}>
               <Settings />
             </IconButton>
-
-            {sidebarCollapsed && !isMobile && (
-              <IconButton
-                onClick={handleUserMenuOpen}
-                size="small"
-                sx={{ ml: 1 }}
-              >
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                  {user?.name?.charAt(0) || <Person />}
-                </Avatar>
-              </IconButton>
-            )}
 
             {/* New Trip Button - Updated to use URL hash */}
             <Button
