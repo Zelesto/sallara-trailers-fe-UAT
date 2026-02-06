@@ -147,14 +147,21 @@ export const tripService = {
   // --------------------------
 
 calculateTripMetrics: async (tripId, origin, destination, vehicleType = 'TRUCK') => {
-    try {
-      const response = await api.post('/api/trip-metrics/calculate', { origin, destination, vehicleType,tripId });
-      return response.data;
-    } catch (error) {
-      console.error('Error calculating trip metrics:', error);
-      throw error;
-    }
-  },
+  try {
+    // Make sure tripId is a number
+    const numericTripId = Number(tripId);
+    
+    const response = await api.post(`/api/trip-metrics/${numericTripId}/calculate`, {
+      originLocation: origin,           // Field name should match backend DTO
+      destinationLocation: destination, // Field name should match backend DTO
+      vehicleType: vehicleType
+    });
+    return response.data !== undefined ? response.data : response;
+  } catch (error) {
+    console.error('Error calculating trip metrics:', error);
+    throw error;
+  }
+},
 // OR if you want a preview-only version (no tripId needed):
 calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') => {
   try {
