@@ -19,13 +19,13 @@ import {
   Box,
   Tabs,
   Tab,
-  Divider,
   Tooltip,
   Stack,
   IconButton,
   CircularProgress,
   Chip,
-  InputAdornment
+  InputAdornment,
+  Divider
 } from '@mui/material';
 import {
   Calculate as CalculatorIcon,
@@ -36,7 +36,6 @@ import {
   AttachMoney as MoneyIcon,
   Timeline as RadarIcon,
   LocalGasStation as FuelIcon,
-  Warning as WarningIcon,
   Save as SaveIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
@@ -56,7 +55,7 @@ const inferVehicleType = (vehicle) => {
 
 const formatDuration = (hours = 0) => {
   if (!hours || isNaN(hours)) return '0h';
-  
+
   const minutes = Math.round(hours * 60);
   const d = Math.floor(minutes / 1440);
   const h = Math.floor((minutes % 1440) / 60);
@@ -66,7 +65,7 @@ const formatDuration = (hours = 0) => {
   if (d > 0) parts.push(`${d}d`);
   if (h > 0) parts.push(`${h}h`);
   if (m > 0 && d === 0) parts.push(`${m}m`);
-  
+
   return parts.join(' ') || '0h';
 };
 
@@ -79,15 +78,15 @@ const VEHICLE_TYPES = [
 
 /* -------------------- component -------------------- */
 
-const TripMetricsForm = ({ 
-  open = false, 
-  onClose, 
-  onSuccess, 
-  tripId, 
-  initialMetrics = {}, 
-  originLocation = '', 
-  destinationLocation = '', 
-  vehicleInfo 
+const TripMetricsForm = ({
+  open = false,
+  onClose,
+  onSuccess,
+  tripId,
+  initialMetrics = {},
+  originLocation = '',
+  destinationLocation = '',
+  vehicleInfo
 }) => {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
@@ -95,7 +94,7 @@ const TripMetricsForm = ({
   const [calculatedMetrics, setCalculatedMetrics] = useState(null);
   const [routeError, setRouteError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
-  
+
   const [formData, setFormData] = useState({
     originLocation: '',
     destinationLocation: '',
@@ -107,65 +106,56 @@ const TripMetricsForm = ({
     incidents: ''
   });
 
-  /* ---------- modal lifecycle ---------- */
-  // Reset form when dialog opens/closes
-  useEffect(() => {
-    if (!open) {
-      // Reset state when dialog closes
-      const timer = setTimeout(() => {
-        setFormData({
-          originLocation: '',
-          destinationLocation: '',
-          totalDistance: '',
-          estimatedDuration: '',
-          fuelConsumption: '',
-          estimatedCost: '',
-          delays: '',
-          incidents: ''
-        });
-        setCalculatedMetrics(null);
-        setRouteError('');
-        setVehicleType('TRUCK');
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
+  /* ---------- hydrate on open ---------- */
 
-  // Initialize form when dialog opens
   useEffect(() => {
     if (!open) return;
 
-    const vehicleTypeValue = inferVehicleType(vehicleInfo);
-    setVehicleType(vehicleTypeValue);
+    setVehicleType(inferVehicleType(vehicleInfo));
 
-    const initialValues = {
-      originLocation: originLocation || initialMetrics?.originLocation || '',
-      destinationLocation: destinationLocation || initialMetrics?.destinationLocation || '',
-      totalDistance: initialMetrics?.totalDistance?.toString() || '',
-      estimatedDuration: initialMetrics?.estimatedDuration?.toString() || '',
-      fuelConsumption: initialMetrics?.estimatedFuel?.toString() || '',
-      estimatedCost: initialMetrics?.estimatedCost?.toString() || '',
+    const hydrated = {
+      originLocation:
+        originLocation || initialMetrics?.originLocation || '',
+      destinationLocation:
+        destinationLocation || initialMetrics?.destinationLocation || '',
+      totalDistance:
+        (initialMetrics?.totalDistance ??
+          initialMetrics?.totalDistanceKm ??
+          '')?.toString(),
+      estimatedDuration:
+        (initialMetrics?.estimatedDuration ??
+          initialMetrics?.totalDurationHours ??
+          '')?.toString(),
+      fuelConsumption:
+        (initialMetrics?.estimatedFuel ??
+          initialMetrics?.fuelConsumption ??
+          initialMetrics?.fuelUsedLiters ??
+          '')?.toString(),
+      estimatedCost:
+        (initialMetrics?.estimatedCost ??
+          initialMetrics?.costAmount ??
+          '')?.toString(),
       delays: initialMetrics?.delays || '',
       incidents: initialMetrics?.incidents || ''
     };
 
-    setFormData(initialValues);
+    setFormData(hydrated);
     setCalculatedMetrics(null);
     setRouteError('');
   }, [open, initialMetrics, originLocation, destinationLocation, vehicleInfo]);
 
-  /* ---------- calculate ---------- */
-  const calculateMetrics = useCallback(async () => {
+  /* ---------- calculate route ---------- */
+
+  const calculateMetrics = async () => {
     if (!formData.originLocation || !formData.destinationLocation) {
       setRouteError('Please enter both origin and destination locations');
       return;
     }
 
-    setCalculating(true);
-    setRouteError('');
-
     try {
+      setCalculating(true);
+      setRouteError('');
+
       const dto = await tripService.calculateTripMetrics(
         formData.originLocation,
         formData.destinationLocation,
@@ -173,101 +163,65 @@ const TripMetricsForm = ({
         tripId
       );
 
-      if (!dto) {
-        throw new Error('No response from calculation service');
-      }
+      setCalculatedMetrics(dto);
 
-      const updatedFormData = {
-        ...formData,
+      // Auto-fill form but keep editable
+      setFormData(prev => ({
+        ...prev,
         totalDistance: dto.totalDistanceKm?.toString() || '',
         estimatedDuration: dto.totalDurationHours?.toString() || '',
         fuelConsumption: dto.fuelUsedLiters?.toString() || '',
         estimatedCost: dto.costAmount?.toString() || ''
-      };
+      }));
 
-      setFormData(updatedFormData);
-      setCalculatedMetrics(dto);
     } catch (err) {
-      console.error('Calculation error:', err);
-      setRouteError(err.message || 'Unable to calculate route. Please check the locations and try again.');
+      setRouteError(err?.response?.data?.error || err.message);
     } finally {
       setCalculating(false);
     }
-  }, [formData, vehicleType, tripId]);
+  };
 
-  /* ---------- save ---------- */
-  const handleSubmit = useCallback(async (e) => {
+  /* ---------- save metrics ---------- */
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Basic validation
-    if (!formData.totalDistance || !formData.estimatedDuration || !formData.fuelConsumption) {
-      setRouteError('Please fill in all required metrics (distance, duration, and fuel)');
-      return;
-    }
 
-    setLoading(true);
-    
     try {
-      const payload = {
+      setLoading(true);
+
+      await tripService.saveTripMetrics(tripId, {
         totalDistance: parseFloat(formData.totalDistance) || 0,
         estimatedDuration: parseFloat(formData.estimatedDuration) || 0,
         estimatedFuel: parseFloat(formData.fuelConsumption) || 0,
         estimatedCost: parseFloat(formData.estimatedCost) || 0,
-        delays: formData.delays || '',
-        incidents: formData.incidents || ''
-      };
+        delays: formData.delays,
+        incidents: formData.incidents
+      });
 
-      await tripService.saveTripMetrics(tripId, payload);
       onSuccess?.();
-      if (onClose) onClose();
+      onClose?.();
+
     } catch (err) {
-      console.error('Save error:', err);
-      setRouteError(err.response?.data?.error || err.message || 'Failed to save metrics');
+      setRouteError(err?.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }
-  }, [formData, tripId, onSuccess, onClose]);
+  };
 
-  /* ---------- form handlers ---------- */
-  const handleInputChange = useCallback((field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (routeError) setRouteError('');
-  }, [routeError]);
+  /* ---------- calculated summary card ---------- */
 
-  const handleNumberChange = useCallback((field, value) => {
-    // Allow only numbers and one decimal point
-    const numericValue = value.replace(/[^\d.]/g, '');
-    const parts = numericValue.split('.');
-    
-    if (parts.length > 2) {
-      // If more than one decimal point, keep only the first
-      const filteredValue = parts[0] + '.' + parts.slice(1).join('');
-      setFormData(prev => ({ ...prev, [field]: filteredValue }));
-    } else {
-      setFormData(prev => ({ ...prev, [field]: numericValue }));
-    }
-    
-    if (routeError) setRouteError('');
-  }, [routeError]);
-
-  /* ---------- render summary ---------- */
   const renderSummary = useMemo(() => {
     if (!calculatedMetrics) return null;
 
     return (
-      <Card 
-        variant="outlined" 
-        sx={{ 
-          mb: 3, 
-          borderColor: 'success.main',
-          borderWidth: 2
-        }}
-      >
+      <Card variant="outlined" sx={{ mb: 3, borderColor: 'success.main', borderWidth: 2 }}>
         <CardHeader
           title={
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack direction="row" spacing={1} alignItems="center">
               <RadarIcon color="primary" />
-              <Typography variant="h6">Calculated Route Summary</Typography>
+              <Typography variant="h6">
+                Auto Calculated Route Summary
+              </Typography>
               <Tooltip title="Calculated using OpenRouteService (OSM)">
                 <IconButton size="small">
                   <InfoIcon fontSize="small" />
@@ -276,70 +230,41 @@ const TripMetricsForm = ({
             </Stack>
           }
           action={
-            <Chip 
-              label="OpenRouteService" 
-              size="small" 
-              color="info" 
-              variant="outlined"
-            />
+            <Chip label="System Generated" color="success" variant="outlined" />
           }
         />
         <CardContent>
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6} md={3}>
-              <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                <Stack spacing={1} alignItems="center">
-                  <RadarIcon color="primary" />
-                  <Typography variant="h5" fontWeight="bold">
-                    {calculatedMetrics.totalDistanceKm?.toFixed(1) || '0.0'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Distance (km)
-                  </Typography>
-                </Stack>
-              </Card>
+              <MetricCard
+                icon={<RadarIcon color="primary" />}
+                value={calculatedMetrics.totalDistanceKm?.toFixed(1)}
+                label="Distance (km)"
+              />
             </Grid>
 
             <Grid item xs={12} sm={6} md={3}>
-              <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                <Stack spacing={1} alignItems="center">
-                  <TimeIcon color="primary" />
-                  <Typography variant="h5" fontWeight="bold">
-                    {formatDuration(calculatedMetrics.totalDurationHours)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Duration
-                  </Typography>
-                </Stack>
-              </Card>
+              <MetricCard
+                icon={<TimeIcon color="primary" />}
+                value={formatDuration(calculatedMetrics.totalDurationHours)}
+                label="Duration"
+              />
             </Grid>
 
             <Grid item xs={12} sm={6} md={3}>
-              <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                <Stack spacing={1} alignItems="center">
-                  <FuelIcon color="primary" />
-                  <Typography variant="h5" fontWeight="bold">
-                    {calculatedMetrics.fuelUsedLiters?.toFixed(1) || '0.0'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Fuel (L)
-                  </Typography>
-                </Stack>
-              </Card>
+              <MetricCard
+                icon={<FuelIcon color="primary" />}
+                value={calculatedMetrics.fuelUsedLiters?.toFixed(1)}
+                label="Fuel (L)"
+              />
             </Grid>
 
             <Grid item xs={12} sm={6} md={3}>
-              <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                <Stack spacing={1} alignItems="center">
-                  <MoneyIcon color="primary" />
-                  <Typography variant="h5" fontWeight="bold">
-                    R {calculatedMetrics.costAmount?.toFixed(2) || '0.00'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Estimated Cost
-                  </Typography>
-                </Stack>
-              </Card>
+              <MetricCard
+                icon={<MoneyIcon color="primary" />}
+                value={`R ${calculatedMetrics.costAmount?.toFixed(2)}`}
+                label="Estimated Cost"
+              />
             </Grid>
           </Grid>
         </CardContent>
@@ -347,289 +272,122 @@ const TripMetricsForm = ({
     );
   }, [calculatedMetrics]);
 
-  // Handle dialog close with validation
-  const handleDialogClose = useCallback((event, reason) => {
-    if (reason === 'backdropClick' && (loading || calculating)) {
-      return; // Prevent closing when loading or calculating
-    }
-    if (onClose) onClose();
-  }, [onClose, loading, calculating]);
-
-  // Generate form ID for accessibility
-  const formId = useMemo(() => `trip-metrics-form-${Date.now()}`, []);
-
   if (!open) return null;
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleDialogClose}
-      maxWidth="lg"
-      fullWidth
-      PaperProps={{
-        sx: { maxHeight: '90vh' }
-      }}
-    >
+    <Dialog open={open} maxWidth="lg" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <CalculatorIcon color="primary" />
+        <Stack direction="row" spacing={1} alignItems="center">
+          <CalculatorIcon />
           <Typography variant="h6">
-            Trip Metrics
-            {tripId && (
-              <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                #{tripId}
-              </Typography>
-            )}
+            Trip Metrics {tripId && `#${tripId}`}
           </Typography>
         </Stack>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ overflowY: 'auto' }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs 
-            value={activeTab} 
-            onChange={(e, newValue) => setActiveTab(newValue)}
-            aria-label="trip metrics tabs"
-          >
-            <Tab 
-              label="Auto Calculator" 
-              icon={<CalculatorIcon />} 
-              iconPosition="start"
-            />
-          </Tabs>
-        </Box>
+      <DialogContent dividers>
 
-        <Box component="form" id={formId} onSubmit={handleSubmit}>
-          <Alert 
-            severity="info" 
-            icon={<InfoIcon />}
-            sx={{ mb: 3 }}
-          >
-            <Typography variant="body2">
-              Using OpenStreetMap via OpenRouteService for free route calculation
-            </Typography>
+        {routeError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {routeError}
           </Alert>
+        )}
 
-          {/* Error Alert */}
-          {routeError && (
-            <Alert 
-              severity="error" 
-              sx={{ mb: 3 }}
-              onClose={() => setRouteError('')}
+        {/* Locations + Calculate */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Origin Location"
+              value={formData.originLocation}
+              onChange={(e) =>
+                setFormData({ ...formData, originLocation: e.target.value })
+              }
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Destination Location"
+              value={formData.destinationLocation}
+              onChange={(e) =>
+                setFormData({ ...formData, destinationLocation: e.target.value })
+              }
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth>
+              <InputLabel>Vehicle Type</InputLabel>
+              <Select
+                value={vehicleType}
+                label="Vehicle Type"
+                onChange={(e) => setVehicleType(e.target.value)}
+              >
+                {VEHICLE_TYPES.map(type => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={calculateMetrics}
+              disabled={calculating}
+              startIcon={calculating ? <CircularProgress size={20} /> : <CalculatorIcon />}
             >
-              {routeError}
-            </Alert>
-          )}
+              {calculating ? 'Calculating...' : 'Calculate Route'}
+            </Button>
+          </Grid>
+        </Grid>
 
-          {/* Trip Locations */}
-          <Card variant="outlined" sx={{ mb: 3 }}>
-            <CardHeader 
-              title="Trip Locations" 
-              titleTypographyProps={{ variant: 'subtitle1' }}
-            />
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Origin Location"
-                    value={formData.originLocation}
-                    onChange={(e) => handleInputChange('originLocation', e.target.value)}
-                    required
-                    disabled={calculating}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LocationIcon fontSize="small" />
-                        </InputAdornment>
-                      )
-                    }}
-                    size="small"
-                  />
-                </Grid>
+        {renderSummary}
 
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Destination Location"
-                    value={formData.destinationLocation}
-                    onChange={(e) => handleInputChange('destinationLocation', e.target.value)}
-                    required
-                    disabled={calculating}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LocationIcon fontSize="small" />
-                        </InputAdornment>
-                      )
-                    }}
-                    size="small"
-                  />
-                </Grid>
+        <Divider sx={{ mb: 3 }} />
 
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small" disabled={calculating}>
-                    <InputLabel>Vehicle Type</InputLabel>
-                    <Select
-                      value={vehicleType}
-                      onChange={(e) => setVehicleType(e.target.value)}
-                      label="Vehicle Type"
-                      startAdornment={
-                        <InputAdornment position="start">
-                          <CarIcon fontSize="small" />
-                        </InputAdornment>
-                      }
-                    >
-                      {VEHICLE_TYPES.map(type => (
-                        <MenuItem key={type.value} value={type.value}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <CarIcon fontSize="small" />
-                            <Typography>{type.label}</Typography>
-                          </Stack>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+        {/* Editable Actual Metrics */}
+        <Typography variant="subtitle1" sx={{ mb: 2 }}>
+          Actual / Editable Metrics
+        </Typography>
 
-                <Grid item xs={12} md={6}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    startIcon={calculating ? <CircularProgress size={20} /> : <CalculatorIcon />}
-                    onClick={calculateMetrics}
-                    disabled={calculating || !formData.originLocation || !formData.destinationLocation}
-                    sx={{ height: '40px' }}
-                  >
-                    {calculating ? 'Calculating...' : 'Calculate Route'}
-                  </Button>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
+        <Grid container spacing={2}>
+          {[
+            { key: 'totalDistance', label: 'Distance (km)' },
+            { key: 'estimatedDuration', label: 'Duration (hrs)' },
+            { key: 'fuelConsumption', label: 'Fuel (L)' },
+            { key: 'estimatedCost', label: 'Cost (R)' }
+          ].map(field => (
+            <Grid item xs={12} md={3} key={field.key}>
+              <TextField
+                fullWidth
+                label={field.label}
+                value={formData[field.key]}
+                onChange={(e) =>
+                  setFormData({ ...formData, [field.key]: e.target.value })
+                }
+              />
+            </Grid>
+          ))}
+        </Grid>
 
-          {/* Calculated Summary */}
-          {renderSummary}
-
-          {/* Metrics Input */}
-          <Card variant="outlined">
-            <CardHeader 
-              title="Metrics Details" 
-              titleTypographyProps={{ variant: 'subtitle1' }}
-            />
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Distance"
-                    value={formData.totalDistance}
-                    onChange={(e) => handleNumberChange('totalDistance', e.target.value)}
-                    required
-                    disabled={loading}
-                    size="small"
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">km</InputAdornment>
-                    }}
-                    placeholder="0.0"
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Duration"
-                    value={formData.estimatedDuration}
-                    onChange={(e) => handleNumberChange('estimatedDuration', e.target.value)}
-                    required
-                    disabled={loading}
-                    size="small"
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">hours</InputAdornment>
-                    }}
-                    placeholder="0.0"
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Fuel Consumption"
-                    value={formData.fuelConsumption}
-                    onChange={(e) => handleNumberChange('fuelConsumption', e.target.value)}
-                    required
-                    disabled={loading}
-                    size="small"
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">L</InputAdornment>
-                    }}
-                    placeholder="0.0"
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Estimated Cost"
-                    value={formData.estimatedCost}
-                    onChange={(e) => handleNumberChange('estimatedCost', e.target.value)}
-                    disabled={loading}
-                    size="small"
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">R</InputAdornment>
-                    }}
-                    placeholder="0.00"
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Delays"
-                    value={formData.delays}
-                    onChange={(e) => handleInputChange('delays', e.target.value)}
-                    disabled={loading}
-                    size="small"
-                    multiline
-                    rows={2}
-                    placeholder="Any delays encountered..."
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Incidents"
-                    value={formData.incidents}
-                    onChange={(e) => handleInputChange('incidents', e.target.value)}
-                    disabled={loading}
-                    size="small"
-                    multiline
-                    rows={2}
-                    placeholder="Any incidents reported..."
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-        <Button 
-          startIcon={<CloseIcon />} 
-          onClick={onClose}
-          disabled={loading || calculating}
-        >
+      <DialogActions>
+        <Button startIcon={<CloseIcon />} onClick={onClose}>
           Cancel
         </Button>
-        
+
         <Button
           variant="contained"
-          type="submit"
-          form={formId}
+          onClick={handleSubmit}
+          disabled={loading}
           startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-          disabled={loading || calculating || !formData.totalDistance || !formData.estimatedDuration || !formData.fuelConsumption}
         >
           {loading ? 'Saving...' : 'Save Metrics'}
         </Button>
@@ -637,5 +395,21 @@ const TripMetricsForm = ({
     </Dialog>
   );
 };
+
+/* ---------- small metric card component ---------- */
+
+const MetricCard = ({ icon, value, label }) => (
+  <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+    <Stack spacing={1} alignItems="center">
+      {icon}
+      <Typography variant="h6" fontWeight="bold">
+        {value || '0'}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+    </Stack>
+  </Card>
+);
 
 export default TripMetricsForm;
