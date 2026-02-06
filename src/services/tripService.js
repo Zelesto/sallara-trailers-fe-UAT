@@ -21,17 +21,75 @@ const extractData = (response) =>
  * ------------------------- */
 
 export const tripService = {
-  async getAllTrips(page = 0, size = 10) {
+  async getAllTrips(params = {}) {
+    // Set default values
+    const defaultParams = {
+      page: params.page || 0,
+      size: params.size || 10,
+      sort: params.sort || 'plannedStartDate,desc'
+    };
+
+    // Remove undefined/null values and empty strings
+    const cleanParams = {};
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        cleanParams[key] = value;
+      }
+    });
+
+    const finalParams = { ...defaultParams, ...cleanParams };
+    
+    console.log('Fetching trips with params:', finalParams);
+    
     const response = await api.get('/api/trips', {
-      params: { page, size },
+      params: finalParams,
     });
 
     const data = extractData(response);
-    return {
-      content: data?.content ?? [],
-      totalElements: data?.totalElements ?? 0,
-      totalPages: data?.totalPages ?? 1,
+    
+    // Handle different response formats
+    if (data && data.content !== undefined) {
+      return {
+        content: data.content || [],
+        totalElements: data.totalElements || 0,
+        totalPages: data.totalPages || 1,
+        number: data.number || 0,
+        size: data.size || 10,
+      };
+    } else if (Array.isArray(data)) {
+      // If backend returns plain array (no pagination)
+      return {
+        content: data,
+        totalElements: data.length,
+        totalPages: 1,
+        number: 0,
+        size: data.length,
+      };
+    } else {
+      // Handle other response formats
+      return {
+        content: [],
+        totalElements: 0,
+        totalPages: 0,
+        number: 0,
+        size: 10,
+      };
+    }
+  },
+
+  async searchTrips(searchParams = {}) {
+    // Alternative method with explicit parameter handling
+    const params = {
+      page: searchParams.page || 0,
+      size: searchParams.size || 10,
+      ...(searchParams.search && { search: searchParams.search }),
+      ...(searchParams.status && searchParams.status !== 'all' && { status: searchParams.status }),
+      ...(searchParams.startDate && { startDate: searchParams.startDate }),
+      ...(searchParams.endDate && { endDate: searchParams.endDate }),
+      sort: 'plannedStartDate,desc'
     };
+
+    return this.getAllTrips(params);
   },
 
   async getTripById(id) {
