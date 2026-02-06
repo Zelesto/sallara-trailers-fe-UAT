@@ -146,8 +146,7 @@ export const tripService = {
   // Metrics
   // --------------------------
 
-// CORRECT: Use object parameter to avoid confusion
-calculateTripMetrics: async (params) => {
+calculateTripMetrics: async function(params) {  // Changed to regular function
   try {
     // Handle both object and positional parameter styles
     let tripId, origin, destination, vehicleType;
@@ -160,25 +159,24 @@ calculateTripMetrics: async (params) => {
         destination, 
         vehicleType = 'TRUCK' 
       } = params);
-    } else if (typeof params === 'string') {
+    } else {
       // Legacy positional parameter style: calculateTripMetrics(origin, destination, tripId, vehicleType)
-      // We need to get all arguments passed
-      const args = Array.from(arguments); // Get all arguments
+      // Using arguments object
+      const args = arguments;
       
       if (args.length >= 3) {
-        [origin, destination, tripId] = args;
+        origin = args[0];
+        destination = args[1];
+        tripId = args[2];
         vehicleType = args[3] || 'TRUCK';
       } else {
-        throw new Error(`Invalid arguments. Expected object or 4 parameters. Got: ${args}`);
+        throw new Error(`Invalid arguments. Expected object or 3+ parameters. Got: ${args.length} arguments`);
       }
-    } else {
-      console.error('Invalid params type:', typeof params, 'Value:', params);
-      throw new Error(`Invalid parameter type. Expected object or string. Got: ${typeof params}`);
     }
     
     // Validate tripId
     if (!tripId || isNaN(tripId)) {
-      console.error('Invalid tripId:', tripId, 'All params:', arguments);
+      console.error('Invalid tripId:', tripId, 'All args:', arguments);
       throw new Error(`Invalid tripId: ${tripId}. Must be a number.`);
     }
     
