@@ -33,24 +33,31 @@ import {
   AccessTime,
   LocalGasStation,
   AttachMoney,
-  Warning
+  Warning,
+  LocationOn,
+  LocationCity
 } from "@mui/icons-material";
 import { tripService } from "../services/tripService";
 
 // Helper functions
 const inferVehicleType = (vehicle) => {
   if (!vehicle) return "TRUCK";
-  const mm = `${vehicle.make || ""} ${vehicle.model || ""}`.toUpperCase();
-  if (mm.includes("TRAILER") || mm.includes("SEMI")) return "TRAILER";
-  if (mm.includes("VAN") || mm.includes("BAKKIE")) return "VAN";
-  if (mm.includes("CAR") || mm.includes("SEDAN") || mm.includes("HATCH"))
+  
+  // Handle different vehicle data structures
+  const vehicleString = typeof vehicle === 'string' 
+    ? vehicle 
+    : `${vehicle.make || ""} ${vehicle.model || ""}`.toUpperCase();
+  
+  if (vehicleString.includes("TRAILER") || vehicleString.includes("SEMI")) return "TRAILER";
+  if (vehicleString.includes("VAN") || vehicleString.includes("BAKKIE")) return "VAN";
+  if (vehicleString.includes("CAR") || vehicleString.includes("SEDAN") || vehicleString.includes("HATCH"))
     return "CAR";
   return "TRUCK";
 };
 
 const formatDuration = (hours = 0) => {
-  if (!hours || hours === 0) return "0h";
-  const totalMinutes = Math.round(hours * 60);
+  if (!hours || isNaN(hours) || hours === 0) return "0h";
+  const totalMinutes = Math.round(parseFloat(hours) * 60);
   const days = Math.floor(totalMinutes / 1440);
   const hoursRemaining = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
@@ -72,6 +79,7 @@ const TripMetricsForm = ({
   originLocation = "",
   destinationLocation = "",
   vehicleInfo,
+  tripData = {}, // New prop for full trip data
 }) => {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
@@ -96,27 +104,64 @@ const TripMetricsForm = ({
   useEffect(() => {
     if (!open) return;
 
-    const inferredType = inferVehicleType(vehicleInfo);
+    console.log("TripMetricsForm opened with data:", {
+      tripId,
+      originLocation,
+      destinationLocation,
+      vehicleInfo,
+      tripData,
+      initialMetrics
+    });
+
+    const inferredType = inferVehicleType(vehicleInfo || tripData.vehicle);
     setVehicleType(inferredType);
     setError("");
     setCalculatedMetrics(null);
     setHasExistingMetrics(false);
     
-    // Initialize with props or initialMetrics
+    // Get origin and destination from multiple possible sources
+    const origin = originLocation || 
+                   tripData.originLocation || 
+                   tripData.origin || 
+                   initialMetrics.originLocation || 
+                   "";
+    
+    const destination = destinationLocation || 
+                        tripData.destinationLocation || 
+                        tripData.destination || 
+                        initialMetrics.destinationLocation || 
+                        "";
+    
+    // Initialize form data
     const newFormData = {
-      originLocation: originLocation || initialMetrics.originLocation || "",
-      destinationLocation: 
-        destinationLocation || initialMetrics.destinationLocation || "",
+      originLocation: origin,
+      destinationLocation: destination,
       totalDistance: 
-        initialMetrics.totalDistanceKm || initialMetrics.totalDistance || "",
+        initialMetrics.totalDistanceKm || 
+        initialMetrics.totalDistance || 
+        tripData.totalDistanceKm || 
+        tripData.totalDistance || 
+        "",
       estimatedDuration: 
-        initialMetrics.totalDurationHours || initialMetrics.estimatedDuration || "",
+        initialMetrics.totalDurationHours || 
+        initialMetrics.estimatedDuration || 
+        tripData.totalDurationHours || 
+        tripData.estimatedDuration || 
+        "",
       fuelConsumption: 
-        initialMetrics.fuelUsedLiters || initialMetrics.fuelConsumption || "",
+        initialMetrics.fuelUsedLiters || 
+        initialMetrics.fuelConsumption || 
+        tripData.fuelUsedLiters || 
+        tripData.fuelConsumption || 
+        "",
       estimatedCost: 
-        initialMetrics.costAmount || initialMetrics.estimatedCost || "",
-      delays: initialMetrics.idleTimeHours || "",
-      incidents: initialMetrics.incidentCount || "",
+        initialMetrics.costAmount || 
+        initialMetrics.estimatedCost || 
+        tripData.costAmount || 
+        tripData.estimatedCost || 
+        "",
+      delays: initialMetrics.idleTimeHours || tripData.delays || "",
+      incidents: initialMetrics.incidentCount || tripData.incidents || "",
     };
     
     setFormData(newFormData);
@@ -125,7 +170,7 @@ const TripMetricsForm = ({
     if (tripId) {
       loadExistingMetrics();
     }
-  }, [open, tripId, initialMetrics, originLocation, destinationLocation, vehicleInfo]);
+  }, [open, tripId, initialMetrics, originLocation, destinationLocation, vehicleInfo, tripData]);
 
   const loadExistingMetrics = async () => {
     try {
@@ -134,16 +179,17 @@ const TripMetricsForm = ({
       
       if (data && (data.totalDistanceKm || data.totalDurationHours || data.fuelUsedLiters)) {
         setHasExistingMetrics(true);
-        setFormData({
-          originLocation: data.originLocation || formData.originLocation,
-          destinationLocation: data.destinationLocation || formData.destinationLocation,
-          totalDistance: data.totalDistanceKm || "",
-          estimatedDuration: data.totalDurationHours || "",
-          fuelConsumption: data.fuelUsedLiters || "",
-          estimatedCost: data.costAmount || "",
-          delays: data.idleTimeHours || "",
-          incidents: data.incidentCount || "",
-        });
+        setFormData(prev => ({
+          ...prev,
+          originLocation: data.originLocation || prev.originLocation,
+          destinationLocation: data.destinationLocation || prev.destinationLocation,
+          totalDistance: data.totalDistanceKm || prev.totalDistance,
+          estimatedDuration: data.totalDurationHours || prev.estimatedDuration,
+          fuelConsumption: data.fuelUsedLiters || prev.fuelConsumption,
+          estimatedCost: data.costAmount || prev.estimatedCost,
+          delays: data.idleTimeHours || prev.delays,
+          incidents: data.incidentCount || prev.incidents,
+        }));
         
         if (data.totalDistanceKm && data.totalDurationHours) {
           setCalculatedMetrics({
@@ -174,14 +220,19 @@ const TripMetricsForm = ({
       setCalculating(true);
       setError("");
 
-      if (!formData.originLocation.trim() || !formData.destinationLocation.trim()) {
+      const origin = formData.originLocation?.trim();
+      const destination = formData.destinationLocation?.trim();
+
+      if (!origin || !destination) {
         setError("Please enter both origin and destination locations.");
         return;
       }
 
+      console.log("Calculating metrics for:", { origin, destination, vehicleType, tripId });
+      
       const dto = await tripService.calculateTripMetrics(
-        formData.originLocation.trim(),
-        formData.destinationLocation.trim(),
+        origin,
+        destination,
         vehicleType,
         tripId
       );
@@ -235,6 +286,8 @@ const TripMetricsForm = ({
         incidentCount: parseInt(formData.incidents) || 0,
       };
 
+      console.log("Saving metrics payload:", payload);
+      
       await tripService.saveTripMetrics(tripId, payload);
 
       if (onSuccess) onSuccess();
@@ -265,12 +318,21 @@ const TripMetricsForm = ({
           Trip Metrics {tripId && `#${tripId}`}
         </Typography>
         {hasExistingMetrics && (
-          <Chip 
-            label="Existing Metrics" 
-            size="small" 
-            color="info" 
-            sx={{ ml: 1 }}
-          />
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '2px 8px',
+              borderRadius: '16px',
+              fontSize: '0.75rem',
+              backgroundColor: 'info.light',
+              color: 'info.main',
+              fontWeight: 500,
+              ml: 1,
+            }}
+          >
+            Existing Metrics
+          </Box>
         )}
         <IconButton
           onClick={onClose}
@@ -288,6 +350,32 @@ const TripMetricsForm = ({
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
+        )}
+
+        {/* Display trip info if available */}
+        {(formData.originLocation || formData.destinationLocation) && (
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              p: 2, 
+              mb: 3, 
+              bgcolor: 'primary.light', 
+              color: 'primary.contrastText',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2
+            }}
+          >
+            <LocationOn />
+            <Box>
+              <Typography variant="subtitle2">
+                From: {formData.originLocation || "Not specified"}
+              </Typography>
+              <Typography variant="subtitle2">
+                To: {formData.destinationLocation || "Not specified"}
+              </Typography>
+            </Box>
+          </Paper>
         )}
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -325,6 +413,9 @@ const TripMetricsForm = ({
                   placeholder="Enter origin city or address"
                   size="small"
                   required
+                  InputProps={{
+                    startAdornment: <LocationCity sx={{ mr: 1, color: 'action.active' }} />,
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -336,6 +427,9 @@ const TripMetricsForm = ({
                   placeholder="Enter destination city or address"
                   size="small"
                   required
+                  InputProps={{
+                    startAdornment: <LocationCity sx={{ mr: 1, color: 'action.active' }} />,
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -553,25 +647,5 @@ const TripMetricsForm = ({
     </Dialog>
   );
 };
-
-// Add Chip component if not imported
-const Chip = ({ label, size, color, sx, ...props }) => (
-  <Box
-    sx={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: size === 'small' ? '2px 8px' : '4px 12px',
-      borderRadius: '16px',
-      fontSize: size === 'small' ? '0.75rem' : '0.875rem',
-      backgroundColor: theme => color ? theme.palette[color].light : theme.palette.grey[200],
-      color: theme => color ? theme.palette[color].main : theme.palette.text.primary,
-      fontWeight: 500,
-      ...sx,
-    }}
-    {...props}
-  >
-    {label}
-  </Box>
-);
 
 export default TripMetricsForm;
