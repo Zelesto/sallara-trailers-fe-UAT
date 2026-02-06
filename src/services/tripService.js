@@ -142,61 +142,45 @@ export const tripService = {
     }
   },
 
-  // --------------------------
-  // Metrics
-  // --------------------------
+// --------------------------
+// Metrics
+// --------------------------
 
-calculateTripMetrics: async function(params) {
+calculateTripMetrics: async function ({
+  tripId,
+  origin,
+  destination,
+  vehicleType = 'TRUCK'
+}) {
   try {
-    // Handle both object and positional parameter styles
-    let tripId, origin, destination, vehicleType;
-    
-    if (typeof params === 'object' && params !== null && !Array.isArray(params)) {
-      // Object parameter style: calculateTripMetrics({ tripId, origin, destination, vehicleType })
-      ({ 
-        tripId, 
-        origin, 
-        destination, 
-        vehicleType = 'TRUCK' 
-      } = params);
-    } else {
-      // LEGACY: The actual parameter order is: origin, destination, vehicleType, tripId
-      const args = arguments;
-      
-      if (args.length >= 4) {
-        // Current wrong order: origin, destination, tripId, vehicleType
-        // Actual order: origin, destination, vehicleType, tripId
-        origin = args[0];
-        destination = args[1];
-        vehicleType = args[2] || 'TRUCK'; // This is actually vehicleType
-        tripId = args[3]; // This is actually tripId
-      } else {
-        throw new Error(`Invalid arguments. Expected object or 4 parameters. Got: ${args.length} arguments`);
-      }
-    }
-    
-    // Validate tripId
-    if (!tripId || isNaN(tripId)) {
-      console.error('Invalid tripId:', tripId, 'All args:', arguments);
+    // Validate required fields
+    if (tripId === undefined || tripId === null || isNaN(tripId)) {
       throw new Error(`Invalid tripId: ${tripId}. Must be a number.`);
     }
-    
+
+    if (!origin || !destination) {
+      throw new Error('Origin and destination are required.');
+    }
+
     const numericTripId = Number(tripId);
-    
-    console.log('Calling calculateTripMetrics with:', {
+
+    console.log('Calculating metrics for:', {
       tripId: numericTripId,
       origin,
       destination,
       vehicleType
     });
-    
-    const response = await api.post(`/api/trip-metrics/${numericTripId}/calculate`, {
-      originLocation: origin,
-      destinationLocation: destination,
-      vehicleType: vehicleType
-    });
-    
-    return response.data !== undefined ? response.data : response;
+
+    const response = await api.post(
+      `/api/trip-metrics/${numericTripId}/calculate`,
+      {
+        originLocation: origin,
+        destinationLocation: destination,
+        vehicleType
+      }
+    );
+
+    return response?.data ?? response;
   } catch (error) {
     console.error('Error calculating trip metrics:', error);
     throw error;
