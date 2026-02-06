@@ -129,10 +129,27 @@ function TripList() {
     setShowEditModal(true);
   };
 
-  const handleOpenMetrics = (trip) => {
-    setSelectedTrip(trip);
-    setShowMetricsModal(true);
-  };
+  // In TripList.jsx, update the metrics button handler and modal
+const handleOpenMetrics = (trip) => {
+  setSelectedTrip(trip);
+  setShowMetricsModal(true);
+};
+
+// Then in the modal section, update the TripMetricsForm props:
+{showMetricsModal && selectedTrip && (
+  <TripMetricsForm
+    open={showMetricsModal}
+    tripId={selectedTrip.id}
+    originLocation={selectedTrip.originLocation}
+    destinationLocation={selectedTrip.destinationLocation}
+    vehicleInfo={selectedTrip.vehicle} // Pass vehicle info if available
+    onClose={() => setShowMetricsModal(false)}
+    onSuccess={() => {
+      setShowMetricsModal(false);
+      fetchTrips(pagination.page);
+    }}
+  />
+)}
 
   const handleFinalizeTrip = async (id) => {
     try {
