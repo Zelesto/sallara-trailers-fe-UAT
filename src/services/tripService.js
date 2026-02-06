@@ -146,16 +146,38 @@ export const tripService = {
   // Metrics
   // --------------------------
 
-calculateTripMetrics: async ( origin, destination,tripId, vehicleType = 'TRUCK') => {
+// CORRECT: Use object parameter to avoid confusion
+calculateTripMetrics: async (params) => {
   try {
-    // Make sure tripId is a number
+    // Destructure with defaults
+    const { 
+      tripId, 
+      origin, 
+      destination, 
+      vehicleType = 'TRUCK' 
+    } = params;
+    
+    // Validate tripId
+    if (!tripId || isNaN(tripId)) {
+      console.error('Invalid tripId:', tripId, 'Params:', params);
+      throw new Error(`Invalid tripId: ${tripId}. Must be a number.`);
+    }
+    
     const numericTripId = Number(tripId);
     
+    console.log('Calling calculateTripMetrics with:', {
+      tripId: numericTripId,
+      origin,
+      destination,
+      vehicleType
+    });
+    
     const response = await api.post(`/api/trip-metrics/${numericTripId}/calculate`, {
-      originLocation: origin,           // Field name should match backend DTO
-      destinationLocation: destination, // Field name should match backend DTO
+      originLocation: origin,
+      destinationLocation: destination,
       vehicleType: vehicleType
     });
+    
     return response.data !== undefined ? response.data : response;
   } catch (error) {
     console.error('Error calculating trip metrics:', error);
