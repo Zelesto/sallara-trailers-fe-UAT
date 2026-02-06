@@ -146,16 +146,36 @@ export const tripService = {
   // Metrics
   // --------------------------
 
-  calculateTripMetrics: async (origin, destination, vehicleType = 'TRUCK') => {
-    try {
-      // RESTORED: The working version uses POST with a body
-      const response = await api.get('/api/trips/calculate-metrics', { origin, destination, vehicleType });
-      return response.data !== undefined ? response.data : response;
-    } catch (error) {
-      console.error('Error calculating trip metrics:', error);
-      throw error;
-    }
-  },
+ calculateTripMetrics: async (tripId, origin, destination, vehicleType = 'TRUCK') => {
+  try {
+    // Option 1: Use the dedicated calculate endpoint
+    const response = await api.post(`/api/trip-metrics/${tripId}/calculate`, {
+      originLocation: origin,
+      destinationLocation: destination,
+      vehicleType: vehicleType
+    });
+    return response.data !== undefined ? response.data : response;
+  } catch (error) {
+    console.error('Error calculating trip metrics:', error);
+    throw error;
+  }
+},
+
+// OR if you want a preview-only version (no tripId needed):
+calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') => {
+  try {
+    // You might need to create a new endpoint for preview-only calculations
+    const response = await api.post('/api/trip-metrics/preview', {
+      originLocation: origin,
+      destinationLocation: destination,
+      vehicleType: vehicleType
+    });
+    return response.data !== undefined ? response.data : response;
+  } catch (error) {
+    console.error('Error calculating trip metrics preview:', error);
+    throw error;
+  }
+},
 
   saveTripMetrics: async (tripId, metrics) => {
     try {
