@@ -20,8 +20,7 @@ import {
   Stack,
   Paper,
   Grid,
-  IconButton,
-  Tooltip
+  IconButton
 } from "@mui/material";
 import {
   Calculate,
@@ -79,7 +78,7 @@ const TripMetricsForm = ({
   originLocation = "",
   destinationLocation = "",
   vehicleInfo,
-  tripData = {}, // New prop for full trip data
+  tripData = {},
 }) => {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
