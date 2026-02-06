@@ -84,14 +84,6 @@ api.interceptors.response.use(
       const isLoginPage = window.location.pathname === '/login';
       const isLoginRequest = error.config?.url?.includes('/auth/login');
 
-      if (!isLoginPage && !isLoginRequest) {
-        console.warn('Session expired, redirecting to login');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setTimeout(() => {
-          window.location.href = '/login?session=expired';
-        }, 100);
-      }
 
       message = response?.data?.message || 'Invalid credentials';
     }
