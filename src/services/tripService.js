@@ -211,15 +211,16 @@ calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') 
     }
   },
 
-  getTripMetrics: async (tripId) => {
-    try {
-      const response = await api.get(`/api/trips/${tripId}/metrics`);
-      return response.data !== undefined ? response.data : response;
-    } catch (error) {
-      console.error(`Error fetching trip metrics for trip ${tripId}:`, error);
-      return null;
-    }
-  },
+getTripMetrics: async (tripId) => {
+  try {
+    // Should be /api/trip-metrics/{tripId} not /api/trips/{tripId}/metrics
+    const response = await api.get(`/api/trip-metrics/${tripId}`);
+    return response.data !== undefined ? response.data : response;
+  } catch (error) {
+    console.error(`Error fetching trip metrics for trip ${tripId}:`, error);
+    return null;
+  }
+},
 
   // --------------------------
   // Filters & queries
