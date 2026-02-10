@@ -146,46 +146,52 @@ export const tripService = {
 // Metrics
 // --------------------------
 
-calculateTripMetrics: async function ({
-  tripId,
-  origin,
-  destination,
-  vehicleType = 'TRUCK'
-}) {
-  try {
-    // Validate required fields
-    if (tripId === undefined || tripId === null || isNaN(tripId)) {
-      throw new Error(`Invalid tripId: ${tripId}. Must be a number.`);
-    }
+ calculateTripMetrics: async function ({
+    tripId,
+    origin,
+    destination,
+    vehicleType = 'TRUCK'
+  }) {
+    try {
+      const numericTripId = Number(tripId);
 
-    if (!origin || !destination) {
-      throw new Error('Origin and destination are required.');
-    }
-
-    const numericTripId = Number(tripId);
-
-    console.log('Calculating metrics for:', {
-      tripId: numericTripId,
-      origin,
-      destination,
-      vehicleType
-    });
-
-    const response = await api.post(
-      `/api/trip-metrics/${numericTripId}/calculate`,
-      {
-        originLocation: origin,
-        destinationLocation: destination,
-        vehicleType
+      // Validate tripId
+      if (
+        tripId === undefined ||
+        tripId === null ||
+        isNaN(numericTripId)
+      ) {
+        throw new Error(`Invalid tripId: ${tripId}. Must be a number.`);
       }
-    );
 
-    return response?.data ?? response;
-  } catch (error) {
-    console.error('Error calculating trip metrics:', error);
-    throw error;
+      // Validate required fields
+      if (!origin || !destination) {
+        throw new Error('Origin and destination are required.');
+      }
+
+      console.log('Calculating metrics for:', {
+        tripId: numericTripId,
+        origin,
+        destination,
+        vehicleType
+      });
+
+      const response = await api.post(
+        `/api/trip-metrics/${numericTripId}/calculate`,
+        {
+          originLocation: origin,
+          destinationLocation: destination,
+          vehicleType
+        }
+      );
+
+      return response?.data ?? response;
+    } catch (error) {
+      console.error('Error calculating trip metrics:', error);
+      throw error;
+    }
   }
-},
+};
 // OR if you want a preview-only version (no tripId needed):
 calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') => {
   try {
