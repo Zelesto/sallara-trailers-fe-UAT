@@ -191,7 +191,7 @@ export const tripService = {
       throw error;
     }
   }
-};
+},
 // OR if you want a preview-only version (no tripId needed):
 calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') => {
   try {
