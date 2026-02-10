@@ -145,6 +145,7 @@ const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
 }));
 
 // Updated menu structure with Trip Management section
+// Update the menuSections array in Layout.jsx to use only existing routes:
 const menuSections = [
   {
     title: 'Operations',
@@ -158,7 +159,7 @@ const menuSections = [
         subItems: [
           { text: 'All Trips', path: '/trips', icon: <RouteIcon /> },
           { text: 'Active Trips', path: '/trips?status=ACTIVE', icon: <Timeline /> },
-          { text: 'Finalize Trip', path: '/trips/finalize', icon: <FinalizeIcon /> },
+          // Remove "Finalize Trip" or link to trips list with filter
         ],
       },
       {
@@ -168,19 +169,15 @@ const menuSections = [
         subItems: [
           { text: 'All PODs', path: '/pods', icon: <PodIcon /> },
           { text: 'Create POD', path: '/pods/new', icon: <AddLocationIcon /> },
-          { text: 'By Trip', path: '/pods/trip', icon: <RouteIcon /> },
         ],
       },
       {
         text: 'Fuel Management',
         icon: <FuelIcon />,
-        path: '/fuel',
+        path: '/fuel/slips',
         subItems: [
           { text: 'All Fuel Slips', path: '/fuel/slips', icon: <FuelIcon /> },
           { text: 'Add Fuel Slip', path: '/fuel/slips/add', icon: <AddLocationIcon /> },
-          { text: 'By Driver', path: '/fuel/slips/driver', icon: <Person /> },
-          { text: 'By Vehicle', path: '/fuel/slips/vehicle', icon: <DirectionsCar /> },
-          { text: 'By Trip', path: '/fuel/slips/trip', icon: <RouteIcon /> },
         ],
       },
       { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
@@ -192,15 +189,16 @@ const menuSections = [
     items: [
       { text: 'Vehicles', icon: <DirectionsCar />, path: '/vehicles' },
       { text: 'Drivers', icon: <Person />, path: '/drivers' },
-      { text: 'Trailers', icon: <CarIcon />, path: '/trailers' },
-      { text: 'Equipment', icon: <InventoryIcon />, path: '/equipment' },
+      // Remove trailers and equipment until pages are created
+      // { text: 'Trailers', icon: <CarIcon />, path: '/trailers' },
+      // { text: 'Equipment', icon: <InventoryIcon />, path: '/equipment' },
     ],
   },
   {
     title: 'Finance',
     icon: <MoneyIcon />,
     items: [
-      { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
+      { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance' },
       { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/finance/expenses' },
       { text: 'Accounts', icon: <AccountBalanceIcon />, path: '/finance/accounts' },
       { text: 'Invoices', icon: <DescriptionIcon />, path: '/finance/invoices' },
@@ -214,9 +212,10 @@ const menuSections = [
     items: [
       { text: 'Trip Analytics', icon: <AnalyticsIcon />, path: '/analytics/trips' },
       { text: 'Trip Reports', icon: <ReportsIcon />, path: '/reports/trips' },
-      { text: 'Fuel Reports', icon: <FuelIcon />, path: '/reports/fuel' },
-      { text: 'Financial Reports', icon: <MoneyIcon />, path: '/reports/financial' },
-      { text: 'Performance Reports', icon: <Timeline />, path: '/reports/performance' },
+      // Remove these until pages are created:
+      // { text: 'Fuel Reports', icon: <FuelIcon />, path: '/reports/fuel' },
+      // { text: 'Financial Reports', icon: <MoneyIcon />, path: '/reports/financial' },
+      // { text: 'Performance Reports', icon: <Timeline />, path: '/reports/performance' },
     ],
   },
   {
@@ -224,11 +223,12 @@ const menuSections = [
     icon: <AdminPanelSettings />,
     items: [
       { text: 'Users Management', icon: <People />, path: '/users' },
-      { text: 'Roles & Permissions', icon: <AdminPanelSettings />, path: '/roles' },
+      // Remove until pages are created:
+      // { text: 'Roles & Permissions', icon: <AdminPanelSettings />, path: '/roles' },
       { text: 'System Settings', icon: <Settings />, path: '/settings' },
-      { text: 'Billing & Invoices', icon: <Receipt />, path: '/billing' },
+      // { text: 'Billing & Invoices', icon: <Receipt />, path: '/billing' },
       { text: 'Logs & Audits', icon: <Timeline />, path: '/logs' },
-      { text: 'Locations', icon: <LocationOn />, path: '/locations' },
+      // { text: 'Locations', icon: <LocationOn />, path: '/locations' },
     ],
   },
 ];
