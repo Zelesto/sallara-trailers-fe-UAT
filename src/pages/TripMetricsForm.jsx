@@ -217,54 +217,62 @@ const TripMetricsForm = ({
   };
 
   const calculateMetrics = async () => {
-    try {
-      setCalculating(true);
-      setError("");
+  try {
+    setCalculating(true);
+    setError("");
 
-      const origin = formData.originLocation?.trim();
-      const destination = formData.destinationLocation?.trim();
+    const origin = formData.originLocation?.trim();
+    const destination = formData.destinationLocation?.trim();
+    const numericTripId = Number(tripId);
 
-      if (!origin || !destination) {
-        setError("Please enter both origin and destination locations.");
-        setCalculating(false);
-        return;
-      }
-
-      console.log("Calculating metrics for:", { origin, destination, vehicleType, tripId });
-      
-      const dto = await tripService.calculateTripMetrics(
-        origin,
-        destination,
-        vehicleType,
-        tripId
-      );
-
-      if (!dto) {
-        setError("No data returned from calculation service.");
-        setCalculating(false);
-        return;
-      }
-
-      // Update form with calculated values
-      setFormData(prev => ({
-        ...prev,
-        totalDistance: dto.totalDistanceKm || dto.totalDistance || "",
-        estimatedDuration: dto.totalDurationHours || dto.estimatedDuration || "",
-        fuelConsumption: dto.fuelUsedLiters || dto.fuelConsumption || "",
-        estimatedCost: dto.costAmount || dto.estimatedCost || "",
-      }));
-      
-      setCalculatedMetrics(dto);
-      
-      // Switch to manual tab to show calculated values
-      setActiveTab(1);
-    } catch (err) {
-      console.error("Auto calculation failed:", err);
-      setError(err.message || "Auto calculation failed. Please check your inputs and try again.");
-    } finally {
-      setCalculating(false);
+    if (!origin || !destination) {
+      setError("Please enter both origin and destination locations.");
+      return;
     }
-  };
+
+    if (!numericTripId || isNaN(numericTripId)) {
+      setError("Trip must be saved before calculating metrics.");
+      return;
+    }
+
+    console.log("Calculating metrics for:", {
+      tripId: numericTripId,
+      origin,
+      destination,
+      vehicleType
+    });
+
+    const dto = await tripService.calculateTripMetrics({
+      tripId: numericTripId,
+      origin,
+      destination,
+      vehicleType
+    });
+
+    if (!dto) {
+      setError("No data returned from calculation service.");
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      totalDistance: dto.totalDistanceKm ?? dto.totalDistance ?? "",
+      estimatedDuration: dto.totalDurationHours ?? dto.estimatedDuration ?? "",
+      fuelConsumption: dto.fuelUsedLiters ?? dto.fuelConsumption ?? "",
+      estimatedCost: dto.costAmount ?? dto.estimatedCost ?? "",
+    }));
+
+    setCalculatedMetrics(dto);
+    setActiveTab(1);
+
+  } catch (err) {
+    console.error("Auto calculation failed:", err);
+    setError(err.message || "Auto calculation failed.");
+  } finally {
+    setCalculating(false);
+  }
+};
+
 
   const handleSubmit = async (event) => {
     if (event && event.preventDefault) {
