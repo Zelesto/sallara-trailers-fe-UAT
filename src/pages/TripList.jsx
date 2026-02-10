@@ -368,9 +368,7 @@ const handleOpenMetrics = (trip) => {
         </Paper>
       )}
 
-      // In TripList.jsx - ONLY show the modals section at the bottom:
-
-{/* Modals */}
+ {/* Modals */}
 {showCreateModal && (
   <TripForm
     open={showCreateModal}
