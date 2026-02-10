@@ -206,7 +206,7 @@ export const tripService = {
   saveTripMetrics: async (tripId, metrics) => {
     try {
       const response = await api.put(
-        `/api/trips/${tripId}/metrics`,
+        `/api/trip-metrics/${tripId}`,
         metrics
       );
       return unwrap(response);
