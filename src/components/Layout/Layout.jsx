@@ -1,5 +1,5 @@
 // src/components/Layout/Layout.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -46,7 +46,6 @@ import {
   Settings,
   Notifications,
   Search,
-  Circle,
   AdminPanelSettings,
   People,
   Receipt,
@@ -83,6 +82,7 @@ const LogoContainer = styled(Box)(({ theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
   minHeight: 64,
   position: 'relative',
+  overflow: 'hidden',
 }));
 
 const LogoWrapper = styled(Box, {
@@ -114,20 +114,34 @@ const SectionHeader = styled(ListItemButton)(({ theme }) => ({
   borderRadius: theme.spacing(1),
   margin: theme.spacing(0.5, 1),
   marginTop: theme.spacing(2),
-  backgroundColor: theme.palette.grey[50],
+  backgroundColor: 'transparent',
   '&:hover': {
     backgroundColor: theme.palette.grey[100],
   },
 }));
 
+// Main content wrapper with fixed profile at bottom
+const MainContentWrapper = styled(Box)(({ theme }) => ({
+  flex: 1,
+  overflowY: 'auto',
+  paddingBottom: '80px', // Space for the fixed profile
+}));
+
 // User profile container with fixed position at bottom
 const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
   borderTop: `1px solid ${theme.palette.divider}`,
-  padding: collapsed ? theme.spacing(2, 1) : theme.spacing(2),
-  position: 'sticky',
+  padding: collapsed ? theme.spacing(1.5, 1) : theme.spacing(2),
+  position: 'fixed',
   bottom: 0,
+  left: 0,
+  right: 0,
+  width: collapsed ? collapsedDrawerWidth : drawerWidth,
   backgroundColor: theme.palette.background.paper,
-  zIndex: 2,
+  zIndex: 10,
+  transition: theme.transitions.create(['width', 'transform'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.enteringScreen,
+  }),
 }));
 
 // Updated menu structure with Trip Management section
@@ -221,14 +235,9 @@ const menuSections = [
 
 const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  // Start with sidebar collapsed by default
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const [expandedSections, setExpandedSections] = useState(
-    menuSections.reduce((acc, _, index) => {
-      acc[index] = false; // All sections collapsed by default
-      return acc;
-    }, {})
-  );
+  // Start with sidebar open but all sections collapsed
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({}); // All sections collapsed by default
   const [expandedMenuItems, setExpandedMenuItems] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
   const { user, logout } = useAuth();
@@ -236,6 +245,7 @@ const MainLayout = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
+  const sidebarRef = useRef(null);
 
   // Load sidebar state from localStorage on mount
   useEffect(() => {
@@ -290,6 +300,11 @@ const MainLayout = () => {
   const handleLogout = () => {
     handleUserMenuClose();
     logout();
+  };
+
+  // Handle New Trip click - navigate to TripForm
+  const handleNewTrip = () => {
+    navigate('/trips/create');
   };
 
   const drawer = (
@@ -388,15 +403,7 @@ const MainLayout = () => {
                     lineHeight: 1.2,
                   }}
                 >
-                  TRAILERS <Typography variant="caption"
-                                                         sx={{
-                                                           color: 'text.secondary',
-                                                           fontWeight: 500,
-                                                           fontSize: '0.7rem',
-                                                           display: 'block',
-                                                           lineHeight: 1.2,
-                                                         }}
-                                                       >v1.01</Typography>
+                  TRAILERS
                 </Typography>
                 <Typography
                   variant="caption"
@@ -410,62 +417,60 @@ const MainLayout = () => {
                 >
                   Phoenix Group SA
                 </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 500,
+                    fontSize: '0.65rem',
+                    display: 'block',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  v1.01
+                </Typography>
               </Box>
             </>
           )}
         </LogoWrapper>
 
-        {/* Toggle button - always visible on desktop when sidebar is expanded */}
-        {!isMobile && !sidebarCollapsed && (
-          <IconButton
-            onClick={toggleSidebar}
-            size="small"
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              backgroundColor: theme.palette.grey[100],
-              '&:hover': {
-                backgroundColor: theme.palette.grey[200],
-              },
-              zIndex: 1,
-            }}
-          >
-            <ChevronLeft />
-          </IconButton>
-        )}
-
-        {/* Show toggle button when collapsed (for expanding) */}
-        {!isMobile && sidebarCollapsed && (
-          <IconButton
-            onClick={toggleSidebar}
-            size="small"
-            sx={{
-              position: 'absolute',
-              right: -12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              backgroundColor: theme.palette.grey[100],
-              border: `1px solid ${theme.palette.divider}`,
-              '&:hover': {
-                backgroundColor: theme.palette.grey[200],
-              },
-              zIndex: 1,
-              boxShadow: 1,
-            }}
-          >
-            <ChevronRight />
-          </IconButton>
-        )}
+        {/* Toggle button - always visible and prominent */}
+        <IconButton
+          onClick={toggleSidebar}
+          size="small"
+          sx={{
+            position: 'absolute',
+            right: sidebarCollapsed ? -12 : 8,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            backgroundColor: theme.palette.grey[100],
+            border: `1px solid ${theme.palette.divider}`,
+            '&:hover': {
+              backgroundColor: theme.palette.grey[200],
+            },
+            zIndex: 11, // Higher z-index to ensure it's always visible
+            boxShadow: 2,
+            width: 28,
+            height: 28,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {sidebarCollapsed ? (
+            <ChevronRight sx={{ fontSize: '1.2rem' }} />
+          ) : (
+            <ChevronLeft sx={{ fontSize: '1.2rem' }} />
+          )}
+        </IconButton>
       </LogoContainer>
 
-      <Box sx={{ flex: 1, overflow: 'auto', py: 2, pb: 8 }}>
+      <MainContentWrapper>
         {menuSections.map((section, index) => (
           <React.Fragment key={section.title}>
             {!sidebarCollapsed ? (
               <>
-                {/* Expanded View - With Section Header */}
+                {/* Expanded View - With Collapsible Section Header */}
                 <SectionHeader onClick={() => toggleSection(index)}>
                   <ListItemIcon sx={{ minWidth: 40 }}>
                     {section.icon}
@@ -639,9 +644,9 @@ const MainLayout = () => {
             )}
           </React.Fragment>
         ))}
-      </Box>
+      </MainContentWrapper>
 
-      {/* User Profile - Always visible at bottom */}
+      {/* User Profile - Fixed at bottom, always visible */}
       <UserProfileContainer collapsed={sidebarCollapsed}>
         {!sidebarCollapsed ? (
           // Expanded user profile view
@@ -736,46 +741,7 @@ const MainLayout = () => {
               <MenuIcon />
             </IconButton>
 
-            {/* Show small logo in AppBar when sidebar is collapsed */}
-            {sidebarCollapsed && !isMobile && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                <Box sx={{ width: 32, height: 32, mr: 1 }}>
-                  <Box
-                    component="img"
-                    src={logoImage}
-                    alt="PGSA Logo"
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      borderRadius: 1,
-                      padding: 0.25,
-                    }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = `
-                        <div style="
-                          width: 32px;
-                          height: 32px;
-                          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                          border-radius: 6px;
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                          color: white;
-                          font-weight: bold;
-                          font-size: 12px;
-                        ">P</div>
-                      `;
-                    }}
-                  />
-                </Box>
-                <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                  Trailers
-                </Typography>
-              </Box>
-            )}
-
+            {/* Only show main title, no duplicate logo */}
             <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>
               Fleet Management System
             </Typography>
@@ -794,11 +760,11 @@ const MainLayout = () => {
               <Settings />
             </IconButton>
 
-            {/* New Trip Button - Updated to use URL hash */}
+            {/* New Trip Button - Now properly navigates to TripForm */}
             <Button
               variant="contained"
               size="small"
-              onClick={() => navigate('/trips#create')}
+              onClick={handleNewTrip}
               sx={{
                 borderRadius: 2,
                 textTransform: 'none',
@@ -867,6 +833,7 @@ const MainLayout = () => {
           width: { md: sidebarCollapsed ? collapsedDrawerWidth : drawerWidth },
           flexShrink: { md: 0 },
         }}
+        ref={sidebarRef}
       >
         {isMobile ? (
           <Drawer
@@ -877,6 +844,8 @@ const MainLayout = () => {
             sx={{
               '& .MuiDrawer-paper': {
                 width: drawerWidth,
+                display: 'flex',
+                flexDirection: 'column',
               },
             }}
           >
@@ -895,6 +864,8 @@ const MainLayout = () => {
                 }),
                 overflowX: 'hidden',
                 position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
               },
             }}
             open
