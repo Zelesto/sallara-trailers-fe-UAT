@@ -66,14 +66,18 @@ const PRIORITY_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = [
-  'PLANNED',
-  'SCHEDULED',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'CANCELLED',
-  'DELAYED'
+    'DRAFT',
+    'PLANNED',
+    'ASSIGNED',
+    'IN_PROGRESS',
+    'COMPLETED',
+    'ACTIVE',
+    'PENDING',
+    'CANCELLED',
+    'CLOSED',
+    'FINALIZED'
 ];
+
 
 /* ===================== Component ===================== */
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess }) {
