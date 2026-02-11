@@ -43,24 +43,44 @@ const calculateDaysBetween = (startDate, endDate) => {
 };
 
 export const analyticsService = {
+
+  checkAuth: async () => {
+  try {
+    const token = localStorage.getItem('auth_token');
+    console.log('🔑 Auth token exists:', !!token);
+    console.log('🔑 Token preview:', token?.substring(0, 20) + '...');
+    
+    const response = await api.get('/api/analytics/test-simple');
+    console.log('✅ Auth test response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Auth test failed:', error.response?.status, error.message);
+    throw error;
+  }
+}
   /**
    * Get comprehensive dashboard KPIs
    * @param {string} startDate - YYYY-MM-DD
    * @param {string} endDate - YYYY-MM-DD
    */
   getDashboardKPIs: async (startDate, endDate) => {
-    try {
-      const queryString = buildQuery({ startDate, endDate });
-      const url = `/api/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
-      
-      console.log('📊 Fetching dashboard KPIs:', url);
-      const response = await api.get(url);
-      const data = response.data;
-      
-      // ✅ FIX: Just check if data exists
-      if (!data) {
-        throw new Error('No data received from server');
-      }
+  try {
+    const queryString = buildQuery({ startDate, endDate });
+    const url = `/api/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('📊 Fetching dashboard KPIs:', url);
+    const response = await api.get(url);
+    
+    // ✅ FIX: Check response status explicitly
+    if (response.status === 401) {
+      throw new Error('Authentication required. Please log in again.');
+    }
+    
+    const data = response.data;
+    
+    if (!data) {
+      throw new Error('No data received from server');
+    }
       
       console.log('✅ Dashboard data received:', data);
 
@@ -95,6 +115,7 @@ export const analyticsService = {
           fuelCost: d.fuelCost || 0
         }));
 
+    
       // Process top vehicles
       const topVehicles = vehicleKpis
         .sort((a, b) => (b.kmPerLiter || 0) - (a.kmPerLiter || 0))
