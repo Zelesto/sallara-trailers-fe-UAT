@@ -32,23 +32,42 @@ const formatRelativeTime = (dateString) => {
   }
 };
 
+// Helper function to calculate days between two dates
+const calculateDaysBetween = (startDate, endDate) => {
+  if (!startDate || !endDate) return 30;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays || 30;
+};
+
 export const analyticsService = {
   /**
    * Get comprehensive dashboard KPIs
    * @param {string} startDate - YYYY-MM-DD
    * @param {string} endDate - YYYY-MM-DD
    */
+  getDashboardKPIs: async (startDate, endDate) => {
+    try {
+      const queryString = buildQuery({ startDate, endDate });
+      const url = `/api/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('📊 Fetching dashboard KPIs:', url);
+      const response = await api.get(url);
+      const data = response.data;
+      
+      // ✅ FIX: Just check if data exists
       if (!data) {
-      throw new Error('No data received from server');
-    }
-    
-    console.log('✅ Dashboard data received:', data);
+        throw new Error('No data received from server');
+      }
+      
+      console.log('✅ Dashboard data received:', data);
 
-    // ✅ FIX: Ensure arrays exist
-    const summary = data.summary || {};
-    const vehicleKpis = Array.isArray(data.vehicleKpis) ? data.vehicleKpis : [];
-    const driverKpis = Array.isArray(data.driverKpis) ? data.driverKpis : [];
-    
+      // ✅ FIX: Ensure arrays exist
+      const summary = data.summary || {};
+      const vehicleKpis = Array.isArray(data.vehicleKpis) ? data.vehicleKpis : [];
+      const driverKpis = Array.isArray(data.driverKpis) ? data.driverKpis : [];
       
       // Calculate derived metrics
       const totalKm = summary.totalKm || 0;
@@ -219,8 +238,8 @@ export const analyticsService = {
       console.log('🚛 Fetching vehicle analytics:', url);
       const response = await api.get(url);
       
-      if (!response.data || !response.data.success) {
-        throw new Error(response.data?.message || 'Invalid response from server');
+      if (!response.data) {
+        throw new Error('No data received from server');
       }
       
       return response.data;
@@ -246,8 +265,8 @@ export const analyticsService = {
       console.log('👤 Fetching driver analytics:', url);
       const response = await api.get(url);
       
-      if (!response.data || !response.data.success) {
-        throw new Error(response.data?.message || 'Invalid response from server');
+      if (!response.data) {
+        throw new Error('No data received from server');
       }
       
       return response.data;
@@ -295,14 +314,4 @@ export const analyticsService = {
       throw error;
     }
   }
-};
-
-// Helper function to calculate days between two dates
-const calculateDaysBetween = (startDate, endDate) => {
-  if (!startDate || !endDate) return 30;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const diffTime = Math.abs(end - start);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays || 30;
 };
