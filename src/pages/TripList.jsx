@@ -204,42 +204,47 @@ function TripList() {
      Trip Actions
   ================================= */
   const handleStartTrip = (trip) => {
-    if (window.confirm(`Start trip #${trip.tripNumber}?`)) {
-      const startOdometer = prompt('Enter starting odometer reading (km):');
-      if (startOdometer) {
-        tripService.startTrip(trip.id, { startOdometer: parseFloat(startOdometer) })
-          .then(() => {
-            showNotification('Trip started successfully!', 'success');
-            fetchTrips({ page: pagination.page });
-          })
-          .catch(err => {
-            console.error('Error starting trip:', err);
-            showNotification('Failed to start trip', 'error');
-          });
-      }
+  if (window.confirm(`Start trip #${trip.tripNumber}?`)) {
+    const startOdometer = prompt('Enter starting odometer reading (km):');
+    if (startOdometer) {
+      // Send as actualStartOdometer instead of startOdometer
+      tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
+        .then(() => {
+          showNotification('Trip started successfully!', 'success');
+          fetchTrips({ page: pagination.page });
+        })
+        .catch(err => {
+          console.error('Error starting trip:', err);
+          // Show detailed error message
+          const errorMsg = err.message || 'Failed to start trip';
+          showNotification(errorMsg, 'error');
+        });
     }
-  };
+  }
+};
 
   const handleEndTrip = (trip) => {
-    if (window.confirm(`End trip #${trip.tripNumber}?`)) {
-      const endOdometer = prompt('Enter ending odometer reading (km):');
-      if (endOdometer) {
-        const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
-        tripService.endTrip(trip.id, { 
-          endOdometer: parseFloat(endOdometer),
-          endReason: endReason || 'COMPLETED'
+  if (window.confirm(`End trip #${trip.tripNumber}?`)) {
+    const endOdometer = prompt('Enter ending odometer reading (km):');
+    if (endOdometer) {
+      const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
+      // Send as actualEndOdometer instead of endOdometer
+      tripService.endTrip(trip.id, { 
+        actualEndOdometer: parseFloat(endOdometer),
+        endReason: endReason || 'COMPLETED'
+      })
+        .then(() => {
+          showNotification('Trip ended successfully!', 'success');
+          fetchTrips({ page: pagination.page });
         })
-          .then(() => {
-            showNotification('Trip ended successfully!', 'success');
-            fetchTrips({ page: pagination.page });
-          })
-          .catch(err => {
-            console.error('Error ending trip:', err);
-            showNotification('Failed to end trip', 'error');
-          });
-      }
+        .catch(err => {
+          console.error('Error ending trip:', err);
+          const errorMsg = err.message || 'Failed to end trip';
+          showNotification(errorMsg, 'error');
+        });
     }
-  };
+  }
+};
 
   const handleReportIncident = (trip) => {
     const incidentType = prompt('Enter incident type (ACCIDENT, BREAKDOWN, DELAY, OTHER):');
