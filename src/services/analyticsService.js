@@ -38,25 +38,17 @@ export const analyticsService = {
    * @param {string} startDate - YYYY-MM-DD
    * @param {string} endDate - YYYY-MM-DD
    */
-  getDashboardKPIs: async (startDate, endDate) => {
-    try {
-      const queryString = buildQuery({ startDate, endDate });
-      const url = `/api/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
-      
-      console.log('📊 Fetching dashboard KPIs:', url);
-      const response = await api.get(url);
-      const data = response.data;
-      
       if (!data) {
-  throw new Error('No data received from server');
-}
+      throw new Error('No data received from server');
+    }
+    
+    console.log('✅ Dashboard data received:', data);
 
-      console.log('✅ Dashboard data received:', data);
-
-      // Transform backend response to match frontend expectations
-      const summary = data.summary || {};
-      const vehicleKpis = data.vehicleKpis || [];
-      const driverKpis = data.driverKpis || [];
+    // ✅ FIX: Ensure arrays exist
+    const summary = data.summary || {};
+    const vehicleKpis = Array.isArray(data.vehicleKpis) ? data.vehicleKpis : [];
+    const driverKpis = Array.isArray(data.driverKpis) ? data.driverKpis : [];
+    
       
       // Calculate derived metrics
       const totalKm = summary.totalKm || 0;
