@@ -57,7 +57,7 @@ export const analyticsService = {
     console.error('❌ Auth test failed:', error.response?.status, error.message);
     throw error;
   }
-}
+},
   /**
    * Get comprehensive dashboard KPIs
    * @param {string} startDate - YYYY-MM-DD
