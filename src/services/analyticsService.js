@@ -71,18 +71,17 @@ export const analyticsService = {
     console.log('📊 Fetching dashboard KPIs:', url);
     const response = await api.get(url);
     
-    // ✅ FIX: Check response status explicitly
-    if (response.status === 401) {
-      throw new Error('Authentication required. Please log in again.');
-    }
-    
-    const data = response.data;
+    // ✅ FIX: Handle both response.data and direct response
+    const data = response.data || response;
     
     if (!data) {
       throw new Error('No data received from server');
     }
+    
+    console.log('✅ Dashboard data received:', data);
+    console.log('✅ Vehicle KPIs:', data.vehicleKpis);
+    console.log('✅ Driver KPIs:', data.driverKpis);
       
-      console.log('✅ Dashboard data received:', data);
 
       // ✅ FIX: Ensure arrays exist
       const summary = data.summary || {};
