@@ -151,35 +151,67 @@ export const tripService = {
   // Trip Lifecycle Management
   // ==========================
 
-  startTrip: async (tripId, startData) => {
-    try {
-      const payload = {
-        ...startData,
-        startTimestamp: new Date().toISOString()
-      };
-      
-      const response = await api.post(`/api/trips/${tripId}/start`, payload);
-      return unwrap(response);
-    } catch (error) {
-      console.error(`Error starting trip ${tripId}:`, error);
-      throw error;
-    }
-  },
+  // In your tripService.js, update the startTrip and endTrip methods:
 
-  endTrip: async (tripId, endData) => {
-    try {
-      const payload = {
-        ...endData,
-        endTimestamp: new Date().toISOString()
-      };
-      
-      const response = await api.post(`/api/trips/${tripId}/end`, payload);
-      return unwrap(response);
-    } catch (error) {
-      console.error(`Error ending trip ${tripId}:`, error);
-      throw error;
+startTrip: async (tripId, startData) => {
+  try {
+    const payload = {
+      actualStartOdometer: startData.startOdometer, // Changed from startOdometer to actualStartOdometer
+      startTimestamp: new Date().toISOString(),
+      ...startData
+    };
+    
+    // Remove startOdometer if it exists since we're using actualStartOdometer
+    if (payload.startOdometer) {
+      delete payload.startOdometer;
     }
-  },
+    
+    const response = await api.post(`/api/trips/${tripId}/start`, payload);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error starting trip ${tripId}:`, error);
+    
+    // Better error handling to show validation errors
+    if (error.response?.data?.errors) {
+      const errorMessages = Object.entries(error.response.data.errors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(', ');
+      throw new Error(`Validation errors: ${errorMessages}`);
+    }
+    
+    throw error;
+  }
+},
+
+endTrip: async (tripId, endData) => {
+  try {
+    const payload = {
+      actualEndOdometer: endData.endOdometer, // Changed from endOdometer to actualEndOdometer
+      endTimestamp: new Date().toISOString(),
+      endReason: endData.endReason || 'COMPLETED',
+      ...endData
+    };
+    
+    // Remove endOdometer if it exists since we're using actualEndOdometer
+    if (payload.endOdometer) {
+      delete payload.endOdometer;
+    }
+    
+    const response = await api.post(`/api/trips/${tripId}/end`, payload);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error ending trip ${tripId}:`, error);
+    
+    if (error.response?.data?.errors) {
+      const errorMessages = Object.entries(error.response.data.errors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(', ');
+      throw new Error(`Validation errors: ${errorMessages}`);
+    }
+    
+    throw error;
+  }
+},
 
   reportIncident: async (tripId, incidentData) => {
     try {
