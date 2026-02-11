@@ -223,6 +223,47 @@ deleteIncident: async (tripId, incidentId) => {
   }
 },
 
+
+getTripIncidentsPaginated: async (tripId, page = 0, size = 10, sort = 'reportedAt,desc') => {
+  try {
+    const response = await api.get(`/api/trips/${tripId}/incidents`, {
+      params: { page, size, sort }
+    });
+    const data = unwrap(response);
+    return {
+      content: data.content || [],
+      totalElements: data.totalElements || 0,
+      totalPages: data.totalPages || 1,
+      number: data.number || page,
+      size: data.size || size,
+    };
+  } catch (error) {
+    console.error(`Error fetching incidents for trip ${tripId}:`, error);
+    return { content: [], totalElements: 0, totalPages: 1, number: page, size };
+  }
+},
+
+getIncidentStats: async (tripId) => {
+  try {
+    const response = await api.get(`/api/trips/${tripId}/incidents/stats`);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error fetching incident stats for trip ${tripId}:`, error);
+    return { totalIncidents: 0, activeIncidents: 0, urgentIncidents: 0 };
+  }
+},
+
+searchIncidents: async (tripId, filters = {}) => {
+  try {
+    const response = await api.get(`/api/trips/${tripId}/incidents/search`, { params: filters });
+    const data = unwrap(response);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  } catch (error) {
+    console.error(`Error searching incidents for trip ${tripId}:`, error);
+    return [];
+  }
+},
+
   // ==========================
   // Trip Lifecycle Management
   // ==========================
