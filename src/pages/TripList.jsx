@@ -246,27 +246,38 @@ function TripList() {
   }
 };
 
-  const handleReportIncident = (trip) => {
-    const incidentType = prompt('Enter incident type (ACCIDENT, BREAKDOWN, DELAY, OTHER):');
-    if (incidentType) {
-      const description = prompt('Enter incident description:');
-      if (description) {
-        tripService.reportIncident(trip.id, { 
-          incidentType,
-          description,
-          severity: 'MEDIUM'
-        })
-          .then(() => {
-            showNotification('Incident reported successfully', 'success');
-            fetchTrips({ page: pagination.page });
-          })
-          .catch(err => {
-            console.error('Error reporting incident:', err);
-            showNotification('Failed to report incident', 'error');
-          });
-      }
-    }
-  };
+  /* ================================
+     Incident Handling
+  ================================= */
+
+const handleReportIncident = (trip) => {
+  const incidentType = prompt('Enter incident type (ACCIDENT, BREAKDOWN, TRAFFIC, WEATHER, HEALTH, REST, FUEL_STOP, LOADING, DOCUMENT, OTHER):');
+  if (!incidentType) return;
+
+  const description = prompt('Enter incident description:');
+  if (!description) return;
+
+  const severity = prompt('Enter severity (LOW, MEDIUM, HIGH, CRITICAL):', 'MEDIUM');
+  const location = prompt('Enter location (optional):');
+  const requiresAssistance = confirm('Does this require immediate assistance?');
+
+  tripService.reportIncident(trip.id, {
+    incidentType,
+    description,
+    severity,
+    location: location || undefined,
+    requiresAssistance
+  })
+    .then(() => {
+      showNotification('Incident reported successfully!', 'success');
+      fetchTrips({ page: pagination.page });
+    })
+    .catch(err => {
+      console.error('Error reporting incident:', err);
+      const errorMsg = err.message || 'Failed to report incident';
+      showNotification(errorMsg, 'error');
+    });
+};
 
   const handleViewTrip = (trip) => {
     setSelectedTrip(trip);
