@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Typography,
@@ -6,7 +7,6 @@ import {
   Grid,
   Card,
   CardContent,
-  LinearProgress,
   Alert,
   Button,
   Chip,
@@ -23,7 +23,8 @@ import {
   Stack,
   Tooltip,
   Divider,
-  CircularProgress  // Fixed: This is the correct import name
+  CircularProgress,
+  LinearProgress
 } from '@mui/material';
 import {
   DirectionsCar,
@@ -36,21 +37,17 @@ import {
   MoreVert,
   Search,
   Notifications,
-  ShoppingCart,
-  Message,
-  Menu as MenuIcon,
   Speed,
   Map,
   Timeline,
   Assessment,
-  Warning,
   CheckCircle
 } from '@mui/icons-material';
 import { analyticsService } from '../services/analyticsService';
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
-  if (amount === null || amount === undefined) return 'R 0.00';
+  if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   return new Intl.NumberFormat('en-ZA', {
     style: 'currency',
@@ -62,12 +59,127 @@ const formatCurrency = (amount) => {
 
 // Format number with South African conventions
 const formatNumber = (num, decimals = 0) => {
-  if (num === null || num === undefined) return '0';
+  if (num === null || num === undefined || isNaN(num)) return '0';
   const number = typeof num === 'string' ? parseFloat(num) : num;
   return new Intl.NumberFormat('en-ZA', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(number);
+};
+
+// Stat Card Component
+const StatCard = React.memo(({
+  title,
+  value,
+  icon: Icon,
+  unit = '',
+  color = 'primary',
+  trend,
+  subtitle,
+  loading = false
+}) => (
+  <Card sx={{
+    backgroundColor: getColorBg(color),
+    textAlign: 'center',
+    transition: 'all 0.3s ease',
+    height: '100%',
+    '&:hover': {
+      transform: 'translateY(-5px)',
+      boxShadow: 6
+    }
+  }}>
+    <CardContent sx={{ p: 3, position: 'relative' }}>
+      {loading && (
+        <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
+          <CircularProgress size={20} />
+        </Box>
+      )}
+
+      <Icon sx={{
+        fontSize: 48,
+        color: getColor(color),
+        mb: 2,
+        opacity: loading ? 0.5 : 1
+      }} />
+
+      <Typography color="textSecondary" gutterBottom variant="subtitle2" sx={{
+        fontWeight: 600,
+        fontSize: '0.875rem',
+        opacity: loading ? 0.7 : 1
+      }}>
+        {title}
+      </Typography>
+
+      <Typography variant="h4" component="div" sx={{
+        fontWeight: 700,
+        color: getColor(color),
+        mb: 1,
+        fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
+        opacity: loading ? 0.7 : 1
+      }}>
+        {typeof value === 'number' ?
+          (unit === 'currency' ? formatCurrency(value) :
+           unit === 'km' ? `${formatNumber(value)} km` :
+           unit === 'liters' ? `${formatNumber(value)} L` :
+           unit === 'km/L' ? `${value.toFixed(1)} km/L` :
+           unit === 'rand/km' ? `${formatCurrency(value)}/km` :
+           formatNumber(value, 1))
+          : value || 'N/A'}
+      </Typography>
+
+      {subtitle && (
+        <Typography variant="caption" color="textSecondary" sx={{
+          display: 'block',
+          mb: 1,
+          opacity: loading ? 0.7 : 1
+        }}>
+          {subtitle}
+        </Typography>
+      )}
+
+      {trend !== undefined && trend !== null && !isNaN(trend) && (
+        <Chip
+          label={trend > 0 ? `+${trend.toFixed(1)}%` : `${trend.toFixed(1)}%`}
+          size="small"
+          sx={{
+            backgroundColor: trend > 0 ? '#E6FFFA' : trend < 0 ? '#FDEDE8' : '#E8F7FF',
+            color: trend > 0 ? '#13DEB9' : trend < 0 ? '#FA896B' : '#49BEFF',
+            fontWeight: 600,
+            fontSize: '0.75rem',
+            height: 24
+          }}
+          icon={trend > 0 ? <TrendingUp fontSize="small" /> :
+                 trend < 0 ? <TrendingDown fontSize="small" /> :
+                 <Timeline fontSize="small" />}
+        />
+      )}
+    </CardContent>
+  </Card>
+));
+
+// Helper function for colors
+const getColor = (color) => {
+  const colors = {
+    primary: '#5D87FF',
+    success: '#13DEB9',
+    warning: '#FFAE1F',
+    error: '#FA896B',
+    info: '#49BEFF',
+    secondary: '#6B7280'
+  };
+  return colors[color] || colors.primary;
+};
+
+const getColorBg = (color) => {
+  const colors = {
+    primary: '#ECF2FF',
+    success: '#E6FFFA',
+    warning: '#FEF5E5',
+    error: '#FDEDE8',
+    info: '#E8F7FF',
+    secondary: '#F3F4F6'
+  };
+  return colors[color] || colors.primary;
 };
 
 const Dashboard = () => {
@@ -120,6 +232,17 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message || 'Failed to load dashboard data');
+      
+      // Even on error, set some basic data to prevent complete breakdown
+      if (!dashboardData) {
+        setDashboardData({
+          summary: { activeVehicles: 0, activeDrivers: 0, avgFuelEfficiency: 0 },
+          period: { startDate: new Date(), endDate: new Date() },
+          topDrivers: [],
+          topVehicles: [],
+          recentActivities: []
+        });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -129,121 +252,6 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [period]);
-
-  // Stat Card Component with modern design
-  const StatCard = ({
-    title,
-    value,
-    icon: Icon,
-    unit = '',
-    color = 'primary',
-    trend,
-    subtitle,
-    loading: cardLoading
-  }) => (
-    <Card sx={{
-      backgroundColor: getColorBg(color),
-      textAlign: 'center',
-      transition: 'all 0.3s ease',
-      height: '100%',
-      '&:hover': {
-        transform: 'translateY(-5px)',
-        boxShadow: 6
-      }
-    }}>
-      <CardContent sx={{ p: 3, position: 'relative' }}>
-        {cardLoading && (
-          <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
-            <CircularProgress size={20} /> {/* Fixed: Changed from MuiCircularProgress */}
-          </Box>
-        )}
-
-        <Icon sx={{
-          fontSize: 48,
-          color: getColor(color),
-          mb: 2,
-          opacity: cardLoading ? 0.5 : 1
-        }} />
-
-        <Typography color="textSecondary" gutterBottom variant="subtitle2" sx={{
-          fontWeight: 600,
-          fontSize: '0.875rem',
-          opacity: cardLoading ? 0.7 : 1
-        }}>
-          {title}
-        </Typography>
-
-        <Typography variant="h4" component="div" sx={{
-          fontWeight: 700,
-          color: getColor(color),
-          mb: 1,
-          fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
-          opacity: cardLoading ? 0.7 : 1
-        }}>
-          {typeof value === 'number' ?
-            (unit === 'currency' ? formatCurrency(value) :
-             unit === 'km' ? `${formatNumber(value)} km` :
-             unit === 'liters' ? `${formatNumber(value)} L` :
-             unit === 'km/L' ? `${value.toFixed(1)} km/L` :
-             unit === 'rand/km' ? `${formatCurrency(value)}/km` :
-             formatNumber(value, 1))
-            : value || 'N/A'}
-        </Typography>
-
-        {subtitle && (
-          <Typography variant="caption" color="textSecondary" sx={{
-            display: 'block',
-            mb: 1,
-            opacity: cardLoading ? 0.7 : 1
-          }}>
-            {subtitle}
-          </Typography>
-        )}
-
-        {trend !== undefined && trend !== null && (
-          <Chip
-            label={trend > 0 ? `+${trend.toFixed(1)}%` : `${trend.toFixed(1)}%`}
-            size="small"
-            sx={{
-              backgroundColor: trend > 0 ? '#E6FFFA' : trend < 0 ? '#FDEDE8' : '#E8F7FF',
-              color: trend > 0 ? '#13DEB9' : trend < 0 ? '#FA896B' : '#49BEFF',
-              fontWeight: 600,
-              fontSize: '0.75rem',
-              height: 24
-            }}
-            icon={trend > 0 ? <TrendingUp fontSize="small" /> :
-                   trend < 0 ? <TrendingDown fontSize="small" /> :
-                   <Timeline fontSize="small" />}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  // Helper function for colors
-  const getColor = (color) => {
-    const colors = {
-      primary: '#5D87FF',
-      success: '#13DEB9',
-      warning: '#FFAE1F',
-      error: '#FA896B',
-      info: '#49BEFF',
-      secondary: '#6B7280'
-    };
-    return colors[color] || colors.primary;
-  };
-
-  const getColorBg = (color) => {
-    const colors = {
-      primary: '#ECF2FF',
-      success: '#E6FFFA',
-      warning: '#FEF5E5',
-      error: '#FDEDE8',
-      info: '#E8F7FF',
-      secondary: '#F3F4F6'
-    };
-    return colors[color] || colors.primary;
-  };
 
   // Top Drivers Table Component
   const TopDriversTable = () => {
@@ -311,7 +319,13 @@ const Dashboard = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {topDrivers.slice(0, 5).map((driver, index) => (
+                {topDrivers.slice(0, 5).map((driver, index) => {
+                  const efficiency = driver.efficiency || driver.kmPerLiter || 0;
+                  const tripCount = driver.tripCount || driver.tripsCompleted || 0;
+                  const costPerKm = driver.costPerKm || 0;
+                  const rating = driver.rating || 0;
+                  
+                  return (
                   <TableRow
                     key={index}
                     hover
@@ -347,29 +361,29 @@ const Dashboard = () => {
                     </TableCell>
                     <TableCell align="center">
                       <Chip
-                        label={`${(driver.efficiency || driver.kmPerLiter || 0).toFixed(1)} km/L`}
+                        label={`${efficiency.toFixed(1)} km/L`}
                         size="small"
                         sx={{
-                          backgroundColor: (driver.efficiency || driver.kmPerLiter || 0) > 8 ? '#E6FFFA' :
-                                         (driver.efficiency || driver.kmPerLiter || 0) > 7 ? '#FEF5E5' : '#FDEDE8',
-                          color: (driver.efficiency || driver.kmPerLiter || 0) > 8 ? '#13DEB9' :
-                                (driver.efficiency || driver.kmPerLiter || 0) > 7 ? '#FFAE1F' : '#FA896B',
+                          backgroundColor: efficiency > 8 ? '#E6FFFA' :
+                                         efficiency > 7 ? '#FEF5E5' : '#FDEDE8',
+                          color: efficiency > 8 ? '#13DEB9' :
+                                efficiency > 7 ? '#FFAE1F' : '#FA896B',
                           fontWeight: 600
                         }}
                       />
                     </TableCell>
                     <TableCell align="center">
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {driver.tripCount || driver.tripsCompleted || 0}
+                        {tripCount}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
                       <Typography variant="body2" sx={{
                         fontWeight: 600,
-                        color: (driver.costPerKm || 0) < 2 ? '#13DEB9' :
-                               (driver.costPerKm || 0) < 3 ? '#FFAE1F' : '#FA896B'
+                        color: costPerKm < 2 ? '#13DEB9' :
+                               costPerKm < 3 ? '#FFAE1F' : '#FA896B'
                       }}>
-                        {formatCurrency(driver.costPerKm || 0)}/km
+                        {formatCurrency(costPerKm)}/km
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
@@ -382,14 +396,14 @@ const Dashboard = () => {
                               height: 8,
                               borderRadius: '50%',
                               mx: 0.2,
-                              bgcolor: star <= (driver.rating || 0) ? '#FFAE1F' : '#E5E7EB'
+                              bgcolor: star <= rating ? '#FFAE1F' : '#E5E7EB'
                             }}
                           />
                         ))}
                       </Box>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
           </TableContainer>
@@ -400,15 +414,8 @@ const Dashboard = () => {
 
   // Recent Activity Component
   const RecentActivity = () => {
-    // Use data from backend or fallback to mock data
     const activities = dashboardData?.recentActivities || 
-                     dashboardData?.summary?.recentActivities || [
-      { type: 'fuel', message: 'Fuel refill completed', vehicle: 'ABC-123', time: '2 hours ago', status: 'success' },
-      { type: 'maintenance', message: 'Maintenance scheduled', vehicle: 'XYZ-789', time: '5 hours ago', status: 'warning' },
-      { type: 'trip', message: 'New trip completed', vehicle: 'DEF-456', time: '1 day ago', status: 'info' },
-      { type: 'driver', message: 'Driver assigned', vehicle: 'GHI-789', time: '2 days ago', status: 'success' },
-      { type: 'inspection', message: 'Vehicle inspection passed', vehicle: 'JKL-012', time: '3 days ago', status: 'success' }
-    ];
+                     dashboardData?.summary?.recentActivities || [];
 
     const getActivityIcon = (type) => {
       switch (type) {
@@ -441,38 +448,48 @@ const Dashboard = () => {
           <Typography variant="h5" gutterBottom>
             Recent Activity
           </Typography>
-          <Stack spacing={2}>
-            {activities.slice(0, 5).map((activity, index) => (
-              <Paper
-                key={index}
-                sx={{
-                  p: 2,
-                  backgroundColor: '#f8fafc',
-                  borderLeft: `4px solid ${getStatusColor(activity.status)}`
-                }}
-              >
-                <Stack direction="row" spacing={2} alignItems="flex-start">
-                  <Box sx={{
-                    color: getStatusColor(activity.status),
-                    mt: 0.5
-                  }}>
-                    {getActivityIcon(activity.type)}
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {activity.message}
+          
+          {activities.length > 0 ? (
+            <Stack spacing={2}>
+              {activities.slice(0, 5).map((activity, index) => (
+                <Paper
+                  key={index}
+                  sx={{
+                    p: 2,
+                    backgroundColor: '#f8fafc',
+                    borderLeft: `4px solid ${getStatusColor(activity.status)}`
+                  }}
+                >
+                  <Stack direction="row" spacing={2} alignItems="flex-start">
+                    <Box sx={{
+                      color: getStatusColor(activity.status),
+                      mt: 0.5
+                    }}>
+                      {getActivityIcon(activity.type)}
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {activity.message}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {activity.vehicle ? `Vehicle: ${activity.vehicle}` : 'System update'}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="textSecondary">
+                      {activity.time || 'Recently'}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      {activity.vehicle ? `Vehicle: ${activity.vehicle}` : 'System update'}
-                    </Typography>
-                  </Box>
-                  <Typography variant="caption" color="textSecondary">
-                    {activity.time || 'Recently'}
-                  </Typography>
-                </Stack>
-              </Paper>
-            ))}
-          </Stack>
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Timeline sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="body1" color="textSecondary">
+                No recent activity
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Paper>
     );
@@ -485,7 +502,7 @@ const Dashboard = () => {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '100vh',
+        height: '70vh',
         gap: 2
       }}>
         <CircularProgress size={60} />
@@ -496,26 +513,8 @@ const Dashboard = () => {
     );
   }
 
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert
-          severity="error"
-          action={
-            <Button color="inherit" size="small" onClick={fetchDashboardData}>
-              Retry
-            </Button>
-          }
-          sx={{ mt: 2 }}
-        >
-          {error}
-        </Alert>
-      </Box>
-    );
-  }
-
   const summary = dashboardData?.summary || {};
-  const vehicleKpis = dashboardData?.vehicleKpis || dashboardData?.topVehicles || [];
+  const vehicleKpis = dashboardData?.topVehicles || dashboardData?.vehicleKpis || [];
   const periodStats = dashboardData?.period || {};
 
   return (
@@ -543,6 +542,20 @@ const Dashboard = () => {
           </Button>
         </Tooltip>
       </Stack>
+
+      {error && (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => fetchDashboardData(true)}>
+              Retry
+            </Button>
+          }
+          sx={{ mb: 3 }}
+        >
+          {error}
+        </Alert>
+      )}
 
       {/* Time Period Selector */}
       <Box sx={{
@@ -731,7 +744,13 @@ const Dashboard = () => {
                 {vehicleKpis
                   .sort((a, b) => (b.kmPerLiter || b.efficiency || 0) - (a.kmPerLiter || a.efficiency || 0))
                   .slice(0, 4)
-                  .map((vehicle, index) => (
+                  .map((vehicle, index) => {
+                    const efficiency = vehicle.kmPerLiter || vehicle.efficiency || 0;
+                    const distance = vehicle.totalKm || vehicle.distance || 0;
+                    const fuel = vehicle.fuelLiters || 0;
+                    const costPerKm = vehicle.costPerKm || 0;
+                    
+                    return (
                     <Paper
                       key={index}
                       sx={{
@@ -757,28 +776,28 @@ const Dashboard = () => {
                           </Stack>
                           <Stack direction="row" spacing={2} mt={1}>
                             <Typography variant="body2" color="textSecondary">
-                              Efficiency: {(vehicle.kmPerLiter || vehicle.efficiency || 0).toFixed(1)} km/L
+                              Efficiency: {efficiency.toFixed(1)} km/L
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                              Distance: {formatNumber(vehicle.totalKm || vehicle.distance || 0)} km
+                              Distance: {formatNumber(distance)} km
                             </Typography>
                           </Stack>
                         </Box>
                         <Box sx={{ textAlign: 'right' }}>
                           <Chip
-                            label={formatCurrency(vehicle.costPerKm || 0) + '/km'}
-                            color={(vehicle.kmPerLiter || vehicle.efficiency || 0) > 8 ? 'success' : 
-                                   (vehicle.kmPerLiter || vehicle.efficiency || 0) > 6 ? 'warning' : 'error'}
+                            label={formatCurrency(costPerKm) + '/km'}
+                            color={efficiency > 8 ? 'success' : 
+                                   efficiency > 6 ? 'warning' : 'error'}
                             size="small"
                             sx={{ fontWeight: 600, mb: 1 }}
                           />
                           <Typography variant="caption" color="textSecondary" display="block">
-                            Fuel: {formatNumber(vehicle.fuelLiters || 0)} L
+                            Fuel: {formatNumber(fuel)} L
                           </Typography>
                         </Box>
                       </Stack>
                     </Paper>
-                  ))}
+                  )})}
               </Stack>
             ) : (
               <Box sx={{ textAlign: 'center', py: 4 }}>
