@@ -47,9 +47,9 @@ export const analyticsService = {
       const response = await api.get(url);
       const data = response.data;
       
-      if (!data || !data.success) {
-        throw new Error(data?.message || 'Invalid response from server');
-      }
+      if (!data) {
+  throw new Error('No data received from server');
+}
 
       console.log('✅ Dashboard data received:', data);
 
