@@ -147,6 +147,82 @@ export const tripService = {
     }
   },
 
+
+
+  // ==========================
+  // Incident Management
+  // ==========================
+
+reportIncident: async (tripId, incidentData) => {
+  try {
+    const payload = {
+      incidentType: incidentData.incidentType,
+      severity: incidentData.severity || 'MEDIUM',
+      description: incidentData.description,
+      location: incidentData.location || null,
+      requiresAssistance: incidentData.requiresAssistance || false
+    };
+    
+    const response = await api.post(`/api/trips/${tripId}/incidents`, payload);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error reporting incident for trip ${tripId}:`, error);
+    
+    if (error.response?.data?.errors) {
+      const errorMessages = Object.entries(error.response.data.errors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(', ');
+      throw new Error(`Validation errors: ${errorMessages}`);
+    } else if (error.response?.data?.detail) {
+      throw new Error(error.response.data.detail);
+    }
+    
+    throw error;
+  }
+},
+
+getTripIncidents: async (tripId) => {
+  try {
+    const response = await api.get(`/api/trips/${tripId}/incidents`);
+    const data = unwrap(response);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  } catch (error) {
+    console.error(`Error fetching incidents for trip ${tripId}:`, error);
+    return [];
+  }
+},
+
+getActiveIncidents: async (tripId) => {
+  try {
+    const response = await api.get(`/api/trips/${tripId}/incidents/active`);
+    const data = unwrap(response);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  } catch (error) {
+    console.error(`Error fetching active incidents for trip ${tripId}:`, error);
+    return [];
+  }
+},
+
+updateIncident: async (tripId, incidentId, updateData) => {
+  try {
+    const response = await api.put(`/api/trips/${tripId}/incidents/${incidentId}`, updateData);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error updating incident ${incidentId}:`, error);
+    throw error;
+  }
+},
+
+deleteIncident: async (tripId, incidentId) => {
+  try {
+    const response = await api.delete(`/api/trips/${tripId}/incidents/${incidentId}`);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error deleting incident ${incidentId}:`, error);
+    throw error;
+  }
+},
+
   // ==========================
   // Trip Lifecycle Management
   // ==========================
