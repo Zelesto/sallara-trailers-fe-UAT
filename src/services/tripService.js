@@ -2,6 +2,9 @@
 import api from './api';
 import dayjs from 'dayjs';
 
+// At the top of tripService.js, add this import:
+import { fuelService } from './fuelService';
+
 const formatDateForBackend = (date) =>
   date ? dayjs(date).format('YYYY-MM-DDTHH:mm:ss') : null;
 
@@ -466,14 +469,50 @@ endTrip: async (tripId, endData) => {
   // ==========================
 
   getTripFuelData: async (tripId) => {
-    try {
-      const response = await api.get(`/api/trips/${tripId}/fuel`);
-      return unwrap(response);
-    } catch (error) {
-      console.error(`Error fetching fuel data for trip ${tripId}:`, error);
-      return { fuelEntries: [], totalLiters: 0, totalCost: 0 };
-    }
-  },
+  try {
+    // Use the fuelService to get fuel slips filtered by tripId
+    // This will work with your existing fuelService.getFuelSlips() method
+    const fuelSlips = await fuelService.getFuelSlips({ tripId });
+    
+    // Format the data for the TripDetails component
+    return {
+      tripId: tripId,
+      fuelEntries: fuelSlips.map(slip => ({
+        id: slip.id,
+        date: slip.transactionDate || slip.date,
+        station: slip.stationName,
+        stationLocation: slip.location,
+        liters: slip.quantity,
+        pricePerLiter: slip.unitPrice,
+        totalAmount: slip.totalAmount,
+        odometer: slip.odometerReading,
+        receiptNumber: slip.receiptNumber,
+        driverId: slip.driverId,
+        driverName: slip.driverName,
+        vehicleId: slip.vehicleId,
+        vehicleRegNumber: slip.vehicleRegistration,
+        finalized: slip.finalized
+      })),
+      summary: {
+        totalLiters: fuelSlips.reduce((sum, slip) => sum + (parseFloat(slip.quantity) || 0), 0),
+        totalCost: fuelSlips.reduce((sum, slip) => sum + (parseFloat(slip.totalAmount) || 0), 0),
+        entriesCount: fuelSlips.length
+      }
+    };
+  } catch (error) {
+    console.error(`Error fetching fuel data for trip ${tripId}:`, error);
+    // Return empty structure on error
+    return {
+      tripId: tripId,
+      fuelEntries: [],
+      summary: {
+        totalLiters: 0,
+        totalCost: 0,
+        entriesCount: 0
+      }
+    };
+  }
+},
 
   calculateTripCost: async (tripId) => {
     try {
