@@ -1,22 +1,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
+import { fuelService } from '../services/fuelService';
 import TripForm from './TripForm';
 import TripMetricsForm from './TripMetricsForm';
 import TripDetails from './TripDetails';
+import StartTripDialog from './StartTripDialog';
+import EndTripDialog from './EndTripDialog';
+import IncidentDialog from './IncidentDialog';
 
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Typography, CircularProgress, Box, Select, MenuItem, FormControl, InputLabel,
   Chip, IconButton, Button, Card, CardContent, Tooltip,
-  TablePagination, TextField, Alert, Avatar, Stack, Badge
+  TablePagination, TextField, Alert, Stack, Badge
 } from '@mui/material';
 
 import {
   Add, Edit, Delete, Visibility, CheckCircle, Refresh,
-  Search as SearchIcon, Dashboard, PlayArrow, Stop, Pause,
-  Person as PersonIcon, LocalShipping as LocalShippingIcon,
-  Check as CheckIcon, Schedule as ScheduleIcon
+  Search as SearchIcon, Dashboard, PlayArrow, Stop,
+  Warning as WarningIcon, LocalGasStation,
+  Timeline, Person, DirectionsCar
 } from '@mui/icons-material';
 
 /* ================================
@@ -92,13 +96,6 @@ export const STATUS_CONFIG = {
     label: 'Finalized',
     icon: '📊',
     description: 'Trip is finalized and invoiced'
-  },
-  PAUSED: {
-    color: '#ff9800',
-    bgColor: '#fff3e0',
-    label: 'Paused',
-    icon: '⏸️',
-    description: 'Trip is temporarily paused'
   }
 };
 
@@ -144,11 +141,13 @@ function TripList() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   const [selectedTrip, setSelectedTrip] = useState(null);
-  const [selectedTripId, setSelectedTripId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMetricsModal, setShowMetricsModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [showEndDialog, setShowEndDialog] = useState(false);
+  const [showIncidentDialog, setShowIncidentDialog] = useState(false);
 
   const [pagination, setPagination] = useState({
     page: 0,
@@ -212,60 +211,113 @@ function TripList() {
   /* ================================
      Trip Actions
   ================================= */
-  const handleAction = async (action, trip) => {
+  const handleStartTrip = (trip) => {
+    setSelectedTrip(trip);
+    setShowStartDialog(true);
+  };
+
+  const handleStartTripConfirm = async (startOdometer) => {
+    if (!selectedTrip) return;
+
     try {
-      switch (action) {
-        case 'start':
-          await tripService.startTrip(trip.id);
-          showNotification('Trip started successfully!', 'success');
-          break;
-        case 'end':
-          await tripService.endTrip(trip.id);
-          showNotification('Trip ended successfully!', 'success');
-          break;
-        case 'pause':
-          setSelectedTripId(trip.id);
-          showNotification('Pause trip functionality coming soon', 'info');
-          return;
-        case 'resume':
-          await tripService.resumeTrip(trip.id);
-          showNotification('Trip resumed successfully!', 'success');
-          break;
-        case 'view':
-          setSelectedTrip(trip);
-          setShowDetailsModal(true);
-          return;
-        case 'edit':
-          setSelectedTrip(trip);
-          setShowEditModal(true);
-          return;
-        case 'metrics':
-          setSelectedTrip(trip);
-          setShowMetricsModal(true);
-          return;
-        case 'finalize':
-          await tripService.finalizeTrip(trip.id);
-          showNotification('Trip finalized successfully!', 'success');
-          break;
-        case 'delete':
-          if (!window.confirm('Are you sure you want to delete this trip? This action cannot be undone.')) return;
-          await tripService.deleteTrip(trip.id);
-          showNotification('Trip deleted successfully', 'success');
-          break;
-        default:
-          console.warn('Unknown action:', action);
-          return;
-      }
-
-      // Refresh list after action
-      setTimeout(() => {
-        fetchTrips({ page: pagination.page });
-      }, 500);
-
+      await tripService.startTrip(selectedTrip.id, { startOdometer });
+      showNotification('Trip started successfully!', 'success');
+      fetchTrips({ page: pagination.page });
     } catch (err) {
-      console.error(`Error in ${action} action:`, err);
-      showNotification(`Failed to ${action} trip`, 'error');
+      console.error('Error starting trip:', err);
+      showNotification('Failed to start trip', 'error');
+    } finally {
+      setShowStartDialog(false);
+      setSelectedTrip(null);
     }
+  };
+
+  const handleEndTrip = (trip) => {
+    setSelectedTrip(trip);
+    setShowEndDialog(true);
+  };
+
+  const handleEndTripConfirm = async (endOdometer) => {
+    if (!selectedTrip) return;
+
+    try {
+      await tripService.endTrip(selectedTrip.id, { endOdometer });
+      showNotification('Trip ended successfully!', 'success');
+      fetchTrips({ page: pagination.page });
+    } catch (err) {
+      console.error('Error ending trip:', err);
+      showNotification('Failed to end trip', 'error');
+    } finally {
+      setShowEndDialog(false);
+      setSelectedTrip(null);
+    }
+  };
+
+  const handleReportIncident = (trip) => {
+    setSelectedTrip(trip);
+    setShowIncidentDialog(true);
+  };
+
+  const handleIncidentReportSubmit = async (incidentData) => {
+    if (!selectedTrip) return;
+
+    try {
+      await tripService.reportIncident(selectedTrip.id, incidentData);
+      showNotification('Incident reported successfully', 'success');
+      fetchTrips({ page: pagination.page });
+    } catch (err) {
+      console.error('Error reporting incident:', err);
+      showNotification('Failed to report incident', 'error');
+    } finally {
+      setShowIncidentDialog(false);
+      setSelectedTrip(null);
+    }
+  };
+
+  const handleViewTrip = (trip) => {
+    setSelectedTrip(trip);
+    setShowDetailsModal(true);
+  };
+
+  const handleEditTrip = (trip) => {
+    setSelectedTrip(trip);
+    setShowEditModal(true);
+  };
+
+  const handleOpenMetrics = (trip) => {
+    setSelectedTrip(trip);
+    setShowMetricsModal(true);
+  };
+
+  const handleFinalizeTrip = async (trip) => {
+    if (!window.confirm('Are you sure you want to finalize this trip?')) return;
+    
+    try {
+      await tripService.finalizeTrip(trip.id);
+      showNotification('Trip finalized successfully!', 'success');
+      fetchTrips({ page: pagination.page });
+    } catch (err) {
+      console.error('Error finalizing trip:', err);
+      showNotification('Failed to finalize trip', 'error');
+    }
+  };
+
+  const handleDeleteTrip = async (trip) => {
+    if (!window.confirm('Are you sure you want to delete this trip? This action cannot be undone.')) return;
+    
+    try {
+      await tripService.deleteTrip(trip.id);
+      showNotification('Trip deleted successfully', 'success');
+      fetchTrips({ page: 0 });
+    } catch (err) {
+      console.error('Error deleting trip:', err);
+      showNotification('Failed to delete trip', 'error');
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setStatusFilter('all');
   };
 
   /* ================================
@@ -359,10 +411,7 @@ function TripList() {
           </FormControl>
 
           <Button 
-            onClick={() => {
-              setSearchText('');
-              setStatusFilter('all');
-            }}
+            onClick={handleClearFilters}
             disabled={!searchText && statusFilter === 'all'}
           >
             Clear Filters
@@ -379,7 +428,8 @@ function TripList() {
               <TableCell><strong>Status</strong></TableCell>
               <TableCell><strong>Origin</strong></TableCell>
               <TableCell><strong>Destination</strong></TableCell>
-              <TableCell><strong>Start Date</strong></TableCell>
+              <TableCell><strong>Driver / Vehicle</strong></TableCell>
+              <TableCell><strong>Planned Start</strong></TableCell>
               <TableCell><strong>Actions</strong></TableCell>
             </TableRow>
           </TableHead>
@@ -387,7 +437,7 @@ function TripList() {
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                   <Typography color="text.secondary">
                     {searchText || statusFilter !== 'all'
                       ? 'No trips match your filters'
@@ -395,10 +445,7 @@ function TripList() {
                   </Typography>
                   {(searchText || statusFilter !== 'all') && (
                     <Button 
-                      onClick={() => {
-                        setSearchText('');
-                        setStatusFilter('all');
-                      }} 
+                      onClick={handleClearFilters}
                       sx={{ mt: 1 }}
                     >
                       Clear Filters
@@ -407,7 +454,15 @@ function TripList() {
                 </TableCell>
               </TableRow>
             ) : (
-              trips.map(trip => (
+              trips.map(trip => {
+                const canStart = ['PLANNED', 'ASSIGNED', 'DRAFT'].includes(trip.status);
+                const canEnd = ['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
+                const canReportIncident = ['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
+                const canFinalize = trip.status === 'COMPLETED';
+                const canEdit = !['CANCELLED', 'FINALIZED', 'CLOSED', 'COMPLETED'].includes(trip.status);
+                const canDelete = !['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
+                
+                return (
                 <TableRow key={trip.id} hover>
                   <TableCell>
                     <Typography fontWeight="medium">
@@ -419,8 +474,48 @@ function TripList() {
                     <StatusChip status={trip.status} />
                   </TableCell>
 
-                  <TableCell>{trip.originLocation}</TableCell>
-                  <TableCell>{trip.destinationLocation}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {trip.originLocation}
+                    </Typography>
+                    {trip.originCity && (
+                      <Typography variant="caption" color="text.secondary">
+                        {trip.originCity}
+                      </Typography>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <Typography variant="body2">
+                      {trip.destinationLocation}
+                    </Typography>
+                    {trip.destinationCity && (
+                      <Typography variant="caption" color="text.secondary">
+                        {trip.destinationCity}
+                      </Typography>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <Stack spacing={0.5}>
+                      {trip.driver && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Person fontSize="small" sx={{ color: 'text.secondary' }} />
+                          <Typography variant="body2">
+                            {trip.driver.name || trip.driver}
+                          </Typography>
+                        </Box>
+                      )}
+                      {trip.vehicle && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <DirectionsCar fontSize="small" sx={{ color: 'text.secondary' }} />
+                          <Typography variant="body2">
+                            {trip.vehicle.registrationNumber || trip.vehicle}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
+                  </TableCell>
 
                   <TableCell>
                     {trip.plannedStartDate
@@ -430,59 +525,106 @@ function TripList() {
 
                   <TableCell>
                     <Box display="flex" gap={0.5}>
+                      {/* Start Trip Button */}
+                      {canStart && (
+                        <Tooltip title="Start Trip">
+                          <IconButton 
+                            size="small"
+                            color="success"
+                            onClick={() => handleStartTrip(trip)}
+                          >
+                            <PlayArrow fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+
+                      {/* End Trip Button */}
+                      {canEnd && (
+                        <Tooltip title="End Trip">
+                          <IconButton 
+                            size="small"
+                            color="error"
+                            onClick={() => handleEndTrip(trip)}
+                          >
+                            <Stop fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+
+                      {/* Report Incident Button */}
+                      {canReportIncident && (
+                        <Tooltip title="Report Incident">
+                          <IconButton 
+                            size="small"
+                            color="warning"
+                            onClick={() => handleReportIncident(trip)}
+                          >
+                            <WarningIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+
+                      {/* View Details */}
                       <Tooltip title="View Details">
                         <IconButton 
                           size="small" 
-                          onClick={() => handleAction('view', trip)}
+                          onClick={() => handleViewTrip(trip)}
                         >
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
 
-                      <Tooltip title="Edit Trip">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleAction('edit', trip)}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {/* Edit Trip */}
+                      {canEdit && (
+                        <Tooltip title="Edit Trip">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleEditTrip(trip)}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
 
+                      {/* Trip Metrics */}
                       <Tooltip title="Trip Metrics">
                         <IconButton 
                           size="small" 
-                          onClick={() => handleAction('metrics', trip)}
+                          onClick={() => handleOpenMetrics(trip)}
                         >
                           <Dashboard fontSize="small" />
                         </IconButton>
                       </Tooltip>
 
-                      {(trip.status !== 'COMPLETED' && trip.status !== 'CLOSED') && (
+                      {/* Finalize Trip */}
+                      {canFinalize && (
                         <Tooltip title="Finalize Trip">
                           <IconButton
                             size="small"
                             color="success"
-                            onClick={() => handleAction('finalize', trip)}
+                            onClick={() => handleFinalizeTrip(trip)}
                           >
                             <CheckCircle fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
 
-                      <Tooltip title="Delete Trip">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleAction('delete', trip)}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {/* Delete Trip */}
+                      {canDelete && (
+                        <Tooltip title="Delete Trip">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteTrip(trip)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
+              )})}
           </TableBody>
         </Table>
       </TableContainer>
@@ -551,6 +693,43 @@ function TripList() {
           tripId={selectedTrip.id}
           onClose={() => setShowDetailsModal(false)}
           onUpdate={() => fetchTrips({ page: pagination.page })}
+        />
+      )}
+
+      {/* Dialogs */}
+      {showStartDialog && selectedTrip && (
+        <StartTripDialog
+          open={showStartDialog}
+          onClose={() => {
+            setShowStartDialog(false);
+            setSelectedTrip(null);
+          }}
+          onConfirm={handleStartTripConfirm}
+          trip={selectedTrip}
+        />
+      )}
+
+      {showEndDialog && selectedTrip && (
+        <EndTripDialog
+          open={showEndDialog}
+          onClose={() => {
+            setShowEndDialog(false);
+            setSelectedTrip(null);
+          }}
+          onConfirm={handleEndTripConfirm}
+          trip={selectedTrip}
+        />
+      )}
+
+      {showIncidentDialog && selectedTrip && (
+        <IncidentDialog
+          open={showIncidentDialog}
+          onClose={() => {
+            setShowIncidentDialog(false);
+            setSelectedTrip(null);
+          }}
+          onSubmit={handleIncidentReportSubmit}
+          trip={selectedTrip}
         />
       )}
     </Box>
