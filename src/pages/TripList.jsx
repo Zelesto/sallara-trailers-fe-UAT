@@ -352,50 +352,42 @@ function TripList() {
   /* ================================
      Trip Actions
   ================================= */
-  const handleAction = async (action, trip) => {
-    try {
-      switch (action) {
-        case 'start':
-          await tripService.startTrip(trip.id);
-          enqueueSnackbar('Trip started successfully!', { variant: 'success' });
-          break;
-        case 'end':
-          await tripService.endTrip(trip.id);
-          enqueueSnackbar('Trip ended successfully!', { variant: 'success' });
-          break;
-        case 'pause':
-          setSelectedTripId(trip.id);
-          setShowPauseDialog(true);
-          return; // Don't refresh yet
-        case 'resume':
-          await tripService.resumeTrip(trip.id);
-          enqueueSnackbar('Trip resumed successfully!', { variant: 'success' });
-          break;
-        case 'view':
-          setSelectedTrip(trip);
-          setShowDetailsModal(true);
-          return;
-        case 'edit':
-          setSelectedTrip(trip);
-          setShowEditModal(true);
-          return;
-        case 'metrics':
-          setSelectedTrip(trip);
-          setShowMetricsModal(true);
-          return;
-        case 'finalize':
-          await tripService.finalizeTrip(trip.id);
-          enqueueSnackbar('Trip finalized successfully!', { variant: 'success' });
-          break;
-        case 'delete':
-          if (!window.confirm('Are you sure you want to delete this trip? This action cannot be undone.')) return;
-          await tripService.deleteTrip(trip.id);
-          enqueueSnackbar('Trip deleted successfully', { variant: 'success' });
-          break;
-        default:
-          console.warn('Unknown action:', action);
-          return;
-      }
+  // Remove this import:
+// import { useSnackbar } from 'notistack';
+
+// In the TripList function, remove this line:
+// const { enqueueSnackbar } = useSnackbar();
+
+// Replace all enqueueSnackbar calls with console.log or simple alerts:
+const handleAction = async (action, trip) => {
+  try {
+    switch (action) {
+      case 'start':
+        await tripService.startTrip(trip.id);
+        console.log('Trip started successfully!');
+        // Or use: alert('Trip started successfully!');
+        break;
+      case 'end':
+        await tripService.endTrip(trip.id);
+        console.log('Trip ended successfully!');
+        break;
+      case 'pause':
+        setSelectedTripId(trip.id);
+        setShowPauseDialog(true);
+        return;
+      case 'resume':
+        await tripService.resumeTrip(trip.id);
+        console.log('Trip resumed successfully!');
+        break;
+      // ... other cases
+    }
+    // ... rest of the code
+  } catch (err) {
+    console.error(`Error in ${action} action:`, err);
+    console.error(`Failed to ${action} trip`);
+    // Or use: alert(`Failed to ${action} trip`);
+  }
+};
 
       // Refresh list after action (except for view/edit/metrics)
       setTimeout(() => {
