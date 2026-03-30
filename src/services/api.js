@@ -1,7 +1,11 @@
+// src/api/axiosConfig.js
 import axios from 'axios';
 
-// Use environment variable or fallback to your deployed backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://trailers-backend.onrender.com';
+// React (Create React App) uses REACT_APP_ prefix, not VITE_
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
+
+console.log('API Base URL from env:', process.env.REACT_APP_API_BASE_URL);
+console.log('Final API Base URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,7 +14,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  withCredentials: false, // set true if backend uses cookies
+  withCredentials: false,
 });
 
 // ---------------------------
@@ -19,12 +23,10 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     console.log(`🌐 ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    console.log('Request headers:', config.headers);
-    console.log('Request data:', config.data);
-
+    
     const token = localStorage.getItem('token');
     if (token && token !== 'undefined' && token.trim() !== '') {
-      console.log('Adding Authorization token:', token.substring(0, 20) + '...');
+      console.log('Adding Authorization token');
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -51,9 +53,8 @@ api.interceptors.response.use(
   (response) => {
     console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url}`);
     console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
-    console.log('Response headers:', response.headers);
-
+    
+    // Return the data directly for convenience
     return response.data;
   },
   (error) => {
@@ -61,11 +62,8 @@ api.interceptors.response.use(
     console.error('Error:', error);
     console.error('URL:', error.config?.url);
     console.error('Method:', error.config?.method);
-    console.error('Request headers:', error.config?.headers);
-    console.error('Request data:', error.config?.data);
     console.error('Response status:', error.response?.status);
     console.error('Response data:', error.response?.data);
-    console.error('Response headers:', error.response?.headers);
     console.groupEnd();
 
     const { response } = error;
@@ -73,37 +71,32 @@ api.interceptors.response.use(
     let message = 'An unexpected error occurred';
 
     if (response?.data) {
-      message =
-        response.data.message ||
-        response.data.error ||
-        (typeof response.data === 'string' ? response.data : JSON.stringify(response.data)) ||
-        error.message;
+      message = response.data.message || response.data.error || error.message;
     }
 
-if (status === 401) {
-  const isLoginPage = window.location.pathname.includes('/login');
-  const isLoginRequest = error.config?.url?.includes('/auth/login');
-  const isSignupPage = window.location.pathname.includes('/signup');
-  const isAuthPage = isLoginPage || isSignupPage;
-  
-  if (!isAuthPage && !isLoginRequest) {
-    console.warn('Session expired, redirecting to login');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setTimeout(() => {
-      window.location.href = '/login?session=expired';
-    }, 100);
-  }
-  
-  message = response?.data?.message || 'Invalid credentials';
-}
+    // Handle 401 Unauthorized
+    if (status === 401) {
+      const isLoginPage = window.location.pathname.includes('/login');
+      const isLoginRequest = error.config?.url?.includes('/auth/login');
+      const isAuthPage = isLoginPage || window.location.pathname.includes('/signup');
+      
+      if (!isAuthPage && !isLoginRequest) {
+        console.warn('Session expired, redirecting to login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setTimeout(() => {
+          window.location.href = '/login?session=expired';
+        }, 100);
+      }
+      
+      message = response?.data?.message || 'Invalid credentials';
+    }
 
     const normalizedError = {
       status,
       message,
       data: response?.data,
       originalError: error,
-      config: error.config,
     };
 
     return Promise.reject(normalizedError);
@@ -114,7 +107,7 @@ if (status === 401) {
 // Helper Methods
 // ---------------------------
 api.setToken = (token) => {
-  console.log('Setting token in localStorage and axios');
+  console.log('Setting token');
   if (token) {
     localStorage.setItem('token', token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -129,14 +122,10 @@ api.clearToken = () => {
 
 api.isAuthenticated = () => {
   const token = localStorage.getItem('token');
-  const isAuth = !!(token && token !== 'undefined' && token.trim() !== '');
-  console.log('isAuthenticated check:', isAuth);
-  return isAuth;
+  return !!(token && token !== 'undefined' && token.trim() !== '');
 };
 
-// ---------------------------
-// Test Connection
-// ---------------------------
+// Test connection to backend
 api.testConnection = async () => {
   try {
     console.log('Testing connection to:', API_BASE_URL);
