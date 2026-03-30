@@ -31,6 +31,8 @@ import {
   Card,
   CardContent,
   InputAdornment,
+  Tooltip,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,114 +40,109 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   Download as DownloadIcon,
-  FilterList as FilterIcon,
   Refresh as RefreshIcon,
   ArrowUpward as ReceiveIcon,
   Payment as PaymentIcon,
-  CalendarToday as DateIcon,
-  AccountBalance as AccountIcon,
   Search as SearchIcon,
+  Receipt as ReceiptIcon,
+  Person as PersonIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                   */
 /* -------------------------------------------------------------------------- */
 
 const STATUS_OPTIONS = [
-  { value: 'DRAFT', label: 'Draft', color: 'default' },
-  { value: 'SENT', label: 'Sent', color: 'info' },
-  { value: 'DUE_SOON', label: 'Due Soon', color: 'warning' },
-  { value: 'OVERDUE', label: 'Overdue', color: 'error' },
-  { value: 'PARTIAL', label: 'Partially Paid', color: 'secondary' },
+  { value: 'PENDING', label: 'Pending', color: 'warning' },
   { value: 'PAID', label: 'Paid', color: 'success' },
+  { value: 'OVERDUE', label: 'Overdue', color: 'error' },
   { value: 'CANCELLED', label: 'Cancelled', color: 'default' },
 ];
 
-const PAYMENT_METHODS = [
-  { value: 'CASH', label: 'Cash' },
-  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-  { value: 'CREDIT_CARD', label: 'Credit Card' },
-  { value: 'CHEQUE', label: 'Cheque' },
-  { value: 'MOBILE_MONEY', label: 'Mobile Money' },
-];
+// Map source_type to display names
+const SOURCE_TYPE_MAP = {
+  'FUEL_SLIP': 'Fuel Slip',
+  'PAYMENT': 'Payment',
+  'INVOICE': 'Invoice',
+  'EXPENSE': 'Expense',
+  'SERVICE': 'Service',
+  'MAINTENANCE': 'Maintenance',
+  'REPAIR': 'Repair',
+  'INSURANCE': 'Insurance',
+};
 
-const MOCK_RECEIVABLES = [
-  {
-    id: 1,
-    invoiceNumber: 'INV-2024-001',
-    customerName: 'ABC Transport',
-    amount: 25000,
-    currency: 'ZAR',
-    dueDate: '2024-02-15',
-    status: 'OVERDUE',
-    daysOverdue: 15,
-    description: 'January freight services',
-  },
-  {
-    id: 2,
-    invoiceNumber: 'INV-2024-002',
-    customerName: 'XYZ Logistics',
-    amount: 18000,
-    currency: 'ZAR',
-    dueDate: '2024-02-28',
-    status: 'DUE_SOON',
-    daysOverdue: 0,
-    description: 'Vehicle maintenance invoice',
-  },
-  {
-    id: 3,
-    invoiceNumber: 'INV-2024-003',
-    customerName: 'Global Shipping',
-    amount: 42000,
-    currency: 'ZAR',
-    dueDate: '2024-01-31',
-    status: 'PAID',
-    daysOverdue: 0,
-    description: 'December freight charges',
-  },
-  {
-    id: 4,
-    invoiceNumber: 'INV-2024-004',
-    customerName: 'Fast Freight Ltd',
-    amount: 15500,
-    currency: 'ZAR',
-    dueDate: '2024-03-10',
-    status: 'SENT',
-    daysOverdue: 0,
-    description: 'February logistics services',
-  },
-  {
-    id: 5,
-    invoiceNumber: 'INV-2024-005',
-    customerName: 'Swift Transport',
-    amount: 8900,
-    currency: 'ZAR',
-    dueDate: '2024-01-20',
-    status: 'OVERDUE',
-    daysOverdue: 40,
-    description: 'Fuel and maintenance',
-  },
-];
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
 
-const formatCurrency = (amount = 0, currency = 'ZAR') =>
-  new Intl.NumberFormat('en-ZA', {
+const formatCurrency = (amount = 0, currency = 'ZAR') => {
+  const numericAmount = typeof amount === 'string' 
+    ? parseFloat(amount.replace(/,/g, '')) 
+    : amount;
+  
+  return new Intl.NumberFormat('en-ZA', {
     style: 'currency',
     currency,
-  }).format(amount);
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numericAmount || 0);
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-ZA');
+  } catch (e) {
+    return dateString;
+  }
+};
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-ZA');
+  } catch (e) {
+    return dateString;
+  }
+};
+
+const calculateDaysOverdue = (dueDate) => {
+  if (!dueDate) return 0;
+  const today = new Date();
+  const due = new Date(dueDate);
+  const diffTime = today - due;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+};
+
+const determineStatus = (transaction) => {
+  // If transaction has payment status field
+  if (transaction.paymentStatus) {
+    if (transaction.paymentStatus === 'PAID') return 'PAID';
+    if (transaction.paymentStatus === 'CANCELLED') return 'CANCELLED';
+  }
+  
+  // Check if overdue based on posting_date
+  const daysOverdue = calculateDaysOverdue(transaction.postingDate);
+  if (daysOverdue > 0 && transaction.direction === 'CREDIT') return 'OVERDUE';
+  
+  return 'PENDING';
+};
 
 const defaultPaymentForm = {
   amount: 0,
   paymentDate: new Date().toISOString().split('T')[0],
   paymentMethod: 'BANK_TRANSFER',
-  accountId: '',
   referenceNumber: '',
   notes: '',
+  accountId: null,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -155,75 +152,131 @@ const defaultPaymentForm = {
 const ReceivablesPage = () => {
   const navigate = useNavigate();
 
-  const [receivables, setReceivables] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterSourceType, setFilterSourceType] = useState('all');
 
   const [openDialog, setOpenDialog] = useState(false);
-  const [selectedReceivable, setSelectedReceivable] = useState(null);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [paymentForm, setPaymentForm] = useState(defaultPaymentForm);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   /* ------------------------------ Data Load ------------------------------ */
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setReceivables(MOCK_RECEIVABLES);
-      setLoading(false);
-    }, 800);
+    fetchReceivables();
   }, []);
+
+  const fetchReceivables = async () => {
+    setLoading(true);
+    try {
+      // Get all transactions and filter for CREDIT direction (money coming in)
+      const response = await axios.get(`${API_BASE_URL}/account-transactions`);
+      
+      // Filter to only show CREDIT transactions (receivables)
+      const creditTransactions = response.data.filter(tx => tx.direction === 'CREDIT');
+      
+      // Transform and enhance the data
+      const formattedTransactions = creditTransactions.map(transaction => ({
+        ...transaction,
+        invoiceNumber: transaction.sourceType === 'INVOICE' 
+          ? `INV-${transaction.sourceId}`
+          : `${transaction.sourceType}_${transaction.sourceId}`,
+        customerName: getCustomerNameFromSource(transaction),
+        status: determineStatus(transaction),
+        daysOverdue: calculateDaysOverdue(transaction.postingDate),
+        formattedAmount: formatCurrency(transaction.amount, transaction.currency),
+        formattedDate: formatDate(transaction.transactionDate),
+        formattedDueDate: formatDate(transaction.postingDate),
+      }));
+      
+      setTransactions(formattedTransactions);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching receivables:', err);
+      setError('Failed to load receivables. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to get customer/entity name from source
+  const getCustomerNameFromSource = (transaction) => {
+    // In a real implementation, you might fetch this from a related entity
+    // based on source_type and source_id
+    switch (transaction.sourceType) {
+      case 'INVOICE':
+        return `Invoice ${transaction.sourceId}`;
+      case 'PAYMENT':
+        return 'Payment Received';
+      case 'FUEL_SLIP':
+        return 'Fuel Supplier';
+      default:
+        return transaction.description?.split(' - ')[0] || 'Customer';
+    }
+  };
 
   /* ------------------------------ Derived Data ---------------------------- */
 
   const filteredReceivables = useMemo(() => {
-    return receivables.filter(r => {
+    return transactions.filter(tx => {
       const q = searchTerm.toLowerCase();
       const matchesSearch =
-        r.invoiceNumber?.toLowerCase().includes(q) ||
-        r.customerName?.toLowerCase().includes(q) ||
-        r.description?.toLowerCase().includes(q);
+        tx.invoiceNumber?.toLowerCase().includes(q) ||
+        tx.customerName?.toLowerCase().includes(q) ||
+        tx.description?.toLowerCase().includes(q) ||
+        tx.sourceType?.toLowerCase().includes(q);
 
-      const matchesStatus =
-        filterStatus === 'all' || r.status === filterStatus;
+      const matchesStatus = filterStatus === 'all' || tx.status === filterStatus;
+      const matchesSourceType = filterSourceType === 'all' || tx.sourceType === filterSourceType;
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesSourceType;
     });
-  }, [receivables, searchTerm, filterStatus]);
+  }, [transactions, searchTerm, filterStatus, filterSourceType]);
 
   const totalReceivables = useMemo(
-    () => filteredReceivables.reduce((s, r) => s + r.amount, 0),
+    () => filteredReceivables.reduce((s, tx) => s + (tx.amount || 0), 0),
     [filteredReceivables]
   );
 
   const overdueReceivables = useMemo(
-    () => filteredReceivables.filter(r => r.status === 'OVERDUE'),
+    () => filteredReceivables.filter(tx => tx.status === 'OVERDUE'),
     [filteredReceivables]
   );
 
   const totalOverdue = useMemo(
-    () => overdueReceivables.reduce((s, r) => s + r.amount, 0),
+    () => overdueReceivables.reduce((s, tx) => s + (tx.amount || 0), 0),
     [overdueReceivables]
   );
 
+  // Get unique source types for filter dropdown
+  const sourceTypes = useMemo(() => {
+    const types = new Set(transactions.map(tx => tx.sourceType));
+    return Array.from(types).filter(t => t);
+  }, [transactions]);
+
   /* ------------------------------ Handlers ------------------------------- */
 
-  const openPaymentDialog = receivable => {
-    setSelectedReceivable(receivable);
+  const openPaymentDialog = (transaction) => {
+    setSelectedTransaction(transaction);
     setPaymentForm({
       ...defaultPaymentForm,
-      amount: receivable.amount,
-      notes: `Payment for ${receivable.invoiceNumber}`,
+      amount: transaction.amount,
+      notes: `Payment for ${transaction.sourceType} - ${transaction.description}`,
+      accountId: transaction.accountId,
     });
     setOpenDialog(true);
   };
 
   const closePaymentDialog = () => {
     setOpenDialog(false);
-    setSelectedReceivable(null);
+    setSelectedTransaction(null);
+    setPaymentForm(defaultPaymentForm);
   };
 
   const handlePaymentChange = e => {
@@ -231,17 +284,67 @@ const ReceivablesPage = () => {
     setPaymentForm(p => ({ ...p, [name]: value }));
   };
 
-  const recordPayment = () => {
-    // Update the receivable status to PAID
-    setReceivables(prev =>
-      prev.map(r =>
-        r.id === selectedReceivable.id 
-          ? { ...r, status: 'PAID', daysOverdue: 0 } 
-          : r
-      )
-    );
-    closePaymentDialog();
-    // Show success message (you can add a snackbar here)
+  const recordPayment = async () => {
+    if (!selectedTransaction) return;
+    
+    try {
+      // Create a new payment transaction
+      const paymentTransaction = {
+        accountId: selectedTransaction.accountId,
+        transactionDate: new Date().toISOString(),
+        postingDate: paymentForm.paymentDate,
+        amount: paymentForm.amount,
+        direction: 'DEBIT', // Payment reduces receivable
+        sourceType: 'PAYMENT',
+        sourceId: selectedTransaction.id,
+        description: paymentForm.notes,
+        currency: selectedTransaction.currency || 'ZAR',
+        referenceNumber: paymentForm.referenceNumber,
+        paymentMethod: paymentForm.paymentMethod,
+      };
+      
+      await axios.post(`${API_BASE_URL}/account-transactions`, paymentTransaction);
+      
+      // Optional: Update the original transaction to mark as paid or partial
+      // This depends on your business logic
+      
+      setSnackbar({
+        open: true,
+        message: 'Payment recorded successfully!',
+        severity: 'success',
+      });
+      
+      closePaymentDialog();
+      fetchReceivables(); // Refresh the list
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to record payment. Please try again.',
+        severity: 'error',
+      });
+    }
+  };
+
+  const deleteTransaction = async (id) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      try {
+        await axios.delete(`${API_BASE_URL}/account-transactions/${id}`);
+        setSnackbar({
+          open: true,
+          message: 'Transaction deleted successfully!',
+          severity: 'success',
+        });
+        fetchReceivables(); // Refresh the list
+      } catch (err) {
+        console.error('Error deleting transaction:', err);
+        setSnackbar({
+          open: true,
+          message: 'Failed to delete transaction.',
+          severity: 'error',
+        });
+      }
+    }
   };
 
   const getStatusChip = (status) => {
@@ -256,6 +359,19 @@ const ReceivablesPage = () => {
     );
   };
 
+  const getSourceTypeIcon = (sourceType) => {
+    switch (sourceType) {
+      case 'FUEL_SLIP':
+        return <ReceiptIcon fontSize="small" />;
+      case 'PAYMENT':
+        return <PaymentIcon fontSize="small" />;
+      case 'INVOICE':
+        return <ReceiptIcon fontSize="small" />;
+      default:
+        return <PersonIcon fontSize="small" />;
+    }
+  };
+
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
   };
@@ -268,6 +384,37 @@ const ReceivablesPage = () => {
   const clearFilters = () => {
     setSearchTerm('');
     setFilterStatus('all');
+    setFilterSourceType('all');
+  };
+
+  const refreshData = () => {
+    fetchReceivables();
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Transaction ID', 'Source Type', 'Description', 'Amount', 'Date', 'Due Date', 'Status'];
+    const csvData = filteredReceivables.map(tx => [
+      tx.id,
+      tx.sourceType,
+      tx.description,
+      tx.amount,
+      formatDate(tx.transactionDate),
+      formatDate(tx.postingDate),
+      tx.status
+    ]);
+    
+    const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `receivables_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   /* ---------------------------------------------------------------------- */
@@ -277,18 +424,27 @@ const ReceivablesPage = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h4" fontWeight={600}>
-          Receivables – You Pay Me
+          Receivables – Money Coming In
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/finance/invoices/new')}
-        >
-          New Invoice
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={refreshData}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/finance/transactions/new')}
+          >
+            New Transaction
+          </Button>
+        </Stack>
       </Box>
       <Typography color="text.secondary" mb={4}>
-        Manage incoming payments from customers and clients
+        Track and manage all incoming payments and credits from customers
       </Typography>
 
       {/* Summary Cards */}
@@ -329,12 +485,12 @@ const ReceivablesPage = () => {
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
-                <AccountIcon color="warning" sx={{ fontSize: 40 }} />
+                <ReceiptIcon color="warning" sx={{ fontSize: 40 }} />
                 <Box>
                   <Typography variant="h5" fontWeight={600}>
                     {overdueReceivables.length}
                   </Typography>
-                  <Typography color="text.secondary">Overdue Invoices</Typography>
+                  <Typography color="text.secondary">Overdue Transactions</Typography>
                 </Box>
               </Stack>
             </CardContent>
@@ -345,10 +501,10 @@ const ReceivablesPage = () => {
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={5}>
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              placeholder="Search invoices, customers, or descriptions..."
+              placeholder="Search by source, description, or ID..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               InputProps={{
@@ -361,7 +517,7 @@ const ReceivablesPage = () => {
             />
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
               <Select
@@ -373,6 +529,24 @@ const ReceivablesPage = () => {
                 {STATUS_OPTIONS.map(s => (
                   <MenuItem key={s.value} value={s.value}>
                     {s.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={2}>
+            <FormControl fullWidth>
+              <InputLabel>Source Type</InputLabel>
+              <Select
+                value={filterSourceType}
+                label="Source Type"
+                onChange={e => setFilterSourceType(e.target.value)}
+              >
+                <MenuItem value="all">All</MenuItem>
+                {sourceTypes.map(type => (
+                  <MenuItem key={type} value={type}>
+                    {SOURCE_TYPE_MAP[type] || type}
                   </MenuItem>
                 ))}
               </Select>
@@ -395,7 +569,7 @@ const ReceivablesPage = () => {
               fullWidth
               variant="outlined"
               startIcon={<DownloadIcon />}
-              onClick={() => console.log('Export to CSV')}
+              onClick={exportToCSV}
             >
               Export
             </Button>
@@ -407,19 +581,29 @@ const ReceivablesPage = () => {
       {loading ? (
         <LinearProgress />
       ) : error ? (
-        <Alert severity="error">{error}</Alert>
+        <Alert 
+          severity="error" 
+          action={
+            <Button color="inherit" size="small" onClick={refreshData}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
       ) : (
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-          <TableContainer sx={{ maxHeight: 'calc(100vh - 450px)' }}>
+          <TableContainer sx={{ maxHeight: 'calc(100vh - 500px)' }}>
             <Table stickyHeader>
               <TableHead>
                 <TableRow sx={{ bgcolor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: 600 }}>Invoice #</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Customer</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Source Type</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
                   <TableCell sx={{ fontWeight: 600 }} align="right">Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Transaction Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
                   <TableCell sx={{ fontWeight: 600 }} align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -430,19 +614,29 @@ const ReceivablesPage = () => {
                     <TableRow key={row.id} hover>
                       <TableCell>
                         <Typography variant="body2" fontWeight={500}>
-                          {row.invoiceNumber}
+                          {row.id}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
-                          {row.customerName}
-                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          {getSourceTypeIcon(row.sourceType)}
+                          <Typography variant="body2">
+                            {SOURCE_TYPE_MAP[row.sourceType] || row.sourceType}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title={row.description}>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
+                            {row.description}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell align="right">
                         <Typography fontWeight={600} color={row.status === 'OVERDUE' ? 'error.main' : 'text.primary'}>
                           {formatCurrency(row.amount, row.currency)}
                         </Typography>
-                        {row.status === 'OVERDUE' && (
+                        {row.status === 'OVERDUE' && row.daysOverdue > 0 && (
                           <Typography variant="caption" color="error" display="block">
                             {row.daysOverdue} days overdue
                           </Typography>
@@ -450,22 +644,22 @@ const ReceivablesPage = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {row.dueDate}
+                          {formatDateTime(row.transactionDate)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {formatDate(row.postingDate)}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         {getStatusChip(row.status)}
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
-                          {row.description}
-                        </Typography>
-                      </TableCell>
                       <TableCell align="center">
                         <Stack direction="row" spacing={1} justifyContent="center">
                           <IconButton
                             size="small"
-                            onClick={() => navigate(`/finance/invoices/${row.id}`)}
+                            onClick={() => navigate(`/finance/transactions/${row.id}`)}
                             title="View Details"
                           >
                             <ViewIcon fontSize="small" />
@@ -482,14 +676,14 @@ const ReceivablesPage = () => {
                           )}
                           <IconButton
                             size="small"
-                            onClick={() => navigate(`/finance/invoices/${row.id}/edit`)}
+                            onClick={() => navigate(`/finance/transactions/${row.id}/edit`)}
                             title="Edit"
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
                           <IconButton
                             size="small"
-                            onClick={() => console.log('Delete', row.id)}
+                            onClick={() => deleteTransaction(row.id)}
                             title="Delete"
                             color="error"
                           >
@@ -501,9 +695,9 @@ const ReceivablesPage = () => {
                   ))}
                 {filteredReceivables.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                       <Typography color="text.secondary">
-                        No receivables found
+                        No receivable transactions found
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -527,9 +721,9 @@ const ReceivablesPage = () => {
       <Dialog open={openDialog} onClose={closePaymentDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           Record Payment
-          {selectedReceivable && (
-            <Typography variant="body2" color="text.secondary">
-              Invoice: {selectedReceivable.invoiceNumber} - {selectedReceivable.customerName}
+          {selectedTransaction && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Transaction #{selectedTransaction.id} - {selectedTransaction.description}
             </Typography>
           )}
         </DialogTitle>
@@ -565,11 +759,11 @@ const ReceivablesPage = () => {
                 label="Payment Method"
                 onChange={handlePaymentChange}
               >
-                {PAYMENT_METHODS.map(m => (
-                  <MenuItem key={m.value} value={m.value}>
-                    {m.label}
-                  </MenuItem>
-                ))}
+                <MenuItem value="CASH">Cash</MenuItem>
+                <MenuItem value="BANK_TRANSFER">Bank Transfer</MenuItem>
+                <MenuItem value="CREDIT_CARD">Credit Card</MenuItem>
+                <MenuItem value="CHEQUE">Cheque</MenuItem>
+                <MenuItem value="MOBILE_MONEY">Mobile Money</MenuItem>
               </Select>
             </FormControl>
 
@@ -604,6 +798,20 @@ const ReceivablesPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        message={snackbar.message}
+        action={
+          <IconButton size="small" color="inherit" onClick={handleCloseSnackbar}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        }
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      />
     </Container>
   );
 };
