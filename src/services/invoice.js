@@ -6,7 +6,7 @@ const invoiceService = {
   getAllInvoices: async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters);
-      const response = await api.get(`/api/invoices?${params}`);
+      const response = await api.get(`/invoices?${params}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -17,7 +17,7 @@ const invoiceService = {
   // Get invoice by ID
   getInvoiceById: async (id) => {
     try {
-      const response = await api.get(`/api/invoices/${id}`);
+      const response = await api.get(`/invoices/${id}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching invoice:', error);
@@ -39,7 +39,7 @@ const invoiceService = {
   // Update invoice
   updateInvoice: async (id, invoiceData) => {
     try {
-      const response = await api.put(`/api/invoices/${id}`, invoiceData);
+      const response = await api.put(`/invoices/${id}`, invoiceData);
       return response.data;
     } catch (error) {
       console.error('Error updating invoice:', error);
@@ -50,7 +50,7 @@ const invoiceService = {
   // Delete invoice
   deleteInvoice: async (id) => {
     try {
-      const response = await api.delete(`/api/invoices/${id}`);
+      const response = await api.delete(`/invoices/${id}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting invoice:', error);
@@ -61,7 +61,7 @@ const invoiceService = {
   // Send invoice via email
   sendInvoiceEmail: async (id, emailData = {}) => {
     try {
-      const response = await api.post(`/api/invoices/${id}/send-email`, emailData);
+      const response = await api.post(`/invoices/${id}/send-email`, emailData);
       return response.data;
     } catch (error) {
       console.error('Error sending invoice email:', error);
@@ -72,7 +72,7 @@ const invoiceService = {
   // Mark invoice as paid
   markAsPaid: async (id, paymentData = {}) => {
     try {
-      const response = await api.post(`/api/invoices/${id}/mark-as-paid`, paymentData);
+      const response = await api.post(`/invoices/${id}/mark-as-paid`, paymentData);
       return response.data;
     } catch (error) {
       console.error('Error marking invoice as paid:', error);
@@ -83,7 +83,7 @@ const invoiceService = {
   // Record partial payment
   recordPartialPayment: async (id, paymentData) => {
     try {
-      const response = await api.post(`/api/invoices/${id}/partial-payment`, paymentData);
+      const response = await api.post(`/invoices/${id}/partial-payment`, paymentData);
       return response.data;
     } catch (error) {
       console.error('Error recording partial payment:', error);
@@ -94,7 +94,7 @@ const invoiceService = {
   // Download invoice PDF
   downloadInvoicePdf: async (id) => {
     try {
-      const response = await api.get(`/api/invoices/${id}/download-pdf`, {
+      const response = await api.get(`/invoices/${id}/download-pdf`, {
         responseType: 'blob'
       });
       return response.data;
@@ -108,7 +108,7 @@ const invoiceService = {
   getInvoiceStats: async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters);
-      const response = await api.get(`/api/invoices/stats?${params}`);
+      const response = await api.get(`/invoices/stats?${params}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching invoice stats:', error);
@@ -120,7 +120,7 @@ const invoiceService = {
   getInvoicesByCustomer: async (customerId, filters = {}) => {
     try {
       const params = new URLSearchParams(filters);
-      const response = await api.get(`/api/invoices/customer/${customerId}?${params}`);
+      const response = await api.get(`/invoices/customer/${customerId}?${params}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching customer invoices:', error);
@@ -132,7 +132,7 @@ const invoiceService = {
   getOverdueInvoices: async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters);
-      const response = await api.get(`/api/invoices/overdue?${params}`);
+      const response = await api.get(`/invoices/overdue?${params}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching overdue invoices:', error);
@@ -144,7 +144,7 @@ const invoiceService = {
   exportInvoices: async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters);
-      const response = await api.get(`/api/invoices/export?${params}`, {
+      const response = await api.get(`/invoices/export?${params}`, {
         responseType: 'blob'
       });
       return response.data;
