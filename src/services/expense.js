@@ -5,7 +5,7 @@ const expenseService = {
   // Get all expenses
   getAllExpenses: async () => {
     try {
-      const response = await api.get('/api/expenses');
+      const response = await api.get('/expenses');
       return response;
     } catch (error) {
       console.error('Error fetching expenses:', error);
@@ -16,7 +16,7 @@ const expenseService = {
   // Get expense by ID
   getExpenseById: async (id) => {
     try {
-      const response = await api.get(`/api/expenses/${id}`);
+      const response = await api.get(`/expenses/${id}`);
       return response;
     } catch (error) {
       console.error(`Error fetching expense ${id}:`, error);
@@ -27,7 +27,7 @@ const expenseService = {
   // Create new expense
   createExpense: async (expenseData) => {
     try {
-      const response = await api.post('/api/expenses', expenseData);
+      const response = await api.post('/expenses', expenseData);
       return response;
     } catch (error) {
       console.error('Error creating expense:', error);
@@ -38,7 +38,7 @@ const expenseService = {
   // Update expense
   updateExpense: async (id, expenseData) => {
     try {
-      const response = await api.put(`/api/expenses/${id}`, expenseData);
+      const response = await api.put(`/expenses/${id}`, expenseData);
       return response;
     } catch (error) {
       console.error(`Error updating expense ${id}:`, error);
@@ -49,7 +49,7 @@ const expenseService = {
   // Delete expense
   deleteExpense: async (id) => {
     try {
-      await api.delete(`/api/expenses/${id}`);
+      await api.delete(`/expenses/${id}`);
     } catch (error) {
       console.error(`Error deleting expense ${id}:`, error);
       throw error;
@@ -59,7 +59,7 @@ const expenseService = {
   // Get expenses by category
   getExpensesByCategory: async (category) => {
     try {
-      const response = await api.get(`/api/expenses/category/${category}`);
+      const response = await api.get(`/expenses/category/${category}`);
       return response;
     } catch (error) {
       console.error(`Error fetching expenses by category ${category}:`, error);
@@ -70,7 +70,7 @@ const expenseService = {
   // Get expenses by date range
   getExpensesByDateRange: async (startDate, endDate) => {
     try {
-      const response = await api.get(`/api/expenses/date-range`, {
+      const response = await api.get(`/expenses/date-range`, {
         params: { startDate, endDate }
       });
       return response;
@@ -83,7 +83,7 @@ const expenseService = {
   // Get expense summary
   getExpenseSummary: async () => {
     try {
-      const response = await api.get('/api/expenses/summary');
+      const response = await api.get('/expenses/summary');
       return response;
     } catch (error) {
       console.error('Error fetching expense summary:', error);
@@ -97,7 +97,7 @@ const expenseService = {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post(`/api/expenses/${expenseId}/receipt`, formData, {
+      const response = await api.post(`/expenses/${expenseId}/receipt`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
