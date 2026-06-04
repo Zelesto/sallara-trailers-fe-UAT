@@ -2,7 +2,7 @@ import api from './api';
 
 const authService = {
   login: async (email, password) => {
-    const payload = await api.post('/api/auth/login', { email, password });
+    const payload = await api.post('/auth/login', { email, password });
     const { token, user } = payload;
 
     if (!token) throw new Error('No token returned from backend');
@@ -16,7 +16,7 @@ const authService = {
 
   logout: async () => {
     try {
-      await api.post('/api/auth/logout');
+      await api.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -27,7 +27,7 @@ const authService = {
 
   getCurrentUser: async () => {
     try {
-      const user = await api.get('/api/auth/me');
+      const user = await api.get('/auth/me');
       if (user) {
         localStorage.setItem('user', JSON.stringify(user));
       }
@@ -40,7 +40,7 @@ const authService = {
 
   register: async (userData) => {
     try {
-      return await api.post('/api/auth/register', userData);
+      return await api.post('/auth/register', userData);
     } catch (error) {
       console.error('Registration error:', error);
       throw error.response?.data || error;
@@ -49,7 +49,7 @@ const authService = {
 
   updatePassword: async (oldPassword, newPassword) => {
     try {
-      return await api.put('/api/user/password', { oldPassword, newPassword });
+      return await api.put('/user/password', { oldPassword, newPassword });
     } catch (error) {
       console.error('Password update error:', error);
       throw error.response?.data || error;
@@ -58,7 +58,7 @@ const authService = {
 
   updateProfile: async (profileData) => {
     try {
-      const updatedUser = await api.put('/api/user/profile', profileData);
+      const updatedUser = await api.put('/user/profile', profileData);
       if (updatedUser) {
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }
@@ -71,7 +71,7 @@ const authService = {
 
   getUserProfile: async () => {
     try {
-      return await api.get('/api/user/profile');
+      return await api.get('/user/profile');
     } catch (error) {
       console.error('Get profile error:', error);
       throw error.response?.data || error;
