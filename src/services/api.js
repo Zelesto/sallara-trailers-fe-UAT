@@ -4,10 +4,9 @@ import axios from 'axios';
 
 // Backend URL from environment variable
 const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL?.trim() ||
-  'http://localhost:8080/api';
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
-console.log('API Base URL from env:', process.env.REACT_APP_API_BASE_URL);
+console.log('API Base URL from env:', import.meta.env.VITE_API_BASE_URL);
 console.log('Final API Base URL:', API_BASE_URL);
 
 const api = axios.create({
