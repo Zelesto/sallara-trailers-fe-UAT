@@ -5,7 +5,7 @@ export const driverService = {
   // Get all drivers - FIXED
   getAllDrivers: async () => {
     try {
-      const response = await api.get('/api/drivers');
+      const response = await api.get('/drivers');
       console.log('Driver Service Response:', response);
       console.log('Response data:', response.data);
       return response;  // Return the full response, not response.data
@@ -18,7 +18,7 @@ export const driverService = {
   // Get driver by ID
   getDriverById: async (id) => {
     try {
-      const response = await api.get(`/api/drivers/${id}`);
+      const response = await api.get(`/drivers/${id}`);
       return response;  // Return full response
     } catch (error) {
       console.error(`Error fetching driver ${id}:`, error);
@@ -29,7 +29,7 @@ export const driverService = {
   // Create new driver
   createDriver: async (driverData) => {
     try {
-      const response = await api.post('/api/drivers', driverData);
+      const response = await api.post('/drivers', driverData);
       return response;  // Return full response
     } catch (error) {
       console.error('Error creating driver:', error);
@@ -40,7 +40,7 @@ export const driverService = {
   // Update driver
   updateDriver: async (id, driverData) => {
     try {
-      const response = await api.put(`/api/drivers/${id}`, driverData);
+      const response = await api.put(`/drivers/${id}`, driverData);
       return response;  // Return full response
     } catch (error) {
       console.error(`Error updating driver ${id}:`, error);
@@ -51,7 +51,7 @@ export const driverService = {
   // Delete driver
   deleteDriver: async (id) => {
     try {
-      const response = await api.delete(`/api/drivers/${id}`);
+      const response = await api.delete(`/drivers/${id}`);
       return response;  // Return full response
     } catch (error) {
       console.error(`Error deleting driver ${id}:`, error);
