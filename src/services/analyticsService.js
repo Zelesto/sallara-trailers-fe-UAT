@@ -66,7 +66,7 @@ export const analyticsService = {
   getDashboardKPIs: async (startDate, endDate) => {
   try {
     const queryString = buildQuery({ startDate, endDate });
-    const url = `/api/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
+    const url = `/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
     
     console.log('📊 Fetching dashboard KPIs:', url);
     const response = await api.get(url);
@@ -253,7 +253,7 @@ export const analyticsService = {
     try {
       const params = { from, to, sortBy, order };
       const queryString = buildQuery(params);
-      const url = `/api/analytics/vehicles${queryString ? `?${queryString}` : ''}`;
+      const url = `/analytics/vehicles${queryString ? `?${queryString}` : ''}`;
       
       console.log('🚛 Fetching vehicle analytics:', url);
       const response = await api.get(url);
@@ -280,7 +280,7 @@ export const analyticsService = {
     try {
       const params = { from, to, sortBy, order };
       const queryString = buildQuery(params);
-      const url = `/api/analytics/drivers${queryString ? `?${queryString}` : ''}`;
+      const url = `/analytics/drivers${queryString ? `?${queryString}` : ''}`;
       
       console.log('👤 Fetching driver analytics:', url);
       const response = await api.get(url);
@@ -301,7 +301,7 @@ export const analyticsService = {
    */
   getStatus: async () => {
     try {
-      const response = await api.get('/api/analytics/status');
+      const response = await api.get('/analytics/status');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching analytics status:', error);
@@ -314,7 +314,7 @@ export const analyticsService = {
    */
   debugAuth: async () => {
     try {
-      const response = await api.get('/api/analytics/debug/auth');
+      const response = await api.get('/analytics/debug/auth');
       return response.data;
     } catch (error) {
       console.error('❌ Auth debug failed:', error);
@@ -327,7 +327,7 @@ export const analyticsService = {
    */
   testSimple: async () => {
     try {
-      const response = await api.get('/api/analytics/test-simple');
+      const response = await api.get('/analytics/test-simple');
       return response.data;
     } catch (error) {
       console.error('❌ Test endpoint failed:', error);
