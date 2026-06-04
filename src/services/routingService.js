@@ -10,6 +10,10 @@ const ORS_API_KEY = '5b3ce3597851110001cf6248your_key_here'; // Get from https:/
 // Alternative: Mapbox free tier (50k requests/month)
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 
+// Cache for geocoding results
+const geocodeCache = new Map();
+const citySuggestionsCache = new Map();
+
 export const routingService = {
   /**
    * Calculate trip metrics between two locations
@@ -62,42 +66,266 @@ export const routingService = {
   },
 
   /**
-   * Geocode a location to coordinates
+   * Calculate route between two locations (simplified API)
+   * @param {string} origin - Origin address
+   * @param {string} destination - Destination address
+   * @param {string} vehicleType - Vehicle type
+   * @returns {Promise} - Route information
+   */
+  calculateRoute: async (origin, destination, vehicleType = 'TRUCK') => {
+    try {
+      const metrics = await routingService.calculateTripMetrics(origin, destination, vehicleType, 'ors');
+      return {
+        distanceKm: metrics.totalDistance,
+        durationHours: metrics.estimatedDuration,
+        fuelConsumption: metrics.fuelConsumption,
+        coordinates: metrics.coordinates
+      };
+    } catch (error) {
+      console.error('Route calculation error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Geocode a location to coordinates with multiple fallback strategies
    * @param {string} location - Address or location name
-   * @returns {Object} - {lat, lng} coordinates
+   * @returns {Object} - {lat, lng, displayName, confidence}
    */
   geocodeLocation: async (location) => {
     try {
-      // Using OpenStreetMap Nominatim (free, no API key needed)
+      // Check cache first
+      const cacheKey = location.toLowerCase().trim();
+      if (geocodeCache.has(cacheKey)) {
+        console.log('Returning cached geocode result for:', location);
+        return geocodeCache.get(cacheKey);
+      }
+
+      // Try multiple geocoding strategies
+      const strategies = [
+        () => geocodeWithNominatim(location),
+        () => geocodeWithFallback(location),
+        () => geocodeWithBroadSearch(location)
+      ];
+
+      let result = null;
+      for (const strategy of strategies) {
+        try {
+          result = await strategy();
+          if (result && result.lat && result.lng) {
+            // Cache the successful result
+            geocodeCache.set(cacheKey, result);
+            return result;
+          }
+        } catch (error) {
+          console.log(`Geocoding strategy failed: ${error.message}`);
+        }
+      }
+
+      throw new Error(`Location not found: "${location}"`);
+
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Geocode with city and zip code components
+   * @param {Object} addressComponents - { street, city, zipCode, province }
+   * @returns {Object} - Coordinates
+   */
+  geocodeAddressComponents: async (addressComponents) => {
+    const { street, city, zipCode, province } = addressComponents;
+    
+    // Build full address
+    const parts = [];
+    if (street) parts.push(street);
+    if (city) parts.push(city);
+    if (zipCode) parts.push(zipCode);
+    if (province) parts.push(province);
+    parts.push('South Africa');
+    
+    const fullAddress = parts.join(', ');
+    
+    return await routingService.geocodeLocation(fullAddress);
+  },
+
+  /**
+   * Get city suggestions for autocomplete
+   * @param {string} query - Partial city name
+   * @param {string} countryCode - Country code (default: 'za' for South Africa)
+   * @returns {Promise<Array>} - Array of city suggestions
+   */
+  suggestCities: async (query, countryCode = 'za') => {
+    if (!query || query.length < 2) {
+      return [];
+    }
+
+    // Check cache
+    const cacheKey = `${query}_${countryCode}`.toLowerCase();
+    if (citySuggestionsCache.has(cacheKey)) {
+      return citySuggestionsCache.get(cacheKey);
+    }
+
+    try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1&countrycodes=za`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&countrycodes=${countryCode}&addressdetails=1&featuretype=city&accept-language=en`,
         {
           headers: {
             'Accept-Language': 'en',
-            'User-Agent': 'LogisticsApp/1.0' // Required by Nominatim
+            'User-Agent': 'LogisticsApp/1.0'
           }
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Geocoding failed: ${response.statusText}`);
+        throw new Error(`City suggestions failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      const suggestions = data.map(item => {
+        const address = item.address || {};
+        return {
+          city: address.city || address.town || address.village || address.municipality || item.display_name.split(',')[0],
+          province: address.state || address.province || '',
+          zipCode: address.postcode || '',
+          displayName: item.display_name,
+          lat: parseFloat(item.lat),
+          lon: parseFloat(item.lon)
+        };
+      }).filter(suggestion => suggestion.city); // Remove entries without city name
+
+      // Remove duplicates by city name
+      const uniqueSuggestions = suggestions.filter((suggestion, index, self) =>
+        index === self.findIndex(s => s.city === suggestion.city)
+      );
+
+      // Cache results
+      citySuggestionsCache.set(cacheKey, uniqueSuggestions);
+      
+      // Limit cache size
+      if (citySuggestionsCache.size > 100) {
+        const firstKey = citySuggestionsCache.keys().next().value;
+        citySuggestionsCache.delete(firstKey);
+      }
+
+      return uniqueSuggestions;
+
+    } catch (error) {
+      console.error('Error fetching city suggestions:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Get zip code for a city
+   * @param {string} city - City name
+   * @param {string} province - Province (optional)
+   * @returns {Promise<Object>} - { zipCode, coordinates }
+   */
+  getZipCodeForCity: async (city, province = '') => {
+    try {
+      const query = province ? `${city}, ${province}, South Africa` : `${city}, South Africa`;
+      
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1&countrycodes=za`,
+        {
+          headers: {
+            'Accept-Language': 'en',
+            'User-Agent': 'LogisticsApp/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Zip code lookup failed: ${response.statusText}`);
       }
 
       const data = await response.json();
 
       if (!data || data.length === 0) {
-        throw new Error(`Location not found: "${location}"`);
+        return { zipCode: null, coordinates: null };
       }
 
-      return {
+      const address = data[0].address || {};
+      const zipCode = address.postcode || null;
+      const coordinates = {
         lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon),
-        displayName: data[0].display_name
+        lng: parseFloat(data[0].lon)
       };
 
+      return { zipCode, coordinates };
+
     } catch (error) {
-      console.error('Geocoding error:', error);
-      throw error;
+      console.error('Error fetching zip code:', error);
+      return { zipCode: null, coordinates: null };
+    }
+  },
+
+  /**
+   * Validate address components
+   * @param {string} city - City name
+   * @param {string} province - Province
+   * @param {string} zipCode - Postal code
+   * @returns {Promise<Object>} - { valid, suggestedZipCode, message }
+   */
+  validateAddress: async (city, province, zipCode) => {
+    try {
+      const query = `${city}, ${province || ''}, South Africa`.replace(/, ,/g, ',');
+      
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=za`,
+        {
+          headers: {
+            'Accept-Language': 'en',
+            'User-Agent': 'LogisticsApp/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        return { valid: true, suggestedZipCode: null, message: 'Unable to validate address' };
+      }
+
+      const data = await response.json();
+
+      if (!data || data.length === 0) {
+        return { valid: false, suggestedZipCode: null, message: 'City not found' };
+      }
+
+      // Check if any result matches the zip code
+      let matchesZip = false;
+      let suggestedZipCode = null;
+
+      for (const result of data) {
+        const address = result.address || {};
+        const resultZipCode = address.postcode;
+        
+        if (resultZipCode && zipCode && resultZipCode === zipCode) {
+          matchesZip = true;
+          break;
+        }
+        
+        if (resultZipCode && !suggestedZipCode) {
+          suggestedZipCode = resultZipCode;
+        }
+      }
+
+      if (zipCode && !matchesZip) {
+        return {
+          valid: false,
+          suggestedZipCode,
+          message: suggestedZipCode ? `Suggested zip code: ${suggestedZipCode}` : 'Zip code may be incorrect'
+        };
+      }
+
+      return { valid: true, suggestedZipCode: null, message: 'Address verified' };
+
+    } catch (error) {
+      console.error('Address validation error:', error);
+      return { valid: true, suggestedZipCode: null, message: 'Validation failed' };
     }
   },
 
@@ -109,7 +337,6 @@ export const routingService = {
    */
   getRouteOptions: async (origin, destination) => {
     try {
-      // This is a simplified version - you can enhance it
       const fastest = await calculateWithOpenRouteService(origin, destination, 'TRUCK');
 
       return [{
@@ -140,10 +367,98 @@ export const routingService = {
       fuelPrice,
       costPerKm: Math.round((cost / distance) * 100) / 100
     };
+  },
+
+  /**
+   * Clear geocoding cache (useful for testing)
+   */
+  clearCache: () => {
+    geocodeCache.clear();
+    citySuggestionsCache.clear();
+    console.log('Geocoding cache cleared');
   }
 };
 
 // ========== PRIVATE HELPER FUNCTIONS ==========
+
+/**
+ * Geocode with Nominatim (primary strategy)
+ */
+async function geocodeWithNominatim(location) {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1&addressdetails=1&countrycodes=za`,
+    {
+      headers: {
+        'Accept-Language': 'en',
+        'User-Agent': 'LogisticsApp/1.0'
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Nominatim error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  if (!data || data.length === 0) {
+    throw new Error('No results from Nominatim');
+  }
+
+  const result = data[0];
+  const address = result.address || {};
+  
+  // Calculate confidence score based on address detail
+  let confidence = 1.0;
+  if (!address.road && !address.city) confidence = 0.5;
+  if (address.postcode) confidence = 0.9;
+  
+  return {
+    lat: parseFloat(result.lat),
+    lng: parseFloat(result.lon),
+    displayName: result.display_name,
+    confidence,
+    addressDetails: {
+      city: address.city || address.town || address.village,
+      province: address.state || address.province,
+      zipCode: address.postcode,
+      street: address.road,
+      suburb: address.suburb
+    }
+  };
+}
+
+/**
+ * Geocode with fallback (remove specific numbers/street)
+ */
+async function geocodeWithFallback(location) {
+  // Remove street numbers and specific qualifiers
+  let simplified = location
+    .replace(/^\d+\s+/, '') // Remove leading numbers
+    .replace(/\b(stand|erf|plot|portion|unit|flat|apartment)\s+\d+\b/gi, '')
+    .trim();
+  
+  if (simplified === location) {
+    throw new Error('No simplification possible');
+  }
+  
+  return await geocodeWithNominatim(simplified);
+}
+
+/**
+ * Geocode with broad search (city only)
+ */
+async function geocodeWithBroadSearch(location) {
+  // Extract only city/town name (last part before comma)
+  const parts = location.split(',');
+  const cityOnly = parts[parts.length - 1].trim();
+  
+  if (cityOnly === location || cityOnly.length < 3) {
+    throw new Error('Cannot extract city name');
+  }
+  
+  return await geocodeWithNominatim(cityOnly + ', South Africa');
+}
 
 /**
  * Calculate with OpenRouteService (free, open-source)
@@ -159,12 +474,13 @@ async function calculateWithOpenRouteService(origin, destination, vehicleType) {
 
     // Call OpenRouteService Directions API
     const response = await fetch(
-      `https://api.openrouteservice.org/v2/directions/${profile}?api_key=${ORS_API_KEY}`,
+      `https://api.openrouteservice.org/v2/directions/${profile}`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8'
+          'Accept': 'application/json, application/geo+json',
+          'Authorization': ORS_API_KEY
         },
         body: JSON.stringify({
           coordinates: [
