@@ -73,7 +73,7 @@ export const tripService = {
         cargoDescription: sanitizeField(tripData.cargoDescription),
       };
 
-      const response = await api.post('/api/trips', payload);
+      const response = await api.post('/trips', payload);
       return unwrap(response);
     } catch (error) {
       console.error('Error creating trip:', error);
@@ -444,7 +444,7 @@ endTrip: async (tripId, endData) => {
   saveTripMetrics: async (tripId, metrics) => {
     try {
       const response = await api.put(
-        `/api/trip-metrics/${tripId}`,
+        `/trip-metrics/${tripId}`,
         metrics
       );
       return unwrap(response);
