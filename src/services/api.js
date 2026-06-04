@@ -1,8 +1,11 @@
 // src/api/axiosConfig.js
+
 import axios from 'axios';
 
-// React (Create React App) uses REACT_APP_ prefix, not VITE_
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
+// Backend URL from environment variable
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL?.trim() ||
+  'http://localhost:8080/api';
 
 console.log('API Base URL from env:', process.env.REACT_APP_API_BASE_URL);
 console.log('Final API Base URL:', API_BASE_URL);
@@ -12,26 +15,28 @@ const api = axios.create({
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   },
-  withCredentials: false,
 });
 
 // ---------------------------
-// Request Interceptor (Debug + Auth)
+// Request Interceptor
 // ---------------------------
 api.interceptors.request.use(
   (config) => {
-    console.log(`🌐 ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    
+    const fullUrl = `${config.baseURL}${config.url}`;
+
+    console.log(
+      `🌐 ${config.method?.toUpperCase()} ${fullUrl}`
+    );
+
     const token = localStorage.getItem('token');
-    if (token && token !== 'undefined' && token.trim() !== '') {
-      console.log('Adding Authorization token');
+
+    if (token && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Add timestamp for GET requests to prevent caching
-    if (config.method === 'get') {
+    if (config.method?.toLowerCase() === 'get') {
       config.params = {
         ...config.params,
         _t: Date.now(),
@@ -41,100 +46,104 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('❌ Request interceptor error:', error);
+    console.error('❌ Request Error:', error);
     return Promise.reject(error);
   }
 );
 
 // ---------------------------
-// Response Interceptor (Debug + Error Normalization)
+// Response Interceptor
 // ---------------------------
 api.interceptors.response.use(
   (response) => {
-    console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url}`);
-    console.log('Response status:', response.status);
-    
-    // Return the data directly for convenience
+    console.log(
+      `✅ ${response.config.method?.toUpperCase()} ${response.config.url}`
+    );
+
     return response.data;
   },
   (error) => {
-    console.group('❌ API Error Details');
-    console.error('Error:', error);
+    console.group('❌ API Error');
+
+    console.error('Message:', error.message);
     console.error('URL:', error.config?.url);
     console.error('Method:', error.config?.method);
-    console.error('Response status:', error.response?.status);
-    console.error('Response data:', error.response?.data);
+    console.error('Status:', error.response?.status);
+    console.error('Response:', error.response?.data);
+
     console.groupEnd();
 
-    const { response } = error;
-    const status = response?.status || 500;
-    let message = 'An unexpected error occurred';
+    const status = error.response?.status || 500;
 
-    if (response?.data) {
-      message = response.data.message || response.data.error || error.message;
-    }
+    let message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      'Unexpected error';
 
-    // Handle 401 Unauthorized
     if (status === 401) {
-      const isLoginPage = window.location.pathname.includes('/login');
-      const isLoginRequest = error.config?.url?.includes('/auth/login');
-      const isAuthPage = isLoginPage || window.location.pathname.includes('/signup');
-      
-      if (!isAuthPage && !isLoginRequest) {
-        console.warn('Session expired, redirecting to login');
+      const isAuthRequest =
+        error.config?.url?.includes('/auth/login');
+
+      const isAuthPage =
+        window.location.pathname.includes('/login') ||
+        window.location.pathname.includes('/signup');
+
+      if (!isAuthRequest && !isAuthPage) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+
         setTimeout(() => {
           window.location.href = '/login?session=expired';
         }, 100);
       }
-      
-      message = response?.data?.message || 'Invalid credentials';
     }
 
-    const normalizedError = {
+    return Promise.reject({
       status,
       message,
-      data: response?.data,
+      data: error.response?.data,
       originalError: error,
-    };
-
-    return Promise.reject(normalizedError);
+    });
   }
 );
 
 // ---------------------------
-// Helper Methods
+// Auth Helpers
 // ---------------------------
 api.setToken = (token) => {
-  console.log('Setting token');
-  if (token) {
-    localStorage.setItem('token', token);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
+  if (!token) return;
+
+  localStorage.setItem('token', token);
+  api.defaults.headers.common.Authorization = `Bearer ${token}`;
 };
 
 api.clearToken = () => {
-  console.log('Clearing token');
   localStorage.removeItem('token');
-  delete api.defaults.headers.common['Authorization'];
+  localStorage.removeItem('user');
+
+  delete api.defaults.headers.common.Authorization;
 };
 
 api.isAuthenticated = () => {
   const token = localStorage.getItem('token');
-  return !!(token && token !== 'undefined' && token.trim() !== '');
+
+  return !!(
+    token &&
+    token !== 'undefined' &&
+    token.trim() !== ''
+  );
 };
 
-// Test connection to backend
+// ---------------------------
+// Health Check
+// ---------------------------
 api.testConnection = async () => {
   try {
-    console.log('Testing connection to:', API_BASE_URL);
-    const response = await api.get('/health');
-    console.log('Connection test successful:', response);
-    return { success: true, data: response };
+    return await api.get('/health');
   } catch (error) {
-    console.error('Connection test failed:', error);
-    return { success: false, error };
+    console.error('Backend connection failed:', error);
+    throw error;
   }
 };
 
