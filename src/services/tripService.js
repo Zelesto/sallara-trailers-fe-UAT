@@ -22,7 +22,7 @@ export const tripService = {
 
   getAllTrips: async (params = {}) => {
     try {
-      const response = await api.get('/api/trips', { params });
+      const response = await api.get('/trips', { params });
       const rawData = unwrap(response);
 
       if (rawData?.content !== undefined) {
@@ -54,7 +54,7 @@ export const tripService = {
 
   getTripById: async (id) => {
     try {
-      const response = await api.get(`/api/trips/${id}`);
+      const response = await api.get(`/trips/${id}`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error fetching trip ${id}:`, error);
@@ -83,7 +83,7 @@ export const tripService = {
 
   createTripFromDto: async (tripDto) => {
     try {
-      const response = await api.post('/api/trips/dto', tripDto);
+      const response = await api.post('/trips/dto', tripDto);
       return unwrap(response);
     } catch (error) {
       console.error('Error creating trip from DTO:', error);
@@ -102,7 +102,7 @@ export const tripService = {
         cargoDescription: sanitizeField(tripData.cargoDescription),
       };
 
-      const response = await api.put(`/api/trips/${tripId}`, payload);
+      const response = await api.put(`/trips/${tripId}`, payload);
       return unwrap(response);
     } catch (error) {
       console.error(`Error updating trip ${tripId}:`, error);
@@ -112,7 +112,7 @@ export const tripService = {
 
   updateTripFromDto: async (id, tripDto) => {
     try {
-      const response = await api.put(`/api/trips/dto/${id}`, tripDto);
+      const response = await api.put(`/trips/dto/${id}`, tripDto);
       return unwrap(response);
     } catch (error) {
       console.error(`Error updating trip ${id} from DTO:`, error);
@@ -122,7 +122,7 @@ export const tripService = {
 
   deleteTrip: async (id) => {
     try {
-      const response = await api.delete(`/api/trips/${id}`);
+      const response = await api.delete(`/trips/${id}`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error deleting trip ${id}:`, error);
@@ -132,7 +132,7 @@ export const tripService = {
 
   finalizeTrip: async (id) => {
     try {
-      const response = await api.post(`/api/trips/${id}/finalize`);
+      const response = await api.post(`/trips/${id}/finalize`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error finalizing trip ${id}:`, error);
@@ -142,7 +142,7 @@ export const tripService = {
 
   batchFinalizeTrips: async (tripIds) => {
     try {
-      const response = await api.post('/api/trips/batch-finalize', tripIds);
+      const response = await api.post('/trips/batch-finalize', tripIds);
       return unwrap(response);
     } catch (error) {
       console.error('Error batch finalizing trips:', error);
@@ -166,7 +166,7 @@ reportIncident: async (tripId, incidentData) => {
       requiresAssistance: incidentData.requiresAssistance || false
     };
     
-    const response = await api.post(`/api/trips/${tripId}/incidents`, payload);
+    const response = await api.post(`/trips/${tripId}/incidents`, payload);
     return unwrap(response);
   } catch (error) {
     console.error(`Error reporting incident for trip ${tripId}:`, error);
@@ -186,7 +186,7 @@ reportIncident: async (tripId, incidentData) => {
 
 getTripIncidents: async (tripId) => {
   try {
-    const response = await api.get(`/api/trips/${tripId}/incidents`);
+    const response = await api.get(`/trips/${tripId}/incidents`);
     const data = unwrap(response);
     return Array.isArray(data) ? data : (data?.data ?? []);
   } catch (error) {
@@ -197,7 +197,7 @@ getTripIncidents: async (tripId) => {
 
 getActiveIncidents: async (tripId) => {
   try {
-    const response = await api.get(`/api/trips/${tripId}/incidents/active`);
+    const response = await api.get(`/trips/${tripId}/incidents/active`);
     const data = unwrap(response);
     return Array.isArray(data) ? data : (data?.data ?? []);
   } catch (error) {
@@ -208,7 +208,7 @@ getActiveIncidents: async (tripId) => {
 
 updateIncident: async (tripId, incidentId, updateData) => {
   try {
-    const response = await api.put(`/api/trips/${tripId}/incidents/${incidentId}`, updateData);
+    const response = await api.put(`/trips/${tripId}/incidents/${incidentId}`, updateData);
     return unwrap(response);
   } catch (error) {
     console.error(`Error updating incident ${incidentId}:`, error);
@@ -218,7 +218,7 @@ updateIncident: async (tripId, incidentId, updateData) => {
 
 deleteIncident: async (tripId, incidentId) => {
   try {
-    const response = await api.delete(`/api/trips/${tripId}/incidents/${incidentId}`);
+    const response = await api.delete(`/trips/${tripId}/incidents/${incidentId}`);
     return unwrap(response);
   } catch (error) {
     console.error(`Error deleting incident ${incidentId}:`, error);
@@ -229,7 +229,7 @@ deleteIncident: async (tripId, incidentId) => {
 
 getTripIncidentsPaginated: async (tripId, page = 0, size = 10, sort = 'reportedAt,desc') => {
   try {
-    const response = await api.get(`/api/trips/${tripId}/incidents`, {
+    const response = await api.get(`/trips/${tripId}/incidents`, {
       params: { page, size, sort }
     });
     const data = unwrap(response);
@@ -248,7 +248,7 @@ getTripIncidentsPaginated: async (tripId, page = 0, size = 10, sort = 'reportedA
 
 getIncidentStats: async (tripId) => {
   try {
-    const response = await api.get(`/api/trips/${tripId}/incidents/stats`);
+    const response = await api.get(`/trips/${tripId}/incidents/stats`);
     return unwrap(response);
   } catch (error) {
     console.error(`Error fetching incident stats for trip ${tripId}:`, error);
@@ -258,7 +258,7 @@ getIncidentStats: async (tripId) => {
 
 searchIncidents: async (tripId, filters = {}) => {
   try {
-    const response = await api.get(`/api/trips/${tripId}/incidents/search`, { params: filters });
+    const response = await api.get(`/trips/${tripId}/incidents/search`, { params: filters });
     const data = unwrap(response);
     return Array.isArray(data) ? data : (data?.data ?? []);
   } catch (error) {
@@ -286,7 +286,7 @@ startTrip: async (tripId, startData) => {
       delete payload.startOdometer;
     }
     
-    const response = await api.post(`/api/trips/${tripId}/start`, payload);
+    const response = await api.post(`/trips/${tripId}/start`, payload);
     return unwrap(response);
   } catch (error) {
     console.error(`Error starting trip ${tripId}:`, error);
@@ -317,7 +317,7 @@ endTrip: async (tripId, endData) => {
       delete payload.endOdometer;
     }
     
-    const response = await api.post(`/api/trips/${tripId}/end`, payload);
+    const response = await api.post(`/trips/${tripId}/end`, payload);
     return unwrap(response);
   } catch (error) {
     console.error(`Error ending trip ${tripId}:`, error);
@@ -341,7 +341,7 @@ endTrip: async (tripId, endData) => {
         tripId: tripId
       };
       
-      const response = await api.post(`/api/trips/${tripId}/incidents`, payload);
+      const response = await api.post(`/trips/${tripId}/incidents`, payload);
       return unwrap(response);
     } catch (error) {
       console.error(`Error reporting incident for trip ${tripId}:`, error);
@@ -351,7 +351,7 @@ endTrip: async (tripId, endData) => {
 
   getTripIncidents: async (tripId) => {
     try {
-      const response = await api.get(`/api/trips/${tripId}/incidents`);
+      const response = await api.get(`/trips/${tripId}/incidents`);
       const data = unwrap(response);
       return Array.isArray(data) ? data : (data?.data ?? []);
     } catch (error) {
@@ -367,7 +367,7 @@ endTrip: async (tripId, endData) => {
         pausedAt: new Date().toISOString()
       };
       
-      const response = await api.post(`/api/trips/${tripId}/pause`, payload);
+      const response = await api.post(`/trips/${tripId}/pause`, payload);
       return unwrap(response);
     } catch (error) {
       console.error(`Error pausing trip ${tripId}:`, error);
@@ -377,7 +377,7 @@ endTrip: async (tripId, endData) => {
 
   resumeTrip: async (tripId) => {
     try {
-      const response = await api.post(`/api/trips/${tripId}/resume`);
+      const response = await api.post(`/trips/${tripId}/resume`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error resuming trip ${tripId}:`, error);
@@ -407,7 +407,7 @@ endTrip: async (tripId, endData) => {
       }
 
       const response = await api.post(
-        `/api/trip-metrics/${numericTripId}/calculate`,
+        `/trip-metrics/${numericTripId}/calculate`,
         {
           originLocation: origin,
           destinationLocation: destination,
@@ -428,7 +428,7 @@ endTrip: async (tripId, endData) => {
     vehicleType = 'TRUCK'
   ) => {
     try {
-      const response = await api.post('/api/trip-metrics/preview', {
+      const response = await api.post('/trip-metrics/preview', {
         originLocation: origin,
         destinationLocation: destination,
         vehicleType
@@ -456,7 +456,7 @@ endTrip: async (tripId, endData) => {
 
   getTripMetrics: async (tripId) => {
     try {
-      const response = await api.get(`/api/trip-metrics/${tripId}`);
+      const response = await api.get(`/trip-metrics/${tripId}`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error fetching trip metrics for trip ${tripId}:`, error);
@@ -516,7 +516,7 @@ endTrip: async (tripId, endData) => {
 
   calculateTripCost: async (tripId) => {
     try {
-      const response = await api.get(`/api/trips/${tripId}/cost-analysis`);
+      const response = await api.get(`/trips/${tripId}/cost-analysis`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error calculating cost for trip ${tripId}:`, error);
@@ -530,7 +530,7 @@ endTrip: async (tripId, endData) => {
 
   filterTrips: async (filters = {}) => {
     try {
-      const response = await api.get('/api/trips/filter', { params: filters });
+      const response = await api.get('/trips/filter', { params: filters });
       const data = unwrap(response);
       return { data: Array.isArray(data) ? data : (data?.data ?? []) };
     } catch (error) {
@@ -541,7 +541,7 @@ endTrip: async (tripId, endData) => {
 
   getTripsByDriver: async (driverId) => {
     try {
-      const response = await api.get(`/api/trips/driver/${driverId}`);
+      const response = await api.get(`/trips/driver/${driverId}`);
       const data = unwrap(response);
       return { data: Array.isArray(data) ? data : (data?.data ?? []) };
     } catch (error) {
@@ -552,7 +552,7 @@ endTrip: async (tripId, endData) => {
 
   getTripsByVehicle: async (vehicleId) => {
     try {
-      const response = await api.get(`/api/trips/vehicle/${vehicleId}`);
+      const response = await api.get(`/trips/vehicle/${vehicleId}`);
       const data = unwrap(response);
       return { data: Array.isArray(data) ? data : (data?.data ?? []) };
     } catch (error) {
@@ -567,7 +567,7 @@ endTrip: async (tripId, endData) => {
 
   getTripStatistics: async () => {
     try {
-      const response = await api.get('/api/trips/statistics');
+      const response = await api.get('/trips/statistics');
       return unwrap(response);
     } catch (error) {
       console.error('Error fetching trip statistics:', error);
@@ -577,7 +577,7 @@ endTrip: async (tripId, endData) => {
 
   getTripKPIs: async (fromDate, toDate) => {
     try {
-      const response = await api.get('/api/trips/kpi', {
+      const response = await api.get('/trips/kpi', {
         params: { from: fromDate, to: toDate }
       });
       return unwrap(response);
@@ -593,7 +593,7 @@ endTrip: async (tripId, endData) => {
 
   checkTripNumberExists: async (tripNumber) => {
     try {
-      const response = await api.get(`/api/trips/exists/${tripNumber}`);
+      const response = await api.get(`/trips/exists/${tripNumber}`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error checking trip number ${tripNumber}:`, error);
@@ -603,7 +603,7 @@ endTrip: async (tripId, endData) => {
 
   getTripByTripNumber: async (tripNumber) => {
     try {
-      const response = await api.get(`/api/trips/number/${tripNumber}`);
+      const response = await api.get(`/trips/number/${tripNumber}`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error fetching trip by number ${tripNumber}:`, error);
@@ -617,7 +617,7 @@ endTrip: async (tripId, endData) => {
 
   getTripStatusHistory: async (tripId) => {
     try {
-      const response = await api.get(`/api/trips/${tripId}/status-history`);
+      const response = await api.get(`/trips/${tripId}/status-history`);
       const data = unwrap(response);
       return Array.isArray(data) ? data : (data?.data ?? []);
     } catch (error) {
@@ -628,7 +628,7 @@ endTrip: async (tripId, endData) => {
 
   updateTripStatus: async (tripId, status, notes = '') => {
     try {
-      const response = await api.post(`/api/trips/${tripId}/status`, {
+      const response = await api.post(`/trips/${tripId}/status`, {
         status,
         notes,
         changedAt: new Date().toISOString()
@@ -651,7 +651,7 @@ endTrip: async (tripId, endData) => {
       formData.append('documentType', documentData.documentType);
       formData.append('description', documentData.description || '');
       
-      const response = await api.post(`/api/trips/${tripId}/documents`, formData, {
+      const response = await api.post(`/trips/${tripId}/documents`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -665,7 +665,7 @@ endTrip: async (tripId, endData) => {
 
   getTripDocuments: async (tripId) => {
     try {
-      const response = await api.get(`/api/trips/${tripId}/documents`);
+      const response = await api.get(`/trips/${tripId}/documents`);
       const data = unwrap(response);
       return Array.isArray(data) ? data : (data?.data ?? []);
     } catch (error) {
@@ -676,7 +676,7 @@ endTrip: async (tripId, endData) => {
 
   deleteTripDocument: async (tripId, documentId) => {
     try {
-      const response = await api.delete(`/api/trips/${tripId}/documents/${documentId}`);
+      const response = await api.delete(`/trips/${tripId}/documents/${documentId}`);
       return unwrap(response);
     } catch (error) {
       console.error(`Error deleting document ${documentId} for trip ${tripId}:`, error);
