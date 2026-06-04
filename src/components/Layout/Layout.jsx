@@ -415,7 +415,7 @@ const MainLayout = () => {
                     lineHeight: 1.2,
                   }}
                 >
-                  Phoenix Group SA
+                  SALLARA NATIONWIDE LOGISTICS
                 </Typography>
                 <Typography
                   variant="caption"
@@ -427,7 +427,7 @@ const MainLayout = () => {
                     lineHeight: 1.2,
                   }}
                 >
-                  v1.01
+                  v1.02
                 </Typography>
               </Box>
             </>
