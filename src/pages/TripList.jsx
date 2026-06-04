@@ -9,13 +9,13 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Typography, CircularProgress, Box, Select, MenuItem, FormControl, InputLabel,
   Chip, IconButton, Button, Card, CardContent, Tooltip,
-  TablePagination, TextField, Alert, Stack
+  TablePagination, TextField, Alert, Stack, Popover, Divider
 } from '@mui/material';
 
 import {
   Add, Edit, Delete, Visibility, CheckCircle, Refresh,
   Search as SearchIcon, Dashboard, PlayArrow, Stop,
-  Warning as WarningIcon
+  Warning as WarningIcon, LocationCity, PinDrop, SwapHoriz
 } from '@mui/icons-material';
 
 /* ================================
@@ -116,6 +116,95 @@ const StatusChip = ({ status }) => {
   );
 };
 
+// Location Display Component with Popover
+const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+  
+  const open = Boolean(anchorEl);
+  
+  return (
+    <>
+      <Box 
+        onClick={handleClick}
+        sx={{ 
+          cursor: 'pointer',
+          '&:hover': { 
+            textDecoration: 'underline',
+            color: 'primary.main'
+          }
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          <LocationCity fontSize="small" sx={{ fontSize: 14, color: 'text.secondary' }} />
+          <Typography variant="body2">
+            {city || 'Unknown'}
+          </Typography>
+          {zipCode && (
+            <Typography variant="caption" color="text.secondary">
+              ({zipCode})
+            </Typography>
+          )}
+        </Stack>
+      </Box>
+      
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'left',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+      >
+        <Box sx={{ p: 2, maxWidth: 300 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            {type === 'origin' ? '📍 Origin Details' : '🏁 Destination Details'}
+          </Typography>
+          <Divider sx={{ my: 1 }} />
+          <Stack spacing={1}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">City</Typography>
+              <Typography variant="body2">{city || '-'}</Typography>
+            </Box>
+            {zipCode && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Postal Code</Typography>
+                <Typography variant="body2">{zipCode}</Typography>
+              </Box>
+            )}
+            {province && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Province</Typography>
+                <Typography variant="body2">{province}</Typography>
+              </Box>
+            )}
+            {fullAddress && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Full Address</Typography>
+                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                  {fullAddress}
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Box>
+      </Popover>
+    </>
+  );
+};
+
 // Simple notification state
 const useSimpleNotification = () => {
   const [notification, setNotification] = useState(null);
@@ -134,6 +223,7 @@ function TripList() {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [cityFilter, setCityFilter] = useState('');
 
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -147,6 +237,9 @@ function TripList() {
     total: 0,
   });
 
+  // Get unique cities for filter dropdown
+  const uniqueCities = [...new Set(trips.map(trip => trip.originCity).filter(Boolean))];
+
   /* ================================
      Fetch Trips
   ================================= */
@@ -154,7 +247,8 @@ function TripList() {
     page = 0,
     size = pagination.pageSize,
     search = searchText,
-    status = statusFilter
+    status = statusFilter,
+    city = cityFilter
   } = {}) => {
     setLoading(true);
 
@@ -163,7 +257,8 @@ function TripList() {
         page,
         size,
         ...(search && { search }),
-        ...(status !== 'all' && { status })
+        ...(status !== 'all' && { status }),
+        ...(city && { city })
       });
 
       setTrips(response.content || []);
@@ -180,7 +275,7 @@ function TripList() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageSize, searchText, statusFilter]);
+  }, [pagination.pageSize, searchText, statusFilter, cityFilter]);
 
   /* ================================
      Initial Load
@@ -198,86 +293,79 @@ function TripList() {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [searchText, statusFilter]);
+  }, [searchText, statusFilter, cityFilter]);
 
   /* ================================
      Trip Actions
   ================================= */
   const handleStartTrip = (trip) => {
-  if (window.confirm(`Start trip #${trip.tripNumber}?`)) {
-    const startOdometer = prompt('Enter starting odometer reading (km):');
-    if (startOdometer) {
-      // Send as actualStartOdometer instead of startOdometer
-      tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
-        .then(() => {
-          showNotification('Trip started successfully!', 'success');
-          fetchTrips({ page: pagination.page });
-        })
-        .catch(err => {
-          console.error('Error starting trip:', err);
-          // Show detailed error message
-          const errorMsg = err.message || 'Failed to start trip';
-          showNotification(errorMsg, 'error');
-        });
+    if (window.confirm(`Start trip #${trip.tripNumber}?`)) {
+      const startOdometer = prompt('Enter starting odometer reading (km):');
+      if (startOdometer) {
+        tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
+          .then(() => {
+            showNotification('Trip started successfully!', 'success');
+            fetchTrips({ page: pagination.page });
+          })
+          .catch(err => {
+            console.error('Error starting trip:', err);
+            const errorMsg = err.message || 'Failed to start trip';
+            showNotification(errorMsg, 'error');
+          });
+      }
     }
-  }
-};
+  };
 
   const handleEndTrip = (trip) => {
-  if (window.confirm(`End trip #${trip.tripNumber}?`)) {
-    const endOdometer = prompt('Enter ending odometer reading (km):');
-    if (endOdometer) {
-      const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
-      // Send as actualEndOdometer instead of endOdometer
-      tripService.endTrip(trip.id, { 
-        actualEndOdometer: parseFloat(endOdometer),
-        endReason: endReason || 'COMPLETED'
-      })
-        .then(() => {
-          showNotification('Trip ended successfully!', 'success');
-          fetchTrips({ page: pagination.page });
+    if (window.confirm(`End trip #${trip.tripNumber}?`)) {
+      const endOdometer = prompt('Enter ending odometer reading (km):');
+      if (endOdometer) {
+        const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
+        tripService.endTrip(trip.id, { 
+          actualEndOdometer: parseFloat(endOdometer),
+          endReason: endReason || 'COMPLETED'
         })
-        .catch(err => {
-          console.error('Error ending trip:', err);
-          const errorMsg = err.message || 'Failed to end trip';
-          showNotification(errorMsg, 'error');
-        });
+          .then(() => {
+            showNotification('Trip ended successfully!', 'success');
+            fetchTrips({ page: pagination.page });
+          })
+          .catch(err => {
+            console.error('Error ending trip:', err);
+            const errorMsg = err.message || 'Failed to end trip';
+            showNotification(errorMsg, 'error');
+          });
+      }
     }
-  }
-};
+  };
 
-  /* ================================
-     Incident Handling
-  ================================= */
+  const handleReportIncident = (trip) => {
+    const incidentType = prompt('Enter incident type (ACCIDENT, BREAKDOWN, TRAFFIC, WEATHER, HEALTH, REST, FUEL_STOP, LOADING, DOCUMENT, OTHER):');
+    if (!incidentType) return;
 
-const handleReportIncident = (trip) => {
-  const incidentType = prompt('Enter incident type (ACCIDENT, BREAKDOWN, TRAFFIC, WEATHER, HEALTH, REST, FUEL_STOP, LOADING, DOCUMENT, OTHER):');
-  if (!incidentType) return;
+    const description = prompt('Enter incident description:');
+    if (!description) return;
 
-  const description = prompt('Enter incident description:');
-  if (!description) return;
+    const severity = prompt('Enter severity (LOW, MEDIUM, HIGH, CRITICAL):', 'MEDIUM');
+    const location = prompt('Enter location (optional):');
+    const requiresAssistance = confirm('Does this require immediate assistance?');
 
-  const severity = prompt('Enter severity (LOW, MEDIUM, HIGH, CRITICAL):', 'MEDIUM');
-  const location = prompt('Enter location (optional):');
-  const requiresAssistance = confirm('Does this require immediate assistance?');
-
-  tripService.reportIncident(trip.id, {
-    incidentType,
-    description,
-    severity,
-    location: location || undefined,
-    requiresAssistance
-  })
-    .then(() => {
-      showNotification('Incident reported successfully!', 'success');
-      fetchTrips({ page: pagination.page });
+    tripService.reportIncident(trip.id, {
+      incidentType,
+      description,
+      severity,
+      location: location || undefined,
+      requiresAssistance
     })
-    .catch(err => {
-      console.error('Error reporting incident:', err);
-      const errorMsg = err.message || 'Failed to report incident';
-      showNotification(errorMsg, 'error');
-    });
-};
+      .then(() => {
+        showNotification('Incident reported successfully!', 'success');
+        fetchTrips({ page: pagination.page });
+      })
+      .catch(err => {
+        console.error('Error reporting incident:', err);
+        const errorMsg = err.message || 'Failed to report incident';
+        showNotification(errorMsg, 'error');
+      });
+  };
 
   const handleViewTrip = (trip) => {
     setSelectedTrip(trip);
@@ -323,6 +411,7 @@ const handleReportIncident = (trip) => {
   const handleClearFilters = () => {
     setSearchText('');
     setStatusFilter('all');
+    setCityFilter('');
   };
 
   /* ================================
@@ -346,7 +435,7 @@ const handleReportIncident = (trip) => {
         <Alert 
           severity={notification.type} 
           sx={{ mb: 2 }}
-          onClose={() => showNotification(null)}
+          onClose={() => setNotification(null)}
         >
           {notification.message}
         </Alert>
@@ -384,43 +473,63 @@ const handleReportIncident = (trip) => {
 
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <TextField
-            size="small"
-            label="Search"
-            placeholder="Trip #, Origin, Destination..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <SearchIcon fontSize="small" sx={{ mr: 1 }} />
-              )
-            }}
-            sx={{ width: 250 }}
-          />
+        <CardContent>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+            <TextField
+              size="small"
+              label="Search"
+              placeholder="Trip #, City, Address..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <SearchIcon fontSize="small" sx={{ mr: 1 }} />
+                )
+              }}
+              sx={{ minWidth: 250 }}
+            />
 
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              label="Status"
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                label="Status"
+              >
+                <MenuItem value="all">All Statuses</MenuItem>
+                {STATUS_OPTIONS.map(status => (
+                  <MenuItem key={status} value={status}>
+                    {STATUS_CONFIG[status]?.label || status}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {uniqueCities.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <InputLabel>Filter by City</InputLabel>
+                <Select
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                  label="Filter by City"
+                >
+                  <MenuItem value="">All Cities</MenuItem>
+                  {uniqueCities.map(city => (
+                    <MenuItem key={city} value={city}>{city}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            <Button 
+              onClick={handleClearFilters}
+              disabled={!searchText && statusFilter === 'all' && !cityFilter}
+              variant="outlined"
+              size="small"
             >
-              <MenuItem value="all">All Statuses</MenuItem>
-              {STATUS_OPTIONS.map(status => (
-                <MenuItem key={status} value={status}>
-                  {STATUS_CONFIG[status]?.label || status}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <Button 
-            onClick={handleClearFilters}
-            disabled={!searchText && statusFilter === 'all'}
-          >
-            Clear Filters
-          </Button>
+              Clear Filters
+            </Button>
+          </Stack>
         </CardContent>
       </Card>
 
@@ -433,6 +542,7 @@ const handleReportIncident = (trip) => {
               <TableCell><strong>Status</strong></TableCell>
               <TableCell><strong>Origin</strong></TableCell>
               <TableCell><strong>Destination</strong></TableCell>
+              <TableCell><strong>Distance</strong></TableCell>
               <TableCell><strong>Planned Start</strong></TableCell>
               <TableCell><strong>Actions</strong></TableCell>
             </TableRow>
@@ -441,13 +551,13 @@ const handleReportIncident = (trip) => {
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                   <Typography color="text.secondary">
-                    {searchText || statusFilter !== 'all'
+                    {searchText || statusFilter !== 'all' || cityFilter
                       ? 'No trips match your filters'
                       : 'No trips found'}
                   </Typography>
-                  {(searchText || statusFilter !== 'all') && (
+                  {(searchText || statusFilter !== 'all' || cityFilter) && (
                     <Button 
                       onClick={handleClearFilters}
                       sx={{ mt: 1 }}
@@ -478,8 +588,48 @@ const handleReportIncident = (trip) => {
                       <StatusChip status={trip.status} />
                     </TableCell>
 
-                    <TableCell>{trip.originLocation}</TableCell>
-                    <TableCell>{trip.destinationLocation}</TableCell>
+                    <TableCell>
+                      <LocationDisplay
+                        city={trip.originCity}
+                        zipCode={trip.originZipCode}
+                        province={trip.originProvince}
+                        fullAddress={trip.originLocation}
+                        type="origin"
+                      />
+                    </TableCell>
+
+                    <TableCell>
+                      <LocationDisplay
+                        city={trip.destinationCity}
+                        zipCode={trip.destinationZipCode}
+                        province={trip.destinationProvince}
+                        fullAddress={trip.destinationLocation}
+                        type="destination"
+                      />
+                    </TableCell>
+
+                    <TableCell>
+                      {trip.metrics?.totalDistanceKm ? (
+                        <Tooltip title="Distance traveled">
+                          <Chip
+                            size="small"
+                            label={`${trip.metrics.totalDistanceKm} km`}
+                            variant="outlined"
+                          />
+                        </Tooltip>
+                      ) : trip.plannedDistanceKm ? (
+                        <Tooltip title="Planned distance">
+                          <Chip
+                            size="small"
+                            label={`${trip.plannedDistanceKm} km (planned)`}
+                            variant="outlined"
+                            sx={{ opacity: 0.7 }}
+                          />
+                        </Tooltip>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
 
                     <TableCell>
                       {trip.plannedStartDate
@@ -618,6 +768,7 @@ const handleReportIncident = (trip) => {
       {showCreateModal && (
         <TripForm
           open={showCreateModal}
+          mode="create"
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
@@ -630,7 +781,6 @@ const handleReportIncident = (trip) => {
         <TripForm
           open={showEditModal}
           mode="edit"
-          tripId={selectedTrip.id}
           initialData={selectedTrip}
           onClose={() => setShowEditModal(false)}
           onSuccess={() => {
