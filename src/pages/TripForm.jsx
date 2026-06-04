@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dayjs from 'dayjs';
 import {
   Dialog,
@@ -21,7 +21,10 @@ import {
   FormHelperText,
   Stack,
   Chip,
-  Divider
+  Divider,
+  Autocomplete,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
   Save,
@@ -31,7 +34,12 @@ import {
   Person,
   DirectionsCar,
   Description,
-  PriorityHigh
+  PriorityHigh,
+  LocationOn,
+  MyLocation,
+  SwapHoriz,
+  CheckCircle,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 import {
   LocalizationProvider,
@@ -41,6 +49,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { tripService } from '../services/tripService';
 import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
+import { routingService } from '../services/routingService';
 
 /* ===================== Helpers ===================== */
 const formatDateForAPI = (date) =>
@@ -66,20 +75,297 @@ const PRIORITY_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = [
-    'DRAFT',
-    'PLANNED',
-    'ASSIGNED',
-    'IN_PROGRESS',
-    'COMPLETED',
-    'ACTIVE',
-    'PENDING',
-    'CANCELLED',
-    'CLOSED',
-    'FINALIZED'
+  'DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 
+  'COMPLETED', 'ACTIVE', 'PENDING', 'CANCELLED', 'CLOSED', 'FINALIZED'
 ];
 
+// South African Provinces
+const PROVINCES = [
+  'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
+  'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
+];
 
-/* ===================== Component ===================== */
+/* ===================== Address Component ===================== */
+function AddressSection({ 
+  label, 
+  address, 
+  onChange, 
+  errors = {}, 
+  onGeocode,
+  disabled = false 
+}) {
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [loadingCity, setLoadingCity] = useState(false);
+  const [geocodingStatus, setGeocodingStatus] = useState(null);
+  const [showMap, setShowMap] = useState(false);
+  const debounceTimer = useRef(null);
+
+  // Fetch city suggestions
+  const fetchCitySuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setCitySuggestions([]);
+      return;
+    }
+
+    setLoadingCity(true);
+    try {
+      const suggestions = await routingService.suggestCities(query);
+      setCitySuggestions(suggestions || []);
+    } catch (error) {
+      console.error('Error fetching city suggestions:', error);
+      setCitySuggestions([]);
+    } finally {
+      setLoadingCity(false);
+    }
+  };
+
+  // Debounced city search
+  const handleCityInputChange = (event, value) => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      fetchCitySuggestions(value);
+    }, 300);
+  };
+
+  // Handle city selection
+  const handleCitySelect = async (event, value) => {
+    if (value) {
+      const newAddress = { 
+        ...address, 
+        city: value.city,
+        province: value.province || address.province,
+        zipCode: value.zipCode || address.zipCode
+      };
+      onChange(newAddress);
+      
+      // Auto-fetch zip code if not provided
+      if (!value.zipCode && value.city) {
+        await fetchZipCodeForCity(value.city, value.province, newAddress);
+      }
+      
+      // Auto-fetch coordinates
+      if (address.street) {
+        await geocodeAddress({ ...newAddress, street: address.street });
+      }
+    }
+  };
+
+  // Fetch zip code for a city
+  const fetchZipCodeForCity = async (city, province, currentAddress) => {
+    try {
+      const zipInfo = await routingService.getZipCodeForCity(city, province);
+      if (zipInfo?.zipCode && zipInfo.zipCode !== currentAddress.zipCode) {
+        onChange({ ...currentAddress, zipCode: zipInfo.zipCode });
+        setGeocodingStatus({ 
+          type: 'success', 
+          message: `Zip code auto-filled: ${zipInfo.zipCode}` 
+        });
+        setTimeout(() => setGeocodingStatus(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error fetching zip code:', error);
+    }
+  };
+
+  // Geocode full address
+  const geocodeAddress = async (addressToGeocode) => {
+    if (!addressToGeocode.city && !addressToGeocode.street) return;
+    
+    setGeocodingStatus({ type: 'loading', message: 'Validating address...' });
+    
+    try {
+      const fullAddress = `${addressToGeocode.street || ''} ${addressToGeocode.city || ''} ${addressToGeocode.zipCode || ''} ${addressToGeocode.province || ''}`.trim();
+      
+      if (!fullAddress) {
+        setGeocodingStatus(null);
+        return;
+      }
+      
+      const coords = await routingService.geocodeAddress(fullAddress);
+      
+      if (coords) {
+        onChange({ ...addressToGeocode, latitude: coords.lat, longitude: coords.lng });
+        setGeocodingStatus({ 
+          type: 'success', 
+          message: 'Location verified ✓' 
+        });
+        if (onGeocode) onGeocode(coords);
+        setTimeout(() => setGeocodingStatus(null), 2000);
+      } else {
+        setGeocodingStatus({ 
+          type: 'warning', 
+          message: 'Could not verify exact location, using city center' 
+        });
+        setTimeout(() => setGeocodingStatus(null), 3000);
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      setGeocodingStatus({ 
+        type: 'error', 
+        message: 'Location validation failed' 
+      });
+      setTimeout(() => setGeocodingStatus(null), 3000);
+    }
+  };
+
+  // Handle street address blur
+  const handleStreetBlur = () => {
+    if (address.street && (address.city || address.zipCode)) {
+      geocodeAddress(address);
+    }
+  };
+
+  // Handle manual zip code change
+  const handleZipCodeChange = (value) => {
+    onChange({ ...address, zipCode: value });
+    if (value.length === 4 && address.city) {
+      // Could validate zip code here
+      setGeocodingStatus({ type: 'info', message: 'Verifying zip code...' });
+      setTimeout(() => setGeocodingStatus(null), 1500);
+    }
+  };
+
+  return (
+    <Card variant="outlined" sx={{ mb: 2 }}>
+      <CardContent>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <LocationOn fontSize="small" color="primary" />
+          <Typography variant="subtitle1" fontWeight="medium">
+            {label}
+          </Typography>
+          {address.latitude && address.longitude && (
+            <Chip 
+              size="small" 
+              label="📍 Geocoded" 
+              color="success" 
+              variant="outlined"
+              icon={<CheckCircle sx={{ fontSize: 14 }} />}
+            />
+          )}
+        </Stack>
+        
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Street Address"
+              value={address.street || ''}
+              onChange={(e) => onChange({ ...address, street: e.target.value })}
+              onBlur={handleStreetBlur}
+              error={!!errors.street}
+              helperText={errors.street}
+              size="small"
+              placeholder="e.g., 16275 Imbuzana Street"
+              disabled={disabled}
+            />
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Autocomplete
+              freeSolo
+              options={citySuggestions}
+              getOptionLabel={(option) => typeof option === 'string' ? option : option.city}
+              loading={loadingCity}
+              value={address.city || ''}
+              onInputChange={handleCityInputChange}
+              onChange={handleCitySelect}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="City / Town *"
+                  size="small"
+                  required
+                  error={!!errors.city}
+                  helperText={errors.city || 'Start typing for suggestions'}
+                  disabled={disabled}
+                />
+              )}
+              renderOption={(props, option) => (
+                <li {...props}>
+                  <Box>
+                    <Typography variant="body2">{option.city}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.province}
+                      {option.zipCode && ` • ${option.zipCode}`}
+                    </Typography>
+                  </Box>
+                </li>
+              )}
+            />
+          </Grid>
+          
+          <Grid item xs={6} md={3}>
+            <TextField
+              fullWidth
+              label="Postal Code"
+              value={address.zipCode || ''}
+              onChange={(e) => handleZipCodeChange(e.target.value)}
+              error={!!errors.zipCode}
+              helperText={errors.zipCode}
+              size="small"
+              placeholder="e.g., 1475"
+              inputProps={{ maxLength: 4 }}
+              disabled={disabled}
+            />
+          </Grid>
+          
+          <Grid item xs={6} md={3}>
+            <FormControl fullWidth size="small" error={!!errors.province}>
+              <InputLabel>Province</InputLabel>
+              <Select
+                value={address.province || ''}
+                label="Province"
+                onChange={(e) => onChange({ ...address, province: e.target.value })}
+                disabled={disabled}
+              >
+                <MenuItem value="">Select province</MenuItem>
+                {PROVINCES.map(province => (
+                  <MenuItem key={province} value={province}>{province}</MenuItem>
+                ))}
+              </Select>
+              {errors.province && <FormHelperText>{errors.province}</FormHelperText>}
+            </FormControl>
+          </Grid>
+        </Grid>
+        
+        {geocodingStatus && (
+          <Alert 
+            severity={geocodingStatus.type} 
+            sx={{ mt: 2 }} 
+            icon={geocodingStatus.type === 'loading' ? <CircularProgress size={16} /> : undefined}
+          >
+            {geocodingStatus.message}
+          </Alert>
+        )}
+        
+        {/* Mini Map Preview (Optional) */}
+        {showMap && address.latitude && address.longitude && (
+          <Box sx={{ mt: 2, height: 200, bgcolor: '#f5f5f5', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="caption" color="text.secondary">
+              Map view would show location at {address.latitude}, {address.longitude}
+            </Typography>
+          </Box>
+        )}
+        
+        {(address.latitude || address.longitude) && (
+          <Box sx={{ mt: 1 }}>
+            <Button
+              size="small"
+              onClick={() => setShowMap(!showMap)}
+              startIcon={<MyLocation />}
+            >
+              {showMap ? 'Hide Map' : 'Show Map Preview'}
+            </Button>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ===================== Main Component ===================== */
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess }) {
   /* ===================== State ===================== */
   const [loading, setLoading] = useState(false);
@@ -88,11 +374,29 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [drivers, setDrivers] = useState([]);
   const [error, setError] = useState(null);
   const [formErrors, setFormErrors] = useState({});
+  const [routePreview, setRoutePreview] = useState(null);
+  const [calculatingRoute, setCalculatingRoute] = useState(false);
+
+  const [origin, setOrigin] = useState({
+    street: '',
+    city: '',
+    zipCode: '',
+    province: '',
+    latitude: null,
+    longitude: null
+  });
+  
+  const [destination, setDestination] = useState({
+    street: '',
+    city: '',
+    zipCode: '',
+    province: '',
+    latitude: null,
+    longitude: null
+  });
 
   const [form, setForm] = useState({
     tripNumber: '',
-    originLocation: '',
-    destinationLocation: '',
     status: 'PLANNED',
     priority: 'MEDIUM',
     cargoDescription: '',
@@ -131,12 +435,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
-      // Use timeout to avoid state updates during render
       const timer = setTimeout(() => {
+        setOrigin({
+          street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
+        });
+        setDestination({
+          street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
+        });
         setForm({
           tripNumber: '',
-          originLocation: '',
-          destinationLocation: '',
           status: 'PLANNED',
           priority: 'MEDIUM',
           cargoDescription: '',
@@ -152,8 +459,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         });
         setFormErrors({});
         setError(null);
-        setVehicles([]);
-        setDrivers([]);
+        setRoutePreview(null);
       }, 300);
       
       return () => clearTimeout(timer);
@@ -164,25 +470,38 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   useEffect(() => {
     if (!open) return;
     
-    // Load vehicles and drivers
     loadData();
     
     if (mode === 'edit' && initialData) {
+      // Populate origin address
+      setOrigin({
+        street: initialData.originStreetAddress || '',
+        city: initialData.originCity || '',
+        zipCode: initialData.originZipCode || '',
+        province: initialData.originProvince || '',
+        latitude: initialData.originLatitude || null,
+        longitude: initialData.originLongitude || null
+      });
+      
+      // Populate destination address
+      setDestination({
+        street: initialData.destinationStreetAddress || '',
+        city: initialData.destinationCity || '',
+        zipCode: initialData.destinationZipCode || '',
+        province: initialData.destinationProvince || '',
+        latitude: initialData.destinationLatitude || null,
+        longitude: initialData.destinationLongitude || null
+      });
+      
       setForm({
         tripNumber: initialData.tripNumber || '',
-        originLocation: initialData.originLocation || '',
-        destinationLocation: initialData.destinationLocation || '',
         status: initialData.status || 'PLANNED',
         priority: initialData.priority || 'MEDIUM',
         cargoDescription: initialData.cargoDescription || '',
         cargoWeight: initialData.cargoWeight?.toString() || '',
         cargoValue: initialData.cargoValue?.toString() || '',
-        plannedStartDate: initialData.plannedStartDate 
-          ? dayjs(initialData.plannedStartDate)
-          : null,
-        plannedEndDate: initialData.plannedEndDate
-          ? dayjs(initialData.plannedEndDate)
-          : null,
+        plannedStartDate: initialData.plannedStartDate ? dayjs(initialData.plannedStartDate) : null,
+        plannedEndDate: initialData.plannedEndDate ? dayjs(initialData.plannedEndDate) : null,
         estimatedDuration: initialData.estimatedDuration?.toString() || '',
         vehicleId: initialData.vehicleId?.toString() || '',
         driverId: initialData.driverId?.toString() || '',
@@ -190,7 +509,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         specialInstructions: initialData.specialInstructions || ''
       });
     } else {
-      // Generate trip number for new trips
       const tripNumber = `TRIP-${Date.now().toString(36).toUpperCase()}`;
       setForm(prev => ({
         ...prev,
@@ -201,16 +519,48 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, [open, mode, initialData, loadData]);
 
+  // Calculate route preview when both locations have city/coordinates
+  useEffect(() => {
+    const calculatePreview = async () => {
+      if (!origin.city || !destination.city) return;
+      
+      setCalculatingRoute(true);
+      try {
+        // Build full addresses
+        const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
+        const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
+        
+        if (originAddress && destAddress) {
+          const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
+          setRoutePreview(route);
+          
+          // Auto-set estimated duration
+          if (route?.durationHours && !form.estimatedDuration) {
+            setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
+          }
+        }
+      } catch (error) {
+        console.error('Route preview failed:', error);
+        setRoutePreview(null);
+      } finally {
+        setCalculatingRoute(false);
+      }
+    };
+    
+    const timer = setTimeout(calculatePreview, 1000);
+    return () => clearTimeout(timer);
+  }, [origin.city, destination.city, origin.street, destination.street]);
+
   /* ===================== Validation ===================== */
   const validateForm = useCallback(() => {
     const errors = {};
     
-    if (!form.originLocation.trim()) {
-      errors.originLocation = 'Origin location is required';
+    if (!origin.city) {
+      errors.originCity = 'Origin city is required';
     }
     
-    if (!form.destinationLocation.trim()) {
-      errors.destinationLocation = 'Destination location is required';
+    if (!destination.city) {
+      errors.destinationCity = 'Destination city is required';
     }
     
     if (!form.plannedStartDate) {
@@ -232,13 +582,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
     
     return errors;
-  }, [form]);
+  }, [origin.city, destination.city, form]);
 
   /* ===================== Form Handlers ===================== */
   const handleFieldChange = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
-    
-    // Clear error for this field when user starts typing
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -248,29 +596,27 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setForm(prev => ({ 
       ...prev, 
       [field]: value,
-      // Clear error for this field
       ...(formErrors[field] && { [field]: '' })
     }));
     
-    // Auto-calculate estimated duration if both dates are set
     if (field === 'plannedStartDate' && form.plannedEndDate && value) {
       const duration = dayjs(form.plannedEndDate).diff(value, 'hours');
       if (duration > 0) {
         setForm(prev => ({ ...prev, estimatedDuration: duration.toString() }));
-        if (formErrors.estimatedDuration) {
-          setFormErrors(prev => ({ ...prev, estimatedDuration: '' }));
-        }
       }
     } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
       const duration = dayjs(value).diff(form.plannedStartDate, 'hours');
       if (duration > 0) {
         setForm(prev => ({ ...prev, estimatedDuration: duration.toString() }));
-        if (formErrors.estimatedDuration) {
-          setFormErrors(prev => ({ ...prev, estimatedDuration: '' }));
-        }
       }
     }
   }, [form.plannedEndDate, form.plannedStartDate, formErrors]);
+
+  // Swap origin and destination
+  const handleSwapLocations = () => {
+    setOrigin(destination);
+    setDestination(origin);
+  };
 
   /* ===================== Submit ===================== */
   const handleSubmit = useCallback(async () => {
@@ -292,7 +638,26 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
         estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
-        plannedEndDate: formatDateForAPI(form.plannedEndDate)
+        plannedEndDate: formatDateForAPI(form.plannedEndDate),
+        
+        // Address components
+        originStreetAddress: origin.street,
+        originCity: origin.city,
+        originZipCode: origin.zipCode,
+        originProvince: origin.province,
+        originLatitude: origin.latitude,
+        originLongitude: origin.longitude,
+        
+        destinationStreetAddress: destination.street,
+        destinationCity: destination.city,
+        destinationZipCode: destination.zipCode,
+        destinationProvince: destination.province,
+        destinationLatitude: destination.latitude,
+        destinationLongitude: destination.longitude,
+        
+        // Legacy fields for compatibility
+        originLocation: `${origin.street ? origin.street + ', ' : ''}${origin.city} ${origin.zipCode || ''}, ${origin.province || ''}`.trim(),
+        destinationLocation: `${destination.street ? destination.street + ', ' : ''}${destination.city} ${destination.zipCode || ''}, ${destination.province || ''}`.trim()
       };
       
       // Remove empty strings
@@ -317,44 +682,32 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     } finally {
       setSubmitting(false);
     }
-  }, [form, mode, initialData, validateForm, onSuccess, onClose]);
+  }, [form, origin, destination, mode, initialData, validateForm, onSuccess, onClose]);
 
-  // Memoized priority color
   const priorityColor = useMemo(() => {
     return PRIORITY_OPTIONS.find(p => p.value === form.priority)?.color || 'default';
   }, [form.priority]);
 
-  // Handle dialog close with validation
   const handleDialogClose = useCallback((event, reason) => {
     if (reason === 'backdropClick' && submitting) {
-      return; // Prevent closing when submitting
+      return;
     }
     if (onClose) onClose();
   }, [onClose, submitting]);
-
-  // Generate a unique ID for the form
-  const formId = useMemo(() => `trip-form-${Date.now()}`, []);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Dialog 
         open={open} 
         onClose={handleDialogClose}
-        maxWidth="md" 
+        maxWidth="lg" 
         fullWidth
-        PaperProps={{
-          sx: { maxHeight: '90vh' }
-        }}
+        PaperProps={{ sx: { maxHeight: '90vh' } }}
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
           <Typography variant="h6" component="div">
             {mode === 'create' ? 'Create New Trip' : `Edit Trip – ${initialData?.tripNumber || ''}`}
           </Typography>
-          {mode === 'edit' && initialData?.id && (
-            <Typography variant="caption" color="text.secondary">
-              ID: {initialData.id}
-            </Typography>
-          )}
         </DialogTitle>
 
         <DialogContent dividers sx={{ overflowY: 'auto' }}>
@@ -365,71 +718,92 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           )}
 
           {error && !loading && (
-            <Alert 
-              severity="error" 
-              sx={{ mb: 3 }}
-              onClose={() => setError(null)}
-            >
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
               {error}
             </Alert>
           )}
 
           {!loading && (
-            <Box component="form" id={formId} onSubmit={(e) => {
-              e.preventDefault();
-              handleSubmit();
-            }}>
+            <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
               <Stack spacing={3}>
-                {/* ===== Basic Information ===== */}
+                {/* Trip Number Display */}
+                <TextField
+                  fullWidth
+                  label="Trip Number"
+                  value={form.tripNumber}
+                  disabled={mode === 'edit'}
+                  size="small"
+                  helperText="Auto-generated for new trips"
+                />
+
+                {/* Origin and Destination with Swap */}
+                <Box sx={{ position: 'relative' }}>
+                  <AddressSection 
+                    label="Origin"
+                    address={origin}
+                    onChange={setOrigin}
+                    errors={{
+                      city: formErrors.originCity
+                    }}
+                  />
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'center', my: -1, position: 'relative', zIndex: 1 }}>
+                    <IconButton 
+                      onClick={handleSwapLocations}
+                      sx={{ bgcolor: 'background.paper', boxShadow: 1 }}
+                      size="small"
+                    >
+                      <SwapHoriz />
+                    </IconButton>
+                  </Box>
+                  
+                  <AddressSection 
+                    label="Destination"
+                    address={destination}
+                    onChange={setDestination}
+                    errors={{
+                      city: formErrors.destinationCity
+                    }}
+                  />
+                </Box>
+
+                {/* Route Preview */}
+                {(routePreview || calculatingRoute) && (
+                  <Card variant="outlined" sx={{ bgcolor: '#f5f5f5' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" gutterBottom>Route Preview</Typography>
+                      {calculatingRoute ? (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <CircularProgress size={16} />
+                          <Typography variant="body2">Calculating route...</Typography>
+                        </Box>
+                      ) : routePreview && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">Distance</Typography>
+                            <Typography variant="body1">{routePreview.distanceKm} km</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">Duration</Typography>
+                            <Typography variant="body1">{routePreview.durationHours} hours</Typography>
+                          </Grid>
+                        </Grid>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Basic Information */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <Description fontSize="small" />
-                      <Typography variant="subtitle1" fontWeight="medium">
-                        Basic Information
-                      </Typography>
+                      <Typography variant="subtitle1" fontWeight="medium">Basic Information</Typography>
                     </Stack>
                     
                     <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <TextField
-                          fullWidth
-                          label="Trip Number"
-                          value={form.tripNumber}
-                          disabled={mode === 'edit'}
-                          size="small"
-                          helperText="Auto-generated for new trips"
-                        />
-                      </Grid>
-                      
                       <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          required
-                          label="Origin Location"
-                          value={form.originLocation}
-                          onChange={(e) => handleFieldChange('originLocation', e.target.value)}
-                          error={!!formErrors.originLocation}
-                          helperText={formErrors.originLocation}
-                          size="small"
-                        />
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          required
-                          label="Destination Location"
-                          value={form.destinationLocation}
-                          onChange={(e) => handleFieldChange('destinationLocation', e.target.value)}
-                          error={!!formErrors.destinationLocation}
-                          helperText={formErrors.destinationLocation}
-                          size="small"
-                        />
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <FormControl fullWidth size="small" error={!!formErrors.status}>
+                        <FormControl fullWidth size="small">
                           <InputLabel>Status</InputLabel>
                           <Select
                             value={form.status}
@@ -437,19 +811,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             onChange={(e) => handleFieldChange('status', e.target.value)}
                           >
                             {STATUS_OPTIONS.map((status) => (
-                              <MenuItem key={status} value={status}>
-                                {status}
-                              </MenuItem>
+                              <MenuItem key={status} value={status}>{status}</MenuItem>
                             ))}
                           </Select>
-                          {formErrors.status && (
-                            <FormHelperText>{formErrors.status}</FormHelperText>
-                          )}
                         </FormControl>
                       </Grid>
                       
                       <Grid item xs={12} md={6}>
-                        <FormControl fullWidth size="small" error={!!formErrors.priority}>
+                        <FormControl fullWidth size="small">
                           <InputLabel>Priority</InputLabel>
                           <Select
                             value={form.priority}
@@ -458,37 +827,22 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           >
                             {PRIORITY_OPTIONS.map((priority) => (
                               <MenuItem key={priority.value} value={priority.value}>
-                                <Stack direction="row" alignItems="center" spacing={1}>
-                                  <Chip 
-                                    label={priority.label} 
-                                    size="small" 
-                                    color={priority.color}
-                                  />
-                                </Stack>
+                                <Chip label={priority.label} size="small" color={priority.color} />
                               </MenuItem>
                             ))}
                           </Select>
-                          <FormHelperText>
-                            <PriorityHigh 
-                              fontSize="small" 
-                              sx={{ mr: 1, color: priorityColor, verticalAlign: 'middle' }}
-                            />
-                            Priority level
-                          </FormHelperText>
                         </FormControl>
                       </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
 
-                {/* ===== Schedule ===== */}
+                {/* Schedule */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <ScheduleIcon fontSize="small" />
-                      <Typography variant="subtitle1" fontWeight="medium">
-                        Schedule
-                      </Typography>
+                      <Typography variant="subtitle1" fontWeight="medium">Schedule</Typography>
                     </Stack>
                     
                     <Grid container spacing={2}>
@@ -502,8 +856,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                               fullWidth: true,
                               size: 'small',
                               error: !!formErrors.plannedStartDate,
-                              helperText: formErrors.plannedStartDate,
-                              required: true
+                              helperText: formErrors.plannedStartDate
                             }
                           }}
                         />
@@ -525,33 +878,27 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         />
                       </Grid>
                       
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12}>
                         <TextField
                           fullWidth
                           label="Estimated Duration (hours)"
                           type="number"
                           value={form.estimatedDuration}
                           onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
-                          error={!!formErrors.estimatedDuration}
-                          helperText={formErrors.estimatedDuration}
                           size="small"
-                          InputProps={{
-                            endAdornment: 'hrs'
-                          }}
+                          InputProps={{ endAdornment: 'hrs' }}
                         />
                       </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
 
-                {/* ===== Assignment ===== */}
+                {/* Assignment */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <DirectionsCar fontSize="small" />
-                      <Typography variant="subtitle1" fontWeight="medium">
-                        Assignment
-                      </Typography>
+                      <Typography variant="subtitle1" fontWeight="medium">Assignment</Typography>
                     </Stack>
                     
                     <Grid container spacing={2}>
@@ -563,19 +910,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             label="Vehicle"
                             onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
                           >
-                            <MenuItem value="">
-                              <em>No vehicle assigned</em>
-                            </MenuItem>
+                            <MenuItem value=""><em>No vehicle assigned</em></MenuItem>
                             {vehicles.map((vehicle) => (
                               <MenuItem key={vehicle.id} value={vehicle.id.toString()}>
-                                {vehicle.registrationNumber} 
-                                {vehicle.model && ` (${vehicle.model})`}
+                                {vehicle.registrationNumber} {vehicle.model && `(${vehicle.model})`}
                               </MenuItem>
                             ))}
                           </Select>
-                          <FormHelperText>
-                            {vehicles.length} available vehicles
-                          </FormHelperText>
+                          <FormHelperText>{vehicles.length} available vehicles</FormHelperText>
                         </FormControl>
                       </Grid>
                       
@@ -587,32 +929,24 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             label="Driver"
                             onChange={(e) => handleFieldChange('driverId', e.target.value)}
                           >
-                            <MenuItem value="">
-                              <em>No driver assigned</em>
-                            </MenuItem>
+                            <MenuItem value=""><em>No driver assigned</em></MenuItem>
                             {drivers.map((driver) => (
                               <MenuItem key={driver.id} value={driver.id.toString()}>
                                 {driver.firstName} {driver.lastName}
-                                {driver.licenseNumber && ` (${driver.licenseNumber})`}
                               </MenuItem>
                             ))}
                           </Select>
-                          <FormHelperText>
-                            {drivers.length} available drivers
-                          </FormHelperText>
+                          <FormHelperText>{drivers.length} available drivers</FormHelperText>
                         </FormControl>
                       </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
 
-                {/* ===== Cargo Details ===== */}
+                {/* Cargo Details */}
                 <Card variant="outlined">
                   <CardContent>
-                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                      Cargo Details
-                    </Typography>
-                    
+                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>Cargo Details</Typography>
                     <Grid container spacing={2}>
                       <Grid item xs={12}>
                         <TextField
@@ -633,12 +967,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           type="number"
                           value={form.cargoWeight}
                           onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
-                          error={!!formErrors.cargoWeight}
-                          helperText={formErrors.cargoWeight}
                           size="small"
-                          InputProps={{
-                            endAdornment: 'kg'
-                          }}
+                          InputProps={{ endAdornment: 'kg' }}
                         />
                       </Grid>
                       
@@ -650,22 +980,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.cargoValue}
                           onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
                           size="small"
-                          InputProps={{
-                            startAdornment: '$'
-                          }}
+                          InputProps={{ startAdornment: '$' }}
                         />
                       </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
 
-                {/* ===== Additional Information ===== */}
+                {/* Additional Information */}
                 <Card variant="outlined">
                   <CardContent>
-                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                      Additional Information
-                    </Typography>
-                    
+                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>Additional Information</Typography>
                     <Grid container spacing={2}>
                       <Grid item xs={12}>
                         <TextField
@@ -701,18 +1026,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         </DialogContent>
 
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
-          <Button 
-            startIcon={<Close />} 
-            onClick={onClose}
-            disabled={submitting}
-          >
+          <Button startIcon={<Close />} onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
           
           <Button
             variant="contained"
-            type="submit"
-            form={formId}
+            onClick={handleSubmit}
             startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
             disabled={submitting || loading}
           >
