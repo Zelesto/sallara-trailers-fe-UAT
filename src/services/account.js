@@ -5,7 +5,7 @@ const accountService = {
   // Get all accounts
   getAllAccounts: async () => {
     try {
-      const response = await api.get('/api/accounts');
+      const response = await api.get('/accounts');
       return response.data;
     } catch (error) {
       console.error('Error fetching accounts:', error);
@@ -16,7 +16,7 @@ const accountService = {
   // Get account by ID
   getAccountById: async (id) => {
     try {
-      const response = await api.get(`/api/accounts/${id}`);
+      const response = await api.get(`/accounts/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching account ${id}:`, error);
@@ -27,7 +27,7 @@ const accountService = {
   // Create new account
   createAccount: async (accountData) => {
     try {
-      const response = await api.post('/api/accounts', accountData);
+      const response = await api.post('/accounts', accountData);
       return response.data;
     } catch (error) {
       console.error('Error creating account:', error);
@@ -38,7 +38,7 @@ const accountService = {
   // Update account
   updateAccount: async (id, accountData) => {
     try {
-      const response = await api.put(`/api/accounts/${id}`, accountData);
+      const response = await api.put(`/accounts/${id}`, accountData);
       return response.data;
     } catch (error) {
       console.error(`Error updating account ${id}:`, error);
@@ -49,7 +49,7 @@ const accountService = {
   // Delete account
   deleteAccount: async (id) => {
     try {
-      await api.delete(`/api/accounts/${id}`);
+      await api.delete(`/accounts/${id}`);
     } catch (error) {
       console.error(`Error deleting account ${id}:`, error);
       throw error;
@@ -57,7 +57,7 @@ const accountService = {
   },
 async getAccountsByType(type) {
     try {
-      const response = await api.get(`/api/accounts?type=${type}`);
+      const response = await api.get(`/accounts?type=${type}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching ${type} accounts:`, error);
@@ -71,7 +71,7 @@ async getAccountsByType(type) {
   // Get account statements
   getAccountStatements: async (accountId) => {
     try {
-      const response = await api.get(`/api/accounts/${accountId}/statements`);
+      const response = await api.get(`/accounts/${accountId}/statements`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching statements for account ${accountId}:`, error);
@@ -82,7 +82,7 @@ async getAccountsByType(type) {
   // Get account reconciliations
   getAccountReconciliations: async (accountId) => {
     try {
-      const response = await api.get(`/api/accounts/${accountId}/reconciliations`);
+      const response = await api.get(`/accounts/${accountId}/reconciliations`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching reconciliations for account ${accountId}:`, error);
