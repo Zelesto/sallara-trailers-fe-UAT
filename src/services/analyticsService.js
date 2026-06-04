@@ -50,7 +50,7 @@ export const analyticsService = {
     console.log('🔑 Auth token exists:', !!token);
     console.log('🔑 Token preview:', token?.substring(0, 20) + '...');
     
-    const response = await api.get('/api/analytics/test-simple');
+    const response = await api.get('/analytics/test-simple');
     console.log('✅ Auth test response:', response.data);
     return response.data;
   } catch (error) {
