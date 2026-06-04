@@ -18,7 +18,7 @@ export const fuelService = {
       });
 
       const queryString = params.toString();
-      const url = queryString ? `/api/fuel/slips?${queryString}` : '/api/fuel/slips';
+      const url = queryString ? `/fuel/slips?${queryString}` : '/api/fuel/slips';
       console.log('🌐 Making API call to:', url);
 
       // FIX: api.get() now returns just the data (from the interceptor)
@@ -37,7 +37,7 @@ export const fuelService = {
   // Fetch a single fuel slip by ID
   getFuelSlipById: async (id) => {
     try {
-      const response = await api.get(`/api/fuel/slips/${id}`);
+      const response = await api.get(`/fuel/slips/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching fuel slip ${id}:`, error);
@@ -76,7 +76,7 @@ export const fuelService = {
           };
       console.log('Sending MINIMAL payload to API:', payload);
 
-      const response = await api.post('/api/fuel/slips', payload);
+      const response = await api.post('/fuel/slips', payload);
       return response.data;
     } catch (error) {
       console.error('Error creating fuel slip:', error);
@@ -88,7 +88,7 @@ export const fuelService = {
   // Finalize a fuel slip (mark as processed/closed)
   finalizeFuelSlip: async (id) => {
     try {
-      await api.post(`/api/fuel/slips/${id}/finalize`);
+      await api.post(`/fuel/slips/${id}/finalize`);
     } catch (error) {
       console.error(`Error finalizing fuel slip ${id}:`, error);
       throw error;
@@ -108,7 +108,7 @@ export const fuelService = {
       if (accountId) params.append('accountId', accountId);
 
       const queryString = params.toString();
-      const url = queryString ? `/api/fuel/reconciliation?${queryString}` : '/api/fuel/reconciliation';
+      const url = queryString ? `/fuel/reconciliation?${queryString}` : '/api/fuel/reconciliation';
 
       const response = await api.get(url);
       return response.data;
@@ -121,7 +121,7 @@ export const fuelService = {
   // Get active trips for dropdown
   getActiveTrips: async () => {
     try {
-      const response = await api.get('/api/fuel/slips/active-trips');
+      const response = await api.get('/fuel/slips/active-trips');
       return response.data;
     } catch (error) {
       console.error('Error fetching active trips:', error);
@@ -132,7 +132,7 @@ export const fuelService = {
   // Get trip details for auto-population
   getTripDetails: async (tripId) => {
     try {
-      const response = await api.get(`/api/fuel/slips/trip/${tripId}/details`);
+      const response = await api.get(`/fuel/slips/trip/${tripId}/details`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching trip ${tripId} details:`, error);
@@ -150,7 +150,7 @@ export const fuelService = {
       if (vehicleId) params.append('vehicleId', vehicleId);
       params.append('period', period);
 
-      const response = await api.get(`/api/fuel/consumption?${params.toString()}`);
+      const response = await api.get(`/fuel/consumption?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching fuel consumption:', error);
@@ -160,7 +160,7 @@ export const fuelService = {
 
   getFuelFraudAlerts: async () => {
     try {
-      const response = await api.get('/api/fuel/alerts');
+      const response = await api.get('/fuel/alerts');
       return response.data;
     } catch (error) {
       console.error('Error fetching fuel fraud alerts:', error);
