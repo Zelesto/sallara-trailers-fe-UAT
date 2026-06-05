@@ -85,6 +85,57 @@ const PROVINCES = [
   'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
 ];
 
+// Helper function to extract city from address string
+const extractCityFromAddress = (address) => {
+  if (!address) return '';
+  
+  // Split by commas and clean up
+  const parts = address.split(',').map(p => p.trim());
+  
+  // Look for city patterns (usually the part before postal code or province)
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    // Skip if it looks like a street number or street name
+    if (part.match(/^\d+/) && part.length < 10) continue;
+    // Skip if it's a postal code
+    if (part.match(/^\d{4}$/)) continue;
+    // Skip if it's a province
+    if (PROVINCES.some(p => p.toLowerCase() === part.toLowerCase())) continue;
+    // If it has letters and is not too short, likely a city
+    if (part.length > 2 && part.match(/[A-Za-z]/)) {
+      return part;
+    }
+  }
+  
+  // If no match, try to get the second last part (often the city)
+  if (parts.length >= 2) {
+    const candidate = parts[parts.length - 2];
+    if (candidate && candidate.length > 2 && !candidate.match(/^\d+$/)) {
+      return candidate;
+    }
+  }
+  
+  return '';
+};
+
+// Helper function to extract zip code from address
+const extractZipCodeFromAddress = (address) => {
+  if (!address) return '';
+  const zipMatch = address.match(/\b\d{4}\b/);
+  return zipMatch ? zipMatch[0] : '';
+};
+
+// Helper function to extract province from address
+const extractProvinceFromAddress = (address) => {
+  if (!address) return '';
+  for (const province of PROVINCES) {
+    if (address.toLowerCase().includes(province.toLowerCase())) {
+      return province;
+    }
+  }
+  return '';
+};
+
 /* ===================== Address Component ===================== */
 function AddressSection({ 
   label, 
@@ -221,7 +272,6 @@ function AddressSection({
   const handleZipCodeChange = (value) => {
     onChange({ ...address, zipCode: value });
     if (value.length === 4 && address.city) {
-      // Could validate zip code here
       setGeocodingStatus({ type: 'info', message: 'Verifying zip code...' });
       setTimeout(() => setGeocodingStatus(null), 1500);
     }
@@ -340,7 +390,6 @@ function AddressSection({
           </Alert>
         )}
         
-        {/* Mini Map Preview (Optional) */}
         {showMap && address.latitude && address.longitude && (
           <Box sx={{ mt: 2, height: 200, bgcolor: '#f5f5f5', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography variant="caption" color="text.secondary">
@@ -473,22 +522,50 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     loadData();
     
     if (mode === 'edit' && initialData) {
+      console.log('🟢 Loading trip data for edit:', initialData);
+      
+      // Get address components with fallbacks
+      let originCity = initialData.originCity || '';
+      let originZipCode = initialData.originZipCode || '';
+      let originProvince = initialData.originProvince || '';
+      let originStreet = initialData.originStreetAddress || '';
+      
+      let destCity = initialData.destinationCity || '';
+      let destZipCode = initialData.destinationZipCode || '';
+      let destProvince = initialData.destinationProvince || '';
+      let destStreet = initialData.destinationStreetAddress || '';
+      
+      // If city is missing but originLocation exists, try to extract
+      if (!originCity && initialData.originLocation) {
+        originCity = extractCityFromAddress(initialData.originLocation);
+        originZipCode = originZipCode || extractZipCodeFromAddress(initialData.originLocation);
+        originProvince = originProvince || extractProvinceFromAddress(initialData.originLocation);
+        console.log('📌 Extracted origin city from address:', originCity);
+      }
+      
+      if (!destCity && initialData.destinationLocation) {
+        destCity = extractCityFromAddress(initialData.destinationLocation);
+        destZipCode = destZipCode || extractZipCodeFromAddress(initialData.destinationLocation);
+        destProvince = destProvince || extractProvinceFromAddress(initialData.destinationLocation);
+        console.log('📌 Extracted destination city from address:', destCity);
+      }
+      
       // Populate origin address
       setOrigin({
-        street: initialData.originStreetAddress || '',
-        city: initialData.originCity || '',
-        zipCode: initialData.originZipCode || '',
-        province: initialData.originProvince || '',
+        street: originStreet,
+        city: originCity,
+        zipCode: originZipCode,
+        province: originProvince,
         latitude: initialData.originLatitude || null,
         longitude: initialData.originLongitude || null
       });
       
       // Populate destination address
       setDestination({
-        street: initialData.destinationStreetAddress || '',
-        city: initialData.destinationCity || '',
-        zipCode: initialData.destinationZipCode || '',
-        province: initialData.destinationProvince || '',
+        street: destStreet,
+        city: destCity,
+        zipCode: destZipCode,
+        province: destProvince,
         latitude: initialData.destinationLatitude || null,
         longitude: initialData.destinationLongitude || null
       });
@@ -508,6 +585,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         notes: initialData.notes || '',
         specialInstructions: initialData.specialInstructions || ''
       });
+      
+      // If we extracted cities that weren't in the original data, notify user
+      if ((!initialData.originCity && originCity) || (!initialData.destinationCity && destCity)) {
+        setTimeout(() => {
+          setError(null);
+        }, 100);
+      }
     } else {
       const tripNumber = `TRIP-${Date.now().toString(36).toUpperCase()}`;
       setForm(prev => ({
@@ -526,7 +610,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       
       setCalculatingRoute(true);
       try {
-        // Build full addresses
         const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
         const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
         
@@ -534,7 +617,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
           setRoutePreview(route);
           
-          // Auto-set estimated duration
           if (route?.durationHours && !form.estimatedDuration) {
             setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
           }
@@ -549,7 +631,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     
     const timer = setTimeout(calculatePreview, 1000);
     return () => clearTimeout(timer);
-  }, [origin.city, destination.city, origin.street, destination.street]);
+  }, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province]);
 
   /* ===================== Validation ===================== */
   const validateForm = useCallback(() => {
@@ -640,7 +722,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
         
-        // Address components
         originStreetAddress: origin.street,
         originCity: origin.city,
         originZipCode: origin.zipCode,
@@ -655,17 +736,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         destinationLatitude: destination.latitude,
         destinationLongitude: destination.longitude,
         
-        // Legacy fields for compatibility
-        originLocation: `${origin.street ? origin.street + ', ' : ''}${origin.city} ${origin.zipCode || ''}, ${origin.province || ''}`.trim(),
-        destinationLocation: `${destination.street ? destination.street + ', ' : ''}${destination.city} ${destination.zipCode || ''}, ${destination.province || ''}`.trim()
+        originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
+        destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ')
       };
       
-      // Remove empty strings
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') {
           payload[key] = null;
         }
       });
+      
+      console.log('📤 Submitting payload:', payload);
       
       let result;
       if (mode === 'create') {
@@ -677,7 +758,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       onSuccess?.(result);
       if (onClose) onClose();
     } catch (err) {
-      console.error('Submit error:', err);
+      console.error('❌ Submit error:', err);
       setError(err.response?.data?.message || err.message || 'Failed to save trip');
     } finally {
       setSubmitting(false);
@@ -708,6 +789,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           <Typography variant="h6" component="div">
             {mode === 'create' ? 'Create New Trip' : `Edit Trip – ${initialData?.tripNumber || ''}`}
           </Typography>
+          {mode === 'edit' && initialData && !initialData.originCity && (
+            <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 1 }}>
+              ℹ️ City information was extracted from address. Please verify and update if needed.
+            </Typography>
+          )}
         </DialogTitle>
 
         <DialogContent dividers sx={{ overflowY: 'auto' }}>
@@ -726,7 +812,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           {!loading && (
             <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
               <Stack spacing={3}>
-                {/* Trip Number Display */}
                 <TextField
                   fullWidth
                   label="Trip Number"
@@ -736,7 +821,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   helperText="Auto-generated for new trips"
                 />
 
-                {/* Origin and Destination with Swap */}
                 <Box sx={{ position: 'relative' }}>
                   <AddressSection 
                     label="Origin"
@@ -767,7 +851,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   />
                 </Box>
 
-                {/* Route Preview */}
                 {(routePreview || calculatingRoute) && (
                   <Card variant="outlined" sx={{ bgcolor: '#f5f5f5' }}>
                     <CardContent>
