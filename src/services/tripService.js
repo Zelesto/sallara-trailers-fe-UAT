@@ -1,8 +1,6 @@
 // src/services/tripService.js
 import api from './api';
 import dayjs from 'dayjs';
-
-// At the top of tripService.js, add this import:
 import { fuelService } from './fuelService';
 
 const formatDateForBackend = (date) =>
@@ -13,6 +11,17 @@ const sanitizeField = (value) =>
 
 const unwrap = (response) =>
   response?.data !== undefined ? response.data : response;
+
+/**
+ * Normalize paginated responses
+ */
+const normalizePage = (data, fallbackPage = 0, fallbackSize = 10) => ({
+  content: data?.content || [],
+  totalElements: data?.totalElements || 0,
+  totalPages: data?.totalPages || 1,
+  number: data?.number ?? fallbackPage,
+  size: data?.size ?? fallbackSize,
+});
 
 export const tripService = {
 
@@ -26,26 +35,20 @@ export const tripService = {
       const rawData = unwrap(response);
 
       if (rawData?.content !== undefined) {
-        return {
-          content: rawData.content ?? [],
-          totalElements: rawData.totalElements ?? 0,
-          totalPages: rawData.totalPages ?? 1,
-          number: rawData.number ?? 0,
-          size: rawData.size ?? 10,
-        };
+        return normalizePage(rawData);
       }
 
       const dataArray = Array.isArray(rawData)
         ? rawData
         : (rawData?.data ?? []);
 
-      return {
+      return normalizePage({
         content: dataArray,
         totalElements: dataArray.length,
         totalPages: 1,
         number: 0,
-        size: dataArray.length
-      };
+        size: dataArray.length,
+      });
     } catch (error) {
       console.error('Error fetching trips:', error);
       throw error;
@@ -150,201 +153,39 @@ export const tripService = {
     }
   },
 
-
-
   // ==========================
   // Incident Management
   // ==========================
 
-reportIncident: async (tripId, incidentData) => {
-  try {
-    const payload = {
-      incidentType: incidentData.incidentType,
-      severity: incidentData.severity || 'MEDIUM',
-      description: incidentData.description,
-      location: incidentData.location || null,
-      requiresAssistance: incidentData.requiresAssistance || false
-    };
-    
-    const response = await api.post(`/trips/${tripId}/incidents`, payload);
-    return unwrap(response);
-  } catch (error) {
-    console.error(`Error reporting incident for trip ${tripId}:`, error);
-    
-    if (error.response?.data?.errors) {
-      const errorMessages = Object.entries(error.response.data.errors)
-        .map(([field, message]) => `${field}: ${message}`)
-        .join(', ');
-      throw new Error(`Validation errors: ${errorMessages}`);
-    } else if (error.response?.data?.detail) {
-      throw new Error(error.response.data.detail);
-    }
-    
-    throw error;
-  }
-},
-
-getTripIncidents: async (tripId) => {
-  try {
-    const response = await api.get(`/trips/${tripId}/incidents`);
-    const data = unwrap(response);
-    return Array.isArray(data) ? data : (data?.data ?? []);
-  } catch (error) {
-    console.error(`Error fetching incidents for trip ${tripId}:`, error);
-    return [];
-  }
-},
-
-getActiveIncidents: async (tripId) => {
-  try {
-    const response = await api.get(`/trips/${tripId}/incidents/active`);
-    const data = unwrap(response);
-    return Array.isArray(data) ? data : (data?.data ?? []);
-  } catch (error) {
-    console.error(`Error fetching active incidents for trip ${tripId}:`, error);
-    return [];
-  }
-},
-
-updateIncident: async (tripId, incidentId, updateData) => {
-  try {
-    const response = await api.put(`/trips/${tripId}/incidents/${incidentId}`, updateData);
-    return unwrap(response);
-  } catch (error) {
-    console.error(`Error updating incident ${incidentId}:`, error);
-    throw error;
-  }
-},
-
-deleteIncident: async (tripId, incidentId) => {
-  try {
-    const response = await api.delete(`/trips/${tripId}/incidents/${incidentId}`);
-    return unwrap(response);
-  } catch (error) {
-    console.error(`Error deleting incident ${incidentId}:`, error);
-    throw error;
-  }
-},
-
-
-getTripIncidentsPaginated: async (tripId, page = 0, size = 10, sort = 'reportedAt,desc') => {
-  try {
-    const response = await api.get(`/trips/${tripId}/incidents`, {
-      params: { page, size, sort }
-    });
-    const data = unwrap(response);
-    return {
-      content: data.content || [],
-      totalElements: data.totalElements || 0,
-      totalPages: data.totalPages || 1,
-      number: data.number || page,
-      size: data.size || size,
-    };
-  } catch (error) {
-    console.error(`Error fetching incidents for trip ${tripId}:`, error);
-    return { content: [], totalElements: 0, totalPages: 1, number: page, size };
-  }
-},
-
-getIncidentStats: async (tripId) => {
-  try {
-    const response = await api.get(`/trips/${tripId}/incidents/stats`);
-    return unwrap(response);
-  } catch (error) {
-    console.error(`Error fetching incident stats for trip ${tripId}:`, error);
-    return { totalIncidents: 0, activeIncidents: 0, urgentIncidents: 0 };
-  }
-},
-
-searchIncidents: async (tripId, filters = {}) => {
-  try {
-    const response = await api.get(`/trips/${tripId}/incidents/search`, { params: filters });
-    const data = unwrap(response);
-    return Array.isArray(data) ? data : (data?.data ?? []);
-  } catch (error) {
-    console.error(`Error searching incidents for trip ${tripId}:`, error);
-    return [];
-  }
-},
-
-  // ==========================
-  // Trip Lifecycle Management
-  // ==========================
-
-  // In your tripService.js, update the startTrip and endTrip methods:
-
-startTrip: async (tripId, startData) => {
-  try {
-    const payload = {
-      actualStartOdometer: startData.startOdometer, // Changed from startOdometer to actualStartOdometer
-      startTimestamp: new Date().toISOString(),
-      ...startData
-    };
-    
-    // Remove startOdometer if it exists since we're using actualStartOdometer
-    if (payload.startOdometer) {
-      delete payload.startOdometer;
-    }
-    
-    const response = await api.post(`/trips/${tripId}/start`, payload);
-    return unwrap(response);
-  } catch (error) {
-    console.error(`Error starting trip ${tripId}:`, error);
-    
-    // Better error handling to show validation errors
-    if (error.response?.data?.errors) {
-      const errorMessages = Object.entries(error.response.data.errors)
-        .map(([field, message]) => `${field}: ${message}`)
-        .join(', ');
-      throw new Error(`Validation errors: ${errorMessages}`);
-    }
-    
-    throw error;
-  }
-},
-
-endTrip: async (tripId, endData) => {
-  try {
-    const payload = {
-      actualEndOdometer: endData.endOdometer, // Changed from endOdometer to actualEndOdometer
-      endTimestamp: new Date().toISOString(),
-      endReason: endData.endReason || 'COMPLETED',
-      ...endData
-    };
-    
-    // Remove endOdometer if it exists since we're using actualEndOdometer
-    if (payload.endOdometer) {
-      delete payload.endOdometer;
-    }
-    
-    const response = await api.post(`/trips/${tripId}/end`, payload);
-    return unwrap(response);
-  } catch (error) {
-    console.error(`Error ending trip ${tripId}:`, error);
-    
-    if (error.response?.data?.errors) {
-      const errorMessages = Object.entries(error.response.data.errors)
-        .map(([field, message]) => `${field}: ${message}`)
-        .join(', ');
-      throw new Error(`Validation errors: ${errorMessages}`);
-    }
-    
-    throw error;
-  }
-},
-
   reportIncident: async (tripId, incidentData) => {
     try {
       const payload = {
-        ...incidentData,
+        incidentType: incidentData.incidentType,
+        severity: incidentData.severity || 'MEDIUM',
+        description: incidentData.description,
+        location: incidentData.location || null,
+        requiresAssistance: incidentData.requiresAssistance || false,
         reportedAt: new Date().toISOString(),
-        tripId: tripId
+        tripId,
       };
-      
+
       const response = await api.post(`/trips/${tripId}/incidents`, payload);
       return unwrap(response);
+
     } catch (error) {
       console.error(`Error reporting incident for trip ${tripId}:`, error);
+
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.entries(error.response.data.errors)
+          .map(([field, message]) => `${field}: ${message}`)
+          .join(', ');
+        throw new Error(`Validation errors: ${errorMessages}`);
+      }
+
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
+
       throw error;
     }
   },
@@ -360,15 +201,157 @@ endTrip: async (tripId, endData) => {
     }
   },
 
+  getActiveIncidents: async (tripId) => {
+    try {
+      const response = await api.get(`/trips/${tripId}/incidents/active`);
+      const data = unwrap(response);
+      return Array.isArray(data) ? data : (data?.data ?? []);
+    } catch (error) {
+      console.error(`Error fetching active incidents for trip ${tripId}:`, error);
+      return [];
+    }
+  },
+
+  updateIncident: async (tripId, incidentId, updateData) => {
+    try {
+      const response = await api.put(
+        `/trips/${tripId}/incidents/${incidentId}`,
+        updateData
+      );
+      return unwrap(response);
+    } catch (error) {
+      console.error(`Error updating incident ${incidentId}:`, error);
+      throw error;
+    }
+  },
+
+  deleteIncident: async (tripId, incidentId) => {
+    try {
+      const response = await api.delete(
+        `/trips/${tripId}/incidents/${incidentId}`
+      );
+      return unwrap(response);
+    } catch (error) {
+      console.error(`Error deleting incident ${incidentId}:`, error);
+      throw error;
+    }
+  },
+
+  getTripIncidentsPaginated: async (
+    tripId,
+    page = 0,
+    size = 10,
+    sort = 'reportedAt,desc'
+  ) => {
+    try {
+      const response = await api.get(`/trips/${tripId}/incidents`, {
+        params: { page, size, sort },
+      });
+
+      const data = unwrap(response);
+      return normalizePage(data, page, size);
+
+    } catch (error) {
+      console.error(`Error fetching incidents for trip ${tripId}:`, error);
+      return normalizePage({}, page, size);
+    }
+  },
+
+  getIncidentStats: async (tripId) => {
+    try {
+      const response = await api.get(`/trips/${tripId}/incidents/stats`);
+      return unwrap(response);
+    } catch (error) {
+      console.error(`Error fetching incident stats for trip ${tripId}:`, error);
+      return { totalIncidents: 0, activeIncidents: 0, urgentIncidents: 0 };
+    }
+  },
+
+  searchIncidents: async (tripId, filters = {}) => {
+    try {
+      const response = await api.get(
+        `/trips/${tripId}/incidents/search`,
+        { params: filters }
+      );
+
+      const data = unwrap(response);
+      return Array.isArray(data) ? data : (data?.data ?? []);
+
+    } catch (error) {
+      console.error(`Error searching incidents for trip ${tripId}:`, error);
+      return [];
+    }
+  },
+
+  // ==========================
+  // Trip Lifecycle Management
+  // ==========================
+
+  startTrip: async (tripId, startData) => {
+    try {
+      const payload = {
+        actualStartOdometer: startData.startOdometer,
+        startTimestamp: new Date().toISOString(),
+        ...startData,
+      };
+
+      delete payload.startOdometer;
+
+      const response = await api.post(`/trips/${tripId}/start`, payload);
+      return unwrap(response);
+
+    } catch (error) {
+      console.error(`Error starting trip ${tripId}:`, error);
+
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.entries(error.response.data.errors)
+          .map(([field, message]) => `${field}: ${message}`)
+          .join(', ');
+        throw new Error(`Validation errors: ${errorMessages}`);
+      }
+
+      throw error;
+    }
+  },
+
+  endTrip: async (tripId, endData) => {
+    try {
+      const payload = {
+        actualEndOdometer: endData.endOdometer,
+        endTimestamp: new Date().toISOString(),
+        endReason: endData.endReason || 'COMPLETED',
+        ...endData,
+      };
+
+      delete payload.endOdometer;
+
+      const response = await api.post(`/trips/${tripId}/end`, payload);
+      return unwrap(response);
+
+    } catch (error) {
+      console.error(`Error ending trip ${tripId}:`, error);
+
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.entries(error.response.data.errors)
+          .map(([field, message]) => `${field}: ${message}`)
+          .join(', ');
+        throw new Error(`Validation errors: ${errorMessages}`);
+      }
+
+      throw error;
+    }
+  },
+
   pauseTrip: async (tripId, pauseData) => {
     try {
       const payload = {
         ...pauseData,
-        pausedAt: new Date().toISOString()
+        pausedAt: new Date().toISOString(),
       };
-      
+
       const response = await api.post(`/trips/${tripId}/pause`, payload);
       return unwrap(response);
+
     } catch (error) {
       console.error(`Error pausing trip ${tripId}:`, error);
       throw error;
@@ -379,6 +362,7 @@ endTrip: async (tripId, endData) => {
     try {
       const response = await api.post(`/trips/${tripId}/resume`);
       return unwrap(response);
+
     } catch (error) {
       console.error(`Error resuming trip ${tripId}:`, error);
       throw error;
@@ -393,13 +377,13 @@ endTrip: async (tripId, endData) => {
     tripId,
     origin,
     destination,
-    vehicleType = 'TRUCK'
+    vehicleType = 'TRUCK',
   }) => {
     try {
       const numericTripId = Number(tripId);
 
       if (!numericTripId || isNaN(numericTripId)) {
-        throw new Error(`Invalid tripId: ${tripId}. Must be a number.`);
+        throw new Error(`Invalid tripId: ${tripId}`);
       }
 
       if (!origin || !destination) {
@@ -411,30 +395,28 @@ endTrip: async (tripId, endData) => {
         {
           originLocation: origin,
           destinationLocation: destination,
-          vehicleType
+          vehicleType,
         }
       );
 
       return unwrap(response);
+
     } catch (error) {
       console.error('Error calculating trip metrics:', error);
       throw error;
     }
   },
 
-  calculateTripMetricsPreview: async (
-    origin,
-    destination,
-    vehicleType = 'TRUCK'
-  ) => {
+  calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') => {
     try {
       const response = await api.post('/trip-metrics/preview', {
         originLocation: origin,
         destinationLocation: destination,
-        vehicleType
+        vehicleType,
       });
 
       return unwrap(response);
+
     } catch (error) {
       console.error('Error calculating trip metrics preview:', error);
       throw error;
@@ -443,10 +425,7 @@ endTrip: async (tripId, endData) => {
 
   saveTripMetrics: async (tripId, metrics) => {
     try {
-      const response = await api.put(
-        `/trip-metrics/${tripId}`,
-        metrics
-      );
+      const response = await api.put(`/trip-metrics/${tripId}`, metrics);
       return unwrap(response);
     } catch (error) {
       console.error(`Error saving trip metrics for trip ${tripId}:`, error);
@@ -469,50 +448,48 @@ endTrip: async (tripId, endData) => {
   // ==========================
 
   getTripFuelData: async (tripId) => {
-  try {
-    // Use the fuelService to get fuel slips filtered by tripId
-    // This will work with your existing fuelService.getFuelSlips() method
-    const fuelSlips = await fuelService.getFuelSlips({ tripId });
-    
-    // Format the data for the TripDetails component
-    return {
-      tripId: tripId,
-      fuelEntries: fuelSlips.map(slip => ({
-        id: slip.id,
-        date: slip.transactionDate || slip.date,
-        station: slip.stationName,
-        stationLocation: slip.location,
-        liters: slip.quantity,
-        pricePerLiter: slip.unitPrice,
-        totalAmount: slip.totalAmount,
-        odometer: slip.odometerReading,
-        receiptNumber: slip.receiptNumber,
-        driverId: slip.driverId,
-        driverName: slip.driverName,
-        vehicleId: slip.vehicleId,
-        vehicleRegNumber: slip.vehicleRegistration,
-        finalized: slip.finalized
-      })),
-      summary: {
-        totalLiters: fuelSlips.reduce((sum, slip) => sum + (parseFloat(slip.quantity) || 0), 0),
-        totalCost: fuelSlips.reduce((sum, slip) => sum + (parseFloat(slip.totalAmount) || 0), 0),
-        entriesCount: fuelSlips.length
-      }
-    };
-  } catch (error) {
-    console.error(`Error fetching fuel data for trip ${tripId}:`, error);
-    // Return empty structure on error
-    return {
-      tripId: tripId,
-      fuelEntries: [],
-      summary: {
-        totalLiters: 0,
-        totalCost: 0,
-        entriesCount: 0
-      }
-    };
-  }
-},
+    try {
+      const fuelSlips = await fuelService.getFuelSlips({ tripId });
+
+      return {
+        tripId,
+        fuelEntries: fuelSlips.map(slip => ({
+          id: slip.id,
+          date: slip.transactionDate || slip.date,
+          station: slip.stationName,
+          stationLocation: slip.location,
+          liters: slip.quantity,
+          pricePerLiter: slip.unitPrice,
+          totalAmount: slip.totalAmount,
+          odometer: slip.odometerReading,
+          receiptNumber: slip.receiptNumber,
+          driverId: slip.driverId,
+          driverName: slip.driverName,
+          vehicleId: slip.vehicleId,
+          vehicleRegNumber: slip.vehicleRegistration,
+          finalized: slip.finalized,
+        })),
+        summary: {
+          totalLiters: fuelSlips.reduce((s, f) => s + (parseFloat(f.quantity) || 0), 0),
+          totalCost: fuelSlips.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0),
+          entriesCount: fuelSlips.length,
+        },
+      };
+
+    } catch (error) {
+      console.error(`Error fetching fuel data for trip ${tripId}:`, error);
+
+      return {
+        tripId,
+        fuelEntries: [],
+        summary: {
+          totalLiters: 0,
+          totalCost: 0,
+          entriesCount: 0,
+        },
+      };
+    }
+  },
 
   calculateTripCost: async (tripId) => {
     try {
@@ -578,7 +555,7 @@ endTrip: async (tripId, endData) => {
   getTripKPIs: async (fromDate, toDate) => {
     try {
       const response = await api.get('/trips/kpi', {
-        params: { from: fromDate, to: toDate }
+        params: { from: fromDate, to: toDate },
       });
       return unwrap(response);
     } catch (error) {
@@ -631,7 +608,7 @@ endTrip: async (tripId, endData) => {
       const response = await api.post(`/trips/${tripId}/status`, {
         status,
         notes,
-        changedAt: new Date().toISOString()
+        changedAt: new Date().toISOString(),
       });
       return unwrap(response);
     } catch (error) {
@@ -641,7 +618,7 @@ endTrip: async (tripId, endData) => {
   },
 
   // ==========================
-  // Trip Documents & Attachments
+  // Trip Documents
   // ==========================
 
   uploadTripDocument: async (tripId, documentData) => {
@@ -650,13 +627,13 @@ endTrip: async (tripId, endData) => {
       formData.append('file', documentData.file);
       formData.append('documentType', documentData.documentType);
       formData.append('description', documentData.description || '');
-      
+
       const response = await api.post(`/trips/${tripId}/documents`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       return unwrap(response);
+
     } catch (error) {
       console.error(`Error uploading document for trip ${tripId}:`, error);
       throw error;
@@ -682,5 +659,5 @@ endTrip: async (tripId, endData) => {
       console.error(`Error deleting document ${documentId} for trip ${tripId}:`, error);
       throw error;
     }
-  }
+  },
 };
