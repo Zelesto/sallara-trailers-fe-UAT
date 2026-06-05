@@ -88,6 +88,53 @@ export const routingService = {
   },
 
   /**
+   * Geocode an address to coordinates (simplified API)
+   * @param {string} address - Full address to geocode
+   * @returns {Promise<{lat: number, lng: number, displayName: string}>}
+   */
+  geocodeAddress: async (address) => {
+    try {
+      console.log('Geocoding address:', address);
+      
+      if (!address || address.trim().length === 0) {
+        throw new Error('Address is required');
+      }
+      
+      // Use the existing geocodeLocation method
+      const result = await routingService.geocodeLocation(address);
+      
+      return {
+        lat: result.lat,
+        lng: result.lng,
+        displayName: result.displayName,
+        confidence: result.confidence
+      };
+    } catch (error) {
+      console.error('Geocode address error:', error);
+      
+      // Try a simplified version of the address
+      try {
+        // Extract just city and province for fallback
+        const parts = address.split(',');
+        const simplifiedAddress = parts.slice(-2).join(',').trim();
+        console.log('Trying simplified address:', simplifiedAddress);
+        
+        const result = await routingService.geocodeLocation(simplifiedAddress);
+        return {
+          lat: result.lat,
+          lng: result.lng,
+          displayName: result.displayName,
+          approximated: true,
+          confidence: result.confidence
+        };
+      } catch (fallbackError) {
+        console.error('Fallback geocoding also failed:', fallbackError);
+        throw error;
+      }
+    }
+  },
+
+  /**
    * Geocode a location to coordinates with multiple fallback strategies
    * @param {string} location - Address or location name
    * @returns {Object} - {lat, lng, displayName, confidence}
@@ -101,11 +148,22 @@ export const routingService = {
         return geocodeCache.get(cacheKey);
       }
 
+      // Clean up the address for better geocoding
+      let cleanLocation = location
+        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+        .trim();
+      
+      // Add South Africa if not present
+      if (!cleanLocation.toLowerCase().includes('south africa')) {
+        cleanLocation = cleanLocation + ', South Africa';
+      }
+
       // Try multiple geocoding strategies
       const strategies = [
-        () => geocodeWithNominatim(location),
-        () => geocodeWithFallback(location),
-        () => geocodeWithBroadSearch(location)
+        () => geocodeWithNominatim(cleanLocation),
+        () => geocodeWithFallback(cleanLocation),
+        () => geocodeWithBroadSearch(cleanLocation),
+        () => geocodeWithCityOnly(cleanLocation)
       ];
 
       let result = null;
@@ -115,6 +173,7 @@ export const routingService = {
           if (result && result.lat && result.lng) {
             // Cache the successful result
             geocodeCache.set(cacheKey, result);
+            console.log('Geocoding successful:', result.displayName);
             return result;
           }
         } catch (error) {
@@ -436,9 +495,10 @@ async function geocodeWithFallback(location) {
   let simplified = location
     .replace(/^\d+\s+/, '') // Remove leading numbers
     .replace(/\b(stand|erf|plot|portion|unit|flat|apartment)\s+\d+\b/gi, '')
+    .replace(/,\s*South\s+Africa$/i, '') // Remove South Africa for this attempt
     .trim();
   
-  if (simplified === location) {
+  if (simplified === location || simplified.length < 5) {
     throw new Error('No simplification possible');
   }
   
@@ -449,15 +509,36 @@ async function geocodeWithFallback(location) {
  * Geocode with broad search (city only)
  */
 async function geocodeWithBroadSearch(location) {
-  // Extract only city/town name (last part before comma)
+  // Extract only city/town name
   const parts = location.split(',');
-  const cityOnly = parts[parts.length - 1].trim();
+  let cityOnly = parts[0].trim();
+  
+  // Remove street numbers from city name
+  cityOnly = cityOnly.replace(/^\d+\s+/, '').trim();
   
   if (cityOnly === location || cityOnly.length < 3) {
     throw new Error('Cannot extract city name');
   }
   
   return await geocodeWithNominatim(cityOnly + ', South Africa');
+}
+
+/**
+ * Geocode with city only (last resort)
+ */
+async function geocodeWithCityOnly(location) {
+  // Try to find any populated place name in the address
+  const words = location.split(/[\s,]+/);
+  for (const word of words) {
+    if (word.length > 3 && word.match(/^[A-Za-z]+$/)) {
+      try {
+        return await geocodeWithNominatim(word + ', South Africa');
+      } catch (e) {
+        continue;
+      }
+    }
+  }
+  throw new Error('No city name found');
 }
 
 /**
