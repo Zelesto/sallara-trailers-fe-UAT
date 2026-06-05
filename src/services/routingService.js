@@ -5,7 +5,7 @@
  */
 
 // Free OpenRouteService API key (demo key)
-const ORS_API_KEY = '5b3ce3597851110001cf6248your_key_here'; // Get from https://openrouteservice.org/dev/#/signup
+const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImE4ZmFlZjFiNmFmMjQyNjQ4ZDA5MzBiOGRjMzIzMDlhIiwiaCI6Im11cm11cjY0In0='; // Get from https://openrouteservice.org/dev/#/signup
 
 // Alternative: Mapbox free tier (50k requests/month)
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
