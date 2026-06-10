@@ -199,55 +199,81 @@ function TripForm({ open, onClose, mode = 'create', initialData, onSuccess }) {
 
   /* ===================== HANDLERS ===================== */
 
-  const handleSwap = () => {
-    const o = origin;
-    setOrigin(destination);
-    setDestination(o);
-  };
+const formatAddress = (a = {}) => {
+  const parts = [
+    a.street?.trim(),
+    a.city?.trim(),
+    a.zipCode?.trim(),
+    a.province?.trim(),
+    'South Africa'
+  ];
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
+  return parts.filter(Boolean).join(', ');
+};
 
-    try {
-      const payload = {
-        ...form,
+const handleSwap = () => {
+  setOrigin(prevOrigin => {
+    const newOrigin = destination;
+    setDestination(prevOrigin);
+    return newOrigin;
+  });
+};
 
-        vehicleId: form.vehicleId ? Number(form.vehicleId) : null,
-        driverId: form.driverId ? Number(form.driverId) : null,
+const handleSubmit = async () => {
+  setSubmitting(true);
 
-        plannedStartDate: formatDateForAPI(form.plannedStartDate),
-        plannedEndDate: formatDateForAPI(form.plannedEndDate),
-
-        originStreetAddress: origin.street,
-        originCity: origin.city,
-        originZipCode: origin.zipCode,
-        originProvince: origin.province,
-
-        destinationStreetAddress: destination.street,
-        destinationCity: destination.city,
-        destinationZipCode: destination.zipCode,
-        destinationProvince: destination.province,
-
-        originLocation: [origin.street, origin.city].filter(Boolean).join(', '),
-        destinationLocation: [destination.street, destination.city].filter(Boolean).join(', ')
-      };
-
-      let res;
-
-      if (mode === 'create') {
-        res = await tripService.createTrip(payload);
-      } else {
-        res = await tripService.updateTrip(initialData.id, payload);
-      }
-
-      onSuccess?.(res);
-      onClose?.();
-
-    } finally {
-      setSubmitting(false);
+  try {
+    // ================= VALIDATION =================
+    if (!origin?.street || !origin?.city) {
+      throw new Error('Origin address is incomplete');
     }
-  };
 
+    if (!destination?.street || !destination?.city) {
+      throw new Error('Destination address is incomplete');
+    }
+
+    // ================= CLEAN PAYLOAD =================
+    const payload = {
+      ...form,
+
+      vehicleId: form.vehicleId ? Number(form.vehicleId) : null,
+      driverId: form.driverId ? Number(form.driverId) : null,
+
+      plannedStartDate: formatDateForAPI(form.plannedStartDate),
+      plannedEndDate: formatDateForAPI(form.plannedEndDate),
+
+      originStreetAddress: origin.street || null,
+      originCity: origin.city || null,
+      originZipCode: origin.zipCode || null,
+      originProvince: origin.province || null,
+
+      destinationStreetAddress: destination.street || null,
+      destinationCity: destination.city || null,
+      destinationZipCode: destination.zipCode || null,
+      destinationProvince: destination.province || null,
+
+      // ✅ FIX: single consistent address format (no duplicates)
+      originLocation: formatAddress(origin),
+      destinationLocation: formatAddress(destination)
+    };
+
+    let res;
+
+    if (mode === 'create') {
+      res = await tripService.createTrip(payload);
+    } else {
+      res = await tripService.updateTrip(initialData.id, payload);
+    }
+
+    onSuccess?.(res);
+    onClose?.();
+
+  } catch (error) {
+    console.error('Trip submit failed:', error);
+  } finally {
+    setSubmitting(false);
+  }
+};
   /* ===================== UI ===================== */
 
   return (
