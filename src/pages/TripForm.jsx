@@ -24,26 +24,23 @@ import {
   Divider,
   Autocomplete,
   IconButton,
-  Tooltip,
-  Popover
+  Tooltip
 } from '@mui/material';
 
 import {
   Save,
   Close,
   Schedule as ScheduleIcon,
-  Person,
   DirectionsCar,
   Description,
-  PriorityHigh,
   LocationOn,
   MyLocation,
   SwapHoriz,
   CheckCircle,
-  AttachMoney,
   Scale,
-  Assignment,
-  Comment
+  AttachMoney,
+  Comment,
+  Assignment
 } from '@mui/icons-material';
 import {
   LocalizationProvider,
@@ -155,15 +152,14 @@ const extractProvinceFromAddress = (address) => {
   return '';
 };
 
-// Format address for display
-const formatAddress = (address = {}) => {
-  const parts = [
-    address.street?.trim(),
-    address.city?.trim(),
-    address.zipCode?.trim(),
-    address.province?.trim()
-  ];
-  return parts.filter(Boolean).join(', ');
+// Generate unique trip number
+const generateUniqueTripNumber = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `TRIP-${year}${month}${day}-${random}`;
 };
 
 /* ===================== Address Component ===================== */
@@ -179,10 +175,8 @@ function AddressSection({
   const [loadingCity, setLoadingCity] = useState(false);
   const [geocodingStatus, setGeocodingStatus] = useState(null);
   const [showMap, setShowMap] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
   const debounceTimer = useRef(null);
 
-  // Fetch city suggestions
   const fetchCitySuggestions = async (query) => {
     if (!query || query.length < 2) {
       setCitySuggestions([]);
@@ -201,7 +195,6 @@ function AddressSection({
     }
   };
 
-  // Debounced city search
   const handleCityInputChange = (event, value) => {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
@@ -211,7 +204,6 @@ function AddressSection({
     }, 300);
   };
 
-  // Handle city selection
   const handleCitySelect = async (event, value) => {
     if (value) {
       const newAddress = { 
@@ -232,7 +224,6 @@ function AddressSection({
     }
   };
 
-  // Fetch zip code for a city
   const fetchZipCodeForCity = async (city, province, currentAddress) => {
     try {
       const zipInfo = await routingService.getZipCodeForCity(city, province);
@@ -249,14 +240,13 @@ function AddressSection({
     }
   };
 
-  // Geocode full address
   const geocodeAddress = async (addressToGeocode) => {
     if (!addressToGeocode.city && !addressToGeocode.street) return;
     
     setGeocodingStatus({ type: 'loading', message: 'Validating address...' });
     
     try {
-      const fullAddress = formatAddress(addressToGeocode);
+      const fullAddress = `${addressToGeocode.street || ''} ${addressToGeocode.city || ''} ${addressToGeocode.zipCode || ''} ${addressToGeocode.province || ''}`.trim();
       
       if (!fullAddress) {
         setGeocodingStatus(null);
@@ -290,14 +280,12 @@ function AddressSection({
     }
   };
 
-  // Handle street address blur
   const handleStreetBlur = () => {
     if (address.street && (address.city || address.zipCode)) {
       geocodeAddress(address);
     }
   };
 
-  // Handle manual zip code change
   const handleZipCodeChange = (value) => {
     onChange({ ...address, zipCode: value });
     if (value.length === 4 && address.city) {
@@ -305,19 +293,6 @@ function AddressSection({
       setTimeout(() => setGeocodingStatus(null), 1500);
     }
   };
-
-  // Handle popover open
-  const handlePopoverOpen = (event) => {
-    if (address.latitude || address.longitude || address.city) {
-      setAnchorEl(event.currentTarget);
-    }
-  };
-
-  const handlePopoverClose = () => {
-    setAnchorEl(null);
-  };
-
-  const open = Boolean(anchorEl);
 
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -327,14 +302,13 @@ function AddressSection({
           <Typography variant="subtitle1" fontWeight="medium">
             {label}
           </Typography>
-          {(address.latitude || address.longitude) && (
+          {address.latitude && address.longitude && (
             <Chip 
               size="small" 
               label="📍 Geocoded" 
               color="success" 
               variant="outlined"
               icon={<CheckCircle sx={{ fontSize: 14 }} />}
-              onClick={handlePopoverOpen}
             />
           )}
         </Stack>
@@ -428,7 +402,6 @@ function AddressSection({
             severity={geocodingStatus.type} 
             sx={{ mt: 2 }} 
             icon={geocodingStatus.type === 'loading' ? <CircularProgress size={16} /> : undefined}
-            onClose={() => setGeocodingStatus(null)}
           >
             {geocodingStatus.message}
           </Alert>
@@ -441,7 +414,7 @@ function AddressSection({
               onClick={() => setShowMap(!showMap)}
               startIcon={<MyLocation />}
             >
-              {showMap ? 'Hide Map Preview' : 'Show Map Preview'}
+              {showMap ? 'Hide Map' : 'Show Map Preview'}
             </Button>
           </Box>
         )}
@@ -449,69 +422,17 @@ function AddressSection({
         {showMap && address.latitude && address.longitude && (
           <Box sx={{ mt: 2, height: 200, bgcolor: '#f5f5f5', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography variant="caption" color="text.secondary">
-              Map view would show location at {address.latitude.toFixed(6)}, {address.longitude.toFixed(6)}
+              Map view would show location at {address.latitude}, {address.longitude}
             </Typography>
           </Box>
         )}
       </CardContent>
-      
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handlePopoverClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-      >
-        <Box sx={{ p: 2, maxWidth: 300 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            📍 {label} Location Details
-          </Typography>
-          <Divider sx={{ my: 1 }} />
-          <Stack spacing={1}>
-            {address.city && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">City</Typography>
-                <Typography variant="body2">{address.city}</Typography>
-              </Box>
-            )}
-            {address.street && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">Street</Typography>
-                <Typography variant="body2">{address.street}</Typography>
-              </Box>
-            )}
-            {address.zipCode && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">Postal Code</Typography>
-                <Typography variant="body2">{address.zipCode}</Typography>
-              </Box>
-            )}
-            {address.province && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">Province</Typography>
-                <Typography variant="body2">{address.province}</Typography>
-              </Box>
-            )}
-            {(address.latitude || address.longitude) && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">Coordinates</Typography>
-                <Typography variant="body2">
-                  {address.latitude?.toFixed(6)}, {address.longitude?.toFixed(6)}
-                </Typography>
-              </Box>
-            )}
-          </Stack>
-        </Box>
-      </Popover>
     </Card>
   );
 }
 
 /* ===================== Main Component ===================== */
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess }) {
-  /* ===================== State ===================== */
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [vehicles, setVehicles] = useState([]);
@@ -543,32 +464,27 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     tripNumber: '',
     status: 'PLANNED',
     priority: 'MEDIUM',
-    
-    // Commodity / Cargo Details
+    // Commodity fields
     commodityType: '',
     cargoDescription: '',
     cargoWeight: '',
     cargoValue: '',
     palletCount: '',
     containerNumber: '',
-    
     // Schedule
     plannedStartDate: null,
     plannedEndDate: null,
     estimatedDuration: '',
-    
     // Assignment
     vehicleId: '',
     driverId: '',
-    
-    // Additional Info
+    // Notes
     notes: '',
     specialInstructions: '',
     referenceNumber: '',
     purchaseOrderNumber: ''
   });
 
-  /* ===================== Load Data ===================== */
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -600,7 +516,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
         });
         setForm({
-          tripNumber: '',
+          tripNumber: generateUniqueTripNumber(),
           status: 'PLANNED',
           priority: 'MEDIUM',
           commodityType: '',
@@ -635,8 +551,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     loadData();
     
     if (mode === 'edit' && initialData) {
-      console.log('🟢 Loading trip data for edit:', initialData);
-      
       let originCity = initialData.originCity || '';
       let originZipCode = initialData.originZipCode || '';
       let originProvince = initialData.originProvince || '';
@@ -678,7 +592,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       });
       
       setForm({
-        tripNumber: initialData.tripNumber || '',
+        tripNumber: initialData.tripNumber || generateUniqueTripNumber(),
         status: initialData.status || 'PLANNED',
         priority: initialData.priority || 'MEDIUM',
         commodityType: initialData.commodityType || '',
@@ -698,10 +612,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         purchaseOrderNumber: initialData.purchaseOrderNumber || ''
       });
     } else {
-      const tripNumber = `TRIP-${Date.now().toString(36).toUpperCase()}`;
       setForm(prev => ({
         ...prev,
-        tripNumber,
+        tripNumber: generateUniqueTripNumber(),
         status: 'PLANNED',
         priority: 'MEDIUM'
       }));
@@ -715,8 +628,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       
       setCalculatingRoute(true);
       try {
-        const originAddress = formatAddress(origin);
-        const destAddress = formatAddress(destination);
+        const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
+        const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
         
         if (originAddress && destAddress) {
           const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
@@ -738,11 +651,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     return () => clearTimeout(timer);
   }, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province]);
 
-  /* ===================== Validation ===================== */
   const validateForm = useCallback(() => {
     const errors = {};
     
-    // Origin & Destination
     if (!origin.city) {
       errors.originCity = 'Origin city is required';
     }
@@ -751,7 +662,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       errors.destinationCity = 'Destination city is required';
     }
     
-    // Dates
     if (!form.plannedStartDate) {
       errors.plannedStartDate = 'Planned start date is required';
     }
@@ -762,7 +672,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       }
     }
     
-    // Assignment
     if (!form.vehicleId) {
       errors.vehicleId = 'Please select a vehicle/truck';
     }
@@ -771,7 +680,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       errors.driverId = 'Please select a driver';
     }
     
-    // Commodity/Cargo
     if (!form.commodityType) {
       errors.commodityType = 'Please select commodity type';
     }
@@ -784,10 +692,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       errors.cargoValue = 'Value must be a number';
     }
     
-    if (form.palletCount && isNaN(parseInt(form.palletCount))) {
-      errors.palletCount = 'Pallet count must be a number';
-    }
-    
     if (form.estimatedDuration && isNaN(parseFloat(form.estimatedDuration))) {
       errors.estimatedDuration = 'Duration must be a number';
     }
@@ -795,7 +699,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     return errors;
   }, [origin.city, destination.city, form]);
 
-  /* ===================== Form Handlers ===================== */
   const handleFieldChange = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (formErrors[field]) {
@@ -822,13 +725,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, [form.plannedEndDate, form.plannedStartDate]);
 
-  // Swap origin and destination
   const handleSwapLocations = () => {
     setOrigin(destination);
     setDestination(origin);
   };
 
-  /* ===================== Submit ===================== */
   const handleSubmit = useCallback(async () => {
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
@@ -841,21 +742,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     
     try {
       const payload = {
-        // Basic Info
         tripNumber: form.tripNumber,
         status: form.status,
         priority: form.priority,
         
-        // Schedule
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
         estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
         
-        // Assignment
         vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
         driverId: form.driverId ? parseInt(form.driverId, 10) : null,
         
-        // Commodity / Cargo Details
         commodityType: form.commodityType || null,
         cargoDescription: form.cargoDescription || null,
         cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
@@ -863,32 +760,28 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
         containerNumber: form.containerNumber || null,
         
-        // Origin Address
         originStreetAddress: origin.street || null,
         originCity: origin.city,
         originZipCode: origin.zipCode || null,
         originProvince: origin.province || null,
         originLatitude: origin.latitude,
         originLongitude: origin.longitude,
-        originLocation: formatAddress(origin),
+        originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
         
-        // Destination Address
         destinationStreetAddress: destination.street || null,
         destinationCity: destination.city,
         destinationZipCode: destination.zipCode || null,
         destinationProvince: destination.province || null,
         destinationLatitude: destination.latitude,
         destinationLongitude: destination.longitude,
-        destinationLocation: formatAddress(destination),
+        destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', '),
         
-        // Additional Info
         notes: form.notes || null,
         specialInstructions: form.specialInstructions || null,
         referenceNumber: form.referenceNumber || null,
         purchaseOrderNumber: form.purchaseOrderNumber || null
       };
       
-      // Clean up empty strings
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') {
           payload[key] = null;
@@ -910,11 +803,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       console.error('❌ Submit error:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to save trip';
       setError(errorMessage);
-      
-      // Log more details if available
-      if (err.response?.data) {
-        console.error('Server error details:', err.response.data);
-      }
     } finally {
       setSubmitting(false);
     }
@@ -963,9 +851,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   fullWidth
                   label="Trip Number"
                   value={form.tripNumber}
-                  disabled={mode === 'edit'}
+                  disabled
                   size="small"
-                  helperText="Auto-generated for new trips"
+                  helperText="Auto-generated unique trip number"
                 />
 
                 {/* Origin & Destination */}
@@ -974,17 +862,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     label="Origin"
                     address={origin}
                     onChange={setOrigin}
-                    errors={{
-                      city: formErrors.originCity
-                    }}
+                    errors={{ city: formErrors.originCity }}
                   />
                   
                   <Box sx={{ display: 'flex', justifyContent: 'center', my: -1, position: 'relative', zIndex: 1 }}>
-                    <IconButton 
-                      onClick={handleSwapLocations}
-                      sx={{ bgcolor: 'background.paper', boxShadow: 1 }}
-                      size="small"
-                    >
+                    <IconButton onClick={handleSwapLocations} sx={{ bgcolor: 'background.paper', boxShadow: 1 }} size="small">
                       <SwapHoriz />
                     </IconButton>
                   </Box>
@@ -993,9 +875,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     label="Destination"
                     address={destination}
                     onChange={setDestination}
-                    errors={{
-                      city: formErrors.destinationCity
-                    }}
+                    errors={{ city: formErrors.destinationCity }}
                   />
                 </Box>
 
@@ -1025,7 +905,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   </Card>
                 )}
 
-                {/* Schedule Section */}
+                {/* Schedule */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
@@ -1083,7 +963,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   </CardContent>
                 </Card>
 
-                {/* Assignment Section - TRUCK & DRIVER */}
+                {/* Assignment - Truck & Driver */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
@@ -1103,7 +983,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             <MenuItem value=""><em>Select a vehicle</em></MenuItem>
                             {vehicles.map((vehicle) => (
                               <MenuItem key={vehicle.id} value={vehicle.id.toString()}>
-                                {vehicle.registrationNumber} - {vehicle.make} {vehicle.model} ({vehicle.capacityKg ? `${vehicle.capacityKg}kg` : 'N/A'})
+                                {vehicle.registrationNumber} - {vehicle.make} {vehicle.model} 
+                                {vehicle.capacityKg ? ` (${vehicle.capacityKg}kg)` : ''}
                               </MenuItem>
                             ))}
                           </Select>
@@ -1123,7 +1004,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             <MenuItem value=""><em>Select a driver</em></MenuItem>
                             {drivers.map((driver) => (
                               <MenuItem key={driver.id} value={driver.id.toString()}>
-                                {driver.firstName} {driver.lastName} - {driver.licenseNumber || 'License: N/A'} - {driver.phoneNumber || 'No phone'}
+                                {driver.firstName} {driver.lastName} 
+                                {driver.licenseNumber ? ` - ${driver.licenseNumber}` : ''}
                               </MenuItem>
                             ))}
                           </Select>
@@ -1135,12 +1017,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   </CardContent>
                 </Card>
 
-                {/* Commodity / Cargo Section */}
+                {/* Commodity & Cargo */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                       <Description fontSize="small" color="primary" />
-                      <Typography variant="subtitle1" fontWeight="medium">Commodity & Cargo Details</Typography>
+                      <Typography variant="subtitle1" fontWeight="medium">Commodity & Cargo</Typography>
                     </Stack>
                     
                     <Grid container spacing={2}>
@@ -1168,7 +1050,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.cargoDescription}
                           onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
                           size="small"
-                          placeholder="Describe the cargo being transported"
+                          placeholder="Describe the cargo"
                         />
                       </Grid>
                       
@@ -1180,12 +1062,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.cargoWeight}
                           onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
                           size="small"
-                          InputProps={{ 
-                            startAdornment: <Scale fontSize="small" sx={{ mr: 0.5 }} />,
-                            endAdornment: 'kg'
-                          }}
+                          InputProps={{ startAdornment: <Scale fontSize="small" />, endAdornment: 'kg' }}
                           placeholder="e.g., 15000"
-                          helperText="Weight in kilograms"
                         />
                       </Grid>
                       
@@ -1197,11 +1075,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.cargoValue}
                           onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
                           size="small"
-                          InputProps={{ 
-                            startAdornment: <AttachMoney fontSize="small" sx={{ mr: 0.5 }} />,
-                          }}
-                          placeholder="e.g., 500000"
-                          helperText="Insurance value"
+                          InputProps={{ startAdornment: <AttachMoney fontSize="small" /> }}
+                          placeholder="Insurance value"
                         />
                       </Grid>
                       
@@ -1214,7 +1089,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           onChange={(e) => handleFieldChange('palletCount', e.target.value)}
                           size="small"
                           InputProps={{ endAdornment: 'pallets' }}
-                          placeholder="Number of pallets"
                         />
                       </Grid>
                       
@@ -1226,14 +1100,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           onChange={(e) => handleFieldChange('containerNumber', e.target.value)}
                           size="small"
                           placeholder="e.g., MSCU1234567"
-                          helperText="If applicable"
                         />
                       </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
 
-                {/* Additional Information - Notes & Comments */}
+                {/* Notes & Comments */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
@@ -1260,7 +1133,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.purchaseOrderNumber}
                           onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
                           size="small"
-                          placeholder="PO # if applicable"
+                          placeholder="PO #"
                         />
                       </Grid>
                       
@@ -1273,7 +1146,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.specialInstructions}
                           onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
                           size="small"
-                          placeholder="Loading/unloading instructions, access codes, contact persons, etc..."
+                          placeholder="Loading/unloading instructions, access codes, contact persons..."
                         />
                       </Grid>
                       
