@@ -31,7 +31,6 @@ import {
 import {
   Save,
   Close,
-  Warning,
   Schedule as ScheduleIcon,
   Person,
   DirectionsCar,
@@ -41,7 +40,10 @@ import {
   MyLocation,
   SwapHoriz,
   CheckCircle,
-  Error as ErrorIcon
+  AttachMoney,
+  Scale,
+  Assignment,
+  Comment
 } from '@mui/icons-material';
 import {
   LocalizationProvider,
@@ -80,6 +82,27 @@ const PRIORITY_OPTIONS = [
 const STATUS_OPTIONS = [
   'DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 
   'COMPLETED', 'ACTIVE', 'PENDING', 'CANCELLED', 'CLOSED', 'FINALIZED'
+];
+
+// Commodity/Product Types
+const COMMODITY_OPTIONS = [
+  'General Freight',
+  'Refrigerated Goods',
+  'Dangerous Goods',
+  'Chemicals',
+  'Construction Materials',
+  'Agricultural Products',
+  'Livestock',
+  'Automotive',
+  'Electronics',
+  'Furniture',
+  'Textiles',
+  'Pharmaceuticals',
+  'Food Products',
+  'Beverages',
+  'Fuel',
+  'Waste Materials',
+  'Other'
 ];
 
 // South African Provinces
@@ -520,16 +543,29 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     tripNumber: '',
     status: 'PLANNED',
     priority: 'MEDIUM',
+    
+    // Commodity / Cargo Details
+    commodityType: '',
     cargoDescription: '',
     cargoWeight: '',
     cargoValue: '',
+    palletCount: '',
+    containerNumber: '',
+    
+    // Schedule
     plannedStartDate: null,
     plannedEndDate: null,
     estimatedDuration: '',
+    
+    // Assignment
     vehicleId: '',
     driverId: '',
+    
+    // Additional Info
     notes: '',
-    specialInstructions: ''
+    specialInstructions: '',
+    referenceNumber: '',
+    purchaseOrderNumber: ''
   });
 
   /* ===================== Load Data ===================== */
@@ -567,16 +603,21 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           tripNumber: '',
           status: 'PLANNED',
           priority: 'MEDIUM',
+          commodityType: '',
           cargoDescription: '',
           cargoWeight: '',
           cargoValue: '',
+          palletCount: '',
+          containerNumber: '',
           plannedStartDate: null,
           plannedEndDate: null,
           estimatedDuration: '',
           vehicleId: '',
           driverId: '',
           notes: '',
-          specialInstructions: ''
+          specialInstructions: '',
+          referenceNumber: '',
+          purchaseOrderNumber: ''
         });
         setFormErrors({});
         setError(null);
@@ -640,16 +681,21 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         tripNumber: initialData.tripNumber || '',
         status: initialData.status || 'PLANNED',
         priority: initialData.priority || 'MEDIUM',
+        commodityType: initialData.commodityType || '',
         cargoDescription: initialData.cargoDescription || '',
         cargoWeight: initialData.cargoWeight?.toString() || '',
         cargoValue: initialData.cargoValue?.toString() || '',
+        palletCount: initialData.palletCount?.toString() || '',
+        containerNumber: initialData.containerNumber || '',
         plannedStartDate: initialData.plannedStartDate ? dayjs(initialData.plannedStartDate) : null,
         plannedEndDate: initialData.plannedEndDate ? dayjs(initialData.plannedEndDate) : null,
         estimatedDuration: initialData.estimatedDuration?.toString() || '',
         vehicleId: initialData.vehicleId?.toString() || '',
         driverId: initialData.driverId?.toString() || '',
         notes: initialData.notes || '',
-        specialInstructions: initialData.specialInstructions || ''
+        specialInstructions: initialData.specialInstructions || '',
+        referenceNumber: initialData.referenceNumber || '',
+        purchaseOrderNumber: initialData.purchaseOrderNumber || ''
       });
     } else {
       const tripNumber = `TRIP-${Date.now().toString(36).toUpperCase()}`;
@@ -696,6 +742,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const validateForm = useCallback(() => {
     const errors = {};
     
+    // Origin & Destination
     if (!origin.city) {
       errors.originCity = 'Origin city is required';
     }
@@ -704,6 +751,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       errors.destinationCity = 'Destination city is required';
     }
     
+    // Dates
     if (!form.plannedStartDate) {
       errors.plannedStartDate = 'Planned start date is required';
     }
@@ -714,8 +762,30 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       }
     }
     
+    // Assignment
+    if (!form.vehicleId) {
+      errors.vehicleId = 'Please select a vehicle/truck';
+    }
+    
+    if (!form.driverId) {
+      errors.driverId = 'Please select a driver';
+    }
+    
+    // Commodity/Cargo
+    if (!form.commodityType) {
+      errors.commodityType = 'Please select commodity type';
+    }
+    
     if (form.cargoWeight && isNaN(parseFloat(form.cargoWeight))) {
-      errors.cargoWeight = 'Cargo weight must be a number';
+      errors.cargoWeight = 'Weight must be a number';
+    }
+    
+    if (form.cargoValue && isNaN(parseFloat(form.cargoValue))) {
+      errors.cargoValue = 'Value must be a number';
+    }
+    
+    if (form.palletCount && isNaN(parseInt(form.palletCount))) {
+      errors.palletCount = 'Pallet count must be a number';
     }
     
     if (form.estimatedDuration && isNaN(parseFloat(form.estimatedDuration))) {
@@ -771,40 +841,61 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     
     try {
       const payload = {
-        ...form,
-        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
-        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
-        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
-        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
+        // Basic Info
+        tripNumber: form.tripNumber,
+        status: form.status,
+        priority: form.priority,
+        
+        // Schedule
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
+        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
         
+        // Assignment
+        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
+        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+        
+        // Commodity / Cargo Details
+        commodityType: form.commodityType || null,
+        cargoDescription: form.cargoDescription || null,
+        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
+        palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
+        containerNumber: form.containerNumber || null,
+        
+        // Origin Address
         originStreetAddress: origin.street || null,
         originCity: origin.city,
         originZipCode: origin.zipCode || null,
         originProvince: origin.province || null,
         originLatitude: origin.latitude,
         originLongitude: origin.longitude,
+        originLocation: formatAddress(origin),
         
+        // Destination Address
         destinationStreetAddress: destination.street || null,
         destinationCity: destination.city,
         destinationZipCode: destination.zipCode || null,
         destinationProvince: destination.province || null,
         destinationLatitude: destination.latitude,
         destinationLongitude: destination.longitude,
+        destinationLocation: formatAddress(destination),
         
-        originLocation: formatAddress(origin),
-        destinationLocation: formatAddress(destination)
+        // Additional Info
+        notes: form.notes || null,
+        specialInstructions: form.specialInstructions || null,
+        referenceNumber: form.referenceNumber || null,
+        purchaseOrderNumber: form.purchaseOrderNumber || null
       };
       
+      // Clean up empty strings
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') {
           payload[key] = null;
         }
       });
       
-      console.log('📤 Submitting payload:', payload);
+      console.log('📤 Submitting payload:', JSON.stringify(payload, null, 2));
       
       let result;
       if (mode === 'create') {
@@ -817,7 +908,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       if (onClose) onClose();
     } catch (err) {
       console.error('❌ Submit error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to save trip');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to save trip';
+      setError(errorMessage);
+      
+      // Log more details if available
+      if (err.response?.data) {
+        console.error('Server error details:', err.response.data);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -861,6 +958,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           {!loading && (
             <Box>
               <Stack spacing={3}>
+                {/* Trip Number */}
                 <TextField
                   fullWidth
                   label="Trip Number"
@@ -870,6 +968,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   helperText="Auto-generated for new trips"
                 />
 
+                {/* Origin & Destination */}
                 <Box sx={{ position: 'relative' }}>
                   <AddressSection 
                     label="Origin"
@@ -900,6 +999,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   />
                 </Box>
 
+                {/* Route Preview */}
                 {(routePreview || calculatingRoute) && (
                   <Card variant="outlined" sx={{ bgcolor: '#f5f5f5' }}>
                     <CardContent>
@@ -913,11 +1013,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         <Grid container spacing={2}>
                           <Grid item xs={6}>
                             <Typography variant="caption" color="text.secondary">Distance</Typography>
-                            <Typography variant="body1">{routePreview.distanceKm} km</Typography>
+                            <Typography variant="body1" fontWeight="bold">{routePreview.distanceKm} km</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="caption" color="text.secondary">Duration</Typography>
-                            <Typography variant="body1">{routePreview.durationHours} hours</Typography>
+                            <Typography variant="caption" color="text.secondary">Est. Duration</Typography>
+                            <Typography variant="body1" fontWeight="bold">{routePreview.durationHours} hours</Typography>
                           </Grid>
                         </Grid>
                       )}
@@ -925,12 +1025,280 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   </Card>
                 )}
 
-                {/* Basic Information */}
+                {/* Schedule Section */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                      <Description fontSize="small" />
-                      <Typography variant="subtitle1" fontWeight="medium">Basic Information</Typography>
+                      <ScheduleIcon fontSize="small" color="primary" />
+                      <Typography variant="subtitle1" fontWeight="medium">Schedule</Typography>
+                    </Stack>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <DateTimePicker
+                          label="Planned Start Date & Time *"
+                          value={form.plannedStartDate}
+                          onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              size: 'small',
+                              required: true,
+                              error: !!formErrors.plannedStartDate,
+                              helperText: formErrors.plannedStartDate
+                            }
+                          }}
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <DateTimePicker
+                          label="Planned End Date & Time"
+                          value={form.plannedEndDate}
+                          onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              size: 'small',
+                              error: !!formErrors.plannedEndDate,
+                              helperText: formErrors.plannedEndDate
+                            }
+                          }}
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Estimated Duration (hours)"
+                          type="number"
+                          value={form.estimatedDuration}
+                          onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
+                          size="small"
+                          InputProps={{ endAdornment: 'hrs' }}
+                          helperText="Auto-calculated from start/end dates"
+                        />
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* Assignment Section - TRUCK & DRIVER */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <DirectionsCar fontSize="small" color="primary" />
+                      <Typography variant="subtitle1" fontWeight="medium">Assignment</Typography>
+                    </Stack>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
+                          <InputLabel>Truck / Vehicle *</InputLabel>
+                          <Select
+                            value={form.vehicleId}
+                            label="Truck / Vehicle *"
+                            onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
+                          >
+                            <MenuItem value=""><em>Select a vehicle</em></MenuItem>
+                            {vehicles.map((vehicle) => (
+                              <MenuItem key={vehicle.id} value={vehicle.id.toString()}>
+                                {vehicle.registrationNumber} - {vehicle.make} {vehicle.model} ({vehicle.capacityKg ? `${vehicle.capacityKg}kg` : 'N/A'})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {formErrors.vehicleId && <FormHelperText error>{formErrors.vehicleId}</FormHelperText>}
+                          <FormHelperText>{vehicles.length} available vehicles</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
+                          <InputLabel>Driver *</InputLabel>
+                          <Select
+                            value={form.driverId}
+                            label="Driver *"
+                            onChange={(e) => handleFieldChange('driverId', e.target.value)}
+                          >
+                            <MenuItem value=""><em>Select a driver</em></MenuItem>
+                            {drivers.map((driver) => (
+                              <MenuItem key={driver.id} value={driver.id.toString()}>
+                                {driver.firstName} {driver.lastName} - {driver.licenseNumber || 'License: N/A'} - {driver.phoneNumber || 'No phone'}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {formErrors.driverId && <FormHelperText error>{formErrors.driverId}</FormHelperText>}
+                          <FormHelperText>{drivers.length} available drivers</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* Commodity / Cargo Section */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <Description fontSize="small" color="primary" />
+                      <Typography variant="subtitle1" fontWeight="medium">Commodity & Cargo Details</Typography>
+                    </Stack>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small" required error={!!formErrors.commodityType}>
+                          <InputLabel>Commodity Type *</InputLabel>
+                          <Select
+                            value={form.commodityType}
+                            label="Commodity Type *"
+                            onChange={(e) => handleFieldChange('commodityType', e.target.value)}
+                          >
+                            <MenuItem value=""><em>Select commodity type</em></MenuItem>
+                            {COMMODITY_OPTIONS.map((commodity) => (
+                              <MenuItem key={commodity} value={commodity}>{commodity}</MenuItem>
+                            ))}
+                          </Select>
+                          {formErrors.commodityType && <FormHelperText error>{formErrors.commodityType}</FormHelperText>}
+                        </FormControl>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Cargo Description"
+                          value={form.cargoDescription}
+                          onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
+                          size="small"
+                          placeholder="Describe the cargo being transported"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Tonnage / Weight (kg)"
+                          type="number"
+                          value={form.cargoWeight}
+                          onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
+                          size="small"
+                          InputProps={{ 
+                            startAdornment: <Scale fontSize="small" sx={{ mr: 0.5 }} />,
+                            endAdornment: 'kg'
+                          }}
+                          placeholder="e.g., 15000"
+                          helperText="Weight in kilograms"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Cargo Value (ZAR)"
+                          type="number"
+                          value={form.cargoValue}
+                          onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
+                          size="small"
+                          InputProps={{ 
+                            startAdornment: <AttachMoney fontSize="small" sx={{ mr: 0.5 }} />,
+                          }}
+                          placeholder="e.g., 500000"
+                          helperText="Insurance value"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Pallet Count"
+                          type="number"
+                          value={form.palletCount}
+                          onChange={(e) => handleFieldChange('palletCount', e.target.value)}
+                          size="small"
+                          InputProps={{ endAdornment: 'pallets' }}
+                          placeholder="Number of pallets"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Container Number"
+                          value={form.containerNumber}
+                          onChange={(e) => handleFieldChange('containerNumber', e.target.value)}
+                          size="small"
+                          placeholder="e.g., MSCU1234567"
+                          helperText="If applicable"
+                        />
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* Additional Information - Notes & Comments */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <Comment fontSize="small" color="primary" />
+                      <Typography variant="subtitle1" fontWeight="medium">Notes & Comments</Typography>
+                    </Stack>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Reference Number"
+                          value={form.referenceNumber}
+                          onChange={(e) => handleFieldChange('referenceNumber', e.target.value)}
+                          size="small"
+                          placeholder="Your reference #"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Purchase Order Number"
+                          value={form.purchaseOrderNumber}
+                          onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
+                          size="small"
+                          placeholder="PO # if applicable"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          label="Special Instructions"
+                          value={form.specialInstructions}
+                          onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
+                          size="small"
+                          placeholder="Loading/unloading instructions, access codes, contact persons, etc..."
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label="Additional Notes"
+                          value={form.notes}
+                          onChange={(e) => handleFieldChange('notes', e.target.value)}
+                          size="small"
+                          placeholder="Any other relevant information..."
+                        />
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* Status & Priority */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <Assignment fontSize="small" color="primary" />
+                      <Typography variant="subtitle1" fontWeight="medium">Status & Priority</Typography>
                     </Stack>
                     
                     <Grid container spacing={2}>
@@ -964,190 +1332,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             ))}
                           </Select>
                         </FormControl>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-
-                {/* Schedule */}
-                <Card variant="outlined">
-                  <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                      <ScheduleIcon fontSize="small" />
-                      <Typography variant="subtitle1" fontWeight="medium">Schedule</Typography>
-                    </Stack>
-                    
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
-                        <DateTimePicker
-                          label="Planned Start *"
-                          value={form.plannedStartDate}
-                          onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
-                          slotProps={{
-                            textField: {
-                              fullWidth: true,
-                              size: 'small',
-                              error: !!formErrors.plannedStartDate,
-                              helperText: formErrors.plannedStartDate
-                            }
-                          }}
-                        />
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <DateTimePicker
-                          label="Planned End"
-                          value={form.plannedEndDate}
-                          onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
-                          slotProps={{
-                            textField: {
-                              fullWidth: true,
-                              size: 'small',
-                              error: !!formErrors.plannedEndDate,
-                              helperText: formErrors.plannedEndDate
-                            }
-                          }}
-                        />
-                      </Grid>
-                      
-                      <Grid item xs={12}>
-                        <TextField
-                          fullWidth
-                          label="Estimated Duration (hours)"
-                          type="number"
-                          value={form.estimatedDuration}
-                          onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
-                          size="small"
-                          InputProps={{ endAdornment: 'hrs' }}
-                        />
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-
-                {/* Assignment */}
-                <Card variant="outlined">
-                  <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                      <DirectionsCar fontSize="small" />
-                      <Typography variant="subtitle1" fontWeight="medium">Assignment</Typography>
-                    </Stack>
-                    
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel>Vehicle</InputLabel>
-                          <Select
-                            value={form.vehicleId}
-                            label="Vehicle"
-                            onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
-                          >
-                            <MenuItem value=""><em>No vehicle assigned</em></MenuItem>
-                            {vehicles.map((vehicle) => (
-                              <MenuItem key={vehicle.id} value={vehicle.id.toString()}>
-                                {vehicle.registrationNumber} {vehicle.model && `(${vehicle.model})`}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                          <FormHelperText>{vehicles.length} available vehicles</FormHelperText>
-                        </FormControl>
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel>Driver</InputLabel>
-                          <Select
-                            value={form.driverId}
-                            label="Driver"
-                            onChange={(e) => handleFieldChange('driverId', e.target.value)}
-                          >
-                            <MenuItem value=""><em>No driver assigned</em></MenuItem>
-                            {drivers.map((driver) => (
-                              <MenuItem key={driver.id} value={driver.id.toString()}>
-                                {driver.firstName} {driver.lastName}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                          <FormHelperText>{drivers.length} available drivers</FormHelperText>
-                        </FormControl>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-
-                {/* Cargo Details */}
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>Cargo Details</Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          label="Cargo Description"
-                          value={form.cargoDescription}
-                          onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
-                          size="small"
-                        />
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Cargo Weight (kg)"
-                          type="number"
-                          value={form.cargoWeight}
-                          onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
-                          size="small"
-                          InputProps={{ endAdornment: 'kg' }}
-                        />
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Cargo Value"
-                          type="number"
-                          value={form.cargoValue}
-                          onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
-                          size="small"
-                          InputProps={{ startAdornment: '$' }}
-                        />
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-
-                {/* Additional Information */}
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="subtitle1" fontWeight="medium" gutterBottom>Additional Information</Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          label="Special Instructions"
-                          value={form.specialInstructions}
-                          onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
-                          size="small"
-                          placeholder="Any special requirements or instructions..."
-                        />
-                      </Grid>
-                      
-                      <Grid item xs={12}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={3}
-                          label="Notes"
-                          value={form.notes}
-                          onChange={(e) => handleFieldChange('notes', e.target.value)}
-                          size="small"
-                          placeholder="Additional notes or comments..."
-                        />
                       </Grid>
                     </Grid>
                   </CardContent>
