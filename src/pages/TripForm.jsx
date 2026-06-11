@@ -523,33 +523,45 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     cancellationReason: ''
   });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+// In the loadData function, replace the supervisor loading section:
+
+const loadData = useCallback(async () => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const [vRes, dRes] = await Promise.all([
+      vehicleService.getAllVehicles().catch(() => []),
+      driverService.getAllDrivers().catch(() => [])
+    ]);
     
+    setVehicles(filterActiveVehicles(vRes || []));
+    setDrivers(filterAvailableDrivers(dRes || []));
+    
+    // Load supervisors - FIXED version
     try {
-      const [vRes, dRes] = await Promise.all([
-        vehicleService.getAllVehicles().catch(() => []),
-        driverService.getAllDrivers().catch(() => [])
-      ]);
-      
-      setVehicles(filterActiveVehicles(vRes || []));
-      setDrivers(filterAvailableDrivers(dRes || []));
-      
-      // Load supervisors (users with MANAGER or SUPER_ADMIN role)
-      try {
-        const usersRes = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN').catch(() => []);
-        setSupervisors(usersRes || []);
-      } catch (err) {
-        console.warn('Could not load supervisors:', err);
+      const usersResponse = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN');
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        // Ensure it's an array
+        const supervisorsArray = Array.isArray(usersData) ? usersData : 
+                                 (usersData.content || usersData.data || []);
+        setSupervisors(supervisorsArray);
+      } else {
+        console.warn('Supervisors endpoint returned:', usersResponse.status);
+        setSupervisors([]); // Set empty array on error
       }
     } catch (err) {
-      console.error('Failed to load data:', err);
-      setError('Failed to load vehicles or drivers');
-    } finally {
-      setLoading(false);
+      console.warn('Could not load supervisors:', err);
+      setSupervisors([]); // Set empty array on error
     }
-  }, []);
+  } catch (err) {
+    console.error('Failed to load data:', err);
+    setError('Failed to load vehicles or drivers');
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -690,6 +702,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   }, [open, mode, initialData, loadData]);
 
   // Calculate route preview
+// In the route preview useEffect, add error handling:
+
 useEffect(() => {
   const calculatePreview = async () => {
     if (!origin.city || !destination.city) return;
@@ -700,17 +714,23 @@ useEffect(() => {
       const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
       
       if (originAddress && destAddress) {
-        const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
-        setRoutePreview(route);
-        
-        if (route?.durationHours && !form.estimatedDuration) {
-          setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
-        }
-        if (route?.distanceKm && !form.plannedDistanceKm) {
-          setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
-        }
-        if (route?.durationHours && !form.plannedDurationHours) {
-          setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
+        try {
+          const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
+          setRoutePreview(route);
+          
+          if (route?.durationHours && !form.estimatedDuration) {
+            setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
+          }
+          if (route?.distanceKm && !form.plannedDistanceKm) {
+            setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
+          }
+          if (route?.durationHours && !form.plannedDurationHours) {
+            setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
+          }
+        } catch (routeError) {
+          console.error('Route calculation failed:', routeError);
+          // Don't show error to user, just skip route preview
+          setRoutePreview(null);
         }
       }
     } catch (error) {
