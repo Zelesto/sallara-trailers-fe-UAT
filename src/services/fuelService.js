@@ -18,7 +18,7 @@ export const fuelService = {
       });
 
       const queryString = params.toString();
-      const url = queryString ? `/fuel/slips?${queryString}` : '/api/fuel/slips';
+      const url = queryString ? `/fuel/slips?${queryString}` : '/fuel/slips';
       console.log('🌐 Making API call to:', url);
 
       // FIX: api.get() now returns just the data (from the interceptor)
@@ -108,7 +108,7 @@ export const fuelService = {
       if (accountId) params.append('accountId', accountId);
 
       const queryString = params.toString();
-      const url = queryString ? `/fuel/reconciliation?${queryString}` : '/api/fuel/reconciliation';
+      const url = queryString ? `/fuel/reconciliation?${queryString}` : '/fuel/reconciliation';
 
       const response = await api.get(url);
       return response.data;
