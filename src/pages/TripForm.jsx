@@ -195,6 +195,15 @@ function AddressSection({
   const [showMap, setShowMap] = useState(false);
   const debounceTimer = useRef(null);
 
+  // Cleanup debounce timer
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
+
   const fetchCitySuggestions = async (query) => {
     if (!query || query.length < 2) {
       setCitySuggestions([]);
@@ -450,13 +459,14 @@ function AddressSection({
 }
 
 /* ===================== Main Component ===================== */
-function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess }) {
+function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [formErrors, setFormErrors] = useState({});
   const [routePreview, setRoutePreview] = useState(null);
   const [calculatingRoute, setCalculatingRoute] = useState(false);
@@ -523,45 +533,44 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     cancellationReason: ''
   });
 
-// In the loadData function, replace the supervisor loading section:
-
-const loadData = useCallback(async () => {
-  setLoading(true);
-  setError(null);
-  
-  try {
-    const [vRes, dRes] = await Promise.all([
-      vehicleService.getAllVehicles().catch(() => []),
-      driverService.getAllDrivers().catch(() => [])
-    ]);
+  // Load data function - FIXED supervisor loading
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     
-    setVehicles(filterActiveVehicles(vRes || []));
-    setDrivers(filterAvailableDrivers(dRes || []));
-    
-    // Load supervisors - FIXED version
     try {
-      const usersResponse = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN');
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        // Ensure it's an array
-        const supervisorsArray = Array.isArray(usersData) ? usersData : 
-                                 (usersData.content || usersData.data || []);
-        setSupervisors(supervisorsArray);
-      } else {
-        console.warn('Supervisors endpoint returned:', usersResponse.status);
+      const [vRes, dRes] = await Promise.all([
+        vehicleService.getAllVehicles().catch(() => []),
+        driverService.getAllDrivers().catch(() => [])
+      ]);
+      
+      setVehicles(filterActiveVehicles(vRes || []));
+      setDrivers(filterAvailableDrivers(dRes || []));
+      
+      // Load supervisors - FIXED version
+      try {
+        const usersResponse = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN');
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          // Ensure it's an array
+          const supervisorsArray = Array.isArray(usersData) ? usersData : 
+                                   (usersData.content || usersData.data || []);
+          setSupervisors(supervisorsArray);
+        } else {
+          console.warn('Supervisors endpoint returned:', usersResponse.status);
+          setSupervisors([]); // Set empty array on error
+        }
+      } catch (err) {
+        console.warn('Could not load supervisors:', err);
         setSupervisors([]); // Set empty array on error
       }
     } catch (err) {
-      console.warn('Could not load supervisors:', err);
-      setSupervisors([]); // Set empty array on error
+      console.error('Failed to load data:', err);
+      setError('Failed to load vehicles or drivers');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Failed to load data:', err);
-    setError('Failed to load vehicles or drivers');
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  }, []);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -605,6 +614,7 @@ const loadData = useCallback(async () => {
         });
         setFormErrors({});
         setError(null);
+        setSuccessMessage(null);
         setRoutePreview(null);
       }, 300);
       
@@ -702,291 +712,284 @@ const loadData = useCallback(async () => {
   }, [open, mode, initialData, loadData]);
 
   // Calculate route preview
-// In the route preview useEffect, add error handling:
-
-useEffect(() => {
-  const calculatePreview = async () => {
-    if (!origin.city || !destination.city) return;
-    
-    setCalculatingRoute(true);
-    try {
-      const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
-      const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
+  useEffect(() => {
+    const calculatePreview = async () => {
+      if (!origin.city || !destination.city) return;
       
-      if (originAddress && destAddress) {
-        try {
-          const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
-          setRoutePreview(route);
-          
-          if (route?.durationHours && !form.estimatedDuration) {
-            setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
+      setCalculatingRoute(true);
+      try {
+        const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
+        const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
+        
+        if (originAddress && destAddress) {
+          try {
+            const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
+            setRoutePreview(route);
+            
+            if (route?.durationHours && !form.estimatedDuration) {
+              setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
+            }
+            if (route?.distanceKm && !form.plannedDistanceKm) {
+              setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
+            }
+            if (route?.durationHours && !form.plannedDurationHours) {
+              setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
+            }
+          } catch (routeError) {
+            console.error('Route calculation failed:', routeError);
+            setRoutePreview(null);
           }
-          if (route?.distanceKm && !form.plannedDistanceKm) {
-            setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
-          }
-          if (route?.durationHours && !form.plannedDurationHours) {
-            setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
-          }
-        } catch (routeError) {
-          console.error('Route calculation failed:', routeError);
-          // Don't show error to user, just skip route preview
-          setRoutePreview(null);
         }
+      } catch (error) {
+        console.error('Route preview failed:', error);
+        setRoutePreview(null);
+      } finally {
+        setCalculatingRoute(false);
       }
-    } catch (error) {
-      console.error('Route preview failed:', error);
-      setRoutePreview(null);
-    } finally {
-      setCalculatingRoute(false);
-    }
-  };
-  
-  const timer = setTimeout(calculatePreview, 1000);
-  return () => clearTimeout(timer);
-}, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province]);
+    };
+    
+    const timer = setTimeout(calculatePreview, 1000);
+    return () => clearTimeout(timer);
+  }, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province, form.estimatedDuration, form.plannedDistanceKm, form.plannedDurationHours]);
 
-const validateForm = useCallback(() => {
-  const errors = {};
-  
-  // Required fields based on database schema
-  if (!origin.city) {
-    errors.originCity = 'Origin city is required';
-  }
-  
-  if (!origin.province) {
-    errors.originProvince = 'Origin province is required';
-  }
-  
-  if (!destination.city) {
-    errors.destinationCity = 'Destination city is required';
-  }
-  
-  if (!destination.province) {
-    errors.destinationProvince = 'Destination province is required';
-  }
-  
-  if (!form.plannedStartDate) {
-    errors.plannedStartDate = 'Planned start date is required';
-  }
-  
-  if (form.plannedEndDate && form.plannedStartDate) {
-    if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
-      errors.plannedEndDate = 'End date must be after start date';
+  const validateForm = useCallback(() => {
+    const errors = {};
+    
+    // Required fields based on database schema
+    if (!origin.city) {
+      errors.originCity = 'Origin city is required';
     }
-  }
-  
-  if (!form.vehicleId) {
-    errors.vehicleId = 'Please select a vehicle/truck';
-  }
-  
-  if (!form.driverId) {
-    errors.driverId = 'Please select a driver';
-  }
-  
-  if (!form.commodityType) {
-    errors.commodityType = 'Please select commodity type';
-  }
-  
-  if (form.cargoWeight && isNaN(parseFloat(form.cargoWeight))) {
-    errors.cargoWeight = 'Weight must be a number';
-  }
-  
-  if (form.cargoValue && isNaN(parseFloat(form.cargoValue))) {
-    errors.cargoValue = 'Value must be a number';
-  }
-  
-  if (form.estimatedDuration && isNaN(parseFloat(form.estimatedDuration))) {
-    errors.estimatedDuration = 'Duration must be a number';
-  }
-  
-  if (form.plannedDistanceKm && isNaN(parseFloat(form.plannedDistanceKm))) {
-    errors.plannedDistanceKm = 'Distance must be a number';
-  }
-  
-  if (form.plannedDurationHours && isNaN(parseFloat(form.plannedDurationHours))) {
-    errors.plannedDurationHours = 'Duration must be a number';
-  }
-  
-  return errors;
-}, [origin.city, origin.province, destination.city, destination.province, form]);
+    
+    if (!origin.province) {
+      errors.originProvince = 'Origin province is required';
+    }
+    
+    if (!destination.city) {
+      errors.destinationCity = 'Destination city is required';
+    }
+    
+    if (!destination.province) {
+      errors.destinationProvince = 'Destination province is required';
+    }
+    
+    if (!form.plannedStartDate) {
+      errors.plannedStartDate = 'Planned start date is required';
+    }
+    
+    if (form.plannedEndDate && form.plannedStartDate) {
+      if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
+        errors.plannedEndDate = 'End date must be after start date';
+      }
+    }
+    
+    if (!form.vehicleId) {
+      errors.vehicleId = 'Please select a vehicle/truck';
+    }
+    
+    if (!form.driverId) {
+      errors.driverId = 'Please select a driver';
+    }
+    
+    if (!form.commodityType) {
+      errors.commodityType = 'Please select commodity type';
+    }
+    
+    if (form.cargoWeight && isNaN(parseFloat(form.cargoWeight))) {
+      errors.cargoWeight = 'Weight must be a number';
+    }
+    
+    if (form.cargoValue && isNaN(parseFloat(form.cargoValue))) {
+      errors.cargoValue = 'Value must be a number';
+    }
+    
+    if (form.estimatedDuration && isNaN(parseFloat(form.estimatedDuration))) {
+      errors.estimatedDuration = 'Duration must be a number';
+    }
+    
+    if (form.plannedDistanceKm && isNaN(parseFloat(form.plannedDistanceKm))) {
+      errors.plannedDistanceKm = 'Distance must be a number';
+    }
+    
+    if (form.plannedDurationHours && isNaN(parseFloat(form.plannedDurationHours))) {
+      errors.plannedDurationHours = 'Duration must be a number';
+    }
+    
+    return errors;
+  }, [origin.city, origin.province, destination.city, destination.province, form]);
 
-const handleFieldChange = useCallback((field, value) => {
-  setForm(prev => ({ ...prev, [field]: value }));
-  if (formErrors[field]) {
-    setFormErrors(prev => ({ ...prev, [field]: '' }));
-  }
-}, [formErrors]);
+  const handleFieldChange = useCallback((field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  }, [formErrors]);
 
-const handleDateTimeChange = useCallback((field, value) => {
-  setForm(prev => ({ 
-    ...prev, 
-    [field]: value
-  }));
-  
-  if (field === 'plannedStartDate' && form.plannedEndDate && value) {
-    const duration = dayjs(form.plannedEndDate).diff(value, 'hours', true);
-    if (duration > 0) {
-      const roundedDuration = Math.round(duration * 10) / 10;
-      setForm(prev => ({ ...prev, estimatedDuration: roundedDuration.toString() }));
+  const handleDateTimeChange = useCallback((field, value) => {
+    setForm(prev => ({ 
+      ...prev, 
+      [field]: value
+    }));
+    
+    if (field === 'plannedStartDate' && form.plannedEndDate && value) {
+      const duration = dayjs(form.plannedEndDate).diff(value, 'hours', true);
+      if (duration > 0) {
+        const roundedDuration = Math.round(duration * 10) / 10;
+        setForm(prev => ({ ...prev, estimatedDuration: roundedDuration.toString() }));
+      }
+    } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
+      const duration = dayjs(value).diff(form.plannedStartDate, 'hours', true);
+      if (duration > 0) {
+        const roundedDuration = Math.round(duration * 10) / 10;
+        setForm(prev => ({ ...prev, estimatedDuration: roundedDuration.toString() }));
+      }
     }
-  } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
-    const duration = dayjs(value).diff(form.plannedStartDate, 'hours', true);
-    if (duration > 0) {
-      const roundedDuration = Math.round(duration * 10) / 10;
-      setForm(prev => ({ ...prev, estimatedDuration: roundedDuration.toString() }));
-    }
-  }
-}, [form.plannedEndDate, form.plannedStartDate]);
+  }, [form.plannedEndDate, form.plannedStartDate]);
 
   const handleSwapLocations = () => {
     setOrigin(destination);
     setDestination(origin);
   };
 
-  const [submitting, setSubmitting] = useState(false);
-const submitButtonRef = useRef(null);
-
-const handleSubmit = useCallback(async () => {
-  // Prevent multiple submissions
-  if (submitting) {
-    console.log('⚠️ Submission already in progress, ignoring...');
-    return;
-  }
-  
-  const errors = validateForm();
-  if (Object.keys(errors).length > 0) {
-    setFormErrors(errors);
-    return;
-  }
-  
-  setSubmitting(true);
-  setError(null);
-  
-  try {
-    // Build payload WITHOUT tripNumber
-    const payload = {
-      // ❌ DO NOT INCLUDE tripNumber
-      tripType: form.tripType,
-      status: form.status,
-      approvalStatus: form.approvalStatus || 'PENDING',
-      priority: form.priority,
-      
-      plannedStartDate: formatDateForAPI(form.plannedStartDate),
-      plannedEndDate: formatDateForAPI(form.plannedEndDate),
-      estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
-      plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
-      plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
-      
-      tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
-      otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
-      
-      vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
-      driverId: form.driverId ? parseInt(form.driverId, 10) : null,
-      supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
-      loadId: form.loadId ? parseInt(form.loadId, 10) : null,
-      
-      commodityType: form.commodityType || null,
-      cargoDescription: form.cargoDescription || null,
-      cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-      cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
-      palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
-      containerNumber: form.containerNumber || null,
-      
-      originStreetAddress: origin.street || null,
-      originCity: origin.city,
-      originZipCode: origin.zipCode || null,
-      originProvince: origin.province || null,
-      originLatitude: origin.latitude,
-      originLongitude: origin.longitude,
-      originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
-      
-      destinationStreetAddress: destination.street || null,
-      destinationCity: destination.city,
-      destinationZipCode: destination.zipCode || null,
-      destinationProvince: destination.province || null,
-      destinationLatitude: destination.latitude,
-      destinationLongitude: destination.longitude,
-      destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', '),
-      
-      notes: form.notes || null,
-      specialInstructions: form.specialInstructions || null,
-      driverNotes: form.driverNotes || null,
-      referenceNumber: form.referenceNumber || null,
-      purchaseOrderNumber: form.purchaseOrderNumber || null,
-      cancellationReason: form.cancellationReason || null,
-      
-      auditTrail: JSON.stringify([{
-        action: 'CREATED',
-        timestamp: new Date().toISOString(),
-        details: 'Trip created'
-      }]),
-      
-      incidentsLogged: 0
-    };
+  const handleSubmit = useCallback(async () => {
+    // Prevent multiple submissions
+    if (submitting) {
+      console.log('⚠️ Submission already in progress, ignoring...');
+      return;
+    }
     
-    // Remove any undefined or null values
-    Object.keys(payload).forEach(key => {
-      if (payload[key] === undefined || payload[key] === null) {
-        delete payload[key];
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+    
+    try {
+      // Build payload WITHOUT tripNumber
+      const payload = {
+        // ❌ DO NOT INCLUDE tripNumber
+        tripType: form.tripType,
+        status: form.status,
+        approvalStatus: form.approvalStatus || 'PENDING',
+        priority: form.priority,
+        
+        plannedStartDate: formatDateForAPI(form.plannedStartDate),
+        plannedEndDate: formatDateForAPI(form.plannedEndDate),
+        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
+        plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
+        plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
+        
+        tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
+        otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
+        
+        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
+        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+        supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
+        loadId: form.loadId ? parseInt(form.loadId, 10) : null,
+        
+        commodityType: form.commodityType || null,
+        cargoDescription: form.cargoDescription || null,
+        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
+        palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
+        containerNumber: form.containerNumber || null,
+        
+        originStreetAddress: origin.street || null,
+        originCity: origin.city,
+        originZipCode: origin.zipCode || null,
+        originProvince: origin.province || null,
+        originLatitude: origin.latitude,
+        originLongitude: origin.longitude,
+        originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
+        
+        destinationStreetAddress: destination.street || null,
+        destinationCity: destination.city,
+        destinationZipCode: destination.zipCode || null,
+        destinationProvince: destination.province || null,
+        destinationLatitude: destination.latitude,
+        destinationLongitude: destination.longitude,
+        destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', '),
+        
+        notes: form.notes || null,
+        specialInstructions: form.specialInstructions || null,
+        driverNotes: form.driverNotes || null,
+        referenceNumber: form.referenceNumber || null,
+        purchaseOrderNumber: form.purchaseOrderNumber || null,
+        cancellationReason: form.cancellationReason || null,
+        
+        auditTrail: JSON.stringify([{
+          action: 'CREATED',
+          timestamp: new Date().toISOString(),
+          details: 'Trip created'
+        }]),
+        
+        incidentsLogged: 0
+      };
+      
+      // Remove any undefined or null values
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined || payload[key] === null) {
+          delete payload[key];
+        }
+      });
+      
+      console.log('📤 Creating trip with payload:', payload);
+      
+      const result = await tripService.createTrip(payload);
+      
+      console.log('✅ Trip created successfully:', result);
+      
+      // Show success message
+      setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+      
+      // Refresh the trip list if fetchTrips prop is provided
+      if (fetchTrips && typeof fetchTrips === 'function') {
+        await fetchTrips();
       }
-    });
-    
-    console.log('📤 Creating trip with payload:', payload);
-    
-    // Disable submit button
-    if (submitButtonRef.current) {
-      submitButtonRef.current.disabled = true;
+      
+      // Call success callback
+      if (onSuccess && typeof onSuccess === 'function') {
+        onSuccess(result);
+      }
+      
+      // Close the dialog after short delay
+      setTimeout(() => {
+        if (onClose && typeof onClose === 'function') {
+          onClose();
+        }
+      }, 1500);
+      
+    } catch (err) {
+      console.error('❌ Create trip error:', err);
+      
+      let errorMessage = 'Failed to create trip';
+      
+      if (err.response?.status === 409) {
+        errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to create trips.';
+      } else {
+        errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setSubmitting(false);
     }
-    
-    const result = await tripService.createTrip(payload);
-    
-    console.log('✅ Trip created successfully:', result);
-    
-    // Show success message
-    setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
-    
-    // Refresh the trip list
-    await fetchTrips();
-    
-    // Call success callback
-    onSuccess?.(result);
-    
-    // Close the dialog after short delay
-    setTimeout(() => {
-      onClose?.();
-    }, 1500);
-    
-  } catch (err) {
-    console.error('❌ Create trip error:', err);
-    
-    let errorMessage = 'Failed to create trip';
-    
-    if (err.response?.status === 409) {
-      errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
-    } else if (err.response?.status === 400) {
-      errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
-    } else if (err.response?.status === 403) {
-      errorMessage = 'You do not have permission to create trips.';
-    } else {
-      errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
-    }
-    
-    setError(errorMessage);
-    
-    // Re-enable submit button
-    if (submitButtonRef.current) {
-      submitButtonRef.current.disabled = false;
-    }
-  } finally {
-    setSubmitting(false);
-  }
-}, [form, origin, destination, validateForm, onSuccess, onClose]);
+  }, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting]);
 
   const handleDialogClose = useCallback((event, reason) => {
     if (reason === 'backdropClick' && submitting) {
       return;
     }
-    if (onClose) onClose();
+    if (onClose && typeof onClose === 'function') {
+      onClose();
+    }
   }, [onClose, submitting]);
 
   return (
@@ -1014,6 +1017,12 @@ const handleSubmit = useCallback(async () => {
           {error && !loading && (
             <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
               {error}
+            </Alert>
+          )}
+
+          {successMessage && !loading && (
+            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
+              {successMessage}
             </Alert>
           )}
 
@@ -1541,7 +1550,7 @@ const handleSubmit = useCallback(async () => {
         </DialogContent>
 
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
-          <Button startIcon={<Close />} onClick={onClose} disabled={submitting}>
+          <Button startIcon={<Close />} onClick={handleDialogClose} disabled={submitting}>
             Cancel
           </Button>
           
