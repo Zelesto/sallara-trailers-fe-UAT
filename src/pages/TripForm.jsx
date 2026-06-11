@@ -857,7 +857,7 @@ const handleDateTimeChange = useCallback((field, value) => {
       // Build payload matching database schema exactly
       const payload = {
         // Core fields
-        tripNumber: form.tripNumber,
+        //tripNumber: form.tripNumber,
         tripType: form.tripType,
         status: form.status,
         approvalStatus: form.approvalStatus,
