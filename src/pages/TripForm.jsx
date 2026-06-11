@@ -806,7 +806,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     if (field === 'plannedStartDate' && form.plannedEndDate && value) {
       const duration = dayjs(form.plannedEndDate).diff(value, 'hours', true);
       if (duration > 0) {
-        setForm(prev => ({ ...prev, estimatedDuration: Math.round(duration * 10) / 10.toString() }));
+        setForm(prev => ({ ...prev, estimatedDuration: (Math.round(duration * 10) / 10).toString() }));
       }
     } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
       const duration = dayjs(value).diff(form.plannedStartDate, 'hours', true);
