@@ -690,131 +690,133 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   }, [open, mode, initialData, loadData]);
 
   // Calculate route preview
-  useEffect(() => {
-    const calculatePreview = async () => {
-      if (!origin.city || !destination.city) return;
+useEffect(() => {
+  const calculatePreview = async () => {
+    if (!origin.city || !destination.city) return;
+    
+    setCalculatingRoute(true);
+    try {
+      const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
+      const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
       
-      setCalculatingRoute(true);
-      try {
-        const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
-        const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
+      if (originAddress && destAddress) {
+        const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
+        setRoutePreview(route);
         
-        if (originAddress && destAddress) {
-          const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
-          setRoutePreview(route);
-          
-          if (route?.durationHours && !form.estimatedDuration) {
-            setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
-          }
-          if (route?.distanceKm && !form.plannedDistanceKm) {
-            setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
-          }
-          if (route?.durationHours && !form.plannedDurationHours) {
-            setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
-          }
+        if (route?.durationHours && !form.estimatedDuration) {
+          setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
         }
-      } catch (error) {
-        console.error('Route preview failed:', error);
-        setRoutePreview(null);
-      } finally {
-        setCalculatingRoute(false);
+        if (route?.distanceKm && !form.plannedDistanceKm) {
+          setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
+        }
+        if (route?.durationHours && !form.plannedDurationHours) {
+          setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
+        }
       }
-    };
-    
-    const timer = setTimeout(calculatePreview, 1000);
-    return () => clearTimeout(timer);
-  }, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province]);
+    } catch (error) {
+      console.error('Route preview failed:', error);
+      setRoutePreview(null);
+    } finally {
+      setCalculatingRoute(false);
+    }
+  };
+  
+  const timer = setTimeout(calculatePreview, 1000);
+  return () => clearTimeout(timer);
+}, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province]);
 
-  const validateForm = useCallback(() => {
-    const errors = {};
-    
-    // Required fields based on database schema
-    if (!origin.city) {
-      errors.originCity = 'Origin city is required';
+const validateForm = useCallback(() => {
+  const errors = {};
+  
+  // Required fields based on database schema
+  if (!origin.city) {
+    errors.originCity = 'Origin city is required';
+  }
+  
+  if (!origin.province) {
+    errors.originProvince = 'Origin province is required';
+  }
+  
+  if (!destination.city) {
+    errors.destinationCity = 'Destination city is required';
+  }
+  
+  if (!destination.province) {
+    errors.destinationProvince = 'Destination province is required';
+  }
+  
+  if (!form.plannedStartDate) {
+    errors.plannedStartDate = 'Planned start date is required';
+  }
+  
+  if (form.plannedEndDate && form.plannedStartDate) {
+    if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
+      errors.plannedEndDate = 'End date must be after start date';
     }
-    
-    if (!origin.province) {
-      errors.originProvince = 'Origin province is required';
-    }
-    
-    if (!destination.city) {
-      errors.destinationCity = 'Destination city is required';
-    }
-    
-    if (!destination.province) {
-      errors.destinationProvince = 'Destination province is required';
-    }
-    
-    if (!form.plannedStartDate) {
-      errors.plannedStartDate = 'Planned start date is required';
-    }
-    
-    if (form.plannedEndDate && form.plannedStartDate) {
-      if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
-        errors.plannedEndDate = 'End date must be after start date';
-      }
-    }
-    
-    if (!form.vehicleId) {
-      errors.vehicleId = 'Please select a vehicle/truck';
-    }
-    
-    if (!form.driverId) {
-      errors.driverId = 'Please select a driver';
-    }
-    
-    if (!form.commodityType) {
-      errors.commodityType = 'Please select commodity type';
-    }
-    
-    if (form.cargoWeight && isNaN(parseFloat(form.cargoWeight))) {
-      errors.cargoWeight = 'Weight must be a number';
-    }
-    
-    if (form.cargoValue && isNaN(parseFloat(form.cargoValue))) {
-      errors.cargoValue = 'Value must be a number';
-    }
-    
-    if (form.estimatedDuration && isNaN(parseFloat(form.estimatedDuration))) {
-      errors.estimatedDuration = 'Duration must be a number';
-    }
-    
-    if (form.plannedDistanceKm && isNaN(parseFloat(form.plannedDistanceKm))) {
-      errors.plannedDistanceKm = 'Distance must be a number';
-    }
-    
-    if (form.plannedDurationHours && isNaN(parseFloat(form.plannedDurationHours))) {
-      errors.plannedDurationHours = 'Duration must be a number';
-    }
-    
-    return errors;
-  }, [origin.city, origin.province, destination.city, destination.province, form]);
+  }
+  
+  if (!form.vehicleId) {
+    errors.vehicleId = 'Please select a vehicle/truck';
+  }
+  
+  if (!form.driverId) {
+    errors.driverId = 'Please select a driver';
+  }
+  
+  if (!form.commodityType) {
+    errors.commodityType = 'Please select commodity type';
+  }
+  
+  if (form.cargoWeight && isNaN(parseFloat(form.cargoWeight))) {
+    errors.cargoWeight = 'Weight must be a number';
+  }
+  
+  if (form.cargoValue && isNaN(parseFloat(form.cargoValue))) {
+    errors.cargoValue = 'Value must be a number';
+  }
+  
+  if (form.estimatedDuration && isNaN(parseFloat(form.estimatedDuration))) {
+    errors.estimatedDuration = 'Duration must be a number';
+  }
+  
+  if (form.plannedDistanceKm && isNaN(parseFloat(form.plannedDistanceKm))) {
+    errors.plannedDistanceKm = 'Distance must be a number';
+  }
+  
+  if (form.plannedDurationHours && isNaN(parseFloat(form.plannedDurationHours))) {
+    errors.plannedDurationHours = 'Duration must be a number';
+  }
+  
+  return errors;
+}, [origin.city, origin.province, destination.city, destination.province, form]);
 
-  const handleFieldChange = useCallback((field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (formErrors[field]) {
-      setFormErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  }, [formErrors]);
+const handleFieldChange = useCallback((field, value) => {
+  setForm(prev => ({ ...prev, [field]: value }));
+  if (formErrors[field]) {
+    setFormErrors(prev => ({ ...prev, [field]: '' }));
+  }
+}, [formErrors]);
 
-  const handleDateTimeChange = useCallback((field, value) => {
-    setForm(prev => ({ 
-      ...prev, 
-      [field]: value
-    }));
-    
-    if (field === 'plannedStartDate' && form.plannedEndDate && value) {
-      const duration = dayjs(form.plannedEndDate).diff(value, 'hours', true);
-      if (duration > 0) {
-        setForm(prev => ({ ...prev, estimatedDuration: (Math.round(duration * 10) / 10).toString() }));
-      }
-    } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
-      const duration = dayjs(value).diff(form.plannedStartDate, 'hours', true);
-      if (duration > 0) {
-        setForm(prev => ({ ...prev, estimatedDuration: Math.round(duration * 10) / 10.toString() }));
-      }
+const handleDateTimeChange = useCallback((field, value) => {
+  setForm(prev => ({ 
+    ...prev, 
+    [field]: value
+  }));
+  
+  if (field === 'plannedStartDate' && form.plannedEndDate && value) {
+    const duration = dayjs(form.plannedEndDate).diff(value, 'hours', true);
+    if (duration > 0) {
+      const roundedDuration = Math.round(duration * 10) / 10;
+      setForm(prev => ({ ...prev, estimatedDuration: roundedDuration.toString() }));
     }
-  }, [form.plannedEndDate, form.plannedStartDate]);
+  } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
+    const duration = dayjs(value).diff(form.plannedStartDate, 'hours', true);
+    if (duration > 0) {
+      const roundedDuration = Math.round(duration * 10) / 10;
+      setForm(prev => ({ ...prev, estimatedDuration: roundedDuration.toString() }));
+    }
+  }
+}, [form.plannedEndDate, form.plannedStartDate]);
 
   const handleSwapLocations = () => {
     setOrigin(destination);
