@@ -42,7 +42,6 @@ import { tripService } from "../services/tripService";
 const inferVehicleType = (vehicle) => {
   if (!vehicle) return "TRUCK";
   
-  // Handle different vehicle data structures
   const vehicleString = typeof vehicle === 'string' 
     ? vehicle 
     : `${vehicle.make || ""} ${vehicle.model || ""}`.toUpperCase();
@@ -85,10 +84,10 @@ const TripMetricsForm = ({
   const [vehicleType, setVehicleType] = useState("TRUCK");
   const [calculatedMetrics, setCalculatedMetrics] = useState(null);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(1); // Start with Manual Entry tab
   const [hasExistingMetrics, setHasExistingMetrics] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
-  // Track if we've initialized the form for the current tripId
   const initializedRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -104,6 +103,8 @@ const TripMetricsForm = ({
 
   // Load existing metrics from service
   const loadExistingMetrics = useCallback(async (currentTripId) => {
+    if (!currentTripId) return;
+    
     try {
       setLoading(true);
       const data = await tripService.getTripMetrics(currentTripId);
@@ -114,12 +115,12 @@ const TripMetricsForm = ({
           ...prev,
           originLocation: data.originLocation || prev.originLocation,
           destinationLocation: data.destinationLocation || prev.destinationLocation,
-          totalDistance: data.totalDistanceKm || prev.totalDistance,
-          estimatedDuration: data.totalDurationHours || prev.estimatedDuration,
-          fuelConsumption: data.fuelUsedLiters || prev.fuelConsumption,
-          estimatedCost: data.costAmount || prev.estimatedCost,
-          delays: data.idleTimeHours || prev.delays,
-          incidents: data.incidentCount || prev.incidents,
+          totalDistance: data.totalDistanceKm?.toString() || prev.totalDistance,
+          estimatedDuration: data.totalDurationHours?.toString() || prev.estimatedDuration,
+          fuelConsumption: data.fuelUsedLiters?.toString() || prev.fuelConsumption,
+          estimatedCost: data.costAmount?.toString() || prev.estimatedCost,
+          delays: data.idleTimeHours?.toString() || prev.delays,
+          incidents: data.incidentCount?.toString() || prev.incidents,
         }));
         
         if (data.totalDistanceKm && data.totalDurationHours) {
@@ -132,20 +133,20 @@ const TripMetricsForm = ({
         }
       }
     } catch (err) {
-      console.error("Failed to load metrics", err);
+      console.log("No existing metrics for trip:", currentTripId);
+      // Don't show error - just means no metrics yet
+      setHasExistingMetrics(false);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Initialize form when modal opens or tripId changes
   useEffect(() => {
     if (!open) {
       initializedRef.current = null;
       return;
     }
 
-    // Only initialize if we haven't for this tripId yet
     if (initializedRef.current === tripId) return;
     initializedRef.current = tripId;
 
@@ -156,9 +157,9 @@ const TripMetricsForm = ({
     setError("");
     setCalculatedMetrics(null);
     setHasExistingMetrics(false);
-    setActiveTab(0);
+    setSaveSuccess(false);
+    setActiveTab(1); // Default to Manual Entry tab
     
-    // Get origin and destination from multiple possible sources
     const origin = originLocation || 
                    tripData.originLocation || 
                    tripData.origin || 
@@ -171,36 +172,31 @@ const TripMetricsForm = ({
                         initialMetrics.destinationLocation || 
                         "";
     
-    // Initialize form data
     setFormData({
       originLocation: origin,
       destinationLocation: destination,
-      totalDistance: 
-        initialMetrics.totalDistanceKm || 
-        initialMetrics.totalDistance || 
-        tripData.totalDistanceKm || 
-        tripData.totalDistance || 
-        "",
-      estimatedDuration: 
-        initialMetrics.totalDurationHours || 
-        initialMetrics.estimatedDuration || 
-        tripData.totalDurationHours || 
-        tripData.estimatedDuration || 
-        "",
-      fuelConsumption: 
-        initialMetrics.fuelUsedLiters || 
-        initialMetrics.fuelConsumption || 
-        tripData.fuelUsedLiters || 
-        tripData.fuelConsumption || 
-        "",
-      estimatedCost: 
-        initialMetrics.costAmount || 
-        initialMetrics.estimatedCost || 
-        tripData.costAmount || 
-        tripData.estimatedCost || 
-        "",
-      delays: initialMetrics.idleTimeHours || tripData.delays || "",
-      incidents: initialMetrics.incidentCount || tripData.incidents || "",
+      totalDistance: initialMetrics.totalDistanceKm?.toString() || 
+                     initialMetrics.totalDistance?.toString() || 
+                     tripData.totalDistanceKm?.toString() || 
+                     tripData.totalDistance?.toString() || 
+                     "",
+      estimatedDuration: initialMetrics.totalDurationHours?.toString() || 
+                         initialMetrics.estimatedDuration?.toString() || 
+                         tripData.totalDurationHours?.toString() || 
+                         tripData.estimatedDuration?.toString() || 
+                         "",
+      fuelConsumption: initialMetrics.fuelUsedLiters?.toString() || 
+                       initialMetrics.fuelConsumption?.toString() || 
+                       tripData.fuelUsedLiters?.toString() || 
+                       tripData.fuelConsumption?.toString() || 
+                       "",
+      estimatedCost: initialMetrics.costAmount?.toString() || 
+                     initialMetrics.estimatedCost?.toString() || 
+                     tripData.costAmount?.toString() || 
+                     tripData.estimatedCost?.toString() || 
+                     "",
+      delays: initialMetrics.idleTimeHours?.toString() || tripData.delays?.toString() || "",
+      incidents: initialMetrics.incidentCount?.toString() || tripData.incidents?.toString() || "",
     });
     
     if (tripId) {
@@ -216,80 +212,125 @@ const TripMetricsForm = ({
     }));
   };
 
+  // Updated calculateMetrics function - uses the correct API endpoint
   const calculateMetrics = async () => {
-  try {
-    setCalculating(true);
-    setError("");
+    try {
+      setCalculating(true);
+      setError("");
 
-    const origin = formData.originLocation?.trim();
-    const destination = formData.destinationLocation?.trim();
-    const numericTripId = Number(tripId);
+      const origin = formData.originLocation?.trim();
+      const destination = formData.destinationLocation?.trim();
 
-    if (!origin || !destination) {
-      setError("Please enter both origin and destination locations.");
-      return;
+      if (!origin || !destination) {
+        setError("Please enter both origin and destination locations.");
+        setCalculating(false);
+        return;
+      }
+
+      if (!tripId) {
+        setError("Trip must be saved before calculating metrics.");
+        setCalculating(false);
+        return;
+      }
+
+      console.log("Calculating metrics for:", {
+        tripId: tripId,
+        origin,
+        destination,
+        vehicleType
+      });
+
+      // Use the preview endpoint first (doesn't save)
+      const result = await tripService.previewTripMetrics({
+        originLocation: origin,
+        destinationLocation: destination,
+        vehicleType: vehicleType
+      });
+
+      if (!result) {
+        setError("No data returned from calculation service.");
+        return;
+      }
+
+      console.log("Calculation result:", result);
+
+      // Update form with calculated values
+      const newFormData = {
+        ...formData,
+        totalDistance: result.totalDistanceKm?.toString() || result.totalDistance?.toString() || "",
+        estimatedDuration: result.totalDurationHours?.toString() || result.estimatedDuration?.toString() || "",
+        fuelConsumption: result.fuelUsedLiters?.toString() || result.fuelConsumption?.toString() || "",
+        estimatedCost: result.costAmount?.toString() || result.estimatedCost?.toString() || "",
+      };
+      
+      setFormData(newFormData);
+
+      setCalculatedMetrics({
+        totalDistanceKm: result.totalDistanceKm || result.totalDistance,
+        totalDurationHours: result.totalDurationHours || result.estimatedDuration,
+        fuelUsedLiters: result.fuelUsedLiters || result.fuelConsumption,
+        costAmount: result.costAmount || result.estimatedCost,
+        provider: result.provider,
+        confidenceScore: result.confidenceScore,
+        warning: result.warning
+      });
+      
+      // Show warning if low confidence
+      if (result.warning) {
+        setError(`⚠️ Note: ${result.warning}`);
+        setTimeout(() => setError(""), 5000);
+      }
+      
+      setActiveTab(1); // Switch to manual entry tab to edit/save
+      
+    } catch (err) {
+      console.error("Auto calculation failed:", err);
+      
+      let errorMessage = "Auto calculation failed. ";
+      
+      if (err.response?.status === 500) {
+        errorMessage += "Server error. Please enter metrics manually.";
+      } else if (err.response?.status === 404) {
+        errorMessage += "Route not found. Please check your addresses.";
+      } else if (err.response?.status === 400) {
+        errorMessage += "Invalid request. Please check your input.";
+      } else {
+        errorMessage += err.message || "Please enter metrics manually.";
+      }
+      
+      setError(errorMessage);
+      setActiveTab(1); // Switch to manual entry on error
+    } finally {
+      setCalculating(false);
     }
+  };
 
-    if (!numericTripId || isNaN(numericTripId)) {
-      setError("Trip must be saved before calculating metrics.");
+  // Updated saveMetrics function - uses PUT endpoint
+  const saveMetrics = async () => {
+    if (!tripId) {
+      setError("Cannot save metrics: Trip ID is missing.");
       return;
-    }
-
-    console.log("Calculating metrics for:", {
-      tripId: numericTripId,
-      origin,
-      destination,
-      vehicleType
-    });
-
-    const dto = await tripService.calculateTripMetrics({
-      tripId: numericTripId,
-      origin,
-      destination,
-      vehicleType
-    });
-
-    if (!dto) {
-      setError("No data returned from calculation service.");
-      return;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      totalDistance: dto.totalDistanceKm ?? dto.totalDistance ?? "",
-      estimatedDuration: dto.totalDurationHours ?? dto.estimatedDuration ?? "",
-      fuelConsumption: dto.fuelUsedLiters ?? dto.fuelConsumption ?? "",
-      estimatedCost: dto.costAmount ?? dto.estimatedCost ?? "",
-    }));
-
-    setCalculatedMetrics(dto);
-    setActiveTab(1);
-
-  } catch (err) {
-    console.error("Auto calculation failed:", err);
-    setError(err.message || "Auto calculation failed.");
-  } finally {
-    setCalculating(false);
-  }
-};
-
-
-  const handleSubmit = async (event) => {
-    if (event && event.preventDefault) {
-      event.preventDefault();
     }
     
     try {
       setLoading(true);
       setError("");
+      setSaveSuccess(false);
 
       // Validate required fields
-      if (!formData.totalDistance || !formData.estimatedDuration) {
-        setError("Distance and duration are required fields.");
+      if (!formData.totalDistance || parseFloat(formData.totalDistance) <= 0) {
+        setError("Distance is required and must be greater than 0.");
+        setLoading(false);
+        return;
+      }
+      
+      if (!formData.estimatedDuration || parseFloat(formData.estimatedDuration) <= 0) {
+        setError("Duration is required and must be greater than 0.");
         setLoading(false);
         return;
       }
 
+      // Build payload matching backend TripMetricsUpdateRequest
       const payload = {
         totalDistanceKm: parseFloat(formData.totalDistance) || 0,
         totalDurationHours: parseFloat(formData.estimatedDuration) || 0,
@@ -301,15 +342,50 @@ const TripMetricsForm = ({
 
       console.log("Saving metrics payload:", payload);
       
+      // Use PUT endpoint to update metrics
       await tripService.saveTripMetrics(tripId, payload);
 
-      if (onSuccess) onSuccess();
-      if (onClose) onClose();
+      setSaveSuccess(true);
+      
+      // Refresh metrics data
+      await loadExistingMetrics(tripId);
+      
+      // Show success briefly then close
+      setTimeout(() => {
+        if (onSuccess) onSuccess();
+        if (onClose) onClose();
+      }, 1500);
+      
     } catch (err) {
       console.error("Failed to save metrics:", err);
-      setError(err.message || "Failed to save metrics. Please try again.");
+      
+      let errorMessage = "Failed to save metrics. ";
+      if (err.response?.status === 404) {
+        errorMessage += "Trip not found.";
+      } else if (err.response?.status === 400) {
+        errorMessage += "Invalid data format.";
+      } else {
+        errorMessage += err.message || "Please try again.";
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to apply calculated metrics to form
+  const applyCalculatedMetrics = () => {
+    if (calculatedMetrics) {
+      setFormData(prev => ({
+        ...prev,
+        totalDistance: calculatedMetrics.totalDistanceKm?.toString() || "",
+        estimatedDuration: calculatedMetrics.totalDurationHours?.toString() || "",
+        fuelConsumption: calculatedMetrics.fuelUsedLiters?.toString() || "",
+        estimatedCost: calculatedMetrics.costAmount?.toString() || "",
+      }));
+      setActiveTab(1);
+      setError("");
     }
   };
 
@@ -347,6 +423,23 @@ const TripMetricsForm = ({
             Existing Metrics
           </Box>
         )}
+        {saveSuccess && (
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '2px 8px',
+              borderRadius: '16px',
+              fontSize: '0.75rem',
+              backgroundColor: 'success.light',
+              color: 'success.main',
+              fontWeight: 500,
+              ml: 1,
+            }}
+          >
+            Saved!
+          </Box>
+        )}
         <IconButton onClick={onClose} size="small">
           <Close />
         </IconButton>
@@ -356,12 +449,11 @@ const TripMetricsForm = ({
 
       <DialogContent sx={{ pt: 3 }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="warning" sx={{ mb: 3 }} onClose={() => setError("")}>
             {error}
           </Alert>
         )}
 
-        {/* Display trip info if available */}
         {(formData.originLocation || formData.destinationLocation) && (
           <Paper 
             elevation={0} 
@@ -449,10 +541,10 @@ const TripMetricsForm = ({
                     onChange={(e) => setVehicleType(e.target.value)}
                     label="Vehicle Type"
                   >
-                    <MenuItem value="TRUCK">Truck</MenuItem>
-                    <MenuItem value="TRAILER">Trailer</MenuItem>
-                    <MenuItem value="VAN">Van</MenuItem>
-                    <MenuItem value="CAR">Car</MenuItem>
+                    <MenuItem value="TRUCK">Truck (35 L/100km)</MenuItem>
+                    <MenuItem value="TRAILER">Trailer (40 L/100km)</MenuItem>
+                    <MenuItem value="VAN">Van (12 L/100km)</MenuItem>
+                    <MenuItem value="CAR">Car (8 L/100km)</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -473,15 +565,20 @@ const TripMetricsForm = ({
             {calculatedMetrics && (
               <Paper elevation={0} sx={{ p: 2, bgcolor: 'success.light', color: 'success.contrastText' }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  ✅ Calculated Results
+                  ✅ Calculated Results {calculatedMetrics.provider && `via ${calculatedMetrics.provider}`}
                 </Typography>
+                {calculatedMetrics.warning && (
+                  <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                    ⚠️ {calculatedMetrics.warning}
+                  </Typography>
+                )}
                 <Grid container spacing={2}>
                   <Grid item xs={6} md={3}>
                     <Box textAlign="center">
                       <DirectionsCar fontSize="small" />
                       <Typography variant="body2">Distance</Typography>
                       <Typography variant="h6">
-                        {calculatedMetrics.totalDistanceKm || calculatedMetrics.totalDistance} km
+                        {calculatedMetrics.totalDistanceKm || 0} km
                       </Typography>
                     </Box>
                   </Grid>
@@ -490,7 +587,7 @@ const TripMetricsForm = ({
                       <AccessTime fontSize="small" />
                       <Typography variant="body2">Duration</Typography>
                       <Typography variant="h6">
-                        {formatDuration(calculatedMetrics.totalDurationHours || calculatedMetrics.estimatedDuration)}
+                        {formatDuration(calculatedMetrics.totalDurationHours || 0)}
                       </Typography>
                     </Box>
                   </Grid>
@@ -499,7 +596,7 @@ const TripMetricsForm = ({
                       <LocalGasStation fontSize="small" />
                       <Typography variant="body2">Fuel</Typography>
                       <Typography variant="h6">
-                        {calculatedMetrics.fuelUsedLiters || calculatedMetrics.fuelConsumption} L
+                        {calculatedMetrics.fuelUsedLiters || 0} L
                       </Typography>
                     </Box>
                   </Grid>
@@ -508,14 +605,19 @@ const TripMetricsForm = ({
                       <AttachMoney fontSize="small" />
                       <Typography variant="body2">Cost</Typography>
                       <Typography variant="h6">
-                        ${calculatedMetrics.costAmount || calculatedMetrics.estimatedCost || 0}
+                        R {calculatedMetrics.costAmount || 0}
                       </Typography>
                     </Box>
                   </Grid>
                 </Grid>
-                <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-                  Switch to Manual Entry tab to edit or save these values
-                </Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={applyCalculatedMetrics}
+                  sx={{ mt: 2 }}
+                >
+                  Use These Values
+                </Button>
               </Paper>
             )}
           </Stack>
@@ -571,7 +673,7 @@ const TripMetricsForm = ({
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Estimated Cost"
+                    label="Estimated Cost (ZAR)"
                     type="number"
                     value={formData.estimatedCost}
                     onChange={handleInputChange('estimatedCost')}
@@ -579,7 +681,7 @@ const TripMetricsForm = ({
                     size="small"
                     inputProps={{ min: 0, step: 0.01 }}
                     InputProps={{
-                      startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+                      startAdornment: <Typography sx={{ mr: 1 }}>R</Typography>,
                     }}
                   />
                 </Grid>
@@ -604,19 +706,19 @@ const TripMetricsForm = ({
                     onChange={handleInputChange('incidents')}
                     placeholder="Enter incident count"
                     size="small"
-                    inputProps={{ min: 0 }}
+                    inputProps={{ min: 0, step: 1 }}
                   />
                 </Grid>
               </Grid>
 
-              {(formData.delays || formData.incidents) && (
+              {(parseFloat(formData.delays) > 0 || parseInt(formData.incidents) > 0) && (
                 <Alert 
                   severity="warning" 
                   icon={<Warning />}
                   sx={{ mt: 1 }}
                 >
-                  {formData.delays && `Delays: ${formData.delays} hours. `}
-                  {formData.incidents && `Incidents: ${formData.incidents}. `}
+                  {parseFloat(formData.delays) > 0 && `Delays: ${formData.delays} hours. `}
+                  {parseInt(formData.incidents) > 0 && `Incidents: ${formData.incidents}. `}
                   This may affect trip performance metrics.
                 </Alert>
               )}
@@ -635,7 +737,7 @@ const TripMetricsForm = ({
         {activeTab === 1 && (
           <Button
             variant="contained"
-            onClick={handleSubmit}
+            onClick={saveMetrics}
             disabled={loading || !formData.totalDistance || !formData.estimatedDuration}
             startIcon={loading ? <CircularProgress size={20} /> : <Save />}
           >
