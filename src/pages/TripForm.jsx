@@ -843,120 +843,144 @@ const handleDateTimeChange = useCallback((field, value) => {
     setDestination(origin);
   };
 
-  const handleSubmit = useCallback(async () => {
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
+  const [submitting, setSubmitting] = useState(false);
+const submitButtonRef = useRef(null);
+
+const handleSubmit = useCallback(async () => {
+  // Prevent multiple submissions
+  if (submitting) {
+    console.log('⚠️ Submission already in progress, ignoring...');
+    return;
+  }
+  
+  const errors = validateForm();
+  if (Object.keys(errors).length > 0) {
+    setFormErrors(errors);
+    return;
+  }
+  
+  setSubmitting(true);
+  setError(null);
+  
+  try {
+    // Build payload WITHOUT tripNumber
+    const payload = {
+      // ❌ DO NOT INCLUDE tripNumber
+      tripType: form.tripType,
+      status: form.status,
+      approvalStatus: form.approvalStatus || 'PENDING',
+      priority: form.priority,
+      
+      plannedStartDate: formatDateForAPI(form.plannedStartDate),
+      plannedEndDate: formatDateForAPI(form.plannedEndDate),
+      estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
+      plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
+      plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
+      
+      tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
+      otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
+      
+      vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
+      driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+      supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
+      loadId: form.loadId ? parseInt(form.loadId, 10) : null,
+      
+      commodityType: form.commodityType || null,
+      cargoDescription: form.cargoDescription || null,
+      cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+      cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
+      palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
+      containerNumber: form.containerNumber || null,
+      
+      originStreetAddress: origin.street || null,
+      originCity: origin.city,
+      originZipCode: origin.zipCode || null,
+      originProvince: origin.province || null,
+      originLatitude: origin.latitude,
+      originLongitude: origin.longitude,
+      originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
+      
+      destinationStreetAddress: destination.street || null,
+      destinationCity: destination.city,
+      destinationZipCode: destination.zipCode || null,
+      destinationProvince: destination.province || null,
+      destinationLatitude: destination.latitude,
+      destinationLongitude: destination.longitude,
+      destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', '),
+      
+      notes: form.notes || null,
+      specialInstructions: form.specialInstructions || null,
+      driverNotes: form.driverNotes || null,
+      referenceNumber: form.referenceNumber || null,
+      purchaseOrderNumber: form.purchaseOrderNumber || null,
+      cancellationReason: form.cancellationReason || null,
+      
+      auditTrail: JSON.stringify([{
+        action: 'CREATED',
+        timestamp: new Date().toISOString(),
+        details: 'Trip created'
+      }]),
+      
+      incidentsLogged: 0
+    };
     
-    setSubmitting(true);
-    setError(null);
-    
-    try {
-      // Build payload matching database schema exactly
-      const payload = {
-        // Core fields
-        //tripNumber: form.tripNumber,
-        tripType: form.tripType,
-        status: form.status,
-        approvalStatus: form.approvalStatus,
-        priority: form.priority,
-        
-        // Dates
-        plannedStartDate: formatDateForAPI(form.plannedStartDate),
-        plannedEndDate: formatDateForAPI(form.plannedEndDate),
-        
-        // Planning metrics
-        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
-        plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
-        plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
-        
-        // Financial estimates
-        tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
-        otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
-        
-        // Assignments
-        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
-        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
-        supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
-        loadId: form.loadId ? parseInt(form.loadId, 10) : null,
-        
-        // Commodity/Cargo
-        commodityType: form.commodityType || null,
-        cargoDescription: form.cargoDescription || null,
-        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
-        palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
-        containerNumber: form.containerNumber || null,
-        
-        // Origin details
-        originStreetAddress: origin.street || null,
-        originCity: origin.city,
-        originZipCode: origin.zipCode || null,
-        originProvince: origin.province || null,
-        originLatitude: origin.latitude,
-        originLongitude: origin.longitude,
-        originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
-        
-        // Destination details
-        destinationStreetAddress: destination.street || null,
-        destinationCity: destination.city,
-        destinationZipCode: destination.zipCode || null,
-        destinationProvince: destination.province || null,
-        destinationLatitude: destination.latitude,
-        destinationLongitude: destination.longitude,
-        destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', '),
-        
-        // Notes & Documentation
-        notes: form.notes || null,
-        specialInstructions: form.specialInstructions || null,
-        driverNotes: form.driverNotes || null,
-        referenceNumber: form.referenceNumber || null,
-        purchaseOrderNumber: form.purchaseOrderNumber || null,
-        
-        // Cancellation (if applicable)
-        cancellationReason: form.cancellationReason || null,
-        
-        // Initial audit trail entry
-        auditTrail: JSON.stringify([{
-          action: mode === 'create' ? 'CREATED' : 'UPDATED',
-          timestamp: new Date().toISOString(),
-          details: mode === 'create' ? 'Trip created' : 'Trip updated'
-        }]),
-        
-        // Initialize counters
-        incidentsLogged: 0
-      };
-      
-      // Clean up empty strings to null
-      Object.keys(payload).forEach(key => {
-        if (payload[key] === '') {
-          payload[key] = null;
-        }
-      });
-      
-      console.log('📤 Submitting payload:', JSON.stringify(payload, null, 2));
-      
-      let result;
-      if (mode === 'create') {
-        // Don't send tripNumber for create - let backend generate it
-        delete payload.tripNumber;
-        result = await tripService.createTrip(payload);
-      } else {
-        result = await tripService.updateTrip(initialData.id, payload);
+    // Remove any undefined or null values
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined || payload[key] === null) {
+        delete payload[key];
       }
-      
-      onSuccess?.(result);
-      if (onClose) onClose();
-    } catch (err) {
-      console.error('❌ Submit error:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to save trip';
-      setError(errorMessage);
-    } finally {
-      setSubmitting(false);
+    });
+    
+    console.log('📤 Creating trip with payload:', payload);
+    
+    // Disable submit button
+    if (submitButtonRef.current) {
+      submitButtonRef.current.disabled = true;
     }
-  }, [form, origin, destination, mode, initialData, validateForm, onSuccess, onClose]);
+    
+    const result = await tripService.createTrip(payload);
+    
+    console.log('✅ Trip created successfully:', result);
+    
+    // Show success message
+    setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+    
+    // Refresh the trip list
+    await fetchTrips();
+    
+    // Call success callback
+    onSuccess?.(result);
+    
+    // Close the dialog after short delay
+    setTimeout(() => {
+      onClose?.();
+    }, 1500);
+    
+  } catch (err) {
+    console.error('❌ Create trip error:', err);
+    
+    let errorMessage = 'Failed to create trip';
+    
+    if (err.response?.status === 409) {
+      errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
+    } else if (err.response?.status === 400) {
+      errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+    } else if (err.response?.status === 403) {
+      errorMessage = 'You do not have permission to create trips.';
+    } else {
+      errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
+    }
+    
+    setError(errorMessage);
+    
+    // Re-enable submit button
+    if (submitButtonRef.current) {
+      submitButtonRef.current.disabled = false;
+    }
+  } finally {
+    setSubmitting(false);
+  }
+}, [form, origin, destination, validateForm, onSuccess, onClose]);
 
   const handleDialogClose = useCallback((event, reason) => {
     if (reason === 'backdropClick' && submitting) {
