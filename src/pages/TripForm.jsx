@@ -40,7 +40,14 @@ import {
   Scale,
   AttachMoney,
   Comment,
-  Assignment
+  Assignment,
+  TrendingUp,
+  LocalGasStation,
+  Toll,
+  Receipt,
+  Security,
+  Person,
+  History
 } from '@mui/icons-material';
 import {
   LocalizationProvider,
@@ -79,6 +86,17 @@ const PRIORITY_OPTIONS = [
 const STATUS_OPTIONS = [
   'DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 
   'COMPLETED', 'ACTIVE', 'PENDING', 'CANCELLED', 'CLOSED', 'FINALIZED'
+];
+
+const APPROVAL_STATUS_OPTIONS = [
+  'PENDING', 'APPROVED', 'REJECTED', 'UNDER_REVIEW'
+];
+
+const TRIP_TYPE_OPTIONS = [
+  'FREIGHT',
+  'RETURN', 
+  'EMPTY',
+  'MAINTENANCE'
 ];
 
 // Commodity/Product Types
@@ -437,6 +455,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [submitting, setSubmitting] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [supervisors, setSupervisors] = useState([]);
   const [error, setError] = useState(null);
   const [formErrors, setFormErrors] = useState({});
   const [routePreview, setRoutePreview] = useState(null);
@@ -461,9 +480,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   });
 
   const [form, setForm] = useState({
+    // Core fields
     tripNumber: '',
+    tripType: 'FREIGHT',
     status: 'PLANNED',
+    approvalStatus: 'PENDING',
     priority: 'MEDIUM',
+    
     // Commodity fields
     commodityType: '',
     cargoDescription: '',
@@ -471,18 +494,33 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     cargoValue: '',
     palletCount: '',
     containerNumber: '',
+    
     // Schedule
     plannedStartDate: null,
     plannedEndDate: null,
     estimatedDuration: '',
+    plannedDistanceKm: '',
+    plannedDurationHours: '',
+    
     // Assignment
     vehicleId: '',
     driverId: '',
+    supervisorId: '',
+    loadId: '',
+    
     // Notes
     notes: '',
     specialInstructions: '',
+    driverNotes: '',
     referenceNumber: '',
-    purchaseOrderNumber: ''
+    purchaseOrderNumber: '',
+    
+    // Financial (planned estimates)
+    estimatedTollCost: '',
+    estimatedOtherExpenses: '',
+    
+    // Cancellation
+    cancellationReason: ''
   });
 
   const loadData = useCallback(async () => {
@@ -497,6 +535,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       
       setVehicles(filterActiveVehicles(vRes || []));
       setDrivers(filterAvailableDrivers(dRes || []));
+      
+      // Load supervisors (users with MANAGER or SUPER_ADMIN role)
+      try {
+        const usersRes = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN').catch(() => []);
+        setSupervisors(usersRes || []);
+      } catch (err) {
+        console.warn('Could not load supervisors:', err);
+      }
     } catch (err) {
       console.error('Failed to load data:', err);
       setError('Failed to load vehicles or drivers');
@@ -517,7 +563,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         });
         setForm({
           tripNumber: generateUniqueTripNumber(),
+          tripType: 'FREIGHT',
           status: 'PLANNED',
+          approvalStatus: 'PENDING',
           priority: 'MEDIUM',
           commodityType: '',
           cargoDescription: '',
@@ -528,12 +576,20 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           plannedStartDate: null,
           plannedEndDate: null,
           estimatedDuration: '',
+          plannedDistanceKm: '',
+          plannedDurationHours: '',
           vehicleId: '',
           driverId: '',
+          supervisorId: '',
+          loadId: '',
           notes: '',
           specialInstructions: '',
+          driverNotes: '',
           referenceNumber: '',
-          purchaseOrderNumber: ''
+          purchaseOrderNumber: '',
+          estimatedTollCost: '',
+          estimatedOtherExpenses: '',
+          cancellationReason: ''
         });
         setFormErrors({});
         setError(null);
@@ -593,7 +649,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       
       setForm({
         tripNumber: initialData.tripNumber || generateUniqueTripNumber(),
+        tripType: initialData.tripType || 'FREIGHT',
         status: initialData.status || 'PLANNED',
+        approvalStatus: initialData.approvalStatus || 'PENDING',
         priority: initialData.priority || 'MEDIUM',
         commodityType: initialData.commodityType || '',
         cargoDescription: initialData.cargoDescription || '',
@@ -604,18 +662,28 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         plannedStartDate: initialData.plannedStartDate ? dayjs(initialData.plannedStartDate) : null,
         plannedEndDate: initialData.plannedEndDate ? dayjs(initialData.plannedEndDate) : null,
         estimatedDuration: initialData.estimatedDuration?.toString() || '',
+        plannedDistanceKm: initialData.plannedDistanceKm?.toString() || '',
+        plannedDurationHours: initialData.plannedDurationHours?.toString() || '',
         vehicleId: initialData.vehicleId?.toString() || '',
         driverId: initialData.driverId?.toString() || '',
+        supervisorId: initialData.supervisorId?.toString() || '',
+        loadId: initialData.loadId?.toString() || '',
         notes: initialData.notes || '',
         specialInstructions: initialData.specialInstructions || '',
+        driverNotes: initialData.driverNotes || '',
         referenceNumber: initialData.referenceNumber || '',
-        purchaseOrderNumber: initialData.purchaseOrderNumber || ''
+        purchaseOrderNumber: initialData.purchaseOrderNumber || '',
+        estimatedTollCost: initialData.tollCost?.toString() || '',
+        estimatedOtherExpenses: initialData.otherExpenses?.toString() || '',
+        cancellationReason: initialData.cancellationReason || ''
       });
     } else {
       setForm(prev => ({
         ...prev,
         tripNumber: generateUniqueTripNumber(),
+        tripType: 'FREIGHT',
         status: 'PLANNED',
+        approvalStatus: 'PENDING',
         priority: 'MEDIUM'
       }));
     }
@@ -638,6 +706,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           if (route?.durationHours && !form.estimatedDuration) {
             setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
           }
+          if (route?.distanceKm && !form.plannedDistanceKm) {
+            setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
+          }
+          if (route?.durationHours && !form.plannedDurationHours) {
+            setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
+          }
         }
       } catch (error) {
         console.error('Route preview failed:', error);
@@ -654,12 +728,21 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const validateForm = useCallback(() => {
     const errors = {};
     
+    // Required fields based on database schema
     if (!origin.city) {
       errors.originCity = 'Origin city is required';
     }
     
+    if (!origin.province) {
+      errors.originProvince = 'Origin province is required';
+    }
+    
     if (!destination.city) {
       errors.destinationCity = 'Destination city is required';
+    }
+    
+    if (!destination.province) {
+      errors.destinationProvince = 'Destination province is required';
     }
     
     if (!form.plannedStartDate) {
@@ -696,8 +779,16 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       errors.estimatedDuration = 'Duration must be a number';
     }
     
+    if (form.plannedDistanceKm && isNaN(parseFloat(form.plannedDistanceKm))) {
+      errors.plannedDistanceKm = 'Distance must be a number';
+    }
+    
+    if (form.plannedDurationHours && isNaN(parseFloat(form.plannedDurationHours))) {
+      errors.plannedDurationHours = 'Duration must be a number';
+    }
+    
     return errors;
-  }, [origin.city, destination.city, form]);
+  }, [origin.city, origin.province, destination.city, destination.province, form]);
 
   const handleFieldChange = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -713,14 +804,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }));
     
     if (field === 'plannedStartDate' && form.plannedEndDate && value) {
-      const duration = dayjs(form.plannedEndDate).diff(value, 'hours');
+      const duration = dayjs(form.plannedEndDate).diff(value, 'hours', true);
       if (duration > 0) {
-        setForm(prev => ({ ...prev, estimatedDuration: duration.toString() }));
+        setForm(prev => ({ ...prev, estimatedDuration: Math.round(duration * 10) / 10.toString() }));
       }
     } else if (field === 'plannedEndDate' && form.plannedStartDate && value) {
-      const duration = dayjs(value).diff(form.plannedStartDate, 'hours');
+      const duration = dayjs(value).diff(form.plannedStartDate, 'hours', true);
       if (duration > 0) {
-        setForm(prev => ({ ...prev, estimatedDuration: duration.toString() }));
+        setForm(prev => ({ ...prev, estimatedDuration: Math.round(duration * 10) / 10.toString() }));
       }
     }
   }, [form.plannedEndDate, form.plannedStartDate]);
@@ -741,18 +832,35 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setError(null);
     
     try {
+      // Build payload matching database schema exactly
       const payload = {
+        // Core fields
         tripNumber: form.tripNumber,
+        tripType: form.tripType,
         status: form.status,
+        approvalStatus: form.approvalStatus,
         priority: form.priority,
         
+        // Dates
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
-        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
         
+        // Planning metrics
+        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
+        plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
+        plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
+        
+        // Financial estimates
+        tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
+        otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
+        
+        // Assignments
         vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
         driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+        supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
+        loadId: form.loadId ? parseInt(form.loadId, 10) : null,
         
+        // Commodity/Cargo
         commodityType: form.commodityType || null,
         cargoDescription: form.cargoDescription || null,
         cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
@@ -760,6 +868,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
         containerNumber: form.containerNumber || null,
         
+        // Origin details
         originStreetAddress: origin.street || null,
         originCity: origin.city,
         originZipCode: origin.zipCode || null,
@@ -768,6 +877,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         originLongitude: origin.longitude,
         originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
         
+        // Destination details
         destinationStreetAddress: destination.street || null,
         destinationCity: destination.city,
         destinationZipCode: destination.zipCode || null,
@@ -776,12 +886,28 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         destinationLongitude: destination.longitude,
         destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', '),
         
+        // Notes & Documentation
         notes: form.notes || null,
         specialInstructions: form.specialInstructions || null,
+        driverNotes: form.driverNotes || null,
         referenceNumber: form.referenceNumber || null,
-        purchaseOrderNumber: form.purchaseOrderNumber || null
+        purchaseOrderNumber: form.purchaseOrderNumber || null,
+        
+        // Cancellation (if applicable)
+        cancellationReason: form.cancellationReason || null,
+        
+        // Initial audit trail entry
+        auditTrail: JSON.stringify([{
+          action: mode === 'create' ? 'CREATED' : 'UPDATED',
+          timestamp: new Date().toISOString(),
+          details: mode === 'create' ? 'Trip created' : 'Trip updated'
+        }]),
+        
+        // Initialize counters
+        incidentsLogged: 0
       };
       
+      // Clean up empty strings to null
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') {
           payload[key] = null;
@@ -792,6 +918,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       
       let result;
       if (mode === 'create') {
+        // Don't send tripNumber for create - let backend generate it
+        delete payload.tripNumber;
         result = await tripService.createTrip(payload);
       } else {
         result = await tripService.updateTrip(initialData.id, payload);
@@ -846,15 +974,34 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           {!loading && (
             <Box>
               <Stack spacing={3}>
-                {/* Trip Number */}
-                <TextField
-                  fullWidth
-                  label="Trip Number"
-                  value={form.tripNumber}
-                  disabled
-                  size="small"
-                  helperText="Auto-generated unique trip number"
-                />
+                {/* Trip Number & Type */}
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Trip Number"
+                      value={form.tripNumber}
+                      disabled
+                      size="small"
+                      helperText="Auto-generated unique trip number (not sent for create)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Trip Type</InputLabel>
+                      <Select
+                        value={form.tripType}
+                        label="Trip Type"
+                        onChange={(e) => handleFieldChange('tripType', e.target.value)}
+                      >
+                        {TRIP_TYPE_OPTIONS.map((type) => (
+                          <MenuItem key={type} value={type}>{type}</MenuItem>
+                        ))}
+                      </Select>
+                      <FormHelperText>FREIGHT = cargo delivery, RETURN = backhaul, EMPTY = repositioning, MAINTENANCE = service run</FormHelperText>
+                    </FormControl>
+                  </Grid>
+                </Grid>
 
                 {/* Origin & Destination */}
                 <Box sx={{ position: 'relative' }}>
@@ -862,7 +1009,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     label="Origin"
                     address={origin}
                     onChange={setOrigin}
-                    errors={{ city: formErrors.originCity }}
+                    errors={{ 
+                      city: formErrors.originCity,
+                      province: formErrors.originProvince 
+                    }}
                   />
                   
                   <Box sx={{ display: 'flex', justifyContent: 'center', my: -1, position: 'relative', zIndex: 1 }}>
@@ -875,7 +1025,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     label="Destination"
                     address={destination}
                     onChange={setDestination}
-                    errors={{ city: formErrors.destinationCity }}
+                    errors={{ 
+                      city: formErrors.destinationCity,
+                      province: formErrors.destinationProvince 
+                    }}
                   />
                 </Box>
 
@@ -947,7 +1100,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         />
                       </Grid>
                       
-                      <Grid item xs={12}>
+                      <Grid item xs={12} md={4}>
                         <TextField
                           fullWidth
                           label="Estimated Duration (hours)"
@@ -959,11 +1112,37 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           helperText="Auto-calculated from start/end dates"
                         />
                       </Grid>
+                      
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Planned Distance (km)"
+                          type="number"
+                          value={form.plannedDistanceKm}
+                          onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
+                          size="small"
+                          InputProps={{ endAdornment: 'km' }}
+                          helperText="From route calculation"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Planned Duration (hours)"
+                          type="number"
+                          value={form.plannedDurationHours}
+                          onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
+                          size="small"
+                          InputProps={{ endAdornment: 'hrs' }}
+                          helperText="Including stops"
+                        />
+                      </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
 
-                {/* Assignment - Truck & Driver */}
+                {/* Assignment - Truck, Driver & Supervisor */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
@@ -972,7 +1151,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
                     
                     <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} md={4}>
                         <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
                           <InputLabel>Truck / Vehicle *</InputLabel>
                           <Select
@@ -993,7 +1172,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         </FormControl>
                       </Grid>
                       
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} md={4}>
                         <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
                           <InputLabel>Driver *</InputLabel>
                           <Select
@@ -1011,6 +1190,25 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           </Select>
                           {formErrors.driverId && <FormHelperText error>{formErrors.driverId}</FormHelperText>}
                           <FormHelperText>{drivers.length} available drivers</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={4}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Supervisor</InputLabel>
+                          <Select
+                            value={form.supervisorId}
+                            label="Supervisor"
+                            onChange={(e) => handleFieldChange('supervisorId', e.target.value)}
+                          >
+                            <MenuItem value=""><em>Select supervisor (optional)</em></MenuItem>
+                            {supervisors.map((supervisor) => (
+                              <MenuItem key={supervisor.id} value={supervisor.id.toString()}>
+                                {supervisor.firstName} {supervisor.lastName} - {supervisor.role}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          <FormHelperText>Approving authority for this trip</FormHelperText>
                         </FormControl>
                       </Grid>
                     </Grid>
@@ -1106,6 +1304,44 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   </CardContent>
                 </Card>
 
+                {/* Financial Estimates */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                      <Receipt fontSize="small" color="primary" />
+                      <Typography variant="subtitle1" fontWeight="medium">Financial Estimates</Typography>
+                    </Stack>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Estimated Toll Cost (ZAR)"
+                          type="number"
+                          value={form.estimatedTollCost}
+                          onChange={(e) => handleFieldChange('estimatedTollCost', e.target.value)}
+                          size="small"
+                          InputProps={{ startAdornment: <Toll fontSize="small" /> }}
+                          placeholder="e.g., 1250"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Estimated Other Expenses (ZAR)"
+                          type="number"
+                          value={form.estimatedOtherExpenses}
+                          onChange={(e) => handleFieldChange('estimatedOtherExpenses', e.target.value)}
+                          size="small"
+                          InputProps={{ startAdornment: <AttachMoney fontSize="small" /> }}
+                          placeholder="Meals, accommodation, etc."
+                        />
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
                 {/* Notes & Comments */}
                 <Card variant="outlined">
                   <CardContent>
@@ -1155,6 +1391,19 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           fullWidth
                           multiline
                           rows={2}
+                          label="Driver Notes"
+                          value={form.driverNotes}
+                          onChange={(e) => handleFieldChange('driverNotes', e.target.value)}
+                          size="small"
+                          placeholder="Instructions specific to the driver..."
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
                           label="Additional Notes"
                           value={form.notes}
                           onChange={(e) => handleFieldChange('notes', e.target.value)}
@@ -1166,7 +1415,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   </CardContent>
                 </Card>
 
-                {/* Status & Priority */}
+                {/* Status & Priority & Approval */}
                 <Card variant="outlined">
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
@@ -1175,7 +1424,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
                     
                     <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} md={4}>
                         <FormControl fullWidth size="small">
                           <InputLabel>Status</InputLabel>
                           <Select
@@ -1190,7 +1439,23 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         </FormControl>
                       </Grid>
                       
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} md={4}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Approval Status</InputLabel>
+                          <Select
+                            value={form.approvalStatus}
+                            label="Approval Status"
+                            onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
+                          >
+                            {APPROVAL_STATUS_OPTIONS.map((status) => (
+                              <MenuItem key={status} value={status}>{status}</MenuItem>
+                            ))}
+                          </Select>
+                          <FormHelperText>PENDING = awaiting supervisor approval</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={4}>
                         <FormControl fullWidth size="small">
                           <InputLabel>Priority</InputLabel>
                           <Select
@@ -1206,6 +1471,21 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           </Select>
                         </FormControl>
                       </Grid>
+                      
+                      {form.status === 'CANCELLED' && (
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            label="Cancellation Reason"
+                            value={form.cancellationReason}
+                            onChange={(e) => handleFieldChange('cancellationReason', e.target.value)}
+                            size="small"
+                            multiline
+                            rows={2}
+                            placeholder="Why was this trip cancelled?"
+                          />
+                        </Grid>
+                      )}
                     </Grid>
                   </CardContent>
                 </Card>
