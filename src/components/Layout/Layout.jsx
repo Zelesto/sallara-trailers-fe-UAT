@@ -80,7 +80,7 @@ const LogoContainer = styled(Box)(({ theme }) => ({
   justifyContent: 'space-between',
   padding: theme.spacing(1.5, 2),
   borderBottom: `1px solid ${theme.palette.divider}`,
-  minHeight: 64,
+  minHeight: 150,
   position: 'relative',
   overflow: 'hidden',
 }));
