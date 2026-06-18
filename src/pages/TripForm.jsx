@@ -24,7 +24,8 @@ import {
   Divider,
   Autocomplete,
   IconButton,
-  Tooltip
+  Tooltip,
+  Snackbar
 } from '@mui/material';
 
 import {
@@ -126,59 +127,6 @@ const PROVINCES = [
   'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
 ];
 
-// ===================== NEW: Address Validation Helpers =====================
-const validateAndFormatAddress = (address) => {
-  if (!address) return null;
-  
-  // Remove extra spaces
-  let formatted = address.trim().replace(/\s+/g, ' ');
-  
-  // Fix common issues with South African addresses
-  // Fix "ext" without space
-  formatted = formatted.replace(/ext(\d+)/gi, 'Ext $1');
-  formatted = formatted.replace(/extension(\d+)/gi, 'Ext $1');
-  
-  // Fix common misspellings
-  formatted = formatted.replace(/\bdriv\b/gi, 'Drive');
-  formatted = formatted.replace(/\bdrve\b/gi, 'Drive');
-  formatted = formatted.replace(/\bdrv\b/gi, 'Drive');
-  formatted = formatted.replace(/\brd\b/gi, 'Road');
-  formatted = formatted.replace(/\bst\b/gi, 'Street');
-  formatted = formatted.replace(/\bave\b/gi, 'Avenue');
-  formatted = formatted.replace(/\bln\b/gi, 'Lane');
-  
-  // Fix "ponong" - this appears to be a misspelling
-  formatted = formatted.replace(/\bponong\b/gi, 'Phoenix');
-  
-  return formatted;
-};
-
-const isAddressComplete = (address) => {
-  if (!address) return false;
-  
-  const parts = address.split(',').map(p => p.trim());
-  
-  // Need at least street and city
-  if (parts.length < 2) return false;
-  
-  // Check if first part has a number or street identifier
-  const hasStreetNumber = /\d/.test(parts[0]);
-  const hasStreetName = /[A-Za-z]/.test(parts[0]);
-  
-  if (!hasStreetNumber || !hasStreetName) return false;
-  
-  // Check if we have a city/area name
-  let hasCity = false;
-  for (let i = 1; i < parts.length; i++) {
-    if (parts[i].length > 2 && /[A-Za-z]/.test(parts[i]) && !parts[i].match(/^\d+$/)) {
-      hasCity = true;
-      break;
-    }
-  }
-  
-  return hasCity;
-};
-
 // Helper function to extract city from address string
 const extractCityFromAddress = (address) => {
   if (!address) return '';
@@ -239,13 +187,10 @@ function AddressSection({
   address, 
   onChange, 
   errors = {}, 
-  onGeocode,
   disabled = false 
 }) {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [loadingCity, setLoadingCity] = useState(false);
-  const [geocodingStatus, setGeocodingStatus] = useState(null);
-  const [showMap, setShowMap] = useState(false);
   const debounceTimer = useRef(null);
 
   // Cleanup debounce timer
@@ -293,112 +238,6 @@ function AddressSection({
         zipCode: value.zipCode || address.zipCode
       };
       onChange(newAddress);
-      
-      if (!value.zipCode && value.city) {
-        await fetchZipCodeForCity(value.city, value.province, newAddress);
-      }
-      
-      if (address.street) {
-        await geocodeAddress({ ...newAddress, street: address.street });
-      }
-    }
-  };
-
-  const fetchZipCodeForCity = async (city, province, currentAddress) => {
-    try {
-      const zipInfo = await routingService.getZipCodeForCity(city, province);
-      if (zipInfo?.zipCode && zipInfo.zipCode !== currentAddress.zipCode) {
-        onChange({ ...currentAddress, zipCode: zipInfo.zipCode });
-        setGeocodingStatus({ 
-          type: 'success', 
-          message: `Zip code auto-filled: ${zipInfo.zipCode}` 
-        });
-        setTimeout(() => setGeocodingStatus(null), 3000);
-      }
-    } catch (error) {
-      console.error('Error fetching zip code:', error);
-    }
-  };
-
-  // ===================== UPDATED: geocodeAddress with better validation =====================
-  const geocodeAddress = async (addressToGeocode) => {
-    // Check if we have minimum required fields
-    if (!addressToGeocode.city && !addressToGeocode.street) {
-      setGeocodingStatus({ 
-        type: 'warning', 
-        message: 'Please provide at least street and city' 
-      });
-      return;
-    }
-    
-    setGeocodingStatus({ type: 'loading', message: 'Validating address...' });
-    
-    try {
-      // Build full address with proper formatting
-      let fullAddress = [
-        addressToGeocode.street || '',
-        addressToGeocode.city || '',
-        addressToGeocode.zipCode || '',
-        addressToGeocode.province || ''
-      ]
-      .filter(Boolean)
-      .join(', ');
-      
-      // Validate and format the address
-      fullAddress = validateAndFormatAddress(fullAddress);
-      
-      if (!fullAddress || !isAddressComplete(fullAddress)) {
-        setGeocodingStatus({ 
-          type: 'warning', 
-          message: 'Address appears incomplete. Please check street and city.' 
-        });
-        return;
-      }
-      
-      console.log(`🔍 Geocoding ${label}:`, fullAddress);
-      
-      const coords = await routingService.geocodeAddress(fullAddress);
-      
-      if (coords && coords.lat && coords.lng) {
-        onChange({ 
-          ...addressToGeocode, 
-          latitude: coords.lat, 
-          longitude: coords.lng 
-        });
-        setGeocodingStatus({ 
-          type: 'success', 
-          message: `Location verified ✓ (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})` 
-        });
-        if (onGeocode) onGeocode(coords);
-        setTimeout(() => setGeocodingStatus(null), 3000);
-      } else {
-        setGeocodingStatus({ 
-          type: 'warning', 
-          message: 'Could not verify exact location. Please check the address format or enter coordinates manually.' 
-        });
-        setTimeout(() => setGeocodingStatus(null), 4000);
-      }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      setGeocodingStatus({ 
-        type: 'error', 
-        message: `Location validation failed: ${error.message || 'Unknown error'}. Try entering coordinates manually.` 
-      });
-      setTimeout(() => setGeocodingStatus(null), 5000);
-    }
-  };
-
-  const handleStreetBlur = () => {
-    if (address.street && (address.city || address.zipCode)) {
-      geocodeAddress(address);
-    }
-  };
-
-  const handleZipCodeChange = (value) => {
-    onChange({ ...address, zipCode: value });
-    if (value.length === 4 && address.city) {
-      setGeocodingStatus({ type: 'info', message: 'Verifying zip code...' });
-      setTimeout(() => setGeocodingStatus(null), 1500);
     }
   };
 
@@ -419,6 +258,14 @@ function AddressSection({
               icon={<CheckCircle sx={{ fontSize: 14 }} />}
             />
           )}
+          {!address.latitude && !address.longitude && address.city && (
+            <Chip 
+              size="small" 
+              label="⏳ Will geocode after save" 
+              color="warning" 
+              variant="outlined"
+            />
+          )}
         </Stack>
         
         <Grid container spacing={2}>
@@ -428,7 +275,6 @@ function AddressSection({
               label="Street Address"
               value={address.street || ''}
               onChange={(e) => onChange({ ...address, street: e.target.value })}
-              onBlur={handleStreetBlur}
               error={!!errors.street}
               helperText={errors.street}
               size="small"
@@ -476,7 +322,7 @@ function AddressSection({
               fullWidth
               label="Postal Code"
               value={address.zipCode || ''}
-              onChange={(e) => handleZipCodeChange(e.target.value)}
+              onChange={(e) => onChange({ ...address, zipCode: e.target.value })}
               error={!!errors.zipCode}
               helperText={errors.zipCode}
               size="small"
@@ -504,11 +350,11 @@ function AddressSection({
             </FormControl>
           </Grid>
 
-          {/* ===================== NEW: Manual coordinate entry ===================== */}
+          {/* Manual coordinate entry (optional) */}
           <Grid item xs={12}>
             <Divider sx={{ my: 1 }} />
             <Typography variant="caption" color="text.secondary" gutterBottom>
-              Manual Coordinates (optional - use if address validation fails)
+              Coordinates (optional - will be auto-filled after save)
             </Typography>
             <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
               <TextField
@@ -539,41 +385,10 @@ function AddressSection({
               />
             </Stack>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              Enter coordinates manually if address validation keeps failing
+              Enter coordinates manually if you have them, or they'll be geocoded after saving
             </Typography>
           </Grid>
         </Grid>
-        
-        {geocodingStatus && (
-          <Alert 
-            severity={geocodingStatus.type} 
-            sx={{ mt: 2 }} 
-            icon={geocodingStatus.type === 'loading' ? <CircularProgress size={16} /> : undefined}
-            onClose={() => setGeocodingStatus(null)}
-          >
-            {geocodingStatus.message}
-          </Alert>
-        )}
-        
-        {(address.latitude || address.longitude) && (
-          <Box sx={{ mt: 1 }}>
-            <Button
-              size="small"
-              onClick={() => setShowMap(!showMap)}
-              startIcon={<MyLocation />}
-            >
-              {showMap ? 'Hide Map' : 'Show Map Preview'}
-            </Button>
-          </Box>
-        )}
-        
-        {showMap && address.latitude && address.longitude && (
-          <Box sx={{ mt: 2, height: 200, bgcolor: '#f5f5f5', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
-              Map view would show location at {address.latitude}, {address.longitude}
-            </Typography>
-          </Box>
-        )}
       </CardContent>
     </Card>
   );
@@ -583,6 +398,7 @@ function AddressSection({
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [geocodingInProgress, setGeocodingInProgress] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
@@ -591,6 +407,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [formErrors, setFormErrors] = useState({});
   const [routePreview, setRoutePreview] = useState(null);
   const [calculatingRoute, setCalculatingRoute] = useState(false);
+  const [createdTripId, setCreatedTripId] = useState(null);
+  const [showGeocodeNotification, setShowGeocodeNotification] = useState(false);
 
   const [origin, setOrigin] = useState({
     street: '',
@@ -654,7 +472,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     cancellationReason: ''
   });
 
-  // Load data function - FIXED supervisor loading
+  // Load data function
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -668,22 +486,21 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       setVehicles(filterActiveVehicles(vRes || []));
       setDrivers(filterAvailableDrivers(dRes || []));
       
-      // Load supervisors - FIXED version
+      // Load supervisors
       try {
         const usersResponse = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN');
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
-          // Ensure it's an array
           const supervisorsArray = Array.isArray(usersData) ? usersData : 
                                    (usersData.content || usersData.data || []);
           setSupervisors(supervisorsArray);
         } else {
           console.warn('Supervisors endpoint returned:', usersResponse.status);
-          setSupervisors([]); // Set empty array on error
+          setSupervisors([]);
         }
       } catch (err) {
         console.warn('Could not load supervisors:', err);
-        setSupervisors([]); // Set empty array on error
+        setSupervisors([]);
       }
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -737,6 +554,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         setError(null);
         setSuccessMessage(null);
         setRoutePreview(null);
+        setCreatedTripId(null);
+        setShowGeocodeNotification(false);
+        setGeocodingInProgress(false);
       }, 300);
       
       return () => clearTimeout(timer);
@@ -832,52 +652,104 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, [open, mode, initialData, loadData]);
 
-  // Calculate route preview
-  useEffect(() => {
-    const calculatePreview = async () => {
-      if (!origin.city || !destination.city) return;
-      
-      setCalculatingRoute(true);
-      try {
-        const originAddress = `${origin.street || ''} ${origin.city} ${origin.zipCode || ''} ${origin.province || ''}`.trim();
-        const destAddress = `${destination.street || ''} ${destination.city} ${destination.zipCode || ''} ${destination.province || ''}`.trim();
-        
-        if (originAddress && destAddress) {
-          try {
-            const route = await routingService.calculateRoute(originAddress, destAddress, 'TRUCK');
-            setRoutePreview(route);
-            
-            if (route?.durationHours && !form.estimatedDuration) {
-              setForm(prev => ({ ...prev, estimatedDuration: route.durationHours.toString() }));
-            }
-            if (route?.distanceKm && !form.plannedDistanceKm) {
-              setForm(prev => ({ ...prev, plannedDistanceKm: route.distanceKm.toString() }));
-            }
-            if (route?.durationHours && !form.plannedDurationHours) {
-              setForm(prev => ({ ...prev, plannedDurationHours: route.durationHours.toString() }));
-            }
-          } catch (routeError) {
-            console.error('Route calculation failed:', routeError);
-            setRoutePreview(null);
-          }
-        }
-      } catch (error) {
-        console.error('Route preview failed:', error);
-        setRoutePreview(null);
-      } finally {
-        setCalculatingRoute(false);
-      }
-    };
+  // ===================== NEW: Background geocoding function =====================
+  const geocodeTripInBackground = useCallback(async (tripId, originAddress, destAddress) => {
+    if (!tripId) return;
     
-    const timer = setTimeout(calculatePreview, 1000);
-    return () => clearTimeout(timer);
-  }, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province, form.estimatedDuration, form.plannedDistanceKm, form.plannedDurationHours]);
+    setGeocodingInProgress(true);
+    setShowGeocodeNotification(true);
+    
+    try {
+      console.log('🌐 Starting background geocoding for trip:', tripId);
+      console.log('📍 Origin:', originAddress);
+      console.log('📍 Destination:', destAddress);
+      
+      // Try to geocode origin
+      let originCoords = null;
+      let destCoords = null;
+      
+      // Only geocode if we don't already have coordinates
+      if (!origin.latitude || !origin.longitude) {
+        try {
+          originCoords = await routingService.geocodeAddress(originAddress);
+          if (originCoords) {
+            console.log('✅ Origin geocoded:', originCoords);
+          } else {
+            console.warn('⚠️ Origin geocoding returned no results');
+          }
+        } catch (err) {
+          console.warn('⚠️ Origin geocoding failed:', err.message);
+        }
+      }
+      
+      if (!destination.latitude || !destination.longitude) {
+        try {
+          destCoords = await routingService.geocodeAddress(destAddress);
+          if (destCoords) {
+            console.log('✅ Destination geocoded:', destCoords);
+          } else {
+            console.warn('⚠️ Destination geocoding returned no results');
+          }
+        } catch (err) {
+          console.warn('⚠️ Destination geocoding failed:', err.message);
+        }
+      }
+      
+      // If we got any coordinates, update the trip
+      if (originCoords || destCoords) {
+        const updatePayload = {};
+        
+        if (originCoords) {
+          updatePayload.originLatitude = originCoords.lat;
+          updatePayload.originLongitude = originCoords.lng;
+        }
+        
+        if (destCoords) {
+          updatePayload.destinationLatitude = destCoords.lat;
+          updatePayload.destinationLongitude = destCoords.lng;
+        }
+        
+        console.log('📤 Updating trip with coordinates:', updatePayload);
+        
+        // Update the trip with coordinates
+        await tripService.updateTrip(tripId, updatePayload);
+        console.log('✅ Trip updated with coordinates');
+        
+        // Update local state
+        if (originCoords) {
+          setOrigin(prev => ({ 
+            ...prev, 
+            latitude: originCoords.lat, 
+            longitude: originCoords.lng 
+          }));
+        }
+        if (destCoords) {
+          setDestination(prev => ({ 
+            ...prev, 
+            latitude: destCoords.lat, 
+            longitude: destCoords.lng 
+          }));
+        }
+        
+        setSuccessMessage(prev => 
+          prev + ' ✨ Locations geocoded successfully!'
+        );
+      } else {
+        console.warn('⚠️ No coordinates were geocoded');
+      }
+    } catch (err) {
+      console.error('❌ Background geocoding failed:', err);
+      setError('Geocoding in background failed. You can manually enter coordinates later.');
+    } finally {
+      setGeocodingInProgress(false);
+      setTimeout(() => setShowGeocodeNotification(false), 5000);
+    }
+  }, [origin.latitude, origin.longitude, destination.latitude, destination.longitude]);
 
-  // ===================== UPDATED: validateForm with address validation =====================
+  // Validate form
   const validateForm = useCallback(() => {
     const errors = {};
     
-    // Required fields based on database schema
     if (!origin.city) {
       errors.originCity = 'Origin city is required';
     }
@@ -886,33 +758,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       errors.originProvince = 'Origin province is required';
     }
     
-    // Validate origin address is complete
-    const originAddress = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
-    if (!originAddress || originAddress.length < 10) {
-      errors.origin = 'Origin address is incomplete. Please provide street and city.';
-    }
-    
     if (!destination.city) {
       errors.destinationCity = 'Destination city is required';
     }
     
     if (!destination.province) {
       errors.destinationProvince = 'Destination province is required';
-    }
-    
-    // Validate destination address is complete
-    const destAddress = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
-    if (!destAddress || destAddress.length < 10) {
-      errors.destination = 'Destination address is incomplete. Please provide street and city.';
-    }
-    
-    // Check if geocoding was successful (warning only, not blocking)
-    if (!origin.latitude || !origin.longitude) {
-      errors.originCoordinates = 'Origin location not verified. Please check address or enter coordinates manually.';
-    }
-    
-    if (!destination.latitude || !destination.longitude) {
-      errors.destinationCoordinates = 'Destination location not verified. Please check address or enter coordinates manually.';
     }
     
     if (!form.plannedStartDate) {
@@ -993,197 +844,183 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setDestination(origin);
   };
 
-  // ===================== UPDATED: handleSubmit with geocoding check =====================
+  // ===================== UPDATED: handleSubmit - saves first, geocodes later =====================
   const handleSubmit = useCallback(async () => {
-  // Prevent multiple submissions
-  if (submitting) {
-    console.log('⚠️ Submission already in progress, ignoring...');
-    return;
-  }
-  
-  const errors = validateForm();
-  if (Object.keys(errors).length > 0) {
-    setFormErrors(errors);
-    // Scroll to first error
-    const firstErrorField = Object.keys(errors)[0];
-    const element = document.querySelector(`[name="${firstErrorField}"]`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Prevent multiple submissions
+    if (submitting) {
+      console.log('⚠️ Submission already in progress, ignoring...');
+      return;
     }
-    return;
-  }
-  
-  // Check if addresses were geocoded (warning but allow submission if coordinates provided)
-  if (!origin.latitude || !origin.longitude) {
-    const shouldContinue = window.confirm(
-      'Origin location could not be verified. The trip may not be created successfully. Continue anyway?'
-    );
-    if (!shouldContinue) return;
-  }
-  
-  if (!destination.latitude || !destination.longitude) {
-    const shouldContinue = window.confirm(
-      'Destination location could not be verified. The trip may not be created successfully. Continue anyway?'
-    );
-    if (!shouldContinue) return;
-  }
-  
-  setSubmitting(true);
-  setError(null);
-  setSuccessMessage(null);
-  
-  try {
-    // Debug logging for addresses
-    const originFull = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
-    const destFull = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
     
-    console.log('📍 Origin address:', originFull);
-    console.log('📍 Destination address:', destFull);
-    console.log('📍 Origin coords:', origin.latitude, origin.longitude);
-    console.log('📍 Destination coords:', destination.latitude, destination.longitude);
-    
-    // ============ FIX: Always send location strings for validation ============
-    // Build location strings - backend validation requires these
-    const originLocation = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
-    const destinationLocation = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
-    
-    console.log('📍 Origin location string (for validation):', originLocation);
-    console.log('📍 Destination location string (for validation):', destinationLocation);
-    
-    // Build payload WITHOUT tripNumber
-    const payload = {
-      // ❌ DO NOT INCLUDE tripNumber
-      tripType: form.tripType,
-      status: form.status,
-      approvalStatus: form.approvalStatus || 'PENDING',
-      priority: form.priority,
-      
-      plannedStartDate: formatDateForAPI(form.plannedStartDate),
-      plannedEndDate: formatDateForAPI(form.plannedEndDate),
-      estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
-      plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
-      plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
-      
-      tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
-      otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
-      
-      vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
-      driverId: form.driverId ? parseInt(form.driverId, 10) : null,
-      supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
-      loadId: form.loadId ? parseInt(form.loadId, 10) : null,
-      
-      commodityType: form.commodityType || null,
-      cargoDescription: form.cargoDescription || null,
-      cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-      cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
-      palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
-      containerNumber: form.containerNumber || null,
-      
-      originStreetAddress: origin.street || null,
-      originCity: origin.city,
-      originZipCode: origin.zipCode || null,
-      originProvince: origin.province || null,
-      originLatitude: origin.latitude,
-      originLongitude: origin.longitude,
-      originLocation: originLocation, // Always send for validation
-      
-      destinationStreetAddress: destination.street || null,
-      destinationCity: destination.city,
-      destinationZipCode: destination.zipCode || null,
-      destinationProvince: destination.province || null,
-      destinationLatitude: destination.latitude,
-      destinationLongitude: destination.longitude,
-      destinationLocation: destinationLocation, // Always send for validation
-      
-      notes: form.notes || null,
-      specialInstructions: form.specialInstructions || null,
-      driverNotes: form.driverNotes || null,
-      referenceNumber: form.referenceNumber || null,
-      purchaseOrderNumber: form.purchaseOrderNumber || null,
-      cancellationReason: form.cancellationReason || null,
-      
-      auditTrail: JSON.stringify([{
-        action: 'CREATED',
-        timestamp: new Date().toISOString(),
-        details: 'Trip created'
-      }]),
-      
-      incidentsLogged: 0
-    };
-    
-    // Remove any undefined or null values
-    Object.keys(payload).forEach(key => {
-      if (payload[key] === undefined || payload[key] === null) {
-        delete payload[key];
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      const firstErrorField = Object.keys(errors)[0];
+      const element = document.querySelector(`[name="${firstErrorField}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    });
-    
-    console.log('📤 Creating trip with payload:', payload);
-    
-    const result = await tripService.createTrip(payload);
-    
-    console.log('✅ Trip created successfully:', result);
-    
-    // Show success message
-    setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
-    
-    // Refresh the trip list if fetchTrips prop is provided
-    if (fetchTrips && typeof fetchTrips === 'function') {
-      await fetchTrips();
+      return;
     }
     
-    // Call success callback
-    if (onSuccess && typeof onSuccess === 'function') {
-      onSuccess(result);
-    }
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
     
-    // Close the dialog after short delay
-    setTimeout(() => {
-      if (onClose && typeof onClose === 'function') {
-        onClose();
+    try {
+      // Build address strings
+      const originAddress = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
+      const destAddress = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
+      
+      console.log('📍 Origin address:', originAddress);
+      console.log('📍 Destination address:', destAddress);
+      
+      // Build payload - include location strings but NOT coordinates
+      // Coordinates will be added later via background geocoding
+      const payload = {
+        tripType: form.tripType,
+        status: form.status,
+        approvalStatus: form.approvalStatus || 'PENDING',
+        priority: form.priority,
+        
+        plannedStartDate: formatDateForAPI(form.plannedStartDate),
+        plannedEndDate: formatDateForAPI(form.plannedEndDate),
+        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
+        plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
+        plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
+        
+        tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
+        otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
+        
+        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
+        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+        supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
+        loadId: form.loadId ? parseInt(form.loadId, 10) : null,
+        
+        commodityType: form.commodityType || null,
+        cargoDescription: form.cargoDescription || null,
+        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
+        palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
+        containerNumber: form.containerNumber || null,
+        
+        originStreetAddress: origin.street || null,
+        originCity: origin.city,
+        originZipCode: origin.zipCode || null,
+        originProvince: origin.province || null,
+        // Don't send coordinates - will be geocoded in background
+        originLatitude: origin.latitude || null,
+        originLongitude: origin.longitude || null,
+        originLocation: originAddress,
+        
+        destinationStreetAddress: destination.street || null,
+        destinationCity: destination.city,
+        destinationZipCode: destination.zipCode || null,
+        destinationProvince: destination.province || null,
+        destinationLatitude: destination.latitude || null,
+        destinationLongitude: destination.longitude || null,
+        destinationLocation: destAddress,
+        
+        notes: form.notes || null,
+        specialInstructions: form.specialInstructions || null,
+        driverNotes: form.driverNotes || null,
+        referenceNumber: form.referenceNumber || null,
+        purchaseOrderNumber: form.purchaseOrderNumber || null,
+        cancellationReason: form.cancellationReason || null,
+        
+        auditTrail: JSON.stringify([{
+          action: 'CREATED',
+          timestamp: new Date().toISOString(),
+          details: 'Trip created'
+        }]),
+        
+        incidentsLogged: 0
+      };
+      
+      // Remove any undefined or null values
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined || payload[key] === null) {
+          delete payload[key];
+        }
+      });
+      
+      console.log('📤 Creating trip with payload (without coordinates):', payload);
+      
+      const result = await tripService.createTrip(payload);
+      
+      console.log('✅ Trip created successfully:', result);
+      
+      // Store the trip ID for background geocoding
+      setCreatedTripId(result.id);
+      
+      // Show success message
+      setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+      
+      // ============ START BACKGROUND GEOCODING ============
+      // Check if we need to geocode any locations
+      const needsGeocoding = 
+        (!origin.latitude || !origin.longitude) || 
+        (!destination.latitude || !destination.longitude);
+      
+      if (needsGeocoding) {
+        setSuccessMessage(prev => prev + ' 🔄 Geocoding locations in background...');
+        // Don't await - let it run in background
+        geocodeTripInBackground(result.id, originAddress, destAddress);
       }
-    }, 1500);
-    
-  } catch (err) {
-    console.error('❌ Create trip error:', err);
-    
-    let errorMessage = 'Failed to create trip';
-    
-    if (err.response?.status === 409) {
-      errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
-    } else if (err.response?.status === 400) {
-      // Try to get detailed validation errors
-      if (err.response?.data?.errors) {
-        const validationErrors = Object.values(err.response.data.errors).flat().join('; ');
-        errorMessage = `Validation failed: ${validationErrors}`;
+      
+      // Refresh the trip list
+      if (fetchTrips && typeof fetchTrips === 'function') {
+        await fetchTrips();
+      }
+      
+      // Call success callback
+      if (onSuccess && typeof onSuccess === 'function') {
+        onSuccess(result);
+      }
+      
+      // Close the dialog after short delay
+      setTimeout(() => {
+        if (onClose && typeof onClose === 'function') {
+          onClose();
+        }
+      }, 1500);
+      
+    } catch (err) {
+      console.error('❌ Create trip error:', err);
+      
+      let errorMessage = 'Failed to create trip';
+      
+      if (err.response?.status === 409) {
+        errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
+      } else if (err.response?.status === 400) {
+        if (err.response?.data?.errors) {
+          const validationErrors = Object.values(err.response.data.errors).flat().join('; ');
+          errorMessage = `Validation failed: ${validationErrors}`;
+        } else {
+          errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+        }
+      } else if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to create trips.';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Geocoding service rate limit exceeded. The trip was saved but coordinates will be updated later.';
       } else {
-        errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+        errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
       }
-    } else if (err.response?.status === 403) {
-      errorMessage = 'You do not have permission to create trips.';
-    } else if (err.response?.status === 500) {
-      errorMessage = 'Server error. The address may not be valid. Try entering coordinates manually.';
-      if (err.response?.data?.debug?.message) {
-        errorMessage += `\nDetails: ${err.response.data.debug.message}`;
-      }
-    } else {
-      errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
+      
+      setError(errorMessage);
+    } finally {
+      setSubmitting(false);
     }
-    
-    setError(errorMessage);
-  } finally {
-    setSubmitting(false);
-  }
-}, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting]);
+  }, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting, geocodeTripInBackground]);
 
   const handleDialogClose = useCallback((event, reason) => {
-    if (reason === 'backdropClick' && submitting) {
+    if (reason === 'backdropClick' && (submitting || geocodingInProgress)) {
       return;
     }
     if (onClose && typeof onClose === 'function') {
       onClose();
     }
-  }, [onClose, submitting]);
+  }, [onClose, submitting, geocodingInProgress]);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1198,6 +1035,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           <Typography variant="h6" component="div">
             {mode === 'create' ? 'Create New Trip' : `Edit Trip – ${initialData?.tripNumber || ''}`}
           </Typography>
+          {geocodingInProgress && (
+            <Chip 
+              size="small" 
+              icon={<CircularProgress size={14} />}
+              label="Geocoding in background..." 
+              color="info"
+              sx={{ ml: 2 }}
+            />
+          )}
         </DialogTitle>
 
         <DialogContent dividers sx={{ overflowY: 'auto' }}>
@@ -1219,6 +1065,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
             </Alert>
           )}
 
+          {showGeocodeNotification && !loading && (
+            <Alert severity="info" sx={{ mb: 3 }} icon={<CircularProgress size={16} />}>
+              🌐 Geocoding locations in background... You can close this dialog.
+            </Alert>
+          )}
+
           {!loading && (
             <Box>
               <Stack spacing={3}>
@@ -1231,7 +1083,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                       value={form.tripNumber}
                       disabled
                       size="small"
-                      helperText="Auto-generated unique trip number (not sent for create)"
+                      helperText="Auto-generated unique trip number"
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -1280,31 +1132,19 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   />
                 </Box>
 
-                {/* Route Preview */}
-                {(routePreview || calculatingRoute) && (
-                  <Card variant="outlined" sx={{ bgcolor: '#f5f5f5' }}>
-                    <CardContent>
-                      <Typography variant="subtitle2" gutterBottom>Route Preview</Typography>
-                      {calculatingRoute ? (
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <CircularProgress size={16} />
-                          <Typography variant="body2">Calculating route...</Typography>
-                        </Box>
-                      ) : routePreview && (
-                        <Grid container spacing={2}>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="text.secondary">Distance</Typography>
-                            <Typography variant="body1" fontWeight="bold">{routePreview.distanceKm} km</Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="text.secondary">Est. Duration</Typography>
-                            <Typography variant="body1" fontWeight="bold">{routePreview.durationHours} hours</Typography>
-                          </Grid>
-                        </Grid>
+                {/* Route Preview - Optional, will be calculated after geocoding */}
+                <Card variant="outlined" sx={{ bgcolor: '#f5f5f5' }}>
+                  <CardContent>
+                    <Typography variant="subtitle2" gutterBottom>Route Information</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {origin.latitude && destination.latitude ? (
+                        'Route will be calculated after geocoding completes'
+                      ) : (
+                        '📍 Locations will be geocoded after saving the trip'
                       )}
-                    </CardContent>
-                  </Card>
-                )}
+                    </Typography>
+                  </CardContent>
+                </Card>
 
                 {/* Schedule */}
                 <Card variant="outlined">
@@ -1370,7 +1210,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
                           size="small"
                           InputProps={{ endAdornment: 'km' }}
-                          helperText="From route calculation"
+                          helperText="Will be updated after geocoding"
                         />
                       </Grid>
                       
@@ -1743,15 +1583,19 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         </DialogContent>
 
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
-          <Button startIcon={<Close />} onClick={handleDialogClose} disabled={submitting}>
-            Cancel
+          <Button 
+            startIcon={<Close />} 
+            onClick={handleDialogClose} 
+            disabled={submitting || geocodingInProgress}
+          >
+            {geocodingInProgress ? 'Geocoding...' : 'Cancel'}
           </Button>
           
           <Button
             variant="contained"
             onClick={handleSubmit}
             startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
-            disabled={submitting || loading}
+            disabled={submitting || loading || geocodingInProgress}
           >
             {submitting ? 'Saving...' : (mode === 'create' ? 'Create Trip' : 'Update Trip')}
           </Button>
