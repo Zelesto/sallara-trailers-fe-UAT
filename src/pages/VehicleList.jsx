@@ -34,7 +34,7 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import vehicleService from '../services/vehicleService';
-import Breadcrumbs from '../../components/Layout/Breadcrumbs';
+import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const VehicleList = () => {
   const navigate = useNavigate();
