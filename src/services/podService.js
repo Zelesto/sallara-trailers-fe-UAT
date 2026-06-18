@@ -1,5 +1,5 @@
 // src/services/podService.js
-import api from '../api/axiosConfig';
+import api from './api';
 
 export const podService = {
   /**
