@@ -1,5 +1,5 @@
 // src/services/driverService.js
-import api from '../api/axiosConfig';
+import api from './api/axiosConfig';
 
 export const driverService = {
   /**
