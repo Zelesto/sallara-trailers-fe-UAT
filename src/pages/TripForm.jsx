@@ -995,172 +995,191 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
   // ===================== UPDATED: handleSubmit with geocoding check =====================
   const handleSubmit = useCallback(async () => {
-    // Prevent multiple submissions
-    if (submitting) {
-      console.log('⚠️ Submission already in progress, ignoring...');
-      return;
+  // Prevent multiple submissions
+  if (submitting) {
+    console.log('⚠️ Submission already in progress, ignoring...');
+    return;
+  }
+  
+  const errors = validateForm();
+  if (Object.keys(errors).length > 0) {
+    setFormErrors(errors);
+    // Scroll to first error
+    const firstErrorField = Object.keys(errors)[0];
+    const element = document.querySelector(`[name="${firstErrorField}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+  
+  // Check if addresses were geocoded (warning but allow submission if coordinates provided)
+  if (!origin.latitude || !origin.longitude) {
+    const shouldContinue = window.confirm(
+      'Origin location could not be verified. The trip may not be created successfully. Continue anyway?'
+    );
+    if (!shouldContinue) return;
+  }
+  
+  if (!destination.latitude || !destination.longitude) {
+    const shouldContinue = window.confirm(
+      'Destination location could not be verified. The trip may not be created successfully. Continue anyway?'
+    );
+    if (!shouldContinue) return;
+  }
+  
+  setSubmitting(true);
+  setError(null);
+  setSuccessMessage(null);
+  
+  try {
+    // Debug logging for addresses
+    const originFull = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
+    const destFull = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
+    
+    console.log('📍 Origin address:', originFull);
+    console.log('📍 Destination address:', destFull);
+    console.log('📍 Origin coords:', origin.latitude, origin.longitude);
+    console.log('📍 Destination coords:', destination.latitude, destination.longitude);
+    
+    // ============ FIX: Only send location strings if no coordinates ============
+    // Build origin location string ONLY if no coordinates exist
+    let originLocation = null;
+    if (origin.latitude && origin.longitude) {
+      // If we have coordinates, don't send location string that would trigger geocoding
+      originLocation = null;
+    } else {
+      // Only build location string if we need geocoding
+      originLocation = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
     }
     
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      // Scroll to first error
-      const firstErrorField = Object.keys(errors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Build destination location string ONLY if no coordinates exist
+    let destinationLocation = null;
+    if (destination.latitude && destination.longitude) {
+      destinationLocation = null;
+    } else {
+      destinationLocation = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
+    }
+    
+    // Build payload WITHOUT tripNumber
+    const payload = {
+      // ❌ DO NOT INCLUDE tripNumber
+      tripType: form.tripType,
+      status: form.status,
+      approvalStatus: form.approvalStatus || 'PENDING',
+      priority: form.priority,
+      
+      plannedStartDate: formatDateForAPI(form.plannedStartDate),
+      plannedEndDate: formatDateForAPI(form.plannedEndDate),
+      estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
+      plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
+      plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
+      
+      tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
+      otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
+      
+      vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
+      driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+      supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
+      loadId: form.loadId ? parseInt(form.loadId, 10) : null,
+      
+      commodityType: form.commodityType || null,
+      cargoDescription: form.cargoDescription || null,
+      cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+      cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
+      palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
+      containerNumber: form.containerNumber || null,
+      
+      originStreetAddress: origin.street || null,
+      originCity: origin.city,
+      originZipCode: origin.zipCode || null,
+      originProvince: origin.province || null,
+      originLatitude: origin.latitude,
+      originLongitude: origin.longitude,
+      originLocation: originLocation, // Only if no coordinates
+      
+      destinationStreetAddress: destination.street || null,
+      destinationCity: destination.city,
+      destinationZipCode: destination.zipCode || null,
+      destinationProvince: destination.province || null,
+      destinationLatitude: destination.latitude,
+      destinationLongitude: destination.longitude,
+      destinationLocation: destinationLocation, // Only if no coordinates
+      
+      notes: form.notes || null,
+      specialInstructions: form.specialInstructions || null,
+      driverNotes: form.driverNotes || null,
+      referenceNumber: form.referenceNumber || null,
+      purchaseOrderNumber: form.purchaseOrderNumber || null,
+      cancellationReason: form.cancellationReason || null,
+      
+      auditTrail: JSON.stringify([{
+        action: 'CREATED',
+        timestamp: new Date().toISOString(),
+        details: 'Trip created'
+      }]),
+      
+      incidentsLogged: 0
+    };
+    
+    // Remove any undefined or null values
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined || payload[key] === null) {
+        delete payload[key];
       }
-      return;
+    });
+    
+    console.log('📤 Creating trip with payload:', payload);
+    
+    const result = await tripService.createTrip(payload);
+    
+    console.log('✅ Trip created successfully:', result);
+    
+    // Show success message
+    setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+    
+    // Refresh the trip list if fetchTrips prop is provided
+    if (fetchTrips && typeof fetchTrips === 'function') {
+      await fetchTrips();
     }
     
-    // Check if addresses were geocoded (warning but allow submission if coordinates provided)
-    if (!origin.latitude || !origin.longitude) {
-      const shouldContinue = window.confirm(
-        'Origin location could not be verified. The trip may not be created successfully. Continue anyway?'
-      );
-      if (!shouldContinue) return;
+    // Call success callback
+    if (onSuccess && typeof onSuccess === 'function') {
+      onSuccess(result);
     }
     
-    if (!destination.latitude || !destination.longitude) {
-      const shouldContinue = window.confirm(
-        'Destination location could not be verified. The trip may not be created successfully. Continue anyway?'
-      );
-      if (!shouldContinue) return;
-    }
-    
-    setSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
-    
-    try {
-      // Debug logging for addresses
-      const originFull = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
-      const destFull = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
-      
-      console.log('📍 Origin address:', originFull);
-      console.log('📍 Destination address:', destFull);
-      console.log('📍 Origin coords:', origin.latitude, origin.longitude);
-      console.log('📍 Destination coords:', destination.latitude, destination.longitude);
-      
-      // Build payload WITHOUT tripNumber
-      const payload = {
-        // ❌ DO NOT INCLUDE tripNumber
-        tripType: form.tripType,
-        status: form.status,
-        approvalStatus: form.approvalStatus || 'PENDING',
-        priority: form.priority,
-        
-        plannedStartDate: formatDateForAPI(form.plannedStartDate),
-        plannedEndDate: formatDateForAPI(form.plannedEndDate),
-        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
-        plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
-        plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
-        
-        tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
-        otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
-        
-        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
-        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
-        supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
-        loadId: form.loadId ? parseInt(form.loadId, 10) : null,
-        
-        commodityType: form.commodityType || null,
-        cargoDescription: form.cargoDescription || null,
-        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
-        palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
-        containerNumber: form.containerNumber || null,
-        
-        originStreetAddress: origin.street || null,
-        originCity: origin.city,
-        originZipCode: origin.zipCode || null,
-        originProvince: origin.province || null,
-        originLatitude: origin.latitude,
-        originLongitude: origin.longitude,
-        originLocation: [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', '),
-        
-        destinationStreetAddress: destination.street || null,
-        destinationCity: destination.city,
-        destinationZipCode: destination.zipCode || null,
-        destinationProvince: destination.province || null,
-        destinationLatitude: destination.latitude,
-        destinationLongitude: destination.longitude,
-        destinationLocation: [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', '),
-        
-        notes: form.notes || null,
-        specialInstructions: form.specialInstructions || null,
-        driverNotes: form.driverNotes || null,
-        referenceNumber: form.referenceNumber || null,
-        purchaseOrderNumber: form.purchaseOrderNumber || null,
-        cancellationReason: form.cancellationReason || null,
-        
-        auditTrail: JSON.stringify([{
-          action: 'CREATED',
-          timestamp: new Date().toISOString(),
-          details: 'Trip created'
-        }]),
-        
-        incidentsLogged: 0
-      };
-      
-      // Remove any undefined or null values
-      Object.keys(payload).forEach(key => {
-        if (payload[key] === undefined || payload[key] === null) {
-          delete payload[key];
-        }
-      });
-      
-      console.log('📤 Creating trip with payload:', payload);
-      
-      const result = await tripService.createTrip(payload);
-      
-      console.log('✅ Trip created successfully:', result);
-      
-      // Show success message
-      setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
-      
-      // Refresh the trip list if fetchTrips prop is provided
-      if (fetchTrips && typeof fetchTrips === 'function') {
-        await fetchTrips();
+    // Close the dialog after short delay
+    setTimeout(() => {
+      if (onClose && typeof onClose === 'function') {
+        onClose();
       }
-      
-      // Call success callback
-      if (onSuccess && typeof onSuccess === 'function') {
-        onSuccess(result);
+    }, 1500);
+    
+  } catch (err) {
+    console.error('❌ Create trip error:', err);
+    
+    let errorMessage = 'Failed to create trip';
+    
+    if (err.response?.status === 409) {
+      errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
+    } else if (err.response?.status === 400) {
+      errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+    } else if (err.response?.status === 403) {
+      errorMessage = 'You do not have permission to create trips.';
+    } else if (err.response?.status === 500) {
+      errorMessage = 'Server error. The address may not be valid. Try entering coordinates manually.';
+      if (err.response?.data?.debug?.message) {
+        errorMessage += `\nDetails: ${err.response.data.debug.message}`;
       }
-      
-      // Close the dialog after short delay
-      setTimeout(() => {
-        if (onClose && typeof onClose === 'function') {
-          onClose();
-        }
-      }, 1500);
-      
-    } catch (err) {
-      console.error('❌ Create trip error:', err);
-      
-      let errorMessage = 'Failed to create trip';
-      
-      if (err.response?.status === 409) {
-        errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
-      } else if (err.response?.status === 400) {
-        errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'You do not have permission to create trips.';
-      } else if (err.response?.status === 500) {
-        errorMessage = 'Server error. The address may not be valid. Try entering coordinates manually.';
-        if (err.response?.data?.debug?.message) {
-          errorMessage += `\nDetails: ${err.response.data.debug.message}`;
-        }
-      } else {
-        errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setSubmitting(false);
+    } else {
+      errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
     }
-  }, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting]);
+    
+    setError(errorMessage);
+  } finally {
+    setSubmitting(false);
+  }
+}, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting]);
 
   const handleDialogClose = useCallback((event, reason) => {
     if (reason === 'backdropClick' && submitting) {
