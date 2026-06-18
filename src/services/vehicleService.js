@@ -1,34 +1,27 @@
 // src/services/vehicleService.js
-import api from './api';
+import api from '../api/axiosConfig';
 
 export const vehicleService = {
-  // ==========================
-  // Vehicle CRUD Operations
-  // ==========================
-
   /**
    * Get all vehicles
+   * @param {Object} params - Query parameters (page, size, sort, search)
    * @returns {Promise<Array>} List of vehicles
    */
-  getAllVehicles: async () => {
+  getAllVehicles: async (params = {}) => {
     try {
-      const response = await api.get('/vehicles');
+      const response = await api.get('/vehicles', { params });
       console.log('Vehicle Service Response:', response);
       
       // Handle different response structures
-      if (response?.data?.content !== undefined) {
+      if (response?.content !== undefined) {
         // Paginated response
-        return response.data.content;
-      }
-      if (Array.isArray(response?.data)) {
-        // Array in data property
-        return response.data;
+        return response.content;
       }
       if (Array.isArray(response)) {
         // Direct array response
         return response;
       }
-      return response?.data || [];
+      return response || [];
     } catch (error) {
       console.error('Error fetching vehicles:', error);
       throw error;
@@ -43,7 +36,7 @@ export const vehicleService = {
   getVehicleById: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching vehicle ${id}:`, error);
       throw error;
@@ -60,11 +53,9 @@ export const vehicleService = {
       console.log('Creating vehicle with data:', vehicleData);
       const response = await api.post('/vehicles', vehicleData);
       console.log('Vehicle created successfully:', response);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error('Error creating vehicle:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
       throw error;
     }
   },
@@ -78,9 +69,25 @@ export const vehicleService = {
   updateVehicle: async (id, vehicleData) => {
     try {
       const response = await api.put(`/vehicles/${id}`, vehicleData);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error updating vehicle ${id}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Patch/Partially update a vehicle
+   * @param {number|string} id - Vehicle ID
+   * @param {Object} vehicleData - Partial vehicle data
+   * @returns {Promise<Object>} Updated vehicle
+   */
+  patchVehicle: async (id, vehicleData) => {
+    try {
+      const response = await api.patch(`/vehicles/${id}`, vehicleData);
+      return response;
+    } catch (error) {
+      console.error(`Error patching vehicle ${id}:`, error);
       throw error;
     }
   },
@@ -93,7 +100,7 @@ export const vehicleService = {
   deleteVehicle: async (id) => {
     try {
       const response = await api.delete(`/vehicles/${id}`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error deleting vehicle ${id}:`, error);
       throw error;
@@ -108,7 +115,7 @@ export const vehicleService = {
   getVehicleByRegistration: async (registrationNumber) => {
     try {
       const response = await api.get(`/vehicles/registration/${registrationNumber}`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching vehicle by registration ${registrationNumber}:`, error);
       throw error;
@@ -125,7 +132,7 @@ export const vehicleService = {
       const response = await api.get('/vehicles/search', {
         params: { q: searchTerm }
       });
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error('Error searching vehicles:', error);
       throw error;
@@ -142,7 +149,7 @@ export const vehicleService = {
       const response = await api.get('/vehicles/status', {
         params: { status }
       });
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error(`Error fetching vehicles with status ${status}:`, error);
       throw error;
@@ -156,7 +163,7 @@ export const vehicleService = {
   getAvailableVehicles: async () => {
     try {
       const response = await api.get('/vehicles/available');
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error('Error fetching available vehicles:', error);
       throw error;
@@ -172,7 +179,7 @@ export const vehicleService = {
   updateVehicleStatus: async (id, status) => {
     try {
       const response = await api.patch(`/vehicles/${id}/status`, { status });
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error updating vehicle status ${id}:`, error);
       throw error;
@@ -187,7 +194,7 @@ export const vehicleService = {
   getVehicleMaintenanceHistory: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}/maintenance`);
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error(`Error fetching maintenance history for vehicle ${id}:`, error);
       throw error;
@@ -202,7 +209,7 @@ export const vehicleService = {
   getVehicleStatistics: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}/statistics`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching statistics for vehicle ${id}:`, error);
       throw error;
@@ -218,7 +225,7 @@ export const vehicleService = {
   getVehicleTripHistory: async (id, params = {}) => {
     try {
       const response = await api.get(`/vehicles/${id}/trips`, { params });
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching trip history for vehicle ${id}:`, error);
       throw error;
