@@ -139,7 +139,7 @@ const Login = () => {
             fontWeight: 500,
           }}
         >
-          PGSA Trailers
+          Sallara Trailers
         </Typography>
 
         <Typography
@@ -260,7 +260,7 @@ const Login = () => {
             color="text.secondary"
             display="block"
           >
-            www.phoenixgroupsa.co.za
+            www.sallara.co.za
           </Typography>
 
           <Typography
@@ -268,7 +268,7 @@ const Login = () => {
             color="text.secondary"
             display="block"
           >
-            IT-info@phoenixgroupsa.co.za
+            IT@sallara.co.za
           </Typography>
         </Box>
       </Paper>
