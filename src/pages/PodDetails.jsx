@@ -31,7 +31,7 @@ import {
   History as HistoryIcon,
 } from '@mui/icons-material';
 import podService from '../services/podService';
-import Breadcrumbs from '../../components/Layout/Breadcrumbs';
+import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const PODDetails = () => {
   const { id } = useParams();
