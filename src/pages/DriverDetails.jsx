@@ -27,7 +27,7 @@ import {
   LocationOn as LocationIcon,
   DirectionsCar as CarIcon,
 } from '@mui/icons-material';
-import driverService from '../../services/driverService';
+import driverService from '../services/driverService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const DriverDetails = () => {
