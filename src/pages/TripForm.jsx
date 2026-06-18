@@ -126,6 +126,59 @@ const PROVINCES = [
   'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
 ];
 
+// ===================== NEW: Address Validation Helpers =====================
+const validateAndFormatAddress = (address) => {
+  if (!address) return null;
+  
+  // Remove extra spaces
+  let formatted = address.trim().replace(/\s+/g, ' ');
+  
+  // Fix common issues with South African addresses
+  // Fix "ext" without space
+  formatted = formatted.replace(/ext(\d+)/gi, 'Ext $1');
+  formatted = formatted.replace(/extension(\d+)/gi, 'Ext $1');
+  
+  // Fix common misspellings
+  formatted = formatted.replace(/\bdriv\b/gi, 'Drive');
+  formatted = formatted.replace(/\bdrve\b/gi, 'Drive');
+  formatted = formatted.replace(/\bdrv\b/gi, 'Drive');
+  formatted = formatted.replace(/\brd\b/gi, 'Road');
+  formatted = formatted.replace(/\bst\b/gi, 'Street');
+  formatted = formatted.replace(/\bave\b/gi, 'Avenue');
+  formatted = formatted.replace(/\bln\b/gi, 'Lane');
+  
+  // Fix "ponong" - this appears to be a misspelling
+  formatted = formatted.replace(/\bponong\b/gi, 'Phoenix');
+  
+  return formatted;
+};
+
+const isAddressComplete = (address) => {
+  if (!address) return false;
+  
+  const parts = address.split(',').map(p => p.trim());
+  
+  // Need at least street and city
+  if (parts.length < 2) return false;
+  
+  // Check if first part has a number or street identifier
+  const hasStreetNumber = /\d/.test(parts[0]);
+  const hasStreetName = /[A-Za-z]/.test(parts[0]);
+  
+  if (!hasStreetNumber || !hasStreetName) return false;
+  
+  // Check if we have a city/area name
+  let hasCity = false;
+  for (let i = 1; i < parts.length; i++) {
+    if (parts[i].length > 2 && /[A-Za-z]/.test(parts[i]) && !parts[i].match(/^\d+$/)) {
+      hasCity = true;
+      break;
+    }
+  }
+  
+  return hasCity;
+};
+
 // Helper function to extract city from address string
 const extractCityFromAddress = (address) => {
   if (!address) return '';
@@ -267,43 +320,71 @@ function AddressSection({
     }
   };
 
+  // ===================== UPDATED: geocodeAddress with better validation =====================
   const geocodeAddress = async (addressToGeocode) => {
-    if (!addressToGeocode.city && !addressToGeocode.street) return;
+    // Check if we have minimum required fields
+    if (!addressToGeocode.city && !addressToGeocode.street) {
+      setGeocodingStatus({ 
+        type: 'warning', 
+        message: 'Please provide at least street and city' 
+      });
+      return;
+    }
     
     setGeocodingStatus({ type: 'loading', message: 'Validating address...' });
     
     try {
-      const fullAddress = `${addressToGeocode.street || ''} ${addressToGeocode.city || ''} ${addressToGeocode.zipCode || ''} ${addressToGeocode.province || ''}`.trim();
+      // Build full address with proper formatting
+      let fullAddress = [
+        addressToGeocode.street || '',
+        addressToGeocode.city || '',
+        addressToGeocode.zipCode || '',
+        addressToGeocode.province || ''
+      ]
+      .filter(Boolean)
+      .join(', ');
       
-      if (!fullAddress) {
-        setGeocodingStatus(null);
+      // Validate and format the address
+      fullAddress = validateAndFormatAddress(fullAddress);
+      
+      if (!fullAddress || !isAddressComplete(fullAddress)) {
+        setGeocodingStatus({ 
+          type: 'warning', 
+          message: 'Address appears incomplete. Please check street and city.' 
+        });
         return;
       }
       
+      console.log(`🔍 Geocoding ${label}:`, fullAddress);
+      
       const coords = await routingService.geocodeAddress(fullAddress);
       
-      if (coords) {
-        onChange({ ...addressToGeocode, latitude: coords.lat, longitude: coords.lng });
+      if (coords && coords.lat && coords.lng) {
+        onChange({ 
+          ...addressToGeocode, 
+          latitude: coords.lat, 
+          longitude: coords.lng 
+        });
         setGeocodingStatus({ 
           type: 'success', 
-          message: 'Location verified ✓' 
+          message: `Location verified ✓ (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})` 
         });
         if (onGeocode) onGeocode(coords);
-        setTimeout(() => setGeocodingStatus(null), 2000);
+        setTimeout(() => setGeocodingStatus(null), 3000);
       } else {
         setGeocodingStatus({ 
           type: 'warning', 
-          message: 'Could not verify exact location, using city center' 
+          message: 'Could not verify exact location. Please check the address format or enter coordinates manually.' 
         });
-        setTimeout(() => setGeocodingStatus(null), 3000);
+        setTimeout(() => setGeocodingStatus(null), 4000);
       }
     } catch (error) {
       console.error('Geocoding error:', error);
       setGeocodingStatus({ 
         type: 'error', 
-        message: 'Location validation failed' 
+        message: `Location validation failed: ${error.message || 'Unknown error'}. Try entering coordinates manually.` 
       });
-      setTimeout(() => setGeocodingStatus(null), 3000);
+      setTimeout(() => setGeocodingStatus(null), 5000);
     }
   };
 
@@ -422,6 +503,45 @@ function AddressSection({
               {errors.province && <FormHelperText>{errors.province}</FormHelperText>}
             </FormControl>
           </Grid>
+
+          {/* ===================== NEW: Manual coordinate entry ===================== */}
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="caption" color="text.secondary" gutterBottom>
+              Manual Coordinates (optional - use if address validation fails)
+            </Typography>
+            <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                label="Latitude"
+                type="number"
+                value={address.latitude || ''}
+                onChange={(e) => onChange({ ...address, latitude: parseFloat(e.target.value) || null })}
+                size="small"
+                placeholder="e.g., -26.3378"
+                disabled={disabled}
+                InputProps={{
+                  inputProps: { step: 'any' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Longitude"
+                type="number"
+                value={address.longitude || ''}
+                onChange={(e) => onChange({ ...address, longitude: parseFloat(e.target.value) || null })}
+                size="small"
+                placeholder="e.g., 28.2023"
+                disabled={disabled}
+                InputProps={{
+                  inputProps: { step: 'any' }
+                }}
+              />
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              Enter coordinates manually if address validation keeps failing
+            </Typography>
+          </Grid>
         </Grid>
         
         {geocodingStatus && (
@@ -429,6 +549,7 @@ function AddressSection({
             severity={geocodingStatus.type} 
             sx={{ mt: 2 }} 
             icon={geocodingStatus.type === 'loading' ? <CircularProgress size={16} /> : undefined}
+            onClose={() => setGeocodingStatus(null)}
           >
             {geocodingStatus.message}
           </Alert>
@@ -752,6 +873,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     return () => clearTimeout(timer);
   }, [origin.city, destination.city, origin.street, destination.street, origin.zipCode, destination.zipCode, origin.province, destination.province, form.estimatedDuration, form.plannedDistanceKm, form.plannedDurationHours]);
 
+  // ===================== UPDATED: validateForm with address validation =====================
   const validateForm = useCallback(() => {
     const errors = {};
     
@@ -764,12 +886,33 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       errors.originProvince = 'Origin province is required';
     }
     
+    // Validate origin address is complete
+    const originAddress = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
+    if (!originAddress || originAddress.length < 10) {
+      errors.origin = 'Origin address is incomplete. Please provide street and city.';
+    }
+    
     if (!destination.city) {
       errors.destinationCity = 'Destination city is required';
     }
     
     if (!destination.province) {
       errors.destinationProvince = 'Destination province is required';
+    }
+    
+    // Validate destination address is complete
+    const destAddress = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
+    if (!destAddress || destAddress.length < 10) {
+      errors.destination = 'Destination address is incomplete. Please provide street and city.';
+    }
+    
+    // Check if geocoding was successful (warning only, not blocking)
+    if (!origin.latitude || !origin.longitude) {
+      errors.originCoordinates = 'Origin location not verified. Please check address or enter coordinates manually.';
+    }
+    
+    if (!destination.latitude || !destination.longitude) {
+      errors.destinationCoordinates = 'Destination location not verified. Please check address or enter coordinates manually.';
     }
     
     if (!form.plannedStartDate) {
@@ -815,7 +958,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
     
     return errors;
-  }, [origin.city, origin.province, destination.city, destination.province, form]);
+  }, [origin, destination, form]);
 
   const handleFieldChange = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -850,6 +993,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setDestination(origin);
   };
 
+  // ===================== UPDATED: handleSubmit with geocoding check =====================
   const handleSubmit = useCallback(async () => {
     // Prevent multiple submissions
     if (submitting) {
@@ -860,7 +1004,28 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
+      // Scroll to first error
+      const firstErrorField = Object.keys(errors)[0];
+      const element = document.querySelector(`[name="${firstErrorField}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
+    }
+    
+    // Check if addresses were geocoded (warning but allow submission if coordinates provided)
+    if (!origin.latitude || !origin.longitude) {
+      const shouldContinue = window.confirm(
+        'Origin location could not be verified. The trip may not be created successfully. Continue anyway?'
+      );
+      if (!shouldContinue) return;
+    }
+    
+    if (!destination.latitude || !destination.longitude) {
+      const shouldContinue = window.confirm(
+        'Destination location could not be verified. The trip may not be created successfully. Continue anyway?'
+      );
+      if (!shouldContinue) return;
     }
     
     setSubmitting(true);
@@ -868,6 +1033,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setSuccessMessage(null);
     
     try {
+      // Debug logging for addresses
+      const originFull = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
+      const destFull = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
+      
+      console.log('📍 Origin address:', originFull);
+      console.log('📍 Destination address:', destFull);
+      console.log('📍 Origin coords:', origin.latitude, origin.longitude);
+      console.log('📍 Destination coords:', destination.latitude, destination.longitude);
+      
       // Build payload WITHOUT tripNumber
       const payload = {
         // ❌ DO NOT INCLUDE tripNumber
@@ -973,6 +1147,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
       } else if (err.response?.status === 403) {
         errorMessage = 'You do not have permission to create trips.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. The address may not be valid. Try entering coordinates manually.';
+        if (err.response?.data?.debug?.message) {
+          errorMessage += `\nDetails: ${err.response.data.debug.message}`;
+        }
       } else {
         errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
       }
