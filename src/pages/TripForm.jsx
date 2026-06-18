@@ -1042,24 +1042,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     console.log('📍 Origin coords:', origin.latitude, origin.longitude);
     console.log('📍 Destination coords:', destination.latitude, destination.longitude);
     
-    // ============ FIX: Only send location strings if no coordinates ============
-    // Build origin location string ONLY if no coordinates exist
-    let originLocation = null;
-    if (origin.latitude && origin.longitude) {
-      // If we have coordinates, don't send location string that would trigger geocoding
-      originLocation = null;
-    } else {
-      // Only build location string if we need geocoding
-      originLocation = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
-    }
+    // ============ FIX: Always send location strings for validation ============
+    // Build location strings - backend validation requires these
+    const originLocation = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
+    const destinationLocation = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
     
-    // Build destination location string ONLY if no coordinates exist
-    let destinationLocation = null;
-    if (destination.latitude && destination.longitude) {
-      destinationLocation = null;
-    } else {
-      destinationLocation = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
-    }
+    console.log('📍 Origin location string (for validation):', originLocation);
+    console.log('📍 Destination location string (for validation):', destinationLocation);
     
     // Build payload WITHOUT tripNumber
     const payload = {
@@ -1096,7 +1085,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       originProvince: origin.province || null,
       originLatitude: origin.latitude,
       originLongitude: origin.longitude,
-      originLocation: originLocation, // Only if no coordinates
+      originLocation: originLocation, // Always send for validation
       
       destinationStreetAddress: destination.street || null,
       destinationCity: destination.city,
@@ -1104,7 +1093,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       destinationProvince: destination.province || null,
       destinationLatitude: destination.latitude,
       destinationLongitude: destination.longitude,
-      destinationLocation: destinationLocation, // Only if no coordinates
+      destinationLocation: destinationLocation, // Always send for validation
       
       notes: form.notes || null,
       specialInstructions: form.specialInstructions || null,
@@ -1163,7 +1152,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     if (err.response?.status === 409) {
       errorMessage = 'Duplicate trip detected. Please check if this trip already exists.';
     } else if (err.response?.status === 400) {
-      errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+      // Try to get detailed validation errors
+      if (err.response?.data?.errors) {
+        const validationErrors = Object.values(err.response.data.errors).flat().join('; ');
+        errorMessage = `Validation failed: ${validationErrors}`;
+      } else {
+        errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+      }
     } else if (err.response?.status === 403) {
       errorMessage = 'You do not have permission to create trips.';
     } else if (err.response?.status === 500) {
