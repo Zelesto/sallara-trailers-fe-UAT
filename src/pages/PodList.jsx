@@ -1,4 +1,4 @@
-// src/pages/pods/PODList.jsx
+// src/pages/PODList.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -36,7 +36,7 @@ import {
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import podService from '../services/podService';
+import { podService } from '../services/podService';
 import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const PODList = () => {
@@ -47,18 +47,17 @@ const PODList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [successMessage, setSuccessMessage] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
-    loadPODs();
+    loadPods();
   }, []);
 
-  const loadPODs = async () => {
+  const loadPods = async () => {
     setLoading(true);
     try {
-      const response = await podService.getAllPODs();
-      setPods(response || []);
+      const response = await podService.getAllPods();
+      const data = Array.isArray(response) ? response : (response?.content || []);
+      setPods(data);
       setError(null);
     } catch (err) {
       setError('Failed to load PODs');
@@ -71,9 +70,9 @@ const PODList = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this POD?')) return;
     try {
-      await podService.deletePOD(id);
+      await podService.deletePod(id);
       setSuccessMessage('POD deleted successfully');
-      loadPODs();
+      loadPods();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError('Failed to delete POD');
@@ -112,18 +111,6 @@ const PODList = () => {
     return icons[type] || <ReceiptIcon fontSize="small" />;
   };
 
-  const getDocumentColor = (type) => {
-    const colors = {
-      PDF: 'error',
-      IMAGE: 'success',
-      JPG: 'success',
-      PNG: 'success',
-      DOC: 'primary',
-      DOCX: 'primary',
-    };
-    return colors[type] || 'default';
-  };
-
   const columns = [
     {
       field: 'podNumber',
@@ -136,12 +123,12 @@ const PODList = () => {
       ),
     },
     {
-      field: 'tripNumber',
-      headerName: 'Trip Number',
-      width: 150,
+      field: 'tripId',
+      headerName: 'Trip ID',
+      width: 100,
       renderCell: (params) => (
         <Chip
-          label={params.value || 'N/A'}
+          label={`#${params.value || 'N/A'}`}
           size="small"
           variant="outlined"
         />
@@ -182,7 +169,6 @@ const PODList = () => {
           icon={getDocumentIcon(params.value)}
           label={params.value || 'N/A'}
           variant="outlined"
-          color={getDocumentColor(params.value)}
         />
       ),
     },
@@ -212,12 +198,6 @@ const PODList = () => {
               size="small"
               color="primary"
               onClick={() => navigate(`/pods/${params.row.id}`)}
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'primary.light',
-                  color: 'white',
-                }
-              }}
             >
               <ViewIcon fontSize="small" />
             </IconButton>
@@ -227,12 +207,6 @@ const PODList = () => {
               size="small"
               color="secondary"
               onClick={() => navigate(`/pods/${params.row.id}/edit`)}
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'secondary.light',
-                  color: 'white',
-                }
-              }}
             >
               <EditIcon fontSize="small" />
             </IconButton>
@@ -242,12 +216,6 @@ const PODList = () => {
               size="small"
               color="error"
               onClick={() => handleDelete(params.row.id)}
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'error.light',
-                  color: 'white',
-                }
-              }}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
@@ -258,16 +226,14 @@ const PODList = () => {
   ];
 
   // Filter PODs
-  const filteredPODs = pods.filter(pod => {
+  const filteredPods = pods.filter(pod => {
     const searchMatch = 
       (pod.podNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (pod.tripNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (pod.customerName || '').toLowerCase().includes(searchTerm.toLowerCase());
     const statusMatch = filterStatus === 'ALL' || pod.status === filterStatus;
     return searchMatch && statusMatch;
   });
 
-  // Stats
   const stats = {
     total: pods.length,
     pending: pods.filter(p => p.status === 'PENDING').length,
@@ -280,119 +246,67 @@ const PODList = () => {
     <Box>
       <Breadcrumbs />
       
-      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">
-            Proof of Delivery (POD) Management
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage all proof of delivery documents
-          </Typography>
+          <Typography variant="h4" fontWeight="bold">Proof of Delivery (POD) Management</Typography>
+          <Typography variant="body2" color="text.secondary">Manage all proof of delivery documents</Typography>
         </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => navigate('/pods/new')}
-          sx={{ 
-            borderRadius: 2,
-            px: 3,
-            py: 1,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            '&:hover': {
-              boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
-            }
-          }}
+          sx={{ borderRadius: 2 }}
         >
           Upload POD
         </Button>
       </Box>
 
-      {/* Alerts */}
-      {error && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 3 }} 
-          onClose={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
-      {successMessage && (
-        <Alert 
-          severity="success" 
-          sx={{ mb: 3 }} 
-          onClose={() => setSuccessMessage('')}
-        >
-          {successMessage}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>{error}</Alert>}
+      {successMessage && <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
 
-      {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={2.4}>
           <Card sx={{ bgcolor: 'primary.light', color: 'white' }}>
             <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                Total PODs
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {stats.total}
-              </Typography>
+              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Total PODs</Typography>
+              <Typography variant="h4" fontWeight="bold">{stats.total}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <Card sx={{ bgcolor: 'warning.main', color: 'white' }}>
             <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                Pending
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {stats.pending}
-              </Typography>
+              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Pending</Typography>
+              <Typography variant="h4" fontWeight="bold">{stats.pending}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <Card sx={{ bgcolor: 'success.main', color: 'white' }}>
             <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                Delivered
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {stats.delivered}
-              </Typography>
+              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Delivered</Typography>
+              <Typography variant="h4" fontWeight="bold">{stats.delivered}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <Card sx={{ bgcolor: 'info.main', color: 'white' }}>
             <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                Verified
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {stats.verified}
-              </Typography>
+              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Verified</Typography>
+              <Typography variant="h4" fontWeight="bold">{stats.verified}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <Card sx={{ bgcolor: 'error.main', color: 'white' }}>
             <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                Rejected
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {stats.rejected}
-              </Typography>
+              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Rejected</Typography>
+              <Typography variant="h4" fontWeight="bold">{stats.rejected}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Toolbar */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <TextField
@@ -402,11 +316,7 @@ const PODList = () => {
             size="small"
             sx={{ flex: 1 }}
             InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
+              startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
             }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -421,28 +331,17 @@ const PODList = () => {
               <MenuItem value="DELIVERED">Delivered</MenuItem>
               <MenuItem value="VERIFIED">Verified</MenuItem>
               <MenuItem value="REJECTED">Rejected</MenuItem>
-              <MenuItem value="CANCELLED">Cancelled</MenuItem>
             </Select>
           </FormControl>
-          <Button 
-            variant="outlined" 
-            startIcon={<RefreshIcon />} 
-            onClick={loadPODs}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPods}>
             Refresh
           </Button>
-          <Button 
-            variant="outlined" 
-            startIcon={<ExportIcon />}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
+          <Button variant="outlined" startIcon={<ExportIcon />}>
             Export
           </Button>
         </Stack>
       </Paper>
 
-      {/* Table */}
       <Paper sx={{ height: 500, width: '100%' }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -451,15 +350,13 @@ const PODList = () => {
           </Box>
         ) : (
           <DataGrid
-            rows={filteredPODs}
+            rows={filteredPods}
             columns={columns}
-            pageSize={rowsPerPage}
+            pageSize={10}
             rowsPerPageOptions={[5, 10, 25, 50]}
             checkboxSelection={false}
             disableRowSelectionOnClick
             getRowId={(row) => row.id}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newSize) => setRowsPerPage(newSize)}
             sx={{
               border: 'none',
               '& .MuiDataGrid-cell': {
@@ -471,16 +368,8 @@ const PODList = () => {
                 backgroundColor: '#f8f9fa',
                 borderBottom: '2px solid #e0e0e0',
               },
-              '& .MuiDataGrid-row': {
-                '&:hover': {
-                  backgroundColor: '#f5f5f5',
-                },
-                '&.Mui-selected': {
-                  backgroundColor: '#e3f2fd',
-                  '&:hover': {
-                    backgroundColor: '#bbdefb',
-                  }
-                }
+              '& .MuiDataGrid-row:hover': {
+                backgroundColor: '#f5f5f5',
               },
               '& .MuiDataGrid-cell:focus': {
                 outline: 'none',
@@ -491,9 +380,6 @@ const PODList = () => {
               '& .MuiDataGrid-columnHeaderTitle': {
                 fontWeight: 600,
                 color: '#333',
-                fontSize: '0.875rem',
-              },
-              '& .MuiDataGrid-cellContent': {
                 fontSize: '0.875rem',
               },
             }}
