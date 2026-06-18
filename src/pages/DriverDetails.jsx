@@ -28,7 +28,7 @@ import {
   DirectionsCar as CarIcon,
 } from '@mui/icons-material';
 import driverService from '../services/driverService';
-import Breadcrumbs from '../../components/Layout/Breadcrumbs';
+import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const DriverDetails = () => {
   const { id } = useParams();
