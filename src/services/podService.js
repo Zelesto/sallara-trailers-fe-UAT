@@ -10,9 +10,21 @@ export const podService = {
   createPod: async (podData) => {
     try {
       const response = await api.post('/pods', podData);
+      console.log('✅ POD created successfully:', response);
       return response;
     } catch (error) {
-      console.error('Error creating POD:', error);
+      console.error('❌ Error creating POD:', error);
+      
+      // Handle specific error cases
+      if (error.status === 409) {
+        const errorMessage = error.data?.detail || 'The selected Trip does not exist or has already been finalized. Please select a valid trip.';
+        throw {
+          ...error,
+          message: errorMessage,
+          userMessage: errorMessage
+        };
+      }
+      
       throw error;
     }
   },
@@ -25,9 +37,10 @@ export const podService = {
   getPodsByTrip: async (tripId) => {
     try {
       const response = await api.get(`/pods/trip/${tripId}`);
+      console.log(`✅ PODs for trip ${tripId}:`, response);
       return Array.isArray(response) ? response : (response?.content || []);
     } catch (error) {
-      console.error(`Error fetching PODs for trip ${tripId}:`, error);
+      console.error(`❌ Error fetching PODs for trip ${tripId}:`, error);
       throw error;
     }
   },
@@ -40,9 +53,10 @@ export const podService = {
   getPodById: async (id) => {
     try {
       const response = await api.get(`/pods/${id}`);
+      console.log(`✅ POD ${id}:`, response);
       return response;
     } catch (error) {
-      console.error(`Error fetching POD ${id}:`, error);
+      console.error(`❌ Error fetching POD ${id}:`, error);
       throw error;
     }
   },
@@ -56,9 +70,20 @@ export const podService = {
   updatePod: async (id, podData) => {
     try {
       const response = await api.put(`/pods/${id}`, podData);
+      console.log(`✅ POD ${id} updated:`, response);
       return response;
     } catch (error) {
-      console.error(`Error updating POD ${id}:`, error);
+      console.error(`❌ Error updating POD ${id}:`, error);
+      
+      if (error.status === 409) {
+        const errorMessage = error.data?.detail || 'The selected Trip does not exist or has already been finalized.';
+        throw {
+          ...error,
+          message: errorMessage,
+          userMessage: errorMessage
+        };
+      }
+      
       throw error;
     }
   },
@@ -71,21 +96,26 @@ export const podService = {
   deletePod: async (id) => {
     try {
       const response = await api.delete(`/pods/${id}`);
+      console.log(`✅ POD ${id} deleted:`, response);
       return response;
     } catch (error) {
-      console.error(`Error deleting POD ${id}:`, error);
+      console.error(`❌ Error deleting POD ${id}:`, error);
       throw error;
     }
   },
 
   /**
    * Get all PODs (with pagination)
-   * @param {Object} params - Query parameters
+   * @param {Object} params - Query parameters (page, size, sort, status, search)
    * @returns {Promise<Object>} Paginated PODs
    */
   getAllPods: async (params = {}) => {
     try {
+      console.log('📡 Fetching PODs with params:', params);
       const response = await api.get('/pods', { params });
+      console.log('✅ getAllPods response:', response);
+      
+      // Handle different response structures
       if (response?.content !== undefined) {
         return response;
       }
@@ -106,7 +136,20 @@ export const podService = {
         size: 0,
       };
     } catch (error) {
-      console.error('Error fetching PODs:', error);
+      console.error('❌ Error fetching PODs:', error);
+      
+      // If endpoint doesn't exist yet, return empty data
+      if (error.status === 404) {
+        console.warn('⚠️ POD endpoint not found, returning empty data');
+        return {
+          content: [],
+          totalElements: 0,
+          totalPages: 1,
+          number: 0,
+          size: 0,
+        };
+      }
+      
       throw error;
     }
   },
@@ -114,16 +157,26 @@ export const podService = {
   /**
    * Search PODs
    * @param {string} searchTerm - Search term
+   * @param {Object} params - Additional query parameters
    * @returns {Promise<Array>} List of matching PODs
    */
-  searchPods: async (searchTerm) => {
+  searchPods: async (searchTerm, params = {}) => {
     try {
       const response = await api.get('/pods/search', {
-        params: { q: searchTerm }
+        params: { 
+          q: searchTerm,
+          ...params 
+        }
       });
+      console.log(`✅ Search PODs for "${searchTerm}":`, response);
       return Array.isArray(response) ? response : (response?.content || []);
     } catch (error) {
-      console.error('Error searching PODs:', error);
+      console.error(`❌ Error searching PODs for "${searchTerm}":`, error);
+      
+      if (error.status === 404) {
+        return [];
+      }
+      
       throw error;
     }
   },
@@ -132,15 +185,164 @@ export const podService = {
    * Update POD status
    * @param {number|string} id - POD ID
    * @param {string} status - New status
+   * @param {Object} options - Additional options (notes, etc.)
    * @returns {Promise<Object>} Updated POD
    */
-  updatePodStatus: async (id, status) => {
+  updatePodStatus: async (id, status, options = {}) => {
     try {
-      const response = await api.patch(`/pods/${id}/status`, { status });
+      const payload = { 
+        status,
+        ...options,
+        updatedAt: new Date().toISOString()
+      };
+      const response = await api.patch(`/pods/${id}/status`, payload);
+      console.log(`✅ POD ${id} status updated to ${status}:`, response);
       return response;
     } catch (error) {
-      console.error(`Error updating POD status ${id}:`, error);
+      console.error(`❌ Error updating POD status ${id}:`, error);
       throw error;
+    }
+  },
+
+  /**
+   * Verify a POD
+   * @param {number|string} id - POD ID
+   * @param {string} verifiedBy - Person who verified
+   * @param {string} notes - Verification notes
+   * @returns {Promise<Object>} Updated POD
+   */
+  verifyPod: async (id, verifiedBy, notes = '') => {
+    try {
+      const response = await api.post(`/pods/${id}/verify`, {
+        verifiedBy,
+        notes,
+        verifiedAt: new Date().toISOString(),
+      });
+      console.log(`✅ POD ${id} verified by ${verifiedBy}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error verifying POD ${id}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reject a POD
+   * @param {number|string} id - POD ID
+   * @param {string} rejectedBy - Person who rejected
+   * @param {string} reason - Rejection reason
+   * @returns {Promise<Object>} Updated POD
+   */
+  rejectPod: async (id, rejectedBy, reason) => {
+    try {
+      const response = await api.post(`/pods/${id}/reject`, {
+        rejectedBy,
+        reason,
+        rejectedAt: new Date().toISOString(),
+      });
+      console.log(`✅ POD ${id} rejected by ${rejectedBy}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error rejecting POD ${id}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get POD statistics
+   * @returns {Promise<Object>} POD statistics
+   */
+  getPodStatistics: async () => {
+    try {
+      const response = await api.get('/pods/statistics');
+      console.log('✅ POD statistics:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching POD statistics:', error);
+      
+      if (error.status === 404) {
+        return {
+          total: 0,
+          pending: 0,
+          delivered: 0,
+          verified: 0,
+          rejected: 0
+        };
+      }
+      
+      throw error;
+    }
+  },
+
+  /**
+   * Download POD document
+   * @param {number|string} id - POD ID
+   * @returns {Promise<Blob>} Document blob
+   */
+  downloadPod: async (id) => {
+    try {
+      const response = await api.get(`/pods/${id}/download`, {
+        responseType: 'blob',
+      });
+      console.log(`✅ POD ${id} downloaded`);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error downloading POD ${id}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Upload POD document
+   * @param {number|string} id - POD ID
+   * @param {File} file - Document file
+   * @returns {Promise<Object>} Upload response
+   */
+  uploadPodDocument: async (id, file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await api.post(`/pods/${id}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      console.log(`✅ Document uploaded for POD ${id}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error uploading document for POD ${id}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get POD by POD number
+   * @param {string} podNumber - POD number
+   * @returns {Promise<Object>} POD object
+   */
+  getPodByNumber: async (podNumber) => {
+    try {
+      const response = await api.get(`/pods/number/${podNumber}`);
+      console.log(`✅ POD by number ${podNumber}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error fetching POD by number ${podNumber}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get POD status history
+   * @param {number|string} id - POD ID
+   * @returns {Promise<Array>} Status history
+   */
+  getPodStatusHistory: async (id) => {
+    try {
+      const response = await api.get(`/pods/${id}/status-history`);
+      console.log(`✅ POD ${id} status history:`, response);
+      return Array.isArray(response) ? response : (response?.data || []);
+    } catch (error) {
+      console.error(`❌ Error fetching status history for POD ${id}:`, error);
+      return [];
     }
   }
 };
