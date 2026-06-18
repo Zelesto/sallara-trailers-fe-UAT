@@ -33,7 +33,7 @@ import {
   DirectionsCar as CarIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import vehicleService from '../../services/vehicleService';
+import vehicleService from '../services/vehicleService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const VehicleList = () => {
