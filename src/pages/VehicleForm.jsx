@@ -1,612 +1,347 @@
-// src/pages/VehicleForm.jsx - UPDATED and FIXED
+// src/pages/vehicles/VehicleForm.jsx
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Form,
-  Input,
-  Select,
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  TextField,
   Button,
-  DatePicker,
-  Row,
-  Col,
-  Space,
-  message,
-  Card,
-  Divider,
-  InputNumber,
-  Switch,
-  Typography
-} from 'antd';
-import {
-  SaveOutlined,
-  CloseOutlined,
-  CarOutlined,
-  ToolOutlined,
-  CalendarOutlined,
-  SafetyOutlined
-} from '@ant-design/icons';
-import vehicleService from '../services/vehicleService';
-import dayjs from 'dayjs';
+  Alert,
+  CircularProgress,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  Stack,
+} from '@mui/material';
+import { ArrowBack, Save } from '@mui/icons-material';
+import vehicleService from '../../services/vehicleService';
+import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
-const { Option } = Select;
-const { TextArea } = Input;
-const { Title } = Typography;
+const VehicleForm = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEditMode = !!id;
 
-const VehicleForm = ({ mode = 'create', vehicleId, initialData, onSuccess, onCancel }) => {
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  // Fetch vehicle data for edit mode
+  const [formData, setFormData] = useState({
+    registrationNumber: '',
+    make: '',
+    model: '',
+    year: '',
+    vehicleType: '',
+    capacityKg: '',
+    status: 'ACTIVE',
+    fuelType: '',
+    currentMileage: '',
+    engineSize: '',
+    fuelConsumption: '',
+    lastServiceDate: '',
+    nextServiceDate: '',
+  });
+
   useEffect(() => {
-    const fetchVehicle = async () => {
-      if (mode === 'edit' && vehicleId) {
-        setLoading(true);
-        try {
-          const response = await vehicleService.getVehicleById(vehicleId);
-          console.log('Edit mode - Vehicle data:', response);
+    if (isEditMode) {
+      loadVehicle();
+    }
+  }, [id]);
 
-          // Format dates for form
-          const formattedData = {
-            ...response,
-            // Convert date strings to dayjs objects for DatePicker
-            lastServiceDate: response.lastServiceDate ? dayjs(response.lastServiceDate) : null,
-            insuranceExpiry: response.insuranceExpiry ? dayjs(response.insuranceExpiry) : null,
-            roadworthyExpiry: response.roadworthyExpiry ? dayjs(response.roadworthyExpiry) : null,
-            nextServiceDue: response.nextServiceDue ? dayjs(response.nextServiceDue) : null
-          };
+  const loadVehicle = async () => {
+    try {
+      setLoading(true);
+      const vehicle = await vehicleService.getVehicleById(id);
+      setFormData({
+        registrationNumber: vehicle.registrationNumber || '',
+        make: vehicle.make || '',
+        model: vehicle.model || '',
+        year: vehicle.year || '',
+        vehicleType: vehicle.vehicleType || '',
+        capacityKg: vehicle.capacityKg || '',
+        status: vehicle.status || 'ACTIVE',
+        fuelType: vehicle.fuelType || '',
+        currentMileage: vehicle.currentMileage || '',
+        engineSize: vehicle.engineSize || '',
+        fuelConsumption: vehicle.fuelConsumption || '',
+        lastServiceDate: vehicle.lastServiceDate || '',
+        nextServiceDate: vehicle.nextServiceDate || '',
+      });
+    } catch (err) {
+      setError('Failed to load vehicle data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          form.setFieldsValue(formattedData);
-        } catch (error) {
-          console.error('Error fetching vehicle for edit:', error);
-          message.error('Failed to load vehicle data');
-        } finally {
-          setLoading(false);
-        }
-      } else if (initialData) {
-        // For modal edit from VehicleList
-        form.setFieldsValue(initialData);
-      }
-    };
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-    fetchVehicle();
-  }, [mode, vehicleId, initialData, form]);
+  const validateForm = () => {
+    if (!formData.registrationNumber.trim()) {
+      setError('Registration Number is required');
+      return false;
+    }
+    if (!formData.make.trim()) {
+      setError('Make is required');
+      return false;
+    }
+    if (!formData.model.trim()) {
+      setError('Model is required');
+      return false;
+    }
+    return true;
+  };
 
-  const handleSubmit = async (values) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!validateForm()) return;
+
     setSubmitting(true);
     try {
-      console.log('Form values:', values);
-
-      // Format values for backend (camelCase)
-      const formattedValues = {
-        registrationNumber: values.registrationNumber?.trim(),
-        vin: values.vin?.trim(),
-        make: values.make?.trim(),
-        model: values.model?.trim(),
-        year: values.year,
-        vehicleType: values.vehicleType || 'TRUCK',
-        fuelType: values.fuelType || 'DIESEL',
-        currentMileage: values.currentMileage || 0,
-        currentOdometer: values.currentOdometer || 0,
-        status: values.status || 'ACTIVE',
-        category: values.category || null,
-        fleetNumber: values.fleetNumber || null,
-        insurancePolicyNumber: values.insurancePolicyNumber || null,
-        insuranceExpiry: values.insuranceExpiry?.format('YYYY-MM-DD') || null,
-        roadworthyExpiry: values.roadworthyExpiry?.format('YYYY-MM-DD') || null,
-        lastServiceDate: values.lastServiceDate?.format('YYYY-MM-DD') || null,
-        lastServiceOdometer: values.lastServiceOdometer || null,
-        serviceIntervalDays: values.serviceIntervalDays || null,
-        serviceIntervalKm: values.serviceIntervalKm || null,
-        nextServiceDue: values.nextServiceDue?.format('YYYY-MM-DD') || null,
-        nextServiceOdometer: values.nextServiceOdometer || null,
-        assignedDriver: values.assignedDriver || null,
-        gpsTrackerId: values.gpsTrackerId || null,
-        maintenanceStatus: values.maintenanceStatus || null,
-        incidentsLogged: values.incidentsLogged || 0,
-        notes: values.notes || null,
-        available: values.available !== undefined ? values.available : true,
-        active: values.active !== undefined ? values.active : true
+      const vehicleData = {
+        ...formData,
+        capacityKg: formData.capacityKg ? parseFloat(formData.capacityKg) : null,
+        currentMileage: formData.currentMileage ? parseFloat(formData.currentMileage) : null,
       };
 
-      console.log('Sending to API:', formattedValues);
-
-      if (mode === 'create') {
-        const response = await vehicleService.createVehicle(formattedValues);
-        console.log('Create response:', response);
-        message.success('Vehicle created successfully!');
+      if (isEditMode) {
+        await vehicleService.updateVehicle(id, vehicleData);
+        setSuccess('Vehicle updated successfully!');
       } else {
-        const response = await vehicleService.updateVehicle(vehicleId, formattedValues);
-        console.log('Update response:', response);
-        message.success('Vehicle updated successfully!');
+        await vehicleService.createVehicle(vehicleData);
+        setSuccess('Vehicle created successfully!');
       }
 
-      onSuccess();
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Operation failed';
-      message.error(`Error: ${errorMessage}`);
+      setTimeout(() => {
+        navigate('/vehicles');
+      }, 1500);
+    } catch (err) {
+      setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} vehicle`);
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleSubmit}
-      size="large"
-      disabled={loading}
-      initialValues={{
-        status: 'ACTIVE',
-        fuelType: 'DIESEL',
-        vehicleType: 'TRUCK',
-        available: true,
-        active: true
-      }}
-    >
-      <Row gutter={[24, 16]}>
-        <Col span={24}>
-          <Card
-            title={
-              <Space>
-                <CarOutlined />
-                <span>{mode === 'create' ? 'Add New Vehicle' : 'Edit Vehicle'}</span>
-              </Space>
-            }
-            loading={loading}
-          >
-            {/* Basic Information */}
-            <Title level={5} style={{ marginBottom: 16 }}>
-              Basic Information
-            </Title>
+    <Box>
+      <Breadcrumbs />
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" fontWeight="bold">
+          {isEditMode ? 'Edit Vehicle' : 'Create New Vehicle'}
+        </Typography>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate('/vehicles')}>
+          Back
+        </Button>
+      </Box>
 
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="registrationNumber"
-                  label="Registration Number"
-                  rules={[
-                    { required: true, message: 'Please enter registration number' },
-                    { min: 3, message: 'Registration number must be at least 3 characters' }
-                  ]}
-                >
-                  <Input
-                    placeholder="e.g., ABC123GP"
-                    maxLength={20}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="vin"
-                  label="VIN (Vehicle Identification Number)"
-                  rules={[
-                    { required: true, message: 'Please enter VIN' },
-                    { min: 17, max: 17, message: 'VIN must be 17 characters' }
-                  ]}
-                >
-                  <Input
-                    placeholder="17-character VIN"
-                    maxLength={17}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+      <Paper sx={{ p: 3 }}>
+        <form onSubmit={handleSubmit}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+          {success && (
+            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+              {success}
+            </Alert>
+          )}
 
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="make"
-                  label="Make"
-                  rules={[{ required: true, message: 'Please enter vehicle make' }]}
-                >
-                  <Input placeholder="e.g., Volvo" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="model"
-                  label="Model"
-                  rules={[{ required: true, message: 'Please enter vehicle model' }]}
-                >
-                  <Input placeholder="e.g., FH16" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="year"
-                  label="Manufacture Year"
-                  rules={[{ required: true, message: 'Please enter manufacture year' }]}
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={2000}
-                    max={new Date().getFullYear() + 1}
-                    placeholder="e.g., 2023"
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="vehicleType"
-                  label="Vehicle Type"
-                  rules={[{ required: true, message: 'Please select vehicle type' }]}
-                >
-                  <Select placeholder="Select vehicle type">
-                    <Option value="TRUCK">Truck</Option>
-                    <Option value="VAN">Van</Option>
-                    <Option value="CAR">Car</Option>
-                    <Option value="BUS">Bus</Option>
-                    <Option value="TRAILER">Trailer</Option>
-                    <Option value="OTHER">Other</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="fuelType"
-                  label="Fuel Type"
-                  rules={[{ required: true, message: 'Please select fuel type' }]}
-                >
-                  <Select placeholder="Select fuel type">
-                    <Option value="DIESEL">Diesel</Option>
-                    <Option value="PETROL">Petrol</Option>
-                    <Option value="ELECTRIC">Electric</Option>
-                    <Option value="HYBRID">Hybrid</Option>
-                    <Option value="CNG">CNG</Option>
-                    <Option value="LPG">LPG</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="status"
-                  label="Status"
-                  rules={[{ required: true, message: 'Please select status' }]}
-                >
-                  <Select placeholder="Select status">
-                    <Option value="ACTIVE">Active</Option>
-                    <Option value="MAINTENANCE">Maintenance</Option>
-                    <Option value="INACTIVE">Inactive</Option>
-                    <Option value="RESERVED">Reserved</Option>
-                    <Option value="REPAIR">Repair</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Divider />
-
-            {/* Performance & Tracking */}
-            <Title level={5} style={{ marginBottom: 16 }}>
-              <Space>
-                <ToolOutlined />
-                <span>Performance & Tracking</span>
-              </Space>
-            </Title>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="currentOdometer"
-                  label="Current Odometer (km)"
-                  rules={[
-                    { type: 'number', min: 0, message: 'Odometer must be positive' }
-                  ]}
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    placeholder="e.g., 15000"
-                    addonAfter="km"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="currentMileage"
-                  label="Current Mileage (L)"
-                  rules={[
-                    { type: 'number', min: 0, message: 'Mileage must be positive' }
-                  ]}
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    step={0.1}
-                    placeholder="e.g., 15000.5"
-                    addonAfter="L"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="avgConsumption"
-                  label="Avg Consumption (L/100km)"
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    step={0.1}
-                    placeholder="e.g., 25.5"
-                    addonAfter="L/100km"
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Divider />
-
-            {/* Service Information */}
-            <Title level={5} style={{ marginBottom: 16 }}>
-              <Space>
-                <CalendarOutlined />
-                <span>Service Information</span>
-              </Space>
-            </Title>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="lastServiceDate"
-                  label="Last Service Date"
-                >
-                  <DatePicker
-                    style={{ width: '100%' }}
-                    format="YYYY-MM-DD"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="lastServiceOdometer"
-                  label="Last Service Odometer (km)"
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    placeholder="Odometer at last service"
-                    addonAfter="km"
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="serviceIntervalDays"
-                  label="Service Interval (Days)"
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    placeholder="e.g., 90"
-                    addonAfter="days"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="serviceIntervalKm"
-                  label="Service Interval (km)"
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    placeholder="e.g., 10000"
-                    addonAfter="km"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="maintenanceStatus"
-                  label="Maintenance Status"
-                >
-                  <Select placeholder="Select status">
-                    <Option value="">None</Option>
-                    <Option value="SERVICE_DUE">Service Due</Option>
-                    <Option value="IN_SERVICE">In Service</Option>
-                    <Option value="REPAIR_NEEDED">Repair Needed</Option>
-                    <Option value="PARTS_WAITING">Parts Waiting</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="nextServiceDue"
-                  label="Next Service Due Date"
-                >
-                  <DatePicker
-                    style={{ width: '100%' }}
-                    format="YYYY-MM-DD"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="nextServiceOdometer"
-                  label="Next Service Odometer (km)"
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    placeholder="Odometer for next service"
-                    addonAfter="km"
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Divider />
-
-            {/* Certifications & Documentation */}
-            <Title level={5} style={{ marginBottom: 16 }}>
-              <Space>
-                <SafetyOutlined />
-                <span>Certifications & Documentation</span>
-              </Space>
-            </Title>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="insurancePolicyNumber"
-                  label="Insurance Policy Number"
-                >
-                  <Input placeholder="Insurance policy number" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="insuranceExpiry"
-                  label="Insurance Expiry Date"
-                >
-                  <DatePicker
-                    style={{ width: '100%' }}
-                    format="YYYY-MM-DD"
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="roadworthyExpiry"
-                  label="Roadworthy Expiry Date"
-                >
-                  <DatePicker
-                    style={{ width: '100%' }}
-                    format="YYYY-MM-DD"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="fleetNumber"
-                  label="Fleet Number"
-                >
-                  <Input placeholder="Internal fleet number" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Divider />
-
-            {/* Operational Information */}
-            <Title level={5} style={{ marginBottom: 16 }}>
-              Operational Information
-            </Title>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="category"
-                  label="Category"
-                >
-                  <Input placeholder="Vehicle category" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="assignedDriver"
-                  label="Assigned Driver ID"
-                >
-                  <Input placeholder="Driver ID" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="gpsTrackerId"
-                  label="GPS Tracker ID"
-                >
-                  <Input placeholder="GPS tracker ID" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="incidentsLogged"
-                  label="Incidents Logged"
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    placeholder="Number of incidents"
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="available"
-                  label="Available"
-                  valuePropName="checked"
-                >
-                  <Switch checkedChildren="Yes" unCheckedChildren="No" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="active"
-                  label="Active"
-                  valuePropName="checked"
-                >
-                  <Switch checkedChildren="Yes" unCheckedChildren="No" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item
-              name="notes"
-              label="Notes"
-            >
-              <TextArea
-                rows={4}
-                placeholder="Additional notes about the vehicle (maintenance history, special requirements, etc.)"
-                maxLength={1000}
-                showCount
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Registration Number *"
+                name="registrationNumber"
+                value={formData.registrationNumber}
+                onChange={handleChange}
+                required
+                size="small"
               />
-            </Form.Item>
-          </Card>
-        </Col>
-      </Row>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Make *"
+                name="make"
+                value={formData.make}
+                onChange={handleChange}
+                required
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Model *"
+                name="model"
+                value={formData.model}
+                onChange={handleChange}
+                required
+                size="small"
+              />
+            </Grid>
 
-      <Divider />
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Year"
+                name="year"
+                type="number"
+                value={formData.year}
+                onChange={handleChange}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Vehicle Type"
+                name="vehicleType"
+                value={formData.vehicleType}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., TRUCK, TRAILER, etc."
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Capacity (kg)"
+                name="capacityKg"
+                type="number"
+                value={formData.capacityKg}
+                onChange={handleChange}
+                size="small"
+              />
+            </Grid>
 
-      <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-        <Space>
-          <Button
-            onClick={onCancel}
-            icon={<CloseOutlined />}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="primary"
-            htmlType="submit"
-            loading={submitting}
-            icon={<SaveOutlined />}
-          >
-            {mode === 'create' ? 'Create Vehicle' : 'Update Vehicle'}
-          </Button>
-        </Space>
-      </Form.Item>
-    </Form>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  label="Status"
+                >
+                  <MenuItem value="ACTIVE">Active</MenuItem>
+                  <MenuItem value="AVAILABLE">Available</MenuItem>
+                  <MenuItem value="IN_MAINTENANCE">In Maintenance</MenuItem>
+                  <MenuItem value="OUT_OF_SERVICE">Out of Service</MenuItem>
+                  <MenuItem value="INACTIVE">Inactive</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Fuel Type"
+                name="fuelType"
+                value={formData.fuelType}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., Diesel, Petrol, Electric"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Current Mileage"
+                name="currentMileage"
+                type="number"
+                value={formData.currentMileage}
+                onChange={handleChange}
+                size="small"
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Engine Size"
+                name="engineSize"
+                value={formData.engineSize}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., 12.8L"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Fuel Consumption"
+                name="fuelConsumption"
+                value={formData.fuelConsumption}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., 30L/100km"
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Last Service Date"
+                name="lastServiceDate"
+                type="date"
+                value={formData.lastServiceDate}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Next Service Date"
+                name="nextServiceDate"
+                type="date"
+                value={formData.nextServiceDate}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
+                  disabled={submitting}
+                >
+                  {submitting ? 'Saving...' : (isEditMode ? 'Update Vehicle' : 'Create Vehicle')}
+                </Button>
+                <Button variant="outlined" onClick={() => navigate('/vehicles')}>
+                  Cancel
+                </Button>
+              </Stack>
+            </Grid>
+          </Grid>
+        </form>
+      </Paper>
+    </Box>
   );
 };
 
