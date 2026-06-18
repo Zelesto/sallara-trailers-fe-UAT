@@ -1,24 +1,24 @@
-// src/pages/DriverForm.jsx - Complete version with password
+// src/pages/drivers/DriverForm.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Card,
-  CardContent,
-  TextField,
-  Button,
+  Paper,
   Typography,
   Grid,
+  TextField,
+  Button,
   Alert,
   CircularProgress,
   MenuItem,
   FormControl,
   InputLabel,
   Select,
-  Paper
+  Stack,
 } from '@mui/material';
 import { ArrowBack, Save } from '@mui/icons-material';
-import driverService from '../services/driverService';
+import driverService from '../../services/driverService';
+import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const DriverForm = () => {
   const { id } = useParams();
@@ -26,6 +26,7 @@ const DriverForm = () => {
   const isEditMode = !!id;
 
   const [loading, setLoading] = useState(isEditMode);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -40,17 +41,18 @@ const DriverForm = () => {
     licenseType: '',
     status: 'ACTIVE',
     hireDate: '',
+    address: '',
     password: '',
     confirmPassword: '',
   });
 
   useEffect(() => {
     if (isEditMode) {
-      fetchDriver();
+      loadDriver();
     }
   }, [id]);
 
-  const fetchDriver = async () => {
+  const loadDriver = async () => {
     try {
       setLoading(true);
       const driver = await driverService.getDriverById(id);
@@ -64,12 +66,12 @@ const DriverForm = () => {
         licenseType: driver.licenseType || '',
         status: driver.status || 'ACTIVE',
         hireDate: driver.hireDate || '',
-        password: '', // Don't pre-fill password for security
+        address: driver.address || '',
+        password: '',
         confirmPassword: '',
       });
     } catch (err) {
       setError('Failed to load driver data');
-      console.error('Error fetching driver:', err);
     } finally {
       setLoading(false);
     }
@@ -77,15 +79,41 @@ const DriverForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    // Clear password error when user types
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (name.includes('password')) {
       setPasswordError('');
     }
+  };
+
+  const validateForm = () => {
+    if (!formData.firstName.trim()) {
+      setError('First Name is required');
+      return false;
+    }
+    if (!formData.lastName.trim()) {
+      setError('Last Name is required');
+      return false;
+    }
+    if (!formData.licenseNumber.trim()) {
+      setError('License Number is required');
+      return false;
+    }
+
+    if (!isEditMode) {
+      if (!formData.password.trim()) {
+        setPasswordError('Password is required');
+        return false;
+      }
+      if (formData.password.length < 6) {
+        setPasswordError('Password must be at least 6 characters');
+        return false;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setPasswordError('Passwords do not match');
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleSubmit = async (e) => {
@@ -94,32 +122,10 @@ const DriverForm = () => {
     setSuccess('');
     setPasswordError('');
 
+    if (!validateForm()) return;
+
+    setSubmitting(true);
     try {
-      // Validate required fields
-      if (!formData.firstName.trim() || !formData.lastName.trim()) {
-        setError('First Name and Last Name are required');
-        return;
-      }
-
-      // Validate passwords for new drivers
-      if (!isEditMode) {
-        if (!formData.password.trim()) {
-          setPasswordError('Password is required');
-          return;
-        }
-
-        if (formData.password.length < 6) {
-          setPasswordError('Password must be at least 6 characters');
-          return;
-        }
-
-        if (formData.password !== formData.confirmPassword) {
-          setPasswordError('Passwords do not match');
-          return;
-        }
-      }
-
-      // Prepare data for API
       const driverData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -130,14 +136,12 @@ const DriverForm = () => {
         licenseType: formData.licenseType,
         status: formData.status,
         hireDate: formData.hireDate,
+        address: formData.address,
       };
 
-      // Only include password for new drivers
       if (!isEditMode) {
         driverData.password = formData.password;
       }
-
-      console.log('Sending driver data:', { ...driverData, password: '***HIDDEN***' });
 
       if (isEditMode) {
         await driverService.updateDriver(id, driverData);
@@ -147,29 +151,13 @@ const DriverForm = () => {
         setSuccess('Driver created successfully!');
       }
 
-      // Redirect back to driver list after 2 seconds
       setTimeout(() => {
-        navigate('/users/drivers');
-      }, 2000);
+        navigate('/drivers');
+      }, 1500);
     } catch (err) {
-      console.error('Full error object:', err);
-
-      // Try to extract meaningful error message
-      let errorMessage = `Failed to ${isEditMode ? 'update' : 'create'} driver`;
-
-      if (err.response?.data) {
-        if (err.response.data.message) {
-          errorMessage = err.response.data.message;
-        } else if (err.response.data.error) {
-          errorMessage = err.response.data.error;
-        } else if (typeof err.response.data === 'string') {
-          errorMessage = err.response.data;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
+      setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} driver`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -182,29 +170,27 @@ const DriverForm = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Button
-        startIcon={<ArrowBack />}
-        onClick={() => navigate(-1)}
-        sx={{ mb: 3 }}
-      >
-        Back
-      </Button>
+    <Box>
+      <Breadcrumbs />
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" fontWeight="bold">
+          {isEditMode ? 'Edit Driver' : 'Create New Driver'}
+        </Typography>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate('/drivers')}>
+          Back
+        </Button>
+      </Box>
 
-      <Typography variant="h4" gutterBottom>
-        {isEditMode ? 'Edit Driver' : 'Create New Driver'}
-      </Typography>
-
-      <Paper sx={{ p: 3, mt: 2 }}>
+      <Paper sx={{ p: 3 }}>
         <form onSubmit={handleSubmit}>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
               {error}
             </Alert>
           )}
-
           {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
+            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
               {success}
             </Alert>
           )}
@@ -213,24 +199,23 @@ const DriverForm = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="First Name"
+                label="First Name *"
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
                 required
-                variant="outlined"
+                size="small"
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Last Name"
+                label="Last Name *"
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
                 required
-                variant="outlined"
+                size="small"
               />
             </Grid>
 
@@ -242,10 +227,9 @@ const DriverForm = () => {
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                variant="outlined"
+                size="small"
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -253,19 +237,30 @@ const DriverForm = () => {
                 name="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={handleChange}
-                variant="outlined"
+                size="small"
               />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="License Number"
+                label="License Number *"
                 name="licenseNumber"
                 value={formData.licenseNumber}
                 onChange={handleChange}
                 required
-                variant="outlined"
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="License Type"
+                name="licenseType"
+                value={formData.licenseType}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., EC, C1, etc."
               />
             </Grid>
 
@@ -278,37 +273,9 @@ const DriverForm = () => {
                 value={formData.licenseExpiry}
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
-                variant="outlined"
+                size="small"
               />
             </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="License Type"
-                name="licenseType"
-                value={formData.licenseType}
-                onChange={handleChange}
-                variant="outlined"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  label="Status"
-                >
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                  <MenuItem value="SUSPENDED">Suspended</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -318,39 +285,65 @@ const DriverForm = () => {
                 value={formData.hireDate}
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
-                variant="outlined"
+                size="small"
               />
             </Grid>
 
-            {/* Password fields - Only show for new drivers */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  label="Status"
+                >
+                  <MenuItem value="ACTIVE">Active</MenuItem>
+                  <MenuItem value="AVAILABLE">Available</MenuItem>
+                  <MenuItem value="ON_LEAVE">On Leave</MenuItem>
+                  <MenuItem value="INACTIVE">Inactive</MenuItem>
+                  <MenuItem value="SUSPENDED">Suspended</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Address"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                size="small"
+              />
+            </Grid>
+
             {!isEditMode && (
               <>
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Password"
+                    label="Password *"
                     name="password"
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    variant="outlined"
+                    size="small"
                     error={!!passwordError}
                     helperText={passwordError}
                     autoComplete="new-password"
                   />
                 </Grid>
-
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Confirm Password"
+                    label="Confirm Password *"
                     name="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     required
-                    variant="outlined"
+                    size="small"
                     error={!!passwordError}
                     helperText={passwordError}
                     autoComplete="new-password"
@@ -360,24 +353,19 @@ const DriverForm = () => {
             )}
 
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                 <Button
                   type="submit"
                   variant="contained"
-                  color="primary"
-                  size="large"
-                  startIcon={<Save />}
+                  startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
+                  disabled={submitting}
                 >
-                  {isEditMode ? 'Update Driver' : 'Create Driver'}
+                  {submitting ? 'Saving...' : (isEditMode ? 'Update Driver' : 'Create Driver')}
                 </Button>
-
-                <Button
-                  variant="outlined"
-                  onClick={() => navigate('/users/drivers')}
-                >
+                <Button variant="outlined" onClick={() => navigate('/drivers')}>
                   Cancel
                 </Button>
-              </Box>
+              </Stack>
             </Grid>
           </Grid>
         </form>
