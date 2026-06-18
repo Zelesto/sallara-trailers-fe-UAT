@@ -1,4 +1,3 @@
-import SCBTrailersLogo from '../components/assets/img/PGSALogo.png';
 import React, { useState } from 'react';
 import {
   Container,
