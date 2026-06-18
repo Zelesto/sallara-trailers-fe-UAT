@@ -25,7 +25,7 @@ import {
   LocalGasStation as FuelIcon,
   Build as BuildIcon,
 } from '@mui/icons-material';
-import vehicleService from '../../services/vehicleService';
+import vehicleService from '../services/vehicleService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const VehicleDetails = () => {
