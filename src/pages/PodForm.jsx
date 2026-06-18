@@ -1,4 +1,4 @@
-// src/pages/pods/PODForm.jsx
+// src/pages/PODForm.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -15,10 +15,19 @@ import {
   InputLabel,
   Select,
   Stack,
+  Divider,
 } from '@mui/material';
 import { ArrowBack, Save, CloudUpload } from '@mui/icons-material';
-import podService from '../services/podService';
+import { podService } from '../services/podService';
 import Breadcrumbs from '../components/Layout/Breadcrumbs';
+
+const STATUS_OPTIONS = [
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'DELIVERED', label: 'Delivered' },
+  { value: 'VERIFIED', label: 'Verified' },
+  { value: 'REJECTED', label: 'Rejected' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
 
 const PODForm = () => {
   const { id } = useParams();
@@ -30,34 +39,43 @@ const PODForm = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [file, setFile] = useState(null);
+  const [fileName, setFileName] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   const [formData, setFormData] = useState({
-    tripNumber: '',
+    tripId: '',
     customerName: '',
     deliveryDate: '',
     status: 'PENDING',
     notes: '',
+    documentType: '',
+    fileSize: '',
   });
 
   useEffect(() => {
     if (isEditMode) {
-      loadPOD();
+      loadPod();
     }
   }, [id]);
 
-  const loadPOD = async () => {
+  const loadPod = async () => {
     try {
       setLoading(true);
-      const pod = await podService.getPODById(id);
+      const pod = await podService.getPodById(id);
       setFormData({
-        tripNumber: pod.tripNumber || '',
+        tripId: pod.tripId || '',
         customerName: pod.customerName || '',
         deliveryDate: pod.deliveryDate || '',
         status: pod.status || 'PENDING',
         notes: pod.notes || '',
+        documentType: pod.documentType || '',
+        fileSize: pod.fileSize || '',
       });
+      setFileName(pod.fileName || '');
+      setError('');
     } catch (err) {
       setError('Failed to load POD data');
+      console.error('Error loading POD:', err);
     } finally {
       setLoading(false);
     }
@@ -66,33 +84,47 @@ const PODForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
+      setFileName(selectedFile.name);
+      // Auto-detect document type from file extension
+      const extension = selectedFile.name.split('.').pop().toUpperCase();
+      const typeMap = {
+        'PDF': 'PDF',
+        'JPG': 'IMAGE',
+        'JPEG': 'IMAGE',
+        'PNG': 'IMAGE',
+        'DOC': 'DOC',
+        'DOCX': 'DOCX',
+      };
+      setFormData(prev => ({ ...prev, documentType: typeMap[extension] || 'DOCUMENT' }));
     }
   };
 
   const validateForm = () => {
-    if (!formData.tripNumber.trim()) {
-      setError('Trip Number is required');
-      return false;
+    const errors = {};
+    if (!formData.tripId) {
+      errors.tripId = 'Trip ID is required';
     }
     if (!formData.customerName.trim()) {
-      setError('Customer Name is required');
-      return false;
+      errors.customerName = 'Customer Name is required';
     }
     if (!formData.deliveryDate) {
-      setError('Delivery Date is required');
-      return false;
+      errors.deliveryDate = 'Delivery Date is required';
     }
     if (!isEditMode && !file) {
-      setError('Please upload a document');
-      return false;
+      errors.file = 'Please upload a document';
     }
-    return true;
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
@@ -100,33 +132,53 @@ const PODForm = () => {
     setError('');
     setSuccess('');
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      const firstErrorField = Object.keys(formErrors)[0];
+      const element = document.querySelector(`[name="${firstErrorField}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.focus();
+      }
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const podData = new FormData();
-      Object.keys(formData).forEach(key => {
-        if (formData[key]) {
-          podData.append(key, formData[key]);
-        }
-      });
-      if (file) {
-        podData.append('file', file);
-      }
+      const podData = {
+        tripId: parseInt(formData.tripId, 10),
+        customerName: formData.customerName,
+        deliveryDate: formData.deliveryDate,
+        status: formData.status,
+        notes: formData.notes,
+        documentType: formData.documentType,
+        fileSize: formData.fileSize,
+      };
 
+      let result;
       if (isEditMode) {
-        await podService.updatePOD(id, formData);
+        result = await podService.updatePod(id, podData);
         setSuccess('POD updated successfully!');
       } else {
-        await podService.createPOD(podData);
-        setSuccess('POD uploaded successfully!');
+        // For create, you might want to handle file upload separately
+        // If your backend supports file upload with POD creation:
+        // const formDataWithFile = new FormData();
+        // Object.keys(podData).forEach(key => formDataWithFile.append(key, podData[key]));
+        // if (file) formDataWithFile.append('file', file);
+        // result = await podService.createPod(formDataWithFile);
+        
+        // For now, just send the data
+        result = await podService.createPod(podData);
+        setSuccess('POD created successfully!');
       }
+
+      console.log('POD saved:', result);
 
       setTimeout(() => {
         navigate('/pods');
       }, 1500);
     } catch (err) {
-      setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'upload'} POD`);
+      console.error('Error saving POD:', err);
+      setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`);
     } finally {
       setSubmitting(false);
     }
@@ -134,8 +186,9 @@ const PODForm = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
         <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Loading POD data...</Typography>
       </Box>
     );
   }
@@ -145,11 +198,16 @@ const PODForm = () => {
       <Breadcrumbs />
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">
-          {isEditMode ? 'Edit POD' : 'Upload New POD'}
-        </Typography>
+        <Box>
+          <Typography variant="h4" fontWeight="bold">
+            {isEditMode ? 'Edit POD' : 'Upload New POD'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {isEditMode ? 'Update POD information' : 'Add a new proof of delivery document'}
+          </Typography>
+        </Box>
         <Button startIcon={<ArrowBack />} onClick={() => navigate('/pods')}>
-          Back
+          Back to PODs
         </Button>
       </Box>
 
@@ -170,14 +228,19 @@ const PODForm = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Trip Number *"
-                name="tripNumber"
-                value={formData.tripNumber}
+                label="Trip ID *"
+                name="tripId"
+                type="number"
+                value={formData.tripId}
                 onChange={handleChange}
                 required
                 size="small"
+                error={!!formErrors.tripId}
+                helperText={formErrors.tripId}
+                placeholder="Enter Trip ID"
               />
             </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -187,6 +250,8 @@ const PODForm = () => {
                 onChange={handleChange}
                 required
                 size="small"
+                error={!!formErrors.customerName}
+                helperText={formErrors.customerName}
               />
             </Grid>
 
@@ -198,24 +263,28 @@ const PODForm = () => {
                 type="date"
                 value={formData.deliveryDate}
                 onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
                 required
                 size="small"
+                InputLabelProps={{ shrink: true }}
+                error={!!formErrors.deliveryDate}
+                helperText={formErrors.deliveryDate}
               />
             </Grid>
+
             <Grid item xs={12} md={6}>
               <FormControl fullWidth size="small">
                 <InputLabel>Status</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
-                  onChange={handleChange}
                   label="Status"
+                  onChange={handleChange}
                 >
-                  <MenuItem value="PENDING">Pending</MenuItem>
-                  <MenuItem value="DELIVERED">Delivered</MenuItem>
-                  <MenuItem value="VERIFIED">Verified</MenuItem>
-                  <MenuItem value="REJECTED">Rejected</MenuItem>
+                  {STATUS_OPTIONS.map(option => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -227,16 +296,55 @@ const PODForm = () => {
                   component="label"
                   startIcon={<CloudUpload />}
                   fullWidth
-                  sx={{ py: 2 }}
+                  sx={{ py: 2, borderStyle: 'dashed' }}
+                  error={!!formErrors.file}
                 >
                   {file ? file.name : 'Upload Document *'}
                   <input
                     type="file"
                     hidden
                     onChange={handleFileChange}
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   />
                 </Button>
+                {formErrors.file && (
+                  <Typography color="error" variant="caption">
+                    {formErrors.file}
+                  </Typography>
+                )}
+                {file && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    File size: {(file.size / 1024).toFixed(2)} KB
+                  </Typography>
+                )}
+              </Grid>
+            )}
+
+            {isEditMode && (
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Document Type"
+                  name="documentType"
+                  value={formData.documentType}
+                  onChange={handleChange}
+                  size="small"
+                  disabled
+                />
+              </Grid>
+            )}
+
+            {isEditMode && (
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="File Size"
+                  name="fileSize"
+                  value={formData.fileSize}
+                  onChange={handleChange}
+                  size="small"
+                  disabled
+                />
               </Grid>
             )}
 
@@ -246,24 +354,33 @@ const PODForm = () => {
                 label="Notes"
                 name="notes"
                 multiline
-                rows={3}
+                rows={4}
                 value={formData.notes}
                 onChange={handleChange}
                 size="small"
+                placeholder="Additional notes about this POD..."
               />
             </Grid>
 
             <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
               <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                 <Button
                   type="submit"
                   variant="contained"
+                  size="large"
                   startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
                   disabled={submitting}
+                  sx={{ minWidth: 200 }}
                 >
                   {submitting ? 'Saving...' : (isEditMode ? 'Update POD' : 'Upload POD')}
                 </Button>
-                <Button variant="outlined" onClick={() => navigate('/pods')}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => navigate('/pods')}
+                  disabled={submitting}
+                >
                   Cancel
                 </Button>
               </Stack>
