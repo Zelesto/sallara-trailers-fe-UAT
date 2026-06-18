@@ -67,6 +67,7 @@ import { styled } from '@mui/material/styles';
 import logoImage from '../assets/img/PGSALogo.png'; // Update this path as needed
 
 import Breadcrumbs from './Breadcrumbs';
+import TripForm from '../components/TripForm';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 70;
@@ -78,7 +79,7 @@ const LogoContainer = styled(Box)(({ theme }) => ({
   justifyContent: 'space-between',
   padding: theme.spacing(2, 2),
   borderBottom: `1px solid ${theme.palette.divider}`,
-  minHeight: 250, // Increased from 150 to 180
+  minHeight: 250,
   position: 'relative',
   overflow: 'hidden',
 }));
@@ -89,7 +90,7 @@ const LogoWrapper = styled(Box, {
   display: 'flex',
   flexDirection: collapsed ? 'row' : 'column',
   alignItems: 'center',
-  gap: theme.spacing(1.5), // Increased spacing
+  gap: theme.spacing(1.5),
   transition: 'all 0.3s ease',
   width: '100%',
   justifyContent: collapsed ? 'center' : 'center',
@@ -222,6 +223,10 @@ const MainLayout = () => {
   const [expandedSections, setExpandedSections] = useState({});
   const [expandedMenuItems, setExpandedMenuItems] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
+  
+  // ADD STATE FOR TRIP MODAL
+  const [tripModalOpen, setTripModalOpen] = useState(false);
+  
   const { user, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -229,7 +234,7 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef(null);
-
+  
   useEffect(() => {
     const savedSidebarState = localStorage.getItem('sidebarCollapsed');
     if (savedSidebarState !== null) {
@@ -283,8 +288,17 @@ const MainLayout = () => {
     logout();
   };
 
+  // UPDATED: Open Trip Modal instead of navigating
   const handleNewTrip = () => {
-    navigate('/trips/create');
+    setTripModalOpen(true);
+  };
+
+  // ADD: Callback for when trip is created successfully
+  const handleTripCreated = (tripData) => {
+    console.log('Trip created successfully:', tripData);
+    setTripModalOpen(false);
+    // Optional: Show success notification
+    // You can add a snackbar/notification here
   };
 
   const drawer = (
@@ -294,8 +308,8 @@ const MainLayout = () => {
           {sidebarCollapsed ? (
             // Collapsed state: Show larger logo
             <Box sx={{
-              width: 48, // Increased from 40
-              height: 48, // Increased from 40
+              width: 48,
+              height: 48,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -335,8 +349,8 @@ const MainLayout = () => {
             // Expanded state: Show larger logo with text
             <>
               <Box sx={{
-                width: 64, // Increased from 48
-                height: 64, // Increased from 48
+                width: 64,
+                height: 64,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -374,23 +388,23 @@ const MainLayout = () => {
               </Box>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography
-                  variant="h6" // Changed from subtitle1
+                  variant="h6"
                   sx={{
                     fontWeight: 700,
                     color: theme.palette.primary.main,
                     mb: 0.25,
-                    fontSize: '1.1rem', // Increased font size
+                    fontSize: '1.1rem',
                     lineHeight: 1.2,
                   }}
                 >
                   TRAILERS
                 </Typography>
                 <Typography
-                  variant="body2" // Changed from caption
+                  variant="body2"
                   sx={{
                     color: 'text.secondary',
                     fontWeight: 500,
-                    fontSize: '0.75rem', // Increased font size
+                    fontSize: '0.75rem',
                     display: 'block',
                     lineHeight: 1.2,
                   }}
@@ -704,7 +718,7 @@ const MainLayout = () => {
       >
         <Toolbar sx={{ 
           justifyContent: 'space-between',
-          flexWrap: 'nowrap', // Prevent wrapping
+          flexWrap: 'nowrap',
           overflow: 'hidden',
           minHeight: { xs: 56, sm: 64 },
         }}>
@@ -898,6 +912,21 @@ const MainLayout = () => {
 
         <Outlet />
       </Box>
+
+      {/* ADD TRIP FORM MODAL - Available from any screen */}
+      <TripForm
+        open={tripModalOpen}
+        onClose={() => setTripModalOpen(false)}
+        mode="create"
+        onSuccess={handleTripCreated}
+        fetchTrips={() => {
+          // Optional: Refresh trips if on trips page
+          if (location.pathname === '/trips' || location.pathname.startsWith('/trips')) {
+            // The TripList component will handle refresh
+            // You could use a context or event emitter here
+          }
+        }}
+      />
     </Box>
   );
 };
