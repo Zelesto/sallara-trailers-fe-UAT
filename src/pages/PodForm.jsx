@@ -16,9 +16,11 @@ import {
   Select,
   Stack,
   Divider,
+  Autocomplete,
 } from '@mui/material';
-import { ArrowBack, Save, CloudUpload } from '@mui/icons-material';
+import { ArrowBack, Save, CloudUpload, Search as SearchIcon } from '@mui/icons-material';
 import { podService } from '../services/podService';
+import { tripService } from '../services/tripService';
 import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const STATUS_OPTIONS = [
@@ -41,6 +43,9 @@ const PODForm = () => {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
   const [formErrors, setFormErrors] = useState({});
+  const [trips, setTrips] = useState([]);
+  const [loadingTrips, setLoadingTrips] = useState(false);
+  const [searchTripTerm, setSearchTripTerm] = useState('');
 
   const [formData, setFormData] = useState({
     tripId: '',
@@ -56,7 +61,34 @@ const PODForm = () => {
     if (isEditMode) {
       loadPod();
     }
+    loadTrips();
   }, [id]);
+
+  const loadTrips = async () => {
+    setLoadingTrips(true);
+    try {
+      const response = await tripService.getAllTrips({ 
+        status: 'COMPLETED,FINALIZED',  // Default to COMPLETED, allow FINALIZED
+        size: 100 
+      });
+      // Extract trips from response
+      const tripsData = response?.content || response || [];
+      setTrips(tripsData);
+    } catch (err) {
+      console.error('Error loading trips:', err);
+      // Try fallback - get all trips
+      try {
+        const fallbackResponse = await tripService.getAllTrips({ size: 100 });
+        const fallbackData = fallbackResponse?.content || fallbackResponse || [];
+        setTrips(fallbackData);
+      } catch (fallbackErr) {
+        console.error('Fallback error loading trips:', fallbackErr);
+        setTrips([]);
+      }
+    } finally {
+      setLoadingTrips(false);
+    }
+  };
 
   const loadPod = async () => {
     try {
@@ -89,12 +121,24 @@ const PODForm = () => {
     }
   };
 
+  const handleTripSelect = (event, value) => {
+    if (value) {
+      setFormData(prev => ({ 
+        ...prev, 
+        tripId: value.id,
+        customerName: value.customerName || prev.customerName,
+      }));
+      if (formErrors.tripId) {
+        setFormErrors(prev => ({ ...prev, tripId: '' }));
+      }
+    }
+  };
+
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
       setFileName(selectedFile.name);
-      // Auto-detect document type from file extension
       const extension = selectedFile.name.split('.').pop().toUpperCase();
       const typeMap = {
         'PDF': 'PDF',
@@ -111,7 +155,7 @@ const PODForm = () => {
   const validateForm = () => {
     const errors = {};
     if (!formData.tripId) {
-      errors.tripId = 'Trip ID is required';
+      errors.tripId = 'Please select a Trip';
     }
     if (!formData.customerName.trim()) {
       errors.customerName = 'Customer Name is required';
@@ -159,14 +203,6 @@ const PODForm = () => {
         result = await podService.updatePod(id, podData);
         setSuccess('POD updated successfully!');
       } else {
-        // For create, you might want to handle file upload separately
-        // If your backend supports file upload with POD creation:
-        // const formDataWithFile = new FormData();
-        // Object.keys(podData).forEach(key => formDataWithFile.append(key, podData[key]));
-        // if (file) formDataWithFile.append('file', file);
-        // result = await podService.createPod(formDataWithFile);
-        
-        // For now, just send the data
         result = await podService.createPod(podData);
         setSuccess('POD created successfully!');
       }
@@ -178,11 +214,30 @@ const PODForm = () => {
       }, 1500);
     } catch (err) {
       console.error('Error saving POD:', err);
-      setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`);
+      
+      // Handle specific error messages
+      let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
+      if (err.status === 409) {
+        errorMessage = 'The selected Trip does not exist or has already been finalized. Please select a valid trip.';
+      } else if (err.data?.detail) {
+        errorMessage = err.data.detail;
+      }
+      
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
   };
+
+  // Filter trips for autocomplete
+  const filteredTrips = trips.filter(trip => {
+    const search = searchTripTerm.toLowerCase();
+    return (
+      (trip.tripNumber || '').toLowerCase().includes(search) ||
+      (trip.id || '').toString().includes(search) ||
+      (trip.customerName || '').toLowerCase().includes(search)
+    );
+  });
 
   if (loading) {
     return (
@@ -225,19 +280,57 @@ const PODForm = () => {
           )}
 
           <Grid container spacing={3}>
+            {/* Trip Selection - Autocomplete with search */}
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Trip ID *"
-                name="tripId"
-                type="number"
-                value={formData.tripId}
-                onChange={handleChange}
-                required
-                size="small"
-                error={!!formErrors.tripId}
-                helperText={formErrors.tripId}
-                placeholder="Enter Trip ID"
+              <Autocomplete
+                options={filteredTrips}
+                loading={loadingTrips}
+                getOptionLabel={(option) => {
+                  if (typeof option === 'string') return option;
+                  return `${option.tripNumber || option.id} - ${option.customerName || 'N/A'}`;
+                }}
+                value={trips.find(t => t.id === parseInt(formData.tripId)) || null}
+                onChange={handleTripSelect}
+                onInputChange={(event, newInputValue) => {
+                  setSearchTripTerm(newInputValue);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Select Trip *"
+                    size="small"
+                    required
+                    error={!!formErrors.tripId}
+                    helperText={formErrors.tripId || 'Search by Trip Number or Customer Name'}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <SearchIcon sx={{ ml: 1, mr: -0.5, color: 'text.secondary' }} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box>
+                      <Typography variant="body2" fontWeight={500}>
+                        {option.tripNumber || `Trip #${option.id}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Customer: {option.customerName || 'N/A'} | 
+                        Status: {option.status || 'N/A'} | 
+                        Date: {option.plannedStartDate ? new Date(option.plannedStartDate).toLocaleDateString() : 'N/A'}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                noOptionsText="No trips found. Only COMPLETED and FINALIZED trips are available."
+                loadingText="Loading trips..."
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                sx={{ width: '100%' }}
               />
             </Grid>
 
@@ -321,31 +414,30 @@ const PODForm = () => {
             )}
 
             {isEditMode && (
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Document Type"
-                  name="documentType"
-                  value={formData.documentType}
-                  onChange={handleChange}
-                  size="small"
-                  disabled
-                />
-              </Grid>
-            )}
-
-            {isEditMode && (
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="File Size"
-                  name="fileSize"
-                  value={formData.fileSize}
-                  onChange={handleChange}
-                  size="small"
-                  disabled
-                />
-              </Grid>
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Document Type"
+                    name="documentType"
+                    value={formData.documentType}
+                    onChange={handleChange}
+                    size="small"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="File Size"
+                    name="fileSize"
+                    value={formData.fileSize}
+                    onChange={handleChange}
+                    size="small"
+                    disabled
+                  />
+                </Grid>
+              </>
             )}
 
             <Grid item xs={12}>
