@@ -99,35 +99,29 @@ const Login = () => {
             }}
           >
             <Box
-              component="img"
-              src={SCBTrailersLogo}
-              alt="PGSA Trailers Logo"
-              sx={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-              }}
-              onError={(e) => {
-                e.target.style.display = 'none';
-                // Fallback text if image fails to load
-                const parent = e.target.parentElement;
-                parent.innerHTML = `
-                  <div style="
-                    width: 100%;
-                    height: 100%;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-radius: 12px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    font-weight: bold;
-                    font-size: 32px;
-                  ">PGSA</div>
-                `;
-              }}
-            />
-          </Box>
+  sx={{
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    mb: 3,
+  }}
+>
+  <Box
+    component="img"
+    src={SCBTrailersLogo}
+    alt="PGSA Trailers Logo"
+    sx={{
+      width: {
+        xs: 220,
+        sm: 280,
+        md: 340,
+      },
+      maxWidth: '100%',
+      height: 'auto',
+      objectFit: 'contain',
+    }}
+  />
+</Box>
 
           <Typography 
             component="h1" 
