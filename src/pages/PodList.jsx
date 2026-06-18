@@ -36,7 +36,7 @@ import {
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import podService from '../../services/podService';
+import podService from '../services/podService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const PODList = () => {
