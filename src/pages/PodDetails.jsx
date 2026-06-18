@@ -30,7 +30,7 @@ import {
   Share as ShareIcon,
   History as HistoryIcon,
 } from '@mui/icons-material';
-import podService from '../../services/podService';
+import podService from '../services/podService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const PODDetails = () => {
