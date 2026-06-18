@@ -1,4 +1,4 @@
-// src/pages/vehicles/VehicleForm.jsx
+// src/pages/pods/PODDetails.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -6,130 +6,78 @@ import {
   Paper,
   Typography,
   Grid,
-  TextField,
+  Chip,
   Button,
-  Alert,
-  CircularProgress,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
+  Divider,
   Stack,
+  CircularProgress,
+  Alert,
+  Card,
+  CardContent,
 } from '@mui/material';
-import { ArrowBack, Save } from '@mui/icons-material';
-import vehicleService from '../../services/vehicleService';
+import {
+  ArrowBack as ArrowBackIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Receipt as ReceiptIcon,
+  Download as DownloadIcon,
+  PictureAsPdf as PdfIcon,
+  Image as ImageIcon,
+} from '@mui/icons-material';
+import podService from '../../services/podService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
-const VehicleForm = () => {
+const PODDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isEditMode = !!id;
-
-  const [loading, setLoading] = useState(isEditMode);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const [formData, setFormData] = useState({
-    registrationNumber: '',
-    make: '',
-    model: '',
-    year: '',
-    vehicleType: '',
-    capacityKg: '',
-    status: 'ACTIVE',
-    fuelType: '',
-    currentMileage: '',
-    engineSize: '',
-    fuelConsumption: '',
-    lastServiceDate: '',
-    nextServiceDate: '',
-  });
+  const [pod, setPod] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (isEditMode) {
-      loadVehicle();
-    }
+    loadPOD();
   }, [id]);
 
-  const loadVehicle = async () => {
+  const loadPOD = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const vehicle = await vehicleService.getVehicleById(id);
-      setFormData({
-        registrationNumber: vehicle.registrationNumber || '',
-        make: vehicle.make || '',
-        model: vehicle.model || '',
-        year: vehicle.year || '',
-        vehicleType: vehicle.vehicleType || '',
-        capacityKg: vehicle.capacityKg || '',
-        status: vehicle.status || 'ACTIVE',
-        fuelType: vehicle.fuelType || '',
-        currentMileage: vehicle.currentMileage || '',
-        engineSize: vehicle.engineSize || '',
-        fuelConsumption: vehicle.fuelConsumption || '',
-        lastServiceDate: vehicle.lastServiceDate || '',
-        nextServiceDate: vehicle.nextServiceDate || '',
-      });
+      const data = await podService.getPODById(id);
+      setPod(data);
+      setError(null);
     } catch (err) {
-      setError('Failed to load vehicle data');
+      setError('Failed to load POD details');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const validateForm = () => {
-    if (!formData.registrationNumber.trim()) {
-      setError('Registration Number is required');
-      return false;
-    }
-    if (!formData.make.trim()) {
-      setError('Make is required');
-      return false;
-    }
-    if (!formData.model.trim()) {
-      setError('Model is required');
-      return false;
-    }
-    return true;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!validateForm()) return;
-
-    setSubmitting(true);
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this POD?')) return;
     try {
-      const vehicleData = {
-        ...formData,
-        capacityKg: formData.capacityKg ? parseFloat(formData.capacityKg) : null,
-        currentMileage: formData.currentMileage ? parseFloat(formData.currentMileage) : null,
-      };
-
-      if (isEditMode) {
-        await vehicleService.updateVehicle(id, vehicleData);
-        setSuccess('Vehicle updated successfully!');
-      } else {
-        await vehicleService.createVehicle(vehicleData);
-        setSuccess('Vehicle created successfully!');
-      }
-
-      setTimeout(() => {
-        navigate('/vehicles');
-      }, 1500);
+      await podService.deletePOD(id);
+      navigate('/pods');
     } catch (err) {
-      setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} vehicle`);
-    } finally {
-      setSubmitting(false);
+      setError('Failed to delete POD');
     }
+  };
+
+  const getStatusChip = (status) => {
+    const statusMap = {
+      PENDING: { color: 'warning', label: 'Pending' },
+      DELIVERED: { color: 'success', label: 'Delivered' },
+      VERIFIED: { color: 'info', label: 'Verified' },
+      REJECTED: { color: 'error', label: 'Rejected' },
+    };
+    const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
+    return <Chip label={info.label} color={info.color} sx={{ fontWeight: 600 }} />;
+  };
+
+  const getDocumentIcon = (type) => {
+    const icons = {
+      PDF: <PdfIcon sx={{ fontSize: 48 }} />,
+      Image: <ImageIcon sx={{ fontSize: 48 }} />,
+    };
+    return icons[type] || <ReceiptIcon sx={{ fontSize: 48 }} />;
   };
 
   if (loading) {
@@ -140,209 +88,153 @@ const VehicleForm = () => {
     );
   }
 
+  if (error) {
+    return (
+      <Box>
+        <Breadcrumbs />
+        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+      </Box>
+    );
+  }
+
+  if (!pod) {
+    return (
+      <Box>
+        <Breadcrumbs />
+        <Alert severity="warning" sx={{ mt: 2 }}>POD not found</Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Breadcrumbs />
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">
-          {isEditMode ? 'Edit Vehicle' : 'Create New Vehicle'}
-        </Typography>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/vehicles')}>
-          Back
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/pods')}>
+          Back to PODs
         </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => navigate(`/pods/${id}/edit`)}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={handleDelete}
+          >
+            Delete
+          </Button>
+        </Stack>
       </Box>
 
-      <Paper sx={{ p: 3 }}>
-        <form onSubmit={handleSubmit}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-              {error}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
-              {success}
-            </Alert>
-          )}
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Registration Number *"
-                name="registrationNumber"
-                value={formData.registrationNumber}
-                onChange={handleChange}
-                required
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Make *"
-                name="make"
-                value={formData.make}
-                onChange={handleChange}
-                required
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Model *"
-                name="model"
-                value={formData.model}
-                onChange={handleChange}
-                required
-                size="small"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Year"
-                name="year"
-                type="number"
-                value={formData.year}
-                onChange={handleChange}
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Vehicle Type"
-                name="vehicleType"
-                value={formData.vehicleType}
-                onChange={handleChange}
-                size="small"
-                placeholder="e.g., TRUCK, TRAILER, etc."
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Capacity (kg)"
-                name="capacityKg"
-                type="number"
-                value={formData.capacityKg}
-                onChange={handleChange}
-                size="small"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  label="Status"
-                >
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="AVAILABLE">Available</MenuItem>
-                  <MenuItem value="IN_MAINTENANCE">In Maintenance</MenuItem>
-                  <MenuItem value="OUT_OF_SERVICE">Out of Service</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Fuel Type"
-                name="fuelType"
-                value={formData.fuelType}
-                onChange={handleChange}
-                size="small"
-                placeholder="e.g., Diesel, Petrol, Electric"
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Current Mileage"
-                name="currentMileage"
-                type="number"
-                value={formData.currentMileage}
-                onChange={handleChange}
-                size="small"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Engine Size"
-                name="engineSize"
-                value={formData.engineSize}
-                onChange={handleChange}
-                size="small"
-                placeholder="e.g., 12.8L"
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Fuel Consumption"
-                name="fuelConsumption"
-                value={formData.fuelConsumption}
-                onChange={handleChange}
-                size="small"
-                placeholder="e.g., 30L/100km"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Last Service Date"
-                name="lastServiceDate"
-                type="date"
-                value={formData.lastServiceDate}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Next Service Date"
-                name="nextServiceDate"
-                type="date"
-                value={formData.nextServiceDate}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
-                  disabled={submitting}
-                >
-                  {submitting ? 'Saving...' : (isEditMode ? 'Update Vehicle' : 'Create Vehicle')}
-                </Button>
-                <Button variant="outlined" onClick={() => navigate('/vehicles')}>
-                  Cancel
-                </Button>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack direction="row" spacing={3} alignItems="center">
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: 2,
+                bgcolor: 'primary.light',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {getDocumentIcon(pod.documentType)}
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h4" fontWeight="bold">
+                {pod.podNumber}
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Trip: {pod.tripNumber}
+                </Typography>
+                {getStatusChip(pod.status)}
               </Stack>
-            </Grid>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={() => window.open(pod.fileUrl, '_blank')}
+            >
+              Download
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+          POD Information
+        </Typography>
+        
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">POD Number</Typography>
+                <Typography variant="body1" fontWeight={500}>{pod.podNumber}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Trip Number</Typography>
+                <Typography variant="body1">{pod.tripNumber}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Customer</Typography>
+                <Typography variant="body1">{pod.customerName}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Delivery Date</Typography>
+                <Typography variant="body1">
+                  {new Date(pod.deliveryDate).toLocaleDateString()}
+                </Typography>
+              </Box>
+            </Stack>
           </Grid>
-        </form>
+
+          <Grid item xs={12} md={6}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Status</Typography>
+                <Box>{getStatusChip(pod.status)}</Box>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Document Type</Typography>
+                <Typography variant="body1">{pod.documentType || 'N/A'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">File Size</Typography>
+                <Typography variant="body1">{pod.fileSize || 'N/A'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Uploaded By</Typography>
+                <Typography variant="body1">{pod.uploadedBy}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {new Date(pod.uploadedAt).toLocaleString()}
+                </Typography>
+              </Box>
+            </Stack>
+          </Grid>
+
+          {pod.notes && (
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="caption" color="text.secondary">Notes</Typography>
+              <Typography variant="body1">{pod.notes}</Typography>
+            </Grid>
+          )}
+        </Grid>
       </Paper>
     </Box>
   );
 };
 
-export default VehicleForm;
+export default PODDetails;
