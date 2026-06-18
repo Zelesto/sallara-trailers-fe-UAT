@@ -1,4 +1,4 @@
-// src/pages/pods/PODDetails.jsx
+// src/pages/PODDetails.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -29,8 +29,11 @@ import {
   Print as PrintIcon,
   Share as ShareIcon,
   History as HistoryIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Pending as PendingIcon,
 } from '@mui/icons-material';
-import podService from '../services/podService';
+import { podService } from '../services/podService';
 import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const PODDetails = () => {
@@ -41,13 +44,13 @@ const PODDetails = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadPOD();
+    loadPod();
   }, [id]);
 
-  const loadPOD = async () => {
+  const loadPod = async () => {
     setLoading(true);
     try {
-      const data = await podService.getPODById(id);
+      const data = await podService.getPodById(id);
       setPod(data);
       setError(null);
     } catch (err) {
@@ -61,7 +64,7 @@ const PODDetails = () => {
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this POD?')) return;
     try {
-      await podService.deletePOD(id);
+      await podService.deletePod(id);
       navigate('/pods');
     } catch (err) {
       setError('Failed to delete POD');
@@ -70,18 +73,19 @@ const PODDetails = () => {
 
   const getStatusChip = (status) => {
     const statusMap = {
-      PENDING: { color: 'warning', label: 'Pending' },
-      DELIVERED: { color: 'success', label: 'Delivered' },
-      VERIFIED: { color: 'info', label: 'Verified' },
-      REJECTED: { color: 'error', label: 'Rejected' },
-      CANCELLED: { color: 'default', label: 'Cancelled' },
+      PENDING: { color: 'warning', icon: <PendingIcon />, label: 'Pending' },
+      DELIVERED: { color: 'success', icon: <CheckCircleIcon />, label: 'Delivered' },
+      VERIFIED: { color: 'info', icon: <CheckCircleIcon />, label: 'Verified' },
+      REJECTED: { color: 'error', icon: <CancelIcon />, label: 'Rejected' },
+      CANCELLED: { color: 'default', icon: <CancelIcon />, label: 'Cancelled' },
     };
-    const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
+    const info = statusMap[status] || { color: 'default', icon: null, label: status || 'Unknown' };
     return (
       <Chip 
         label={info.label} 
         color={info.color} 
-        sx={{ fontWeight: 600, fontSize: '0.875rem' }}
+        icon={info.icon}
+        sx={{ fontWeight: 600, fontSize: '0.875rem', px: 1 }}
       />
     );
   };
@@ -141,25 +145,13 @@ const PODDetails = () => {
     <Box>
       <Breadcrumbs />
       
-      {/* Header with actions */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Button 
-          startIcon={<ArrowBackIcon />} 
-          onClick={() => navigate('/pods')}
-          sx={{ 
-            '&:hover': {
-              backgroundColor: 'action.hover',
-            }
-          }}
-        >
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/pods')}>
           Back to PODs
         </Button>
         <Stack direction="row" spacing={1}>
           <Tooltip title="Print">
-            <IconButton 
-              color="primary"
-              onClick={() => window.print()}
-            >
+            <IconButton color="primary" onClick={() => window.print()}>
               <PrintIcon />
             </IconButton>
           </Tooltip>
@@ -172,12 +164,6 @@ const PODDetails = () => {
             variant="outlined"
             startIcon={<EditIcon />}
             onClick={() => navigate(`/pods/${id}/edit`)}
-            sx={{ 
-              '&:hover': {
-                backgroundColor: 'secondary.light',
-                color: 'white',
-              }
-            }}
           >
             Edit
           </Button>
@@ -186,23 +172,15 @@ const PODDetails = () => {
             color="error"
             startIcon={<DeleteIcon />}
             onClick={handleDelete}
-            sx={{ 
-              '&:hover': {
-                backgroundColor: 'error.light',
-                color: 'white',
-              }
-            }}
           >
             Delete
           </Button>
         </Stack>
       </Box>
 
-      {/* Main Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="center">
-            {/* Document Icon */}
             <Box
               sx={{
                 width: 100,
@@ -219,7 +197,6 @@ const PODDetails = () => {
               {getDocumentIcon(pod.documentType)}
             </Box>
             
-            {/* POD Info */}
             <Box sx={{ flex: 1 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
                 <Typography variant="h4" fontWeight="bold">
@@ -229,7 +206,7 @@ const PODDetails = () => {
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ mt: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Trip:</strong> {pod.tripNumber || 'N/A'}
+                  <strong>Trip ID:</strong> #{pod.tripId || 'N/A'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   <strong>Customer:</strong> {pod.customerName || 'N/A'}
@@ -240,44 +217,26 @@ const PODDetails = () => {
               </Stack>
             </Box>
 
-            {/* Action Buttons */}
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={() => window.open(pod.fileUrl, '_blank')}
-                sx={{ 
-                  borderRadius: 2,
-                  px: 3,
-                  '&:hover': {
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-                  }
-                }}
-              >
-                Download
-              </Button>
-            </Stack>
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={() => window.open(pod.fileUrl, '_blank')}
+            >
+              Download
+            </Button>
           </Stack>
         </CardContent>
       </Card>
 
-      {/* Details Grid */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
           POD Information
         </Typography>
         
         <Grid container spacing={3}>
-          {/* Left Column */}
           <Grid item xs={12} md={6}>
             <Stack spacing={2}>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   POD Number
                 </Typography>
@@ -285,27 +244,15 @@ const PODDetails = () => {
                   {pod.podNumber}
                 </Typography>
               </Box>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                  Trip Number
+                  Trip ID
                 </Typography>
                 <Typography variant="body1">
-                  {pod.tripNumber || 'N/A'}
+                  #{pod.tripId || 'N/A'}
                 </Typography>
               </Box>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   Customer Name
                 </Typography>
@@ -313,13 +260,7 @@ const PODDetails = () => {
                   {pod.customerName || 'N/A'}
                 </Typography>
               </Box>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   Delivery Date
                 </Typography>
@@ -330,28 +271,15 @@ const PODDetails = () => {
             </Stack>
           </Grid>
 
-          {/* Right Column */}
           <Grid item xs={12} md={6}>
             <Stack spacing={2}>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   Status
                 </Typography>
                 <Box>{getStatusChip(pod.status)}</Box>
               </Box>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   Document Type
                 </Typography>
@@ -362,13 +290,7 @@ const PODDetails = () => {
                   </Typography>
                 </Stack>
               </Box>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   File Size
                 </Typography>
@@ -376,27 +298,20 @@ const PODDetails = () => {
                   {pod.fileSize || 'N/A'}
                 </Typography>
               </Box>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   Uploaded By
                 </Typography>
                 <Typography variant="body1">
                   {pod.uploadedBy || 'N/A'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" display="block">
                   {pod.uploadedAt ? new Date(pod.uploadedAt).toLocaleString() : 'N/A'}
                 </Typography>
               </Box>
             </Stack>
           </Grid>
 
-          {/* Notes Section */}
           {pod.notes && (
             <Grid item xs={12}>
               <Divider sx={{ my: 2 }} />
@@ -411,7 +326,6 @@ const PODDetails = () => {
             </Grid>
           )}
 
-          {/* Audit Trail */}
           <Grid item xs={12}>
             <Divider sx={{ my: 2 }} />
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
@@ -438,23 +352,6 @@ const PODDetails = () => {
                     <strong>By:</strong> {pod.updatedBy || 'N/A'}
                   </Typography>
                 </Box>
-                {pod.statusHistory && pod.statusHistory.length > 0 && (
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" fontWeight={600}>
-                      Status History:
-                    </Typography>
-                    {pod.statusHistory.map((status, index) => (
-                      <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', ml: 2 }}>
-                        <Typography variant="body2">
-                          {status.status}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {new Date(status.timestamp).toLocaleString()}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                )}
               </Stack>
             </Paper>
           </Grid>
