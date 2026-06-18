@@ -361,4 +361,4 @@ const PODDetails = () => {
   );
 };
 
-export default PODDetails;
+export default PodDetails;
