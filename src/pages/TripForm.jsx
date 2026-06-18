@@ -521,7 +521,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
         });
         setForm({
-          tripNumber: generateUniqueTripNumber(),
+          tripNumber: '',
           tripType: 'FREIGHT',
           status: 'PLANNED',
           approvalStatus: 'PENDING',
@@ -544,7 +544,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           notes: '',
           specialInstructions: '',
           driverNotes: '',
-          referenceNumber: '',
+          referenceNumber: generateUniqueTripNumber(),
           purchaseOrderNumber: '',
           estimatedTollCost: '',
           estimatedOtherExpenses: '',
