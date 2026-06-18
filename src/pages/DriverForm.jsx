@@ -17,7 +17,7 @@ import {
   Stack,
 } from '@mui/material';
 import { ArrowBack, Save } from '@mui/icons-material';
-import driverService from '../../services/driverService';
+import driverService from '../services/driverService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const DriverForm = () => {
