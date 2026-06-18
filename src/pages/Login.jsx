@@ -11,11 +11,12 @@ import {
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import SCBTrailersLogo from '../components/assets/img/PGSALogo.png';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
     email: '',
-    password: ''
+    password: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,11 +32,8 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    console.log('Form submitted with credentials:', credentials);
-
     try {
-      const { token, user, success } = await login(credentials);
-      console.log('Login response:', { token, user, success });
+      const { token } = await login(credentials);
 
       if (!token) {
         throw new Error('No token returned from backend');
@@ -43,7 +41,6 @@ const Login = () => {
 
       navigate(from, { replace: true });
     } catch (err) {
-      console.log('Login error:', err);
       setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -51,208 +48,230 @@ const Login = () => {
   };
 
   const handleChange = (e) => {
-    console.log('Input changed:', e.target.name, e.target.value);
-
-    setCredentials({
-      ...credentials,
+    setCredentials((prev) => ({
+      ...prev,
       [e.target.name]: e.target.value,
-    });
+    }));
   };
 
   return (
     <Container
-  component="main"
-  maxWidth={false}
-  sx={{
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    px: 2,
-  }}
->
-  <Paper
-    elevation={3}
-    sx={{
-      width: '100%',
-      maxWidth: 500,
-      p: { xs: 3, sm: 4, md: 5 },
-      borderRadius: 3,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-    }}
-  >
-          {/* Larger Logo Container */}
-          <Box
-            sx={{
-              width: 120, // Increased from 48
-              height: 120, // Increased from 48
-              mb: 3,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'grey.50',
-              borderRadius: 2,
-              p: 2,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            }}
-          >
-            <Box
-  sx={{
-    width: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    mb: 3,
-  }}
->
-  <Box
-    component="img"
-    src={SCBTrailersLogo}
-    alt="PGSA Trailers Logo"
-    sx={{
-      width: {
-        xs: 220,
-        sm: 280,
-        md: 340,
-      },
-      maxWidth: '100%',
-      height: 'auto',
-      objectFit: 'contain',
-    }}
-  />
-</Box>
-
-          <Typography 
-            component="h1" 
-            variant="h5" 
-            align="center" 
-            gutterBottom
-            sx={{
-              fontWeight: 600,
-              fontSize: { xs: '1.25rem', sm: '1.5rem' },
-            }}
-          >
-            Fleet Management System
-          </Typography>
-
-          <Typography
-            variant="caption"
-            align="center"
-            color="textSecondary"
-            sx={{ 
-              display: 'block', 
-              mb: 1,
-              fontSize: '0.75rem',
-            }}
-          >
-            PGSA Trailers
-          </Typography>
-
-          <Typography
-            variant="caption"
-            align="center"
-            color="textSecondary"
-            sx={{ 
-              display: 'block', 
-              mb: 3,
-              fontSize: '0.7rem',
-            }}
-          >
-            v1.0.1
-          </Typography>
-
-          <Typography
-            variant="body2"
-            color="textSecondary"
-            align="center"
-            sx={{ mb: 3 }}
-          >
-            Sign in to your account
-          </Typography>
-
-          {error && (
-            <Alert
-              severity="error"
-              sx={{ mb: 2, width: '100%' }}
-              onClose={() => setError('')}
-            >
-              {error}
-            </Alert>
-          )}
-
-          <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              autoFocus
-              value={credentials.email}
-              onChange={handleChange}
-              disabled={loading}
-              error={!!error}
-            />
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Password"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              value={credentials.password}
-              onChange={handleChange}
-              disabled={loading}
-              error={!!error}
-            />
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ 
-                mt: 3, 
-                mb: 2, 
-                py: 1.5,
-                fontSize: '1rem',
-                fontWeight: 600,
-              }}
-              disabled={loading}
-              size="large"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-
-          <Box sx={{ 
-            mt: 3, 
-            textAlign: 'center',
+      component="main"
+      maxWidth={false}
+      disableGutters
+      sx={{
+        minHeight: '100vh',
+        background:
+          'linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: { xs: 2, sm: 3 },
+      }}
+    >
+      <Paper
+        elevation={6}
+        sx={{
+          width: '100%',
+          maxWidth: 520,
+          borderRadius: 4,
+          p: {
+            xs: 3,
+            sm: 4,
+            md: 5,
+          },
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        {/* Logo */}
+        <Box
+          sx={{
             width: '100%',
-            pt: 2,
+            display: 'flex',
+            justifyContent: 'center',
+            mb: 3,
+          }}
+        >
+          <Box
+            component="img"
+            src={SCBTrailersLogo}
+            alt="PGSA Trailers Logo"
+            sx={{
+              width: {
+                xs: 240,
+                sm: 320,
+                md: 380,
+              },
+              maxWidth: '100%',
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+            }}
+          />
+        </Box>
+
+        <Typography
+          component="h1"
+          sx={{
+            fontSize: {
+              xs: '1.5rem',
+              sm: '1.75rem',
+              md: '2rem',
+            },
+            fontWeight: 700,
+            textAlign: 'center',
+            mb: 1,
+          }}
+        >
+          Fleet Management System
+        </Typography>
+
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            textAlign: 'center',
+            mb: 0.5,
+            fontWeight: 500,
+          }}
+        >
+          PGSA Trailers
+        </Typography>
+
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            display: 'block',
+            mb: 3,
+          }}
+        >
+          Version 1.0.1
+        </Typography>
+
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          align="center"
+          sx={{ mb: 3 }}
+        >
+          Sign in to your account
+        </Typography>
+
+        {error && (
+          <Alert
+            severity="error"
+            sx={{
+              width: '100%',
+              mb: 3,
+            }}
+            onClose={() => setError('')}
+          >
+            {error}
+          </Alert>
+        )}
+
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            width: '100%',
+            maxWidth: 400,
+          }}
+        >
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email Address"
+            name="email"
+            autoComplete="email"
+            autoFocus
+            value={credentials.email}
+            onChange={handleChange}
+            disabled={loading}
+          />
+
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Password"
+            type="password"
+            id="password"
+            autoComplete="current-password"
+            value={credentials.password}
+            onChange={handleChange}
+            disabled={loading}
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={loading}
+            sx={{
+              mt: 3,
+              mb: 2,
+              py: 1.5,
+              fontSize: '1rem',
+              fontWeight: 600,
+              borderRadius: 2,
+            }}
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
+          </Button>
+        </Box>
+
+        <Box
+          sx={{
+            mt: 3,
+            pt: 3,
+            width: '100%',
             borderTop: '1px solid',
             borderColor: 'divider',
-          }}>
-            <Typography variant="body2" color="textSecondary" gutterBottom>
-              Don't have an account?
-            </Typography>
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-              Contact Management
-            </Typography>
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-              www.phoenixgroupsa.co.za
-            </Typography>
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-              IT-info@phoenixgroupsa.co.za
-            </Typography>
-          </Box>
-        </Paper>
-      </Box>
+            textAlign: 'center',
+          }}
+        >
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            gutterBottom
+          >
+            Don't have an account?
+          </Typography>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
+          >
+            Contact Management
+          </Typography>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
+          >
+            www.phoenixgroupsa.co.za
+          </Typography>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
+          >
+            IT-info@phoenixgroupsa.co.za
+          </Typography>
+        </Box>
+      </Paper>
     </Container>
   );
 };
