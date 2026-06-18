@@ -53,10 +53,9 @@ import {
   ReceiptLong as ReceiptLongIcon,
   AccountBalance as AccountBalanceIcon,
   Description as DescriptionIcon,
-  // NEW ICONS FOR TRIP MANAGEMENT
   Route as RouteIcon,
   AddLocation as AddLocationIcon,
-  Assessment as AnalyticsIcon,
+  Analytics as AnalyticsIcon,
   Receipt as PodIcon,
   FileCopy as BatchIcon,
   CheckCircle as FinalizeIcon,
@@ -67,7 +66,6 @@ import { styled } from '@mui/material/styles';
 // Import your logo image
 import logoImage from '../assets/img/PGSALogo.png'; // Update this path as needed
 
-// Choose which Breadcrumbs component to use:
 import Breadcrumbs from './Breadcrumbs';
 
 const drawerWidth = 280;
@@ -78,9 +76,9 @@ const LogoContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: theme.spacing(1.5, 2),
+  padding: theme.spacing(2, 2),
   borderBottom: `1px solid ${theme.palette.divider}`,
-  minHeight: 150,
+  minHeight: 180, // Increased from 150 to 180
   position: 'relative',
   overflow: 'hidden',
 }));
@@ -91,7 +89,7 @@ const LogoWrapper = styled(Box, {
   display: 'flex',
   flexDirection: collapsed ? 'row' : 'column',
   alignItems: 'center',
-  gap: theme.spacing(1),
+  gap: theme.spacing(1.5), // Increased spacing
   transition: 'all 0.3s ease',
   width: '100%',
   justifyContent: collapsed ? 'center' : 'center',
@@ -120,14 +118,12 @@ const SectionHeader = styled(ListItemButton)(({ theme }) => ({
   },
 }));
 
-// Main content wrapper with fixed profile at bottom
 const MainContentWrapper = styled(Box)(({ theme }) => ({
   flex: 1,
   overflowY: 'auto',
-  paddingBottom: '80px', // Space for the fixed profile
+  paddingBottom: '80px',
 }));
 
-// User profile container with fixed position at bottom
 const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
   borderTop: `1px solid ${theme.palette.divider}`,
   padding: collapsed ? theme.spacing(1.5, 1) : theme.spacing(2),
@@ -144,8 +140,7 @@ const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
   }),
 }));
 
-// Updated menu structure with Trip Management section
-// Update the menuSections array in Layout.jsx to use only existing routes:
+// Responsive menu sections
 const menuSections = [
   {
     title: 'Operations',
@@ -159,7 +154,6 @@ const menuSections = [
         subItems: [
           { text: 'All Trips', path: '/trips', icon: <RouteIcon /> },
           { text: 'Active Trips', path: '/trips?status=ACTIVE', icon: <Timeline /> },
-          // Remove "Finalize Trip" or link to trips list with filter
         ],
       },
       {
@@ -189,9 +183,6 @@ const menuSections = [
     items: [
       { text: 'Vehicles', icon: <DirectionsCar />, path: '/vehicles' },
       { text: 'Drivers', icon: <Person />, path: '/drivers' },
-      // Remove trailers and equipment until pages are created
-      // { text: 'Trailers', icon: <CarIcon />, path: '/trailers' },
-      // { text: 'Equipment', icon: <InventoryIcon />, path: '/equipment' },
     ],
   },
   {
@@ -212,10 +203,6 @@ const menuSections = [
     items: [
       { text: 'Trip Analytics', icon: <AnalyticsIcon />, path: '/analytics/trips' },
       { text: 'Trip Reports', icon: <ReportsIcon />, path: '/reports/trips' },
-      // Remove these until pages are created:
-      // { text: 'Fuel Reports', icon: <FuelIcon />, path: '/reports/fuel' },
-      // { text: 'Financial Reports', icon: <MoneyIcon />, path: '/reports/financial' },
-      // { text: 'Performance Reports', icon: <Timeline />, path: '/reports/performance' },
     ],
   },
   {
@@ -223,31 +210,26 @@ const menuSections = [
     icon: <AdminPanelSettings />,
     items: [
       { text: 'Users Management', icon: <People />, path: '/users' },
-      // Remove until pages are created:
-      // { text: 'Roles & Permissions', icon: <AdminPanelSettings />, path: '/roles' },
       { text: 'System Settings', icon: <Settings />, path: '/settings' },
-      // { text: 'Billing & Invoices', icon: <Receipt />, path: '/billing' },
       { text: 'Logs & Audits', icon: <Timeline />, path: '/logs' },
-      // { text: 'Locations', icon: <LocationOn />, path: '/locations' },
     ],
   },
 ];
 
 const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  // Start with sidebar open but all sections collapsed
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedSections, setExpandedSections] = useState({}); // All sections collapsed by default
+  const [expandedSections, setExpandedSections] = useState({});
   const [expandedMenuItems, setExpandedMenuItems] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
   const { user, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef(null);
 
-  // Load sidebar state from localStorage on mount
   useEffect(() => {
     const savedSidebarState = localStorage.getItem('sidebarCollapsed');
     if (savedSidebarState !== null) {
@@ -255,7 +237,6 @@ const MainLayout = () => {
     }
   }, []);
 
-  // Save sidebar state to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
@@ -302,7 +283,6 @@ const MainLayout = () => {
     logout();
   };
 
-  // Handle New Trip click - navigate to TripForm
   const handleNewTrip = () => {
     navigate('/trips/create');
   };
@@ -312,10 +292,10 @@ const MainLayout = () => {
       <LogoContainer>
         <LogoWrapper collapsed={sidebarCollapsed ? 1 : 0}>
           {sidebarCollapsed ? (
-            // Collapsed state: Show logo only centered
+            // Collapsed state: Show larger logo
             <Box sx={{
-              width: 40,
-              height: 40,
+              width: 48, // Increased from 40
+              height: 48, // Increased from 40
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -336,8 +316,8 @@ const MainLayout = () => {
                   e.target.style.display = 'none';
                   e.target.parentElement.innerHTML = `
                     <div style="
-                      width: 40px;
-                      height: 40px;
+                      width: 48px;
+                      height: 48px;
                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                       border-radius: 8px;
                       display: flex;
@@ -345,18 +325,18 @@ const MainLayout = () => {
                       justify-content: center;
                       color: white;
                       font-weight: bold;
-                      font-size: 14px;
+                      font-size: 16px;
                     ">P</div>
                   `;
                 }}
               />
             </Box>
           ) : (
-            // Expanded state: Show logo with text
+            // Expanded state: Show larger logo with text
             <>
               <Box sx={{
-                width: 48,
-                height: 48,
+                width: 64, // Increased from 48
+                height: 64, // Increased from 48
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -377,8 +357,8 @@ const MainLayout = () => {
                     e.target.style.display = 'none';
                     e.target.parentElement.innerHTML = `
                       <div style="
-                        width: 48px;
-                        height: 48px;
+                        width: 64px;
+                        height: 64px;
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                         border-radius: 8px;
                         display: flex;
@@ -386,7 +366,7 @@ const MainLayout = () => {
                         justify-content: center;
                         color: white;
                         font-weight: bold;
-                        font-size: 16px;
+                        font-size: 20px;
                       ">PGSA</div>
                     `;
                   }}
@@ -394,23 +374,23 @@ const MainLayout = () => {
               </Box>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography
-                  variant="subtitle1"
+                  variant="h6" // Changed from subtitle1
                   sx={{
                     fontWeight: 700,
                     color: theme.palette.primary.main,
                     mb: 0.25,
-                    fontSize: '0.95rem',
+                    fontSize: '1.1rem', // Increased font size
                     lineHeight: 1.2,
                   }}
                 >
                   TRAILERS
                 </Typography>
                 <Typography
-                  variant="caption"
+                  variant="body2" // Changed from caption
                   sx={{
                     color: 'text.secondary',
                     fontWeight: 500,
-                    fontSize: '0.7rem',
+                    fontSize: '0.75rem', // Increased font size
                     display: 'block',
                     lineHeight: 1.2,
                   }}
@@ -422,7 +402,7 @@ const MainLayout = () => {
                   sx={{
                     color: 'text.secondary',
                     fontWeight: 500,
-                    fontSize: '0.65rem',
+                    fontSize: '0.7rem',
                     display: 'block',
                     lineHeight: 1.2,
                   }}
@@ -434,7 +414,7 @@ const MainLayout = () => {
           )}
         </LogoWrapper>
 
-        {/* Toggle button - always visible and prominent */}
+        {/* Toggle button */}
         <IconButton
           onClick={toggleSidebar}
           size="small"
@@ -448,7 +428,7 @@ const MainLayout = () => {
             '&:hover': {
               backgroundColor: theme.palette.grey[200],
             },
-            zIndex: 11, // Higher z-index to ensure it's always visible
+            zIndex: 11,
             boxShadow: 2,
             width: 28,
             height: 28,
@@ -470,7 +450,6 @@ const MainLayout = () => {
           <React.Fragment key={section.title}>
             {!sidebarCollapsed ? (
               <>
-                {/* Expanded View - With Collapsible Section Header */}
                 <SectionHeader onClick={() => toggleSection(index)}>
                   <ListItemIcon sx={{ minWidth: 40 }}>
                     {section.icon}
@@ -528,7 +507,6 @@ const MainLayout = () => {
                             )}
                           </SidebarItem>
 
-                          {/* Render sub-items */}
                           {hasSubItems && isMenuItemExpanded && (
                             <List disablePadding sx={{ pl: 4 }}>
                               {item.subItems.map((subItem) => {
@@ -569,7 +547,6 @@ const MainLayout = () => {
                 </Collapse>
               </>
             ) : (
-              // Collapsed View - Show only icons with tooltips
               <Box>
                 <Box sx={{
                   px: 0.5,
@@ -646,10 +623,8 @@ const MainLayout = () => {
         ))}
       </MainContentWrapper>
 
-      {/* User Profile - Fixed at bottom, always visible */}
       <UserProfileContainer collapsed={sidebarCollapsed}>
         {!sidebarCollapsed ? (
-          // Expanded user profile view
           <Stack direction="row" spacing={2} alignItems="center">
             <Avatar
               sx={{
@@ -682,7 +657,6 @@ const MainLayout = () => {
             </Box>
           </Stack>
         ) : (
-          // Collapsed user profile view
           <Tooltip title={user?.username || "User Profile"} placement="right" arrow>
             <ListItemButton
               onClick={handleUserMenuOpen}
@@ -713,7 +687,6 @@ const MainLayout = () => {
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
 
-      {/* AppBar */}
       <AppBar
         position="fixed"
         sx={{
@@ -729,8 +702,17 @@ const MainLayout = () => {
           }),
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Toolbar sx={{ 
+          justifyContent: 'space-between',
+          flexWrap: 'nowrap', // Prevent wrapping
+          overflow: 'hidden',
+          minHeight: { xs: 56, sm: 64 },
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            flexShrink: 0,
+          }}>
             <IconButton
               color="inherit"
               aria-label="open drawer"
@@ -741,26 +723,42 @@ const MainLayout = () => {
               <MenuIcon />
             </IconButton>
 
-            {/* Only show main title, no duplicate logo */}
-            <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>
+            <Typography 
+              variant="h6" 
+              noWrap 
+              sx={{ 
+                fontWeight: 600,
+                fontSize: { xs: '0.9rem', sm: '1rem', md: '1.1rem' },
+                whiteSpace: 'nowrap',
+              }}
+            >
               Fleet Management System
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack 
+            direction="row" 
+            spacing={{ xs: 0.5, sm: 1 }} 
+            alignItems="center"
+            sx={{
+              flexShrink: 0,
+              '& .MuiIconButton-root': {
+                padding: { xs: 0.5, sm: 1 },
+              },
+            }}
+          >
             <IconButton size="small" sx={{ borderRadius: 1 }}>
-              <Search />
+              <Search sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
             </IconButton>
             <IconButton size="small" sx={{ borderRadius: 1 }}>
               <Badge badgeContent={3} color="error">
-                <Notifications />
+                <Notifications sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
               </Badge>
             </IconButton>
             <IconButton size="small" sx={{ borderRadius: 1 }}>
-              <Settings />
+              <Settings sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
             </IconButton>
 
-            {/* New Trip Button - Now properly navigates to TripForm */}
             <Button
               variant="contained"
               size="small"
@@ -769,21 +767,26 @@ const MainLayout = () => {
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 600,
-                px: 2,
+                px: { xs: 1, sm: 2 },
+                py: { xs: 0.5, sm: 1 },
                 backgroundColor: theme.palette.success.main,
                 '&:hover': {
                   backgroundColor: theme.palette.success.dark,
-                }
+                },
+                fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                minWidth: { xs: 'auto', sm: 'auto' },
+                '& .MuiButton-startIcon': {
+                  marginRight: { xs: 0.5, sm: 1 },
+                },
               }}
-              startIcon={<AddLocationIcon />}
+              startIcon={<AddLocationIcon sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }} />}
             >
-              New Trip
+              {isSmallScreen ? 'New' : 'New Trip'}
             </Button>
           </Stack>
         </Toolbar>
       </AppBar>
 
-      {/* User Menu Dropdown */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -826,7 +829,6 @@ const MainLayout = () => {
         </MenuItem>
       </Menu>
 
-      {/* Sidebar */}
       <Box
         component="nav"
         sx={{
@@ -875,12 +877,11 @@ const MainLayout = () => {
         )}
       </Box>
 
-      {/* Main content area */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1, sm: 2, md: 3 },
           width: { md: `calc(100% - ${sidebarCollapsed ? collapsedDrawerWidth : drawerWidth}px)` },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
@@ -888,11 +889,11 @@ const MainLayout = () => {
           }),
           backgroundColor: theme.palette.grey[50],
           minHeight: '100vh',
+          overflowX: 'hidden',
         }}
       >
-        <Toolbar />
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
 
-        {/* Breadcrumbs */}
         <Breadcrumbs />
 
         <Outlet />
