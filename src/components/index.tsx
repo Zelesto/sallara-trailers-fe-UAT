@@ -1,3 +1,8 @@
+// src/components/index.tsx
+
+// ==========================
+// Library Components
+// ==========================
 export { AppHeader } from './library/app-header/AppHeader';
 export { AppFooter } from './library/app-footer/AppFooter';
 export { CardAuth } from './library/card-auth/CardAuth';
@@ -23,6 +28,9 @@ export { CardTasks } from './library/card-tasks/CardTasks';
 export { CardOpportunities } from './library/card-opportunities/CardOpportunities';
 export { StatusIndicator } from './library/status-indicator/StatusIndicator';
 
+// ==========================
+// Utility Components
+// ==========================
 export { ToolbarAnalytics } from './utils/toolbar-analytics/ToolbarAnalytics';
 export { ContactCards } from './utils/contact-cards/ContactCards';
 export { ContactStatus } from './utils/contact-status/ContactStatus';
@@ -46,3 +54,30 @@ export { OpportunitiesTicker } from './utils/opportunities-ticker/OpportunitiesT
 export { RevenueTotalTicker } from './utils/revenue-total-ticker/RevenueTotalTicker';
 export { LeadsTicker } from './utils/leads-ticker/LeadsTicker';
 export { ConversionTicker } from './utils/conversion-ticker/ConversionTicker';
+
+// ==========================
+// Layout Components
+// ==========================
+export { default as Breadcrumbs } from './Layout/Breadcrumbs';
+export { default as Layout } from './Layout/Layout';
+
+// ==========================
+// Page Components (re-exported for convenience)
+// ==========================
+export { default as Dashboard } from '../pages/Dashboard';
+export { default as TripForm } from '../pages/TripForm';
+export { default as TripList } from '../pages/TripList';
+export { default as TripDetails } from '../pages/TripDetails';
+export { default as DriverList } from '../pages/DriverList';
+export { default as DriverDetails } from '../pages/DriverDetails';
+export { default as DriverForm } from '../pages/DriverForm';
+export { default as VehicleList } from '../pages/VehicleList';
+export { default as VehicleDetails } from '../pages/VehicleDetails';
+export { default as VehicleForm } from '../pages/VehicleForm';
+export { default as FuelSlips } from '../pages/FuelSlips';
+export { default as Inventory } from '../pages/Inventory';
+export { default as FinanceDashboard } from '../pages/FinanceDashboard';
+export { default as Analytics } from '../pages/Analytics';
+export { default as Reports } from '../pages/Reports';
+export { default as Users } from '../pages/Users';
+export { default as Settings } from '../pages/Settings';
