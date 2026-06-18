@@ -60,25 +60,29 @@ const Login = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            p: { xs: 3, sm: 4, md: 6 }, 
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
+    <Container
+  component="main"
+  maxWidth={false}
+  sx={{
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    px: 2,
+  }}
+>
+  <Paper
+    elevation={3}
+    sx={{
+      width: '100%',
+      maxWidth: 500,
+      p: { xs: 3, sm: 4, md: 5 },
+      borderRadius: 3,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+    }}
+  >
           {/* Larger Logo Container */}
           <Box
             sx={{
