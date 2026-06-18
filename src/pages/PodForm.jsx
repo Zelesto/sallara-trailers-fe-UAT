@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { ArrowBack, Save, CloudUpload } from '@mui/icons-material';
 import podService from '../services/podService';
-import Breadcrumbs from '../../components/Layout/Breadcrumbs';
+import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const PODForm = () => {
   const { id } = useParams();
