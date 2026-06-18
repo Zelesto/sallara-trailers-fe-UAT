@@ -1,11 +1,7 @@
 // src/services/driverService.js
-import api from './api';
+import api from '../api/axiosConfig';
 
 export const driverService = {
-  // ==========================
-  // Driver CRUD Operations
-  // ==========================
-
   /**
    * Get all drivers
    * @param {Object} params - Query parameters (page, size, sort, search)
@@ -17,19 +13,15 @@ export const driverService = {
       console.log('Driver Service Response:', response);
       
       // Handle different response structures
-      if (response?.data?.content !== undefined) {
+      if (response?.content !== undefined) {
         // Paginated response
-        return response.data.content;
-      }
-      if (Array.isArray(response?.data)) {
-        // Array in data property
-        return response.data;
+        return response.content;
       }
       if (Array.isArray(response)) {
         // Direct array response
         return response;
       }
-      return response?.data || [];
+      return response || [];
     } catch (error) {
       console.error('Error fetching drivers:', error);
       throw error;
@@ -44,7 +36,7 @@ export const driverService = {
   getDriverById: async (id) => {
     try {
       const response = await api.get(`/drivers/${id}`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching driver ${id}:`, error);
       throw error;
@@ -61,11 +53,9 @@ export const driverService = {
       console.log('Creating driver with data:', driverData);
       const response = await api.post('/drivers', driverData);
       console.log('Driver created successfully:', response);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error('Error creating driver:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
       throw error;
     }
   },
@@ -79,9 +69,25 @@ export const driverService = {
   updateDriver: async (id, driverData) => {
     try {
       const response = await api.put(`/drivers/${id}`, driverData);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error updating driver ${id}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Patch/Partially update a driver
+   * @param {number|string} id - Driver ID
+   * @param {Object} driverData - Partial driver data
+   * @returns {Promise<Object>} Updated driver
+   */
+  patchDriver: async (id, driverData) => {
+    try {
+      const response = await api.patch(`/drivers/${id}`, driverData);
+      return response;
+    } catch (error) {
+      console.error(`Error patching driver ${id}:`, error);
       throw error;
     }
   },
@@ -94,7 +100,7 @@ export const driverService = {
   deleteDriver: async (id) => {
     try {
       const response = await api.delete(`/drivers/${id}`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error deleting driver ${id}:`, error);
       throw error;
@@ -111,7 +117,7 @@ export const driverService = {
       const response = await api.get('/drivers/search', {
         params: { q: searchTerm }
       });
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error('Error searching drivers:', error);
       throw error;
@@ -128,7 +134,7 @@ export const driverService = {
       const response = await api.get('/drivers/status', {
         params: { status }
       });
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error(`Error fetching drivers with status ${status}:`, error);
       throw error;
@@ -142,7 +148,7 @@ export const driverService = {
   getAvailableDrivers: async () => {
     try {
       const response = await api.get('/drivers/available');
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error('Error fetching available drivers:', error);
       throw error;
@@ -157,7 +163,7 @@ export const driverService = {
   getDriverByLicense: async (licenseNumber) => {
     try {
       const response = await api.get(`/drivers/license/${licenseNumber}`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching driver by license ${licenseNumber}:`, error);
       throw error;
@@ -173,7 +179,7 @@ export const driverService = {
   updateDriverStatus: async (id, status) => {
     try {
       const response = await api.patch(`/drivers/${id}/status`, { status });
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error updating driver status ${id}:`, error);
       throw error;
@@ -189,7 +195,7 @@ export const driverService = {
   getDriverTripHistory: async (id, params = {}) => {
     try {
       const response = await api.get(`/drivers/${id}/trips`, { params });
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching trip history for driver ${id}:`, error);
       throw error;
@@ -204,7 +210,7 @@ export const driverService = {
   getDriverStatistics: async (id) => {
     try {
       const response = await api.get(`/drivers/${id}/statistics`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching statistics for driver ${id}:`, error);
       throw error;
@@ -220,7 +226,7 @@ export const driverService = {
   getDriverPerformance: async (id, params = {}) => {
     try {
       const response = await api.get(`/drivers/${id}/performance`, { params });
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error fetching performance for driver ${id}:`, error);
       throw error;
@@ -235,7 +241,7 @@ export const driverService = {
   verifyDriverLicense: async (id) => {
     try {
       const response = await api.post(`/drivers/${id}/verify-license`);
-      return response?.data || response;
+      return response;
     } catch (error) {
       console.error(`Error verifying license for driver ${id}:`, error);
       throw error;
@@ -252,7 +258,7 @@ export const driverService = {
       const response = await api.get('/drivers/license-expiring', {
         params: { days: daysThreshold }
       });
-      return response?.data || response || [];
+      return response || [];
     } catch (error) {
       console.error('Error fetching expiring licenses:', error);
       throw error;
