@@ -67,7 +67,7 @@ import { styled } from '@mui/material/styles';
 import logoImage from '../assets/img/PGSALogo.png'; // Update this path as needed
 
 import Breadcrumbs from './Breadcrumbs';
-import TripForm from '../components/TripForm';
+import TripForm from '../TripForm';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 70;
