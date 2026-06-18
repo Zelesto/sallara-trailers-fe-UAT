@@ -1,20 +1,83 @@
-// src/pages/DriverDetails.jsx
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
-import driverService from '../services/driverService';
-import { Box, CircularProgress, Typography, Alert, Paper } from '@mui/material';
+// src/pages/drivers/DriverDetails.jsx
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  Chip,
+  Button,
+  Avatar,
+  Divider,
+  Stack,
+  CircularProgress,
+  Alert,
+  Card,
+  CardContent,
+} from '@mui/material';
+import {
+  ArrowBack as ArrowBackIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Phone as PhoneIcon,
+  Email as EmailIcon,
+  Badge as BadgeIcon,
+  CalendarToday as CalendarIcon,
+  LocationOn as LocationIcon,
+  DirectionsCar as CarIcon,
+} from '@mui/icons-material';
+import driverService from '../../services/driverService';
+import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const DriverDetails = () => {
-  const { id } = useParams(); // Get the id from URL
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [driver, setDriver] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Fetch driver by ID
-  const { data: driver, isLoading, error } = useQuery({
-    queryKey: ['driver', id],
-    queryFn: () => driverService.getDriverById(id),
-    enabled: !!id, // Only run query if id exists
-  });
+  useEffect(() => {
+    loadDriver();
+  }, [id]);
 
-  if (isLoading) {
+  const loadDriver = async () => {
+    setLoading(true);
+    try {
+      const data = await driverService.getDriverById(id);
+      setDriver(data);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load driver details');
+      console.error('Error loading driver:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this driver?')) return;
+    try {
+      await driverService.deleteDriver(id);
+      navigate('/drivers');
+    } catch (err) {
+      setError('Failed to delete driver');
+    }
+  };
+
+  const getStatusChip = (status) => {
+    const statusMap = {
+      ACTIVE: { color: 'success', label: 'Active' },
+      AVAILABLE: { color: 'info', label: 'Available' },
+      ON_LEAVE: { color: 'warning', label: 'On Leave' },
+      INACTIVE: { color: 'error', label: 'Inactive' },
+      SUSPENDED: { color: 'error', label: 'Suspended' },
+    };
+    const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
+    return <Chip label={info.label} color={info.color} sx={{ fontWeight: 600 }} />;
+  };
+
+  if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
         <CircularProgress />
@@ -24,81 +87,190 @@ const DriverDetails = () => {
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ m: 2 }}>
-        Error loading driver: {error.message}
-      </Alert>
+      <Box>
+        <Breadcrumbs />
+        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+      </Box>
     );
   }
 
   if (!driver) {
     return (
-      <Alert severity="warning" sx={{ m: 2 }}>
-        Driver not found
-      </Alert>
+      <Box>
+        <Breadcrumbs />
+        <Alert severity="warning" sx={{ mt: 2 }}>Driver not found</Alert>
+      </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Driver Details
-      </Typography>
+    <Box>
+      <Breadcrumbs />
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/drivers')}>
+          Back to Drivers
+        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => navigate(`/drivers/${id}/edit`)}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={handleDelete}
+          >
+            Delete
+          </Button>
+        </Stack>
+      </Box>
 
-      <Paper sx={{ p: 3, mt: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          {driver.firstName} {driver.lastName}
+      {/* Header Card */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack direction="row" spacing={3} alignItems="center">
+            <Avatar
+              sx={{
+                width: 80,
+                height: 80,
+                bgcolor: 'primary.main',
+                fontSize: 32,
+                fontWeight: 600,
+              }}
+            >
+              {driver.firstName?.charAt(0)}{driver.lastName?.charAt(0)}
+            </Avatar>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h4" fontWeight="bold">
+                {driver.firstName} {driver.lastName}
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Driver ID: #{driver.id}
+                </Typography>
+                {getStatusChip(driver.status)}
+              </Stack>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Details Grid */}
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+          Personal Information
         </Typography>
+        
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Full Name</Typography>
+                <Typography variant="body1" fontWeight={500}>
+                  {driver.firstName} {driver.lastName}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Email</Typography>
+                <Typography variant="body1">
+                  {driver.email || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Phone Number</Typography>
+                <Typography variant="body1">
+                  {driver.phoneNumber || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Address</Typography>
+                <Typography variant="body1">
+                  {driver.address || 'N/A'}
+                </Typography>
+              </Box>
+            </Stack>
+          </Grid>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 3, mt: 2 }}>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">Driver ID</Typography>
-            <Typography variant="body1">{driver.id}</Typography>
-          </Box>
+          <Grid item xs={12} md={6}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">License Number</Typography>
+                <Typography variant="body1" fontWeight={500}>
+                  {driver.licenseNumber || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">License Type</Typography>
+                <Typography variant="body1">
+                  {driver.licenseType || 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">License Expiry</Typography>
+                <Typography variant="body1">
+                  {driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Hire Date</Typography>
+                <Typography variant="body1">
+                  {driver.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'}
+                </Typography>
+              </Box>
+            </Stack>
+          </Grid>
 
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">License Number</Typography>
-            <Typography variant="body1">{driver.licenseNumber || 'N/A'}</Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">License Expiry</Typography>
-            <Typography variant="body1">
-              {driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">Phone</Typography>
-            <Typography variant="body1">{driver.phoneNumber || 'N/A'}</Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">Email</Typography>
-            <Typography variant="body1">{driver.email || 'N/A'}</Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">Status</Typography>
-            <Typography variant="body1" sx={{
-              color: driver.status === 'ACTIVE' ? 'success.main' : 'text.secondary',
-              fontWeight: 600
-            }}>
-              {driver.status || 'INACTIVE'}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">Hire Date</Typography>
-            <Typography variant="body1">
-              {driver.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">License Type</Typography>
-            <Typography variant="body1">{driver.licenseType || 'N/A'}</Typography>
-          </Box>
-        </Box>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" gutterBottom>Additional Information</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CarIcon color="action" />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Assigned Vehicle
+                    </Typography>
+                    <Typography variant="body2">
+                      {driver.vehicleId ? `Vehicle #${driver.vehicleId}` : 'Not Assigned'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BadgeIcon color="action" />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Trips Completed
+                    </Typography>
+                    <Typography variant="body2">
+                      {driver.tripsCompleted || 0}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CalendarIcon color="action" />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Last Active
+                    </Typography>
+                    <Typography variant="body2">
+                      {driver.lastActive ? new Date(driver.lastActive).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
       </Paper>
     </Box>
   );
