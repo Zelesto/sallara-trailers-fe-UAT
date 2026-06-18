@@ -24,7 +24,7 @@ import {
   PictureAsPdf as PdfIcon,
   Image as ImageIcon,
 } from '@mui/icons-material';
-import podService from '../../services/podService';
+import podService from '../services/podService';
 import Breadcrumbs from '../../components/Layout/Breadcrumbs';
 
 const PODDetails = () => {
