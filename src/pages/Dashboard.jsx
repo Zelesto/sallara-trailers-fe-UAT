@@ -892,4 +892,49 @@ const Dashboard = () => {
                 <Typography variant="body1" color="textSecondary">
                   No vehicle data available
                 </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.875rem
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                  Add vehicles to start tracking performance
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Footer Info */}
+      <Box mt={4} pt={3} borderTop={1} borderColor="divider">
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          justifyContent="space-between" 
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={{ xs: 1, sm: 0 }}
+        >
+          <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
+            Dashboard v1.0 • Data last updated: {new Date(dashboardData?.timestamp || Date.now()).toLocaleString('en-ZA')}
+          </Typography>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={{ xs: 0.5, sm: 1 }}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
+            <Chip
+              label="All amounts in ZAR"
+              size="small"
+              variant="outlined"
+              color="info"
+              sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
+            />
+            <Chip
+              label={`${period === '7days' ? 'Weekly' : period === '30days' ? 'Monthly' : period === '90days' ? 'Quarterly' : 'Yearly'} Report`}
+              size="small"
+              variant="outlined"
+              sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
+            />
+          </Stack>
+        </Stack>
+      </Box>
+    </Box>
+  );
+};
+
+export default Dashboard;
