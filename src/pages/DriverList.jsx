@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import driverService from '../services/driverService';
-import Breadcrumbs from '../../components/Layout/Breadcrumbs';
+import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const DriverList = () => {
   const navigate = useNavigate();
