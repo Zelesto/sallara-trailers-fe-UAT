@@ -1,5 +1,5 @@
 // src/services/vehicleService.js
-import api from '../api/axiosConfig';
+import api from '../api';
 
 export const vehicleService = {
   /**
