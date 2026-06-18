@@ -24,7 +24,9 @@ import {
   Tooltip,
   Divider,
   CircularProgress,
-  LinearProgress
+  LinearProgress,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
   DirectionsCar,
@@ -88,7 +90,7 @@ const StatCard = React.memo(({
       boxShadow: 6
     }
   }}>
-    <CardContent sx={{ p: 3, position: 'relative' }}>
+    <CardContent sx={{ p: { xs: 2, sm: 3 }, position: 'relative' }}>
       {loading && (
         <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
           <CircularProgress size={20} />
@@ -96,7 +98,7 @@ const StatCard = React.memo(({
       )}
 
       <Icon sx={{
-        fontSize: 48,
+        fontSize: { xs: 36, sm: 48 },
         color: getColor(color),
         mb: 2,
         opacity: loading ? 0.5 : 1
@@ -104,7 +106,7 @@ const StatCard = React.memo(({
 
       <Typography color="textSecondary" gutterBottom variant="subtitle2" sx={{
         fontWeight: 600,
-        fontSize: '0.875rem',
+        fontSize: { xs: '0.75rem', sm: '0.875rem' },
         opacity: loading ? 0.7 : 1
       }}>
         {title}
@@ -114,8 +116,9 @@ const StatCard = React.memo(({
         fontWeight: 700,
         color: getColor(color),
         mb: 1,
-        fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
-        opacity: loading ? 0.7 : 1
+        fontSize: { xs: '1.25rem', sm: '1.5rem', md: '2rem' },
+        opacity: loading ? 0.7 : 1,
+        wordBreak: 'break-word'
       }}>
         {typeof value === 'number' ?
           (unit === 'currency' ? formatCurrency(value) :
@@ -131,7 +134,8 @@ const StatCard = React.memo(({
         <Typography variant="caption" color="textSecondary" sx={{
           display: 'block',
           mb: 1,
-          opacity: loading ? 0.7 : 1
+          opacity: loading ? 0.7 : 1,
+          fontSize: { xs: '0.65rem', sm: '0.75rem' }
         }}>
           {subtitle}
         </Typography>
@@ -145,8 +149,8 @@ const StatCard = React.memo(({
             backgroundColor: trend > 0 ? '#E6FFFA' : trend < 0 ? '#FDEDE8' : '#E8F7FF',
             color: trend > 0 ? '#13DEB9' : trend < 0 ? '#FA896B' : '#49BEFF',
             fontWeight: 600,
-            fontSize: '0.75rem',
-            height: 24
+            fontSize: { xs: '0.6rem', sm: '0.75rem' },
+            height: { xs: 20, sm: 24 }
           }}
           icon={trend > 0 ? <TrendingUp fontSize="small" /> :
                  trend < 0 ? <TrendingDown fontSize="small" /> :
@@ -188,6 +192,9 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [period, setPeriod] = useState('30days');
   const [refreshing, setRefreshing] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const fetchDashboardData = async (isRefresh = false) => {
     try {
@@ -264,7 +271,7 @@ const Dashboard = () => {
           height: '100%',
           boxShadow: '0px 0px 2px 0px rgba(145, 158, 171, 0.30), 0px 12px 24px -4px rgba(145, 158, 171, 0.12)'
         }}>
-          <CardContent sx={{ p: 3, textAlign: 'center' }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
             <Typography variant="h5" gutterBottom>
               Top Drivers
             </Typography>
@@ -282,13 +289,19 @@ const Dashboard = () => {
         height: '100%',
         boxShadow: '0px 0px 2px 0px rgba(145, 158, 171, 0.30), 0px 12px 24px -4px rgba(145, 158, 171, 0.12)'
       }}>
-        <CardContent sx={{ p: 3 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            justifyContent="space-between" 
+            alignItems={{ xs: 'flex-start', sm: 'center' }} 
+            mb={3}
+            spacing={{ xs: 2, sm: 0 }}
+          >
             <Box>
-              <Typography variant="h5" gutterBottom>
+              <Typography variant="h5" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.5rem' } }}>
                 Top Drivers
               </Typography>
-              <Typography variant="subtitle2" color="textSecondary">
+              <Typography variant="subtitle2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Best performing drivers by efficiency
               </Typography>
             </Box>
@@ -297,7 +310,10 @@ const Dashboard = () => {
                 size="small"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                sx={{ minWidth: 120 }}
+                sx={{ 
+                  minWidth: { xs: '100%', sm: 120 },
+                  width: { xs: '100%', sm: 'auto' }
+                }}
               >
                 <MenuItem value="7days">Last 7 days</MenuItem>
                 <MenuItem value="30days">Last 30 days</MenuItem>
@@ -307,15 +323,17 @@ const Dashboard = () => {
             </Tooltip>
           </Stack>
 
-          <TableContainer>
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Driver</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">Efficiency</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">Trips</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">Cost/km</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">Rating</TableCell>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Driver</TableCell>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }} align="center">Efficiency</TableCell>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }} align="center">Trips</TableCell>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }} align="center">Cost/km</TableCell>
+                  {!isMobile && (
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }} align="center">Rating</TableCell>
+                  )}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -335,11 +353,11 @@ const Dashboard = () => {
                     }}
                   >
                     <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
+                      <Stack direction="row" alignItems="center" spacing={{ xs: 1, sm: 2 }}>
                         <Avatar
                           sx={{
-                            width: 40,
-                            height: 40,
+                            width: { xs: 32, sm: 40 },
+                            height: { xs: 32, sm: 40 },
                             bgcolor: index === 0 ? '#FFAE1F' :
                                      index === 1 ? '#5D87FF' :
                                      index === 2 ? '#13DEB9' : '#6B7280'
@@ -348,10 +366,10 @@ const Dashboard = () => {
                           {driver.name?.charAt(0) || 'D'}
                         </Avatar>
                         <Box>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                             {driver.name || driver.driverName || `Driver ${index + 1}`}
                           </Typography>
-                          <Typography variant="body2" color="textSecondary">
+                          <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                             {index === 0 ? '🥇 Best Driver' :
                              index === 1 ? '🥈 2nd Best' :
                              index === 2 ? '🥉 3rd Best' : 'Driver'}
@@ -368,12 +386,14 @@ const Dashboard = () => {
                                          efficiency > 7 ? '#FEF5E5' : '#FDEDE8',
                           color: efficiency > 8 ? '#13DEB9' :
                                 efficiency > 7 ? '#FFAE1F' : '#FA896B',
-                          fontWeight: 600
+                          fontWeight: 600,
+                          fontSize: { xs: '0.6rem', sm: '0.75rem' },
+                          height: { xs: 20, sm: 24 }
                         }}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                         {tripCount}
                       </Typography>
                     </TableCell>
@@ -381,27 +401,30 @@ const Dashboard = () => {
                       <Typography variant="body2" sx={{
                         fontWeight: 600,
                         color: costPerKm < 2 ? '#13DEB9' :
-                               costPerKm < 3 ? '#FFAE1F' : '#FA896B'
+                               costPerKm < 3 ? '#FFAE1F' : '#FA896B',
+                        fontSize: { xs: '0.7rem', sm: '0.875rem' }
                       }}>
                         {formatCurrency(costPerKm)}/km
                       </Typography>
                     </TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Box
-                            key={star}
-                            sx={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: '50%',
-                              mx: 0.2,
-                              bgcolor: star <= rating ? '#FFAE1F' : '#E5E7EB'
-                            }}
-                          />
-                        ))}
-                      </Box>
-                    </TableCell>
+                    {!isMobile && (
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Box
+                              key={star}
+                              sx={{
+                                width: { xs: 6, sm: 8 },
+                                height: { xs: 6, sm: 8 },
+                                borderRadius: '50%',
+                                mx: 0.2,
+                                bgcolor: star <= rating ? '#FFAE1F' : '#E5E7EB'
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </TableCell>
+                    )}
                   </TableRow>
                 )})}
               </TableBody>
@@ -444,8 +467,8 @@ const Dashboard = () => {
         height: '100%',
         boxShadow: '0px 0px 2px 0px rgba(145, 158, 171, 0.30), 0px 12px 24px -4px rgba(145, 158, 171, 0.12)'
       }}>
-        <CardContent sx={{ p: 3 }}>
-          <Typography variant="h5" gutterBottom>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography variant="h5" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.5rem' } }}>
             Recent Activity
           </Typography>
           
@@ -455,7 +478,7 @@ const Dashboard = () => {
                 <Paper
                   key={index}
                   sx={{
-                    p: 2,
+                    p: { xs: 1.5, sm: 2 },
                     backgroundColor: '#f8fafc',
                     borderLeft: `4px solid ${getStatusColor(activity.status)}`
                   }}
@@ -468,14 +491,14 @@ const Dashboard = () => {
                       {getActivityIcon(activity.type)}
                     </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
                         {activity.message}
                       </Typography>
-                      <Typography variant="body2" color="textSecondary">
+                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                         {activity.vehicle ? `Vehicle: ${activity.vehicle}` : 'System update'}
                       </Typography>
                     </Box>
-                    <Typography variant="caption" color="textSecondary">
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                       {activity.time || 'Recently'}
                     </Typography>
                   </Stack>
@@ -484,7 +507,7 @@ const Dashboard = () => {
             </Stack>
           ) : (
             <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Timeline sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+              <Timeline sx={{ fontSize: { xs: 40, sm: 60 }, color: 'text.disabled', mb: 2 }} />
               <Typography variant="body1" color="textSecondary">
                 No recent activity
               </Typography>
@@ -503,7 +526,8 @@ const Dashboard = () => {
         justifyContent: 'center',
         alignItems: 'center',
         height: '70vh',
-        gap: 2
+        gap: 2,
+        p: { xs: 2, sm: 3 }
       }}>
         <CircularProgress size={60} />
         <Typography variant="h6" color="textSecondary">
@@ -518,14 +542,23 @@ const Dashboard = () => {
   const periodStats = dashboardData?.period || {};
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', sm: 'center' }} 
+        mb={3}
+        spacing={{ xs: 2, sm: 0 }}
+      >
         <Box>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 700 }}>
+          <Typography variant="h4" gutterBottom sx={{ 
+            fontWeight: 700, 
+            fontSize: { xs: '1.25rem', sm: '1.5rem', md: '2rem' } 
+          }}>
             Fleet Analytics Dashboard
           </Typography>
-          <Typography variant="subtitle2" color="textSecondary">
+          <Typography variant="subtitle2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
             Real-time insights into your fleet performance.
           </Typography>
         </Box>
@@ -536,7 +569,10 @@ const Dashboard = () => {
             onClick={() => fetchDashboardData(true)}
             disabled={refreshing}
             size="large"
-            sx={{ borderRadius: 2 }}
+            sx={{ 
+              borderRadius: 2,
+              width: { xs: '100%', sm: 'auto' }
+            }}
           >
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
@@ -560,16 +596,25 @@ const Dashboard = () => {
       {/* Time Period Selector */}
       <Box sx={{
         backgroundColor: '#f8fafc',
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
         borderRadius: 2,
         mb: 4,
         border: '1px solid #e5e7eb'
       }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          justifyContent="space-between" 
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={{ xs: 2, sm: 0 }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
             Analysis Period
           </Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={{ xs: 1, sm: 1 }}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
             {['7days', '30days', '90days', '365days'].map((p) => (
               <Button
                 key={p}
@@ -580,7 +625,8 @@ const Dashboard = () => {
                   borderRadius: 2,
                   textTransform: 'capitalize',
                   fontWeight: period === p ? 600 : 400,
-                  minWidth: 100
+                  minWidth: { xs: '100%', sm: 100 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
                 }}
               >
                 {p === '7days' ? 'Last 7 Days' :
@@ -591,15 +637,15 @@ const Dashboard = () => {
           </Stack>
         </Stack>
         {periodStats.startDate && periodStats.endDate && (
-          <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+          <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
             Period: {new Date(periodStats.startDate).toLocaleDateString('en-ZA')} - {new Date(periodStats.endDate).toLocaleDateString('en-ZA')}
           </Typography>
         )}
       </Box>
 
       {/* Key Metrics Grid */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }} mb={4}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             title="Active Vehicles"
             value={summary.activeVehicles || summary.totalVehicles || 0}
@@ -611,7 +657,7 @@ const Dashboard = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             title="Active Drivers"
             value={summary.activeDrivers || summary.totalDrivers || 0}
@@ -623,7 +669,7 @@ const Dashboard = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             title="Fuel Efficiency"
             value={summary.avgFuelEfficiency || summary.fuelEfficiency || 0}
@@ -636,7 +682,7 @@ const Dashboard = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             title="Fuel Cost"
             value={summary.totalFuelCost || summary.fuelCost || 0}
@@ -651,7 +697,7 @@ const Dashboard = () => {
       </Grid>
 
       {/* Detailed Analytics Grid */}
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }} mb={4}>
         <Grid item xs={12} lg={8}>
           <TopDriversTable />
         </Grid>
@@ -661,58 +707,77 @@ const Dashboard = () => {
       </Grid>
 
       {/* Additional Metrics */}
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{
-            p: 3,
+            p: { xs: 2, sm: 3 },
             borderRadius: 2,
             height: '100%',
             boxShadow: '0px 0px 2px 0px rgba(145, 158, 171, 0.30), 0px 12px 24px -4px rgba(145, 158, 171, 0.12)'
           }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
+            <Typography variant="h5" gutterBottom sx={{ 
+              fontWeight: 600,
+              fontSize: { xs: '1.1rem', sm: '1.5rem' }
+            }}>
               Fleet Overview
             </Typography>
-            <Grid container spacing={3}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               <Grid item xs={6}>
-                <Box sx={{ textAlign: 'center', p: 2 }}>
-                  <Map sx={{ fontSize: 40, color: '#5D87FF', mb: 1 }} />
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Box sx={{ textAlign: 'center', p: { xs: 1, sm: 2 } }}>
+                  <Map sx={{ fontSize: { xs: 30, sm: 40 }, color: '#5D87FF', mb: 1 }} />
+                  <Typography variant="body2" color="textSecondary" gutterBottom sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
                     Total Distance
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#5D87FF' }}>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 700, 
+                    color: '#5D87FF',
+                    fontSize: { xs: '0.9rem', sm: '1.25rem', md: '1.5rem' }
+                  }}>
                     {summary.totalKm ? `${formatNumber(summary.totalKm)} km` : '0 km'}
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6}>
-                <Box sx={{ textAlign: 'center', p: 2 }}>
-                  <LocalGasStation sx={{ fontSize: 40, color: '#13DEB9', mb: 1 }} />
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Box sx={{ textAlign: 'center', p: { xs: 1, sm: 2 } }}>
+                  <LocalGasStation sx={{ fontSize: { xs: 30, sm: 40 }, color: '#13DEB9', mb: 1 }} />
+                  <Typography variant="body2" color="textSecondary" gutterBottom sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
                     Fuel Consumed
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#13DEB9' }}>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 700, 
+                    color: '#13DEB9',
+                    fontSize: { xs: '0.9rem', sm: '1.25rem', md: '1.5rem' }
+                  }}>
                     {summary.totalFuelLiters ? `${formatNumber(summary.totalFuelLiters)} L` : '0 L'}
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6}>
-                <Box sx={{ textAlign: 'center', p: 2 }}>
-                  <AttachMoney sx={{ fontSize: 40, color: '#FFAE1F', mb: 1 }} />
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Box sx={{ textAlign: 'center', p: { xs: 1, sm: 2 } }}>
+                  <AttachMoney sx={{ fontSize: { xs: 30, sm: 40 }, color: '#FFAE1F', mb: 1 }} />
+                  <Typography variant="body2" color="textSecondary" gutterBottom sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
                     Cost per km
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#FFAE1F' }}>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 700, 
+                    color: '#FFAE1F',
+                    fontSize: { xs: '0.9rem', sm: '1.25rem', md: '1.5rem' }
+                  }}>
                     {summary.costPerKm ? `${formatCurrency(summary.costPerKm)}/km` : formatCurrency(0) + '/km'}
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6}>
-                <Box sx={{ textAlign: 'center', p: 2 }}>
-                  <Timeline sx={{ fontSize: 40, color: '#49BEFF', mb: 1 }} />
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Box sx={{ textAlign: 'center', p: { xs: 1, sm: 2 } }}>
+                  <Timeline sx={{ fontSize: { xs: 30, sm: 40 }, color: '#49BEFF', mb: 1 }} />
+                  <Typography variant="body2" color="textSecondary" gutterBottom sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
                     Avg. Trip Distance
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#49BEFF' }}>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 700, 
+                    color: '#49BEFF',
+                    fontSize: { xs: '0.9rem', sm: '1.25rem', md: '1.5rem' }
+                  }}>
                     {summary.avgTripDistance ? `${formatNumber(summary.avgTripDistance, 1)} km` : '0.0 km'}
                   </Typography>
                 </Box>
@@ -723,19 +788,28 @@ const Dashboard = () => {
 
         <Grid item xs={12} md={6}>
           <Paper sx={{
-            p: 3,
+            p: { xs: 2, sm: 3 },
             borderRadius: 2,
             height: '100%',
             boxShadow: '0px 0px 2px 0px rgba(145, 158, 171, 0.30), 0px 12px 24px -4px rgba(145, 158, 171, 0.12)'
           }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-              <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            <Stack 
+              direction="row" 
+              justifyContent="space-between" 
+              alignItems="center" 
+              mb={3}
+            >
+              <Typography variant="h5" sx={{ 
+                fontWeight: 600,
+                fontSize: { xs: '1.1rem', sm: '1.5rem' }
+              }}>
                 Top Performing Vehicles
               </Typography>
               <Chip
                 label={`${vehicleKpis.length} vehicles`}
                 size="small"
                 variant="outlined"
+                sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
               />
             </Stack>
 
@@ -754,44 +828,57 @@ const Dashboard = () => {
                     <Paper
                       key={index}
                       sx={{
-                        p: 2,
+                        p: { xs: 1.5, sm: 2 },
                         backgroundColor: '#f8fafc',
                         border: index === 0 ? '2px solid #FFAE1F' : '1px solid #e5e7eb'
                       }}
                     >
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack 
+                        direction={{ xs: 'column', sm: 'row' }} 
+                        justifyContent="space-between" 
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                        spacing={{ xs: 1, sm: 0 }}
+                      >
                         <Box>
-                          <Stack direction="row" alignItems="center" spacing={1}>
+                          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
                             {index === 0 && (
                               <Chip
                                 label="Most Efficient"
                                 size="small"
                                 color="warning"
-                                sx={{ fontWeight: 600 }}
+                                sx={{ fontWeight: 600, fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
                               />
                             )}
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
                               {vehicle.registrationNumber || vehicle.vehicleName || `Vehicle ${index + 1}`}
                             </Typography>
                           </Stack>
-                          <Stack direction="row" spacing={2} mt={1}>
-                            <Typography variant="body2" color="textSecondary">
+                          <Stack 
+                            direction={{ xs: 'column', sm: 'row' }} 
+                            spacing={{ xs: 0.5, sm: 2 }} 
+                            mt={1}
+                          >
+                            <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                               Efficiency: {efficiency.toFixed(1)} km/L
                             </Typography>
-                            <Typography variant="body2" color="textSecondary">
+                            <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                               Distance: {formatNumber(distance)} km
                             </Typography>
                           </Stack>
                         </Box>
-                        <Box sx={{ textAlign: 'right' }}>
+                        <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                           <Chip
                             label={formatCurrency(costPerKm) + '/km'}
                             color={efficiency > 8 ? 'success' : 
                                    efficiency > 6 ? 'warning' : 'error'}
                             size="small"
-                            sx={{ fontWeight: 600, mb: 1 }}
+                            sx={{ 
+                              fontWeight: 600, 
+                              mb: { xs: 0.5, sm: 1 },
+                              fontSize: { xs: '0.6rem', sm: '0.75rem' }
+                            }}
                           />
-                          <Typography variant="caption" color="textSecondary" display="block">
+                          <Typography variant="caption" color="textSecondary" display="block" sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                             Fuel: {formatNumber(fuel)} L
                           </Typography>
                         </Box>
@@ -801,42 +888,8 @@ const Dashboard = () => {
               </Stack>
             ) : (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <DirectionsCar sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+                <DirectionsCar sx={{ fontSize: { xs: 40, sm: 60 }, color: 'text.disabled', mb: 2 }} />
                 <Typography variant="body1" color="textSecondary">
                   No vehicle data available
                 </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                  Add vehicles to start tracking performance
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Footer Info */}
-      <Box mt={4} pt={3} borderTop={1} borderColor="divider">
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="body2" color="textSecondary">
-            Dashboard v1.0 • Data last updated: {new Date(dashboardData?.timestamp || Date.now()).toLocaleString('en-ZA')}
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Chip
-              label="All amounts in ZAR"
-              size="small"
-              variant="outlined"
-              color="info"
-            />
-            <Chip
-              label={`${period === '7days' ? 'Weekly' : period === '30days' ? 'Monthly' : period === '90days' ? 'Quarterly' : 'Yearly'} Report`}
-              size="small"
-              variant="outlined"
-            />
-          </Stack>
-        </Stack>
-      </Box>
-    </Box>
-  );
-};
-
-export default Dashboard;
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.875rem
