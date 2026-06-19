@@ -171,7 +171,7 @@ function App() {
                     <Route path="pods" element={<PODList />} />
                     <Route path="pods/new" element={<PodForm />} />
                     <Route path="pods/:id" element={<PodDetails />} />
-                    <Route path="pods/trip/:tripId" element={<PodList />} />
+                    <Route path="pods/trip/:tripId" element={<PODList />} />
 
                     {/* Finance */}
                     <Route path="finance" element={<FinanceDashboard />} />
