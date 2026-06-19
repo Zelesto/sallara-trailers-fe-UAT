@@ -43,7 +43,7 @@ const InvoicesPage = lazy(() => import("./pages/finance/InvoicePage"));
 const ReceivablesPage = lazy(() => import("./pages/finance/ReceivablePage"));
 const PayablesPage = lazy(() => import("./pages/finance/PayablePage"));
 
-const PodList = lazy(() => import("./pages/PodList"));
+const PodList = lazy(() => import("./pages/PODList"));
 const PodForm = lazy(() => import("./pages/PodForm"));
 const PodDetails = lazy(() => import("./pages/PodDetails"));
 
@@ -168,7 +168,7 @@ function App() {
                     <Route path="fuel/slips/trip/:id" element={<FuelSlips />} />
 
                     {/* POD */}
-                    <Route path="pods" element={<PodList />} />
+                    <Route path="pods" element={<PODList />} />
                     <Route path="pods/new" element={<PodForm />} />
                     <Route path="pods/:id" element={<PodDetails />} />
                     <Route path="pods/trip/:tripId" element={<PodList />} />
