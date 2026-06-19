@@ -43,7 +43,7 @@ const InvoicesPage = lazy(() => import("./pages/finance/InvoicePage"));
 const ReceivablesPage = lazy(() => import("./pages/finance/ReceivablePage"));
 const PayablesPage = lazy(() => import("./pages/finance/PayablePage"));
 
-const PodList = lazy(() => import("./pages/PODList"));
+const PODList = lazy(() => import("./pages/PODList"));
 const PodForm = lazy(() => import("./pages/PodForm"));
 const PodDetails = lazy(() => import("./pages/PodDetails"));
 
