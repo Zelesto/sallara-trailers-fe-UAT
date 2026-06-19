@@ -81,3 +81,6 @@ export { default as Analytics } from '../pages/Analytics';
 export { default as Reports } from '../pages/Reports';
 export { default as Users } from '../pages/Users';
 export { default as Settings } from '../pages/Settings';
+export { default as PodDetails } from '../pages/PodDetails';
+export { default as PodList } from '../pages/PodList';
+export { default as PodForm } from '../pages/PodForm';
