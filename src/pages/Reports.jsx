@@ -23,6 +23,7 @@ import {
   Alert,
   Chip,
   Stack,
+  Divider,
 } from '@mui/material';
 import {
   Analytics as AnalyticsIcon,
@@ -60,6 +61,49 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+
+// Compact Stat Card Component
+const StatCard = ({ title, value, icon: Icon, color = 'primary', trend, trendLabel, trendColor = 'success' }) => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Box>
+          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
+            {value}
+          </Typography>
+          <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.65rem', display: 'block' }}>
+            {title}
+          </Typography>
+          {trend && (
+            <Typography 
+              variant="caption" 
+              color={trendColor === 'success' ? 'success.main' : 'error.main'} 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                mt: 0.5,
+                fontSize: '0.6rem'
+              }}
+            >
+              {trendColor === 'success' ? 
+                <TrendingUp sx={{ fontSize: 12, mr: 0.25 }} /> : 
+                <TrendingDown sx={{ fontSize: 12, mr: 0.25 }} />
+              }
+              {trendLabel}
+            </Typography>
+          )}
+        </Box>
+        <Icon 
+          sx={{ 
+            color: `${color}.main`, 
+            fontSize: 32,
+            opacity: 0.8 
+          }} 
+        />
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 const Reports = () => {
   const [period, setPeriod] = useState('last6months');
@@ -152,7 +196,6 @@ const Reports = () => {
 
   const handleExport = (format) => {
     console.log(`Exporting report as ${format}`);
-    // Implement export functionality
   };
 
   const handleMenuClick = (event) => {
@@ -176,108 +219,131 @@ const Reports = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Box display="flex" alignItems="center" gap={2}>
-              <AnalyticsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+      <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+        {/* Header - Compact */}
+        <Box sx={{ mb: 2 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <AnalyticsIcon sx={{ fontSize: 28, color: 'primary.main' }} />
               <Box>
-                <Typography variant="h4" fontWeight="bold">
+                <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem' }}>
                   Reports & Analytics
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Insights and analytics for fleet management
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                  Fleet management insights
                 </Typography>
               </Box>
             </Box>
-            <Box>
+            <Stack direction="row" spacing={0.75}>
               <Button
                 variant="outlined"
-                startIcon={<Refresh />}
+                startIcon={<Refresh sx={{ fontSize: '0.9rem' }} />}
                 onClick={() => window.location.reload()}
-                sx={{ mr: 1 }}
+                size="small"
+                sx={{ fontSize: '0.75rem', py: 0.5 }}
               >
                 Refresh
               </Button>
-              <IconButton onClick={handleMenuClick}>
-                <MoreVert />
+              <IconButton onClick={handleMenuClick} size="small" sx={{ p: 0.5 }}>
+                <MoreVert sx={{ fontSize: '0.9rem' }} />
               </IconButton>
               <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
               >
-                <MenuItem onClick={() => { handleExport('pdf'); handleMenuClose(); }}>
-                  <PictureAsPdf sx={{ mr: 1 }} /> Export as PDF
+                <MenuItem onClick={() => { handleExport('pdf'); handleMenuClose(); }} sx={{ fontSize: '0.8rem' }}>
+                  <PictureAsPdf sx={{ mr: 1, fontSize: '0.9rem' }} /> Export as PDF
                 </MenuItem>
-                <MenuItem onClick={() => { handleExport('excel'); handleMenuClose(); }}>
-                  <Download sx={{ mr: 1 }} /> Export as Excel
+                <MenuItem onClick={() => { handleExport('excel'); handleMenuClose(); }} sx={{ fontSize: '0.8rem' }}>
+                  <Download sx={{ mr: 1, fontSize: '0.9rem' }} /> Export as Excel
                 </MenuItem>
-                <MenuItem onClick={() => { handleExport('email'); handleMenuClose(); }}>
-                  <Email sx={{ mr: 1 }} /> Email Report
+                <MenuItem onClick={() => { handleExport('email'); handleMenuClose(); }} sx={{ fontSize: '0.8rem' }}>
+                  <Email sx={{ mr: 1, fontSize: '0.9rem' }} /> Email Report
                 </MenuItem>
               </Menu>
-            </Box>
+            </Stack>
           </Box>
         </Box>
 
-        {/* Filters */}
-        <Paper sx={{ p: 3, mb: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            <FilterList sx={{ mr: 1, verticalAlign: 'middle' }} />
+        {/* Filters - Compact */}
+        <Paper sx={{ p: 1.5, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
+            <FilterList sx={{ mr: 0.5, fontSize: '0.9rem', verticalAlign: 'middle' }} />
             Report Filters
           </Typography>
-          <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} md={3}>
+          <Grid container spacing={1.5} alignItems="center">
+            <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>Time Period</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Time Period</InputLabel>
                 <Select
                   value={period}
                   label="Time Period"
                   onChange={handlePeriodChange}
+                  sx={{ fontSize: '0.75rem' }}
                 >
-                  <MenuItem value="lastmonth">Last Month</MenuItem>
-                  <MenuItem value="last3months">Last 3 Months</MenuItem>
-                  <MenuItem value="last6months">Last 6 Months</MenuItem>
-                  <MenuItem value="yeartodate">Year to Date</MenuItem>
-                  <MenuItem value="custom">Custom Range</MenuItem>
+                  <MenuItem value="lastmonth" sx={{ fontSize: '0.75rem' }}>Last Month</MenuItem>
+                  <MenuItem value="last3months" sx={{ fontSize: '0.75rem' }}>Last 3 Months</MenuItem>
+                  <MenuItem value="last6months" sx={{ fontSize: '0.75rem' }}>Last 6 Months</MenuItem>
+                  <MenuItem value="yeartodate" sx={{ fontSize: '0.75rem' }}>Year to Date</MenuItem>
+                  <MenuItem value="custom" sx={{ fontSize: '0.75rem' }}>Custom Range</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
 
             {showCustomRange && (
               <>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} sm={6} md={3}>
                   <DatePicker
                     label="Start Date"
                     value={dateRange.start}
                     onChange={(date) => setDateRange({ ...dateRange, start: date })}
-                    renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: 'small',
+                        sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                      }
+                    }}
                   />
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} sm={6} md={3}>
                   <DatePicker
                     label="End Date"
                     value={dateRange.end}
                     onChange={(date) => setDateRange({ ...dateRange, end: date })}
-                    renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: 'small',
+                        sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                      }
+                    }}
                   />
                 </Grid>
               </>
             )}
 
-            <Grid item xs={12} md={showCustomRange ? 3 : 4}>
+            <Grid item xs={12} sm={6} md={showCustomRange ? 3 : 4}>
               <FormControl fullWidth size="small">
-                <InputLabel>Vehicle</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle</InputLabel>
                 <Select
                   value={vehicle}
                   label="Vehicle"
                   onChange={(e) => setVehicle(e.target.value)}
+                  sx={{ fontSize: '0.75rem' }}
                 >
-                  <MenuItem value="all">All Vehicles</MenuItem>
+                  <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Vehicles</MenuItem>
                   {vehiclePerformanceData.map((v) => (
-                    <MenuItem key={v.vehicle} value={v.vehicle.toLowerCase()}>
+                    <MenuItem key={v.vehicle} value={v.vehicle.toLowerCase()} sx={{ fontSize: '0.75rem' }}>
                       {v.vehicle}
                     </MenuItem>
                   ))}
@@ -285,37 +351,41 @@ const Reports = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={showCustomRange ? 3 : 4}>
+            <Grid item xs={12} sm={6} md={showCustomRange ? 3 : 4}>
               <FormControl fullWidth size="small">
-                <InputLabel>Report Type</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Report Type</InputLabel>
                 <Select
                   value={reportType}
                   label="Report Type"
                   onChange={(e) => setReportType(e.target.value)}
+                  sx={{ fontSize: '0.75rem' }}
                 >
-                  <MenuItem value="fuel">Fuel Consumption</MenuItem>
-                  <MenuItem value="maintenance">Maintenance</MenuItem>
-                  <MenuItem value="driver">Driver Performance</MenuItem>
-                  <MenuItem value="cost">Cost Analysis</MenuItem>
-                  <MenuItem value="vehicle">Vehicle Performance</MenuItem>
+                  <MenuItem value="fuel" sx={{ fontSize: '0.75rem' }}>Fuel Consumption</MenuItem>
+                  <MenuItem value="maintenance" sx={{ fontSize: '0.75rem' }}>Maintenance</MenuItem>
+                  <MenuItem value="driver" sx={{ fontSize: '0.75rem' }}>Driver Performance</MenuItem>
+                  <MenuItem value="cost" sx={{ fontSize: '0.75rem' }}>Cost Analysis</MenuItem>
+                  <MenuItem value="vehicle" sx={{ fontSize: '0.75rem' }}>Vehicle Performance</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={showCustomRange ? 3 : 4}>
-              <Stack direction="row" spacing={1}>
+            <Grid item xs={12} sm={6} md={showCustomRange ? 3 : 4}>
+              <Stack direction="row" spacing={0.75}>
                 <Button
                   variant="contained"
-                  startIcon={<Download />}
+                  startIcon={<Download sx={{ fontSize: '0.9rem' }} />}
                   onClick={() => handleExport('csv')}
-                  fullWidth
+                  size="small"
+                  sx={{ fontSize: '0.75rem', py: 0.5, flex: 1 }}
                 >
                   Export CSV
                 </Button>
                 <Button
                   variant="outlined"
-                  startIcon={<Print />}
+                  startIcon={<Print sx={{ fontSize: '0.9rem' }} />}
                   onClick={() => window.print()}
+                  size="small"
+                  sx={{ fontSize: '0.75rem', py: 0.5, minWidth: 'auto' }}
                 >
                   Print
                 </Button>
@@ -324,128 +394,80 @@ const Reports = () => {
           </Grid>
         </Paper>
 
-        {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="h4" fontWeight="bold">
-                      {stats.totalFuel.toLocaleString()} L
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Total Fuel Consumption
-                    </Typography>
-                    <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                      <TrendingUp sx={{ fontSize: 14, mr: 0.5 }} /> 5.2% from last period
-                    </Typography>
-                  </Box>
-                  <LocalGasStation sx={{ color: 'primary.main', fontSize: 48, opacity: 0.8 }} />
-                </Box>
-              </CardContent>
-            </Card>
+        {/* Stats Cards - Compact */}
+        <Grid container spacing={1.5} sx={{ mb: 2 }}>
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard
+              title="Total Fuel"
+              value={`${stats.totalFuel.toLocaleString()} L`}
+              icon={LocalGasStation}
+              color="primary"
+              trend
+              trendLabel="5.2% from last period"
+              trendColor="success"
+            />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="h4" fontWeight="bold">
-                      R {stats.totalCost.toLocaleString()}
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Total Fuel Cost
-                    </Typography>
-                    <Typography variant="caption" color="error.main" sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                      <TrendingDown sx={{ fontSize: 14, mr: 0.5 }} /> 2.1% savings
-                    </Typography>
-                  </Box>
-                  <DirectionsCar sx={{ color: 'secondary.main', fontSize: 48, opacity: 0.8 }} />
-                </Box>
-              </CardContent>
-            </Card>
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard
+              title="Total Cost"
+              value={`R ${stats.totalCost.toLocaleString()}`}
+              icon={DirectionsCar}
+              color="secondary"
+              trend
+              trendLabel="2.1% savings"
+              trendColor="error"
+            />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="h4" fontWeight="bold">
-                      {stats.avgEfficiency.toFixed(1)} km/L
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Average Efficiency
-                    </Typography>
-                    <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                      <TrendingUp sx={{ fontSize: 14, mr: 0.5 }} /> 0.3 km/L improvement
-                    </Typography>
-                  </Box>
-                  <Person sx={{ color: 'info.main', fontSize: 48, opacity: 0.8 }} />
-                </Box>
-              </CardContent>
-            </Card>
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard
+              title="Avg Efficiency"
+              value={`${stats.avgEfficiency.toFixed(1)} km/L`}
+              icon={Person}
+              color="info"
+              trend
+              trendLabel="0.3 km/L improvement"
+              trendColor="success"
+            />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="h4" fontWeight="bold">
-                      {vehiclePerformanceData.length}
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Active Vehicles
-                    </Typography>
-                    <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                      <TrendingUp sx={{ fontSize: 14, mr: 0.5 }} /> 8% activity increase
-                    </Typography>
-                  </Box>
-                  <CalendarMonth sx={{ color: 'warning.main', fontSize: 48, opacity: 0.8 }} />
-                </Box>
-              </CardContent>
-            </Card>
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard
+              title="Active Vehicles"
+              value={stats.totalVehicles}
+              icon={CalendarMonth}
+              color="warning"
+              trend
+              trendLabel="8% activity increase"
+              trendColor="success"
+            />
           </Grid>
         </Grid>
 
-        {/* Charts Section */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Charts Section - Compact */}
+        <Grid container spacing={1.5} sx={{ mb: 2 }}>
           {/* Fuel Consumption Chart */}
           <Grid item xs={12} lg={8}>
             <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom fontWeight="bold">
+              <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
                   Fuel Consumption & Cost Trends
                 </Typography>
-                <ResponsiveContainer width="100%" height={350}>
+                <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={fuelConsumptionData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis
-                      dataKey="month"
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      yAxisId="left"
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      axisLine={false}
-                      tickLine={false}
-                    />
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
                     <Tooltip
+                      contentStyle={{ fontSize: '11px' }}
                       formatter={(value, name) => [
                         name === 'consumption' ? `${value} L` : `R ${value.toLocaleString()}`,
                         name === 'consumption' ? 'Fuel Consumption' : 'Cost'
                       ]}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
                     <Area
                       yAxisId="left"
                       type="monotone"
@@ -473,11 +495,11 @@ const Reports = () => {
           {/* Expense Distribution Chart */}
           <Grid item xs={12} lg={4}>
             <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom fontWeight="bold">
+              <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
                   Expense Distribution
                 </Typography>
-                <ResponsiveContainer width="100%" height={350}>
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie
                       data={expenseByCategory}
@@ -485,8 +507,8 @@ const Reports = () => {
                       cy="50%"
                       labelLine={false}
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      innerRadius={40}
+                      outerRadius={80}
+                      innerRadius={32}
                       paddingAngle={2}
                       dataKey="value"
                     >
@@ -494,8 +516,11 @@ const Reports = () => {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value}%`, 'Percentage']} />
-                    <Legend />
+                    <Tooltip 
+                      contentStyle={{ fontSize: '11px' }}
+                      formatter={(value) => [`${value}%`, 'Percentage']} 
+                    />
+                    <Legend wrapperStyle={{ fontSize: '10px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -503,20 +528,23 @@ const Reports = () => {
           </Grid>
         </Grid>
 
-        {/* Comparison Chart */}
-        <Grid item xs={12} sx={{ mb: 4 }}>
+        {/* Comparison Chart - Compact */}
+        <Grid item xs={12} sx={{ mb: 2 }}>
           <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight="bold">
+            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
                 Monthly Cost Comparison
               </Typography>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={monthlyComparisonData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`R ${value.toLocaleString()}`, 'Cost']} />
-                  <Legend />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip 
+                    contentStyle={{ fontSize: '11px' }}
+                    formatter={(value) => [`R ${value.toLocaleString()}`, 'Cost']} 
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
                   <Bar dataKey="previous" name="Previous Period" fill="#8884d8" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="current" name="Current Period" fill="#82ca9d" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -525,87 +553,88 @@ const Reports = () => {
           </Card>
         </Grid>
 
-        {/* Vehicle Performance Table */}
+        {/* Vehicle Performance Table - Compact */}
         <Card>
-          <CardContent>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-              <Typography variant="h6" fontWeight="bold">
+          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
                 Vehicle Performance Report
               </Typography>
-              <Alert severity="info" sx={{ maxWidth: 400 }}>
-                Showing performance data for {vehicle === 'all' ? 'all vehicles' : 'selected vehicle'}
+              <Alert severity="info" sx={{ fontSize: '0.7rem', py: 0 }}>
+                {vehicle === 'all' ? 'All vehicles' : 'Selected vehicle'}
               </Alert>
             </Box>
 
             <TableContainer>
-              <Table>
+              <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell><strong>Vehicle</strong></TableCell>
-                    <TableCell><strong>Fuel Efficiency (km/L)</strong></TableCell>
-                    <TableCell><strong>Distance (km)</strong></TableCell>
-                    <TableCell><strong>Fuel Cost (R)</strong></TableCell>
-                    <TableCell><strong>Cost per km (R)</strong></TableCell>
-                    <TableCell><strong>Status</strong></TableCell>
-                    <TableCell><strong>Trend</strong></TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Efficiency</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }} align="right">Distance</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }} align="right">Fuel Cost</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }} align="right">Cost/km</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Trend</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {vehiclePerformanceData.map((vehicleData) => (
                     <TableRow key={vehicleData.vehicle} hover>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <DirectionsCar color="action" />
-                          <Typography fontWeight="medium">
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                        <Box display="flex" alignItems="center" gap={0.5}>
+                          <DirectionsCar sx={{ fontSize: '0.8rem', color: 'action.active' }} />
+                          <Typography fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                             {vehicleData.vehicle}
                           </Typography>
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography fontWeight="medium">
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                        <Box display="flex" alignItems="center" gap={0.5}>
+                          <Typography fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                             {vehicleData.fuelEfficiency}
                           </Typography>
                           {vehicleData.fuelEfficiency > 4 ? (
-                            <TrendingUp color="success" />
+                            <TrendingUp sx={{ fontSize: '0.8rem', color: 'success.main' }} />
                           ) : vehicleData.fuelEfficiency < 3.6 ? (
-                            <TrendingDown color="error" />
+                            <TrendingDown sx={{ fontSize: '0.8rem', color: 'error.main' }} />
                           ) : (
-                            <TrendingUp color="warning" />
+                            <TrendingUp sx={{ fontSize: '0.8rem', color: 'warning.main' }} />
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell>
+                      <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.5 }}>
                         {vehicleData.distance.toLocaleString()}
                       </TableCell>
-                      <TableCell>
-                        <Typography fontWeight="medium">
+                      <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                        <Typography fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                           R {vehicleData.cost.toLocaleString()}
                         </Typography>
                       </TableCell>
-                      <TableCell>
-                        <Typography fontWeight="medium">
+                      <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                        <Typography fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                           R {vehicleData.avgCostPerKm.toFixed(2)}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
                         <Chip
                           label={vehicleData.status}
                           color={getStatusColor(vehicleData.status)}
                           size="small"
+                          sx={{ height: 18, fontSize: '0.6rem' }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
                         {vehicleData.fuelEfficiency > 4 ? (
-                          <Typography color="success.main" variant="caption">
+                          <Typography color="success.main" variant="caption" sx={{ fontSize: '0.6rem' }}>
                             Excellent
                           </Typography>
                         ) : vehicleData.fuelEfficiency < 3.6 ? (
-                          <Typography color="error.main" variant="caption">
+                          <Typography color="error.main" variant="caption" sx={{ fontSize: '0.6rem' }}>
                             Needs Improvement
                           </Typography>
                         ) : (
-                          <Typography color="warning.main" variant="caption">
+                          <Typography color="warning.main" variant="caption" sx={{ fontSize: '0.6rem' }}>
                             Average
                           </Typography>
                         )}
@@ -618,13 +647,12 @@ const Reports = () => {
           </CardContent>
         </Card>
 
-        {/* Summary Section */}
-        <Box sx={{ mt: 3 }}>
-          <Alert severity="info" icon={false}>
-            <Typography variant="body2">
-              <strong>Report Summary:</strong> Data covers {period.replace('last', 'Last ')} period.
-              Total fuel consumption of {stats.totalFuel.toLocaleString()} liters with an average efficiency of {stats.avgEfficiency.toFixed(1)} km/L.
-              Consider implementing fuel-saving measures for vehicles with efficiency below 3.8 km/L.
+        {/* Summary Section - Compact */}
+        <Box sx={{ mt: 2 }}>
+          <Alert severity="info" icon={false} sx={{ fontSize: '0.75rem', py: 0.75 }}>
+            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+              <strong>Report Summary:</strong> {period.replace('last', 'Last ')} period.
+              Total fuel: {stats.totalFuel.toLocaleString()} L • Avg efficiency: {stats.avgEfficiency.toFixed(1)} km/L
             </Typography>
           </Alert>
         </Box>
