@@ -39,8 +39,8 @@ import {
   Event,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { inventoryService } from '../../services/inventoryService';
-import { inventoryMovementService } from '../../services/inventoryMovementService';
+import { inventoryService } from '../services/inventoryService';
+import { inventoryMovementService } from '../services/inventoryMovementService';
 
 // Constants
 const MOVEMENT_TYPES = [
