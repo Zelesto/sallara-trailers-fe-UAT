@@ -269,7 +269,7 @@ function TripList() {
         ...(status !== 'all' && { status }),
         ...(city && { city }),
         sortBy: 'createdAt',
-        sortOrder: 'DESC' // NEWEST FIRST
+        sortOrder: 'ASC' // NEWEST FIRST
       });
 
       // Additional safety: Sort client-side to ensure newest first
