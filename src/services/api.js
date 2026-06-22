@@ -1,7 +1,6 @@
 // src/api/axiosConfig.js
 import axios from 'axios';
 
-// Backend URL from environment variable
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -36,12 +35,11 @@ api.interceptors.request.use(
     if (token && token !== 'undefined' && token.trim() !== '') {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      // Don't send Authorization header if no token
       delete config.headers.Authorization;
     }
 
-    // Add timestamp to GET requests to prevent caching
-    if (config.method?.toLowerCase() === 'get') {
+    // Don't add timestamp to auth requests
+    if (config.method?.toLowerCase() === 'get' && !config.url?.includes('/auth/')) {
       config.params = {
         ...config.params,
         _t: Date.now(),
@@ -64,21 +62,19 @@ api.interceptors.response.use(
     console.log(
       `✅ ${response.config.method?.toUpperCase()} ${response.config.url}`
     );
-
     return response.data;
   },
   (error) => {
     console.group('❌ API Error');
-
     console.error('Message:', error.message);
     console.error('URL:', error.config?.url);
     console.error('Method:', error.config?.method);
     console.error('Status:', error.response?.status);
     console.error('Response:', error.response?.data);
-
     console.groupEnd();
 
     const status = error.response?.status || 500;
+    const url = error.config?.url || '';
 
     let message =
       error.response?.data?.message ||
@@ -90,35 +86,32 @@ api.interceptors.response.use(
     // Session Expiry Handling (401)
     // ---------------------------
     if (status === 401) {
-      // Check if this is an auth request (login, refresh, etc.)
-      const isAuthRequest =
-        error.config?.url?.includes('/auth/login') ||
-        error.config?.url?.includes('/auth/refresh') ||
-        error.config?.url?.includes('/auth/verify');
+      // Skip for auth endpoints
+      const isAuthRequest = 
+        url.includes('/auth/login') ||
+        url.includes('/auth/refresh') ||
+        url.includes('/auth/verify');
 
-      // Check if user is on auth page
-      const isAuthPage =
-        window.location.pathname.includes('/login') ||
-        window.location.pathname.includes('/signup') ||
-        window.location.pathname.includes('/register');
+      // Skip if already on login page
+      const isAuthPage = window.location.pathname.includes('/login');
 
       // Only handle 401 for non-auth requests and non-auth pages
       if (!isAuthRequest && !isAuthPage && !isRedirecting) {
         isRedirecting = true;
 
         // Clear auth data
-        api.clearToken();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         
-        // Dispatch custom event for session expiry
+        // Dispatch session expiry event
         window.dispatchEvent(new CustomEvent('sessionExpired', {
           detail: { message: 'Your session has expired. Please log in again.' }
         }));
 
-        // Redirect to login with session expired parameter
+        // Reset redirect flag after delay
         setTimeout(() => {
           isRedirecting = false;
-          window.location.href = '/login?session=expired';
-        }, 500);
+        }, 1000);
 
         // Return a specific error for session expiry
         return Promise.reject({
@@ -130,7 +123,7 @@ api.interceptors.response.use(
         });
       }
 
-      // For auth requests that fail, just reject normally
+      // For auth requests, just reject normally
       if (isAuthRequest) {
         return Promise.reject({
           status: 401,
@@ -225,13 +218,11 @@ api.clearToken = () => {
 
   delete api.defaults.headers.common.Authorization;
   
-  // Reset redirect flag
   isRedirecting = false;
 };
 
 api.isAuthenticated = () => {
   const token = localStorage.getItem('token');
-
   return !!(
     token &&
     token !== 'undefined' &&
@@ -280,23 +271,6 @@ api.checkSession = async () => {
   }
 };
 
-api.refreshSession = async () => {
-  try {
-    const response = await api.post('/auth/refresh');
-    if (response.token) {
-      api.setToken(response.token);
-      if (response.user) {
-        api.setUser(response.user);
-      }
-      return { success: true, token: response.token };
-    }
-    return { success: false, message: 'No token in refresh response' };
-  } catch (error) {
-    api.clearToken();
-    return { success: false, message: error.message };
-  }
-};
-
 // ---------------------------
 // Health Check
 // ---------------------------
@@ -308,18 +282,5 @@ api.testConnection = async () => {
     throw error;
   }
 };
-
-// ---------------------------
-// Event Listeners for Session Expiry
-// ---------------------------
-// Listen for session expiry events from other tabs
-window.addEventListener('storage', (event) => {
-  if (event.key === 'token' && !event.newValue) {
-    // Token was removed in another tab
-    window.dispatchEvent(new CustomEvent('sessionExpired', {
-      detail: { message: 'Session ended in another tab' }
-    }));
-  }
-});
 
 export default api;
