@@ -96,7 +96,7 @@ export const STATUS_CONFIG = {
 
 export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
 
-// Status Chip Component
+// Status Chip Component - Smaller version
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
   
@@ -108,19 +108,21 @@ const StatusChip = ({ status }) => {
         backgroundColor: config.bgColor,
         color: config.color,
         fontWeight: 600,
+        fontSize: '0.7rem',
+        height: 22,
         border: `1px solid ${config.color}20`,
-        '& .MuiChip-icon': { fontSize: '1rem' }
+        '& .MuiChip-label': { px: 1, py: 0.25 },
+        '& .MuiChip-icon': { fontSize: '0.8rem', ml: 0.5 }
       }}
       icon={<span>{config.icon}</span>}
     />
   );
 };
 
-// Location Display Component with Popover - FIXED for unknown origin/destination
+// Location Display Component with Popover - Smaller version
 const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   
-  // FIXED: Proper fallback for missing location data
   const displayCity = city || 
     (fullAddress ? fullAddress.split(',')[0] : null) || 
     'No location provided';
@@ -147,13 +149,13 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
           }
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
-          <LocationCity fontSize="small" sx={{ fontSize: 14, color: 'text.secondary' }} />
-          <Typography variant="body2">
+        <Stack direction="row" alignItems="center" spacing={0.25}>
+          <LocationCity fontSize="small" sx={{ fontSize: 12, color: 'text.secondary' }} />
+          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
             {displayCity}
           </Typography>
           {zipCode && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
               ({zipCode})
             </Typography>
           )}
@@ -173,32 +175,32 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
           horizontal: 'left',
         }}
       >
-        <Box sx={{ p: 2, maxWidth: 300 }}>
-          <Typography variant="subtitle2" gutterBottom>
+        <Box sx={{ p: 1.5, maxWidth: 280 }}>
+          <Typography variant="subtitle2" sx={{ fontSize: '0.8rem' }} gutterBottom>
             {type === 'origin' ? '📍 Origin Details' : '🏁 Destination Details'}
           </Typography>
-          <Divider sx={{ my: 1 }} />
-          <Stack spacing={1}>
+          <Divider sx={{ my: 0.75 }} />
+          <Stack spacing={0.75}>
             <Box>
-              <Typography variant="caption" color="text.secondary">City</Typography>
-              <Typography variant="body2">{displayCity}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>City</Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{displayCity}</Typography>
             </Box>
             {zipCode && (
               <Box>
-                <Typography variant="caption" color="text.secondary">Postal Code</Typography>
-                <Typography variant="body2">{zipCode}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Postal Code</Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{zipCode}</Typography>
               </Box>
             )}
             {province && (
               <Box>
-                <Typography variant="caption" color="text.secondary">Province</Typography>
-                <Typography variant="body2">{province}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Province</Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{province}</Typography>
               </Box>
             )}
             {fullAddress && (
               <Box>
-                <Typography variant="caption" color="text.secondary">Full Address</Typography>
-                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Full Address</Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.75rem', wordBreak: 'break-word' }}>
                   {fullAddress}
                 </Typography>
               </Box>
@@ -248,7 +250,7 @@ function TripList() {
   }, [trips]);
 
   /* ================================
-     Fetch Trips
+     Fetch Trips - NEWEST FIRST
   ================================= */
   const fetchTrips = useCallback(async ({
     page = 0,
@@ -265,10 +267,17 @@ function TripList() {
         size,
         ...(search && { search }),
         ...(status !== 'all' && { status }),
-        ...(city && { city })
+        ...(city && { city }),
+        sortBy: 'createdAt',
+        sortOrder: 'DESC' // NEWEST FIRST
       });
 
-      setTrips(response.content || []);
+      // Additional safety: Sort client-side to ensure newest first
+      const sortedContent = (response.content || []).sort((a, b) => 
+        new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      setTrips(sortedContent);
       setPagination({
         page: response.number ?? page,
         pageSize: response.size ?? size,
@@ -427,85 +436,91 @@ function TripList() {
   if (loading && trips.length === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={60} />
+        <CircularProgress size={40} />
       </Box>
     );
   }
 
   /* ================================
-     UI
+     UI - Smaller and Compact
   ================================= */
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 1.5 }}>
       {/* Notification Alert */}
       {notification && (
         <Alert 
           severity={notification.type} 
-          sx={{ mb: 2 }}
+          sx={{ mb: 1.5, fontSize: '0.8rem' }}
           onClose={() => setNotification(null)}
         >
           {notification.message}
         </Alert>
       )}
 
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      {/* Header - Smaller */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
-          <Typography variant="h4" fontWeight="bold" gutterBottom>
+          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
             Trip Management
           </Typography>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
             Total trips: {pagination.total}
           </Typography>
         </Box>
 
-        <Box display="flex" gap={1}>
+        <Box display="flex" gap={0.75}>
           <Button
-            startIcon={<Refresh />}
+            startIcon={<Refresh sx={{ fontSize: '0.9rem' }} />}
             onClick={() => fetchTrips({ page: pagination.page })}
             variant="outlined"
+            size="small"
+            sx={{ fontSize: '0.75rem', py: 0.5 }}
           >
             Refresh
           </Button>
 
           <Button
-            startIcon={<Add />}
+            startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
             onClick={() => setShowCreateModal(true)}
             variant="contained"
+            size="small"
+            sx={{ fontSize: '0.75rem', py: 0.5 }}
           >
             New Trip
           </Button>
         </Box>
       </Box>
 
-      {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+      {/* Filters - Compact */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
             <TextField
               size="small"
               label="Search"
-              placeholder="Trip #, City, Address..."
+              placeholder="Trip #, City..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               InputProps={{
                 startAdornment: (
-                  <SearchIcon fontSize="small" sx={{ mr: 1 }} />
-                )
+                  <SearchIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
+                ),
+                sx: { fontSize: '0.75rem' }
               }}
-              sx={{ minWidth: 250 }}
+              sx={{ minWidth: 200, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
             />
 
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 label="Status"
+                sx={{ fontSize: '0.75rem' }}
               >
-                <MenuItem value="all">All Statuses</MenuItem>
+                <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Statuses</MenuItem>
                 {STATUS_OPTIONS.map(status => (
-                  <MenuItem key={status} value={status}>
+                  <MenuItem key={status} value={status} sx={{ fontSize: '0.75rem' }}>
                     {STATUS_CONFIG[status]?.label || status}
                   </MenuItem>
                 ))}
@@ -513,16 +528,17 @@ function TripList() {
             </FormControl>
 
             {uniqueCities.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 180 }}>
-                <InputLabel>Filter by City</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Filter by City</InputLabel>
                 <Select
                   value={cityFilter}
                   onChange={(e) => setCityFilter(e.target.value)}
                   label="Filter by City"
+                  sx={{ fontSize: '0.75rem' }}
                 >
-                  <MenuItem value="">All Cities</MenuItem>
+                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Cities</MenuItem>
                   {uniqueCities.map(city => (
-                    <MenuItem key={city} value={city}>{city}</MenuItem>
+                    <MenuItem key={city} value={city} sx={{ fontSize: '0.75rem' }}>{city}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -533,6 +549,7 @@ function TripList() {
               disabled={!searchText && statusFilter === 'all' && !cityFilter}
               variant="outlined"
               size="small"
+              sx={{ fontSize: '0.7rem', py: 0.5 }}
             >
               Clear Filters
             </Button>
@@ -540,26 +557,26 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Table - Compact */}
       <TableContainer component={Paper}>
-        <Table>
+        <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell><strong>Trip Number</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-              <TableCell><strong>Origin</strong></TableCell>
-              <TableCell><strong>Destination</strong></TableCell>
-              <TableCell><strong>Distance</strong></TableCell>
-              <TableCell><strong>Planned Start</strong></TableCell>
-              <TableCell><strong>Actions</strong></TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Trip Number</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Origin</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Destination</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Distance</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Planned Start</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">
+                <TableCell colSpan={7} align="center" sx={{ py: 2 }}>
+                  <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                     {searchText || statusFilter !== 'all' || cityFilter
                       ? 'No trips match your filters'
                       : 'No trips found'}
@@ -567,7 +584,8 @@ function TripList() {
                   {(searchText || statusFilter !== 'all' || cityFilter) && (
                     <Button 
                       onClick={handleClearFilters}
-                      sx={{ mt: 1 }}
+                      sx={{ mt: 1, fontSize: '0.7rem' }}
+                      size="small"
                     >
                       Clear Filters
                     </Button>
@@ -585,18 +603,17 @@ function TripList() {
                 
                 return (
                   <TableRow key={trip.id} hover>
-                    <TableCell>
-                      <Typography fontWeight="medium">
+                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                      <Typography fontWeight="medium" sx={{ fontSize: '0.75rem' }}>
                         {trip.tripNumber}
                       </Typography>
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
                       <StatusChip status={trip.status} />
                     </TableCell>
 
-                    {/* FIXED: No more "Unknown" - uses proper fallback */}
-                    <TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
                       <LocationDisplay
                         city={trip.originCity}
                         zipCode={trip.originZipCode}
@@ -606,7 +623,7 @@ function TripList() {
                       />
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
                       <LocationDisplay
                         city={trip.destinationCity}
                         zipCode={trip.destinationZipCode}
@@ -616,37 +633,38 @@ function TripList() {
                       />
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
                       {trip.metrics?.totalDistanceKm ? (
                         <Tooltip title="Distance traveled">
                           <Chip
                             size="small"
                             label={`${trip.metrics.totalDistanceKm} km`}
                             variant="outlined"
+                            sx={{ fontSize: '0.65rem', height: 20 }}
                           />
                         </Tooltip>
                       ) : trip.plannedDistanceKm ? (
                         <Tooltip title="Planned distance">
                           <Chip
                             size="small"
-                            label={`${trip.plannedDistanceKm} km (planned)`}
+                            label={`${trip.plannedDistanceKm} km`}
                             variant="outlined"
-                            sx={{ opacity: 0.7 }}
+                            sx={{ fontSize: '0.65rem', height: 20, opacity: 0.7 }}
                           />
                         </Tooltip>
                       ) : (
-                        '-'
+                        <Typography sx={{ fontSize: '0.7rem' }}>-</Typography>
                       )}
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                       {trip.plannedStartDate
-                        ? dayjs(trip.plannedStartDate).format('YYYY-MM-DD HH:mm')
+                        ? dayjs(trip.plannedStartDate).format('MMM DD, HH:mm')
                         : '-'}
                     </TableCell>
 
-                    <TableCell>
-                      <Box display="flex" gap={0.5}>
+                    <TableCell sx={{ py: 0.75 }}>
+                      <Box display="flex" gap={0.25} flexWrap="wrap">
                         {/* Start Trip Button */}
                         {canStart && (
                           <Tooltip title="Start Trip">
@@ -654,8 +672,9 @@ function TripList() {
                               size="small"
                               color="success"
                               onClick={() => handleStartTrip(trip)}
+                              sx={{ p: 0.5 }}
                             >
-                              <PlayArrow fontSize="small" />
+                              <PlayArrow sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -667,8 +686,9 @@ function TripList() {
                               size="small"
                               color="error"
                               onClick={() => handleEndTrip(trip)}
+                              sx={{ p: 0.5 }}
                             >
-                              <Stop fontSize="small" />
+                              <Stop sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -680,8 +700,9 @@ function TripList() {
                               size="small"
                               color="warning"
                               onClick={() => handleReportIncident(trip)}
+                              sx={{ p: 0.5 }}
                             >
-                              <WarningIcon fontSize="small" />
+                              <WarningIcon sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -691,8 +712,9 @@ function TripList() {
                           <IconButton 
                             size="small" 
                             onClick={() => handleViewTrip(trip)}
+                            sx={{ p: 0.5 }}
                           >
-                            <Visibility fontSize="small" />
+                            <Visibility sx={{ fontSize: '0.9rem' }} />
                           </IconButton>
                         </Tooltip>
 
@@ -702,8 +724,9 @@ function TripList() {
                             <IconButton 
                               size="small" 
                               onClick={() => handleEditTrip(trip)}
+                              sx={{ p: 0.5 }}
                             >
-                              <Edit fontSize="small" />
+                              <Edit sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -713,8 +736,9 @@ function TripList() {
                           <IconButton 
                             size="small" 
                             onClick={() => handleOpenMetrics(trip)}
+                            sx={{ p: 0.5 }}
                           >
-                            <Dashboard fontSize="small" />
+                            <Dashboard sx={{ fontSize: '0.9rem' }} />
                           </IconButton>
                         </Tooltip>
 
@@ -725,8 +749,9 @@ function TripList() {
                               size="small"
                               color="success"
                               onClick={() => handleFinalizeTrip(trip)}
+                              sx={{ p: 0.5 }}
                             >
-                              <CheckCircle fontSize="small" />
+                              <CheckCircle sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -738,8 +763,9 @@ function TripList() {
                               size="small"
                               color="error"
                               onClick={() => handleDeleteTrip(trip)}
+                              sx={{ p: 0.5 }}
                             >
-                              <Delete fontSize="small" />
+                              <Delete sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -753,9 +779,9 @@ function TripList() {
         </Table>
       </TableContainer>
 
-      {/* Pagination */}
+      {/* Pagination - Compact */}
       {trips.length > 0 && (
-        <Paper sx={{ p: 1 }}>
+        <Paper sx={{ p: 0.5 }}>
           <TablePagination
             component="div"
             count={pagination.total}
@@ -768,6 +794,12 @@ function TripList() {
             }}
             rowsPerPageOptions={[5, 10, 25, 50]}
             labelRowsPerPage="Trips per page:"
+            sx={{
+              '& .MuiTablePagination-selectLabel': { fontSize: '0.75rem' },
+              '& .MuiTablePagination-displayedRows': { fontSize: '0.75rem' },
+              '& .MuiTablePagination-select': { fontSize: '0.75rem' },
+              '& .MuiTablePagination-actions button': { fontSize: '0.75rem' },
+            }}
           />
         </Paper>
       )}
