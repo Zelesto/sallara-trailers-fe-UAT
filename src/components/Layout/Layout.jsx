@@ -235,9 +235,15 @@ const menuSections = [
           { text: 'Add Fuel Slip', path: '/fuel/slips/add', icon: <AddLocationIcon /> },
         ],
       },
-      { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
-    ],
-  },
+      {
+  title: 'Inventory',
+  icon: <InventoryIcon />,
+  items: [
+    { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
+    { text: 'Stock Movements', icon: <LocalGasStation />, path: '/inventory/movements' },
+    { text: 'Stock Movement', icon: <AddLocation />, path: '/inventory/movements/new' },
+  ],
+},
   {
     title: 'Assets',
     icon: <DirectionsCar />,
