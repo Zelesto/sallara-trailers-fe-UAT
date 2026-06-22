@@ -55,6 +55,8 @@ const TripAnalytics = lazy(() => import("./pages/TripAnalytics"));
 const Logs = lazy(() => import("./pages/Logs"));
 const Billing = lazy(() => import("./pages/Billing"));
 const Inventory = lazy(() => import("./pages/Inventory"));
+const StockMovementForm = lazy(() => import("./pages/inventory/StockMovementForm"));
+const MovementHistory = lazy(() => import("./pages/inventory/MovementHistory"));
 const Reports = lazy(() => import("./pages/Reports"));
 
 /* -------------------------------------------------------------------------- */
@@ -241,6 +243,9 @@ function App() {
                     <Route path="billing" element={<Billing />} />
                     <Route path="logs" element={<Logs />} />
                     <Route path="inventory" element={<Inventory />} />
+                    <Route path="inventory/movements" element={<MovementHistory />} />
+                    <Route path="inventory/movements/new" element={<StockMovementForm />} />
+                    <Route path="inventory/movements/:id" element={<StockMovementForm />} />
                   </Route>
 
                   {/* Fallback - Redirect to dashboard or login */}
