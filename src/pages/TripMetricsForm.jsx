@@ -20,7 +20,8 @@ import {
   Stack,
   Paper,
   Grid,
-  IconButton
+  IconButton,
+  Chip
 } from "@mui/material";
 import {
   Calculate,
@@ -68,6 +69,24 @@ const formatDuration = (hours = 0) => {
   return parts.join(" ") || "0h";
 };
 
+// Compact Metric Card Component
+const MetricCard = ({ icon: Icon, label, value, subtext, color = "primary" }) => (
+  <Box sx={{ textAlign: 'center', p: 0.5 }}>
+    <Icon sx={{ fontSize: '1.2rem', color: `${color}.main`, mb: 0.25 }} />
+    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
+      {label}
+    </Typography>
+    <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.85rem' }}>
+      {value}
+    </Typography>
+    {subtext && (
+      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+        {subtext}
+      </Typography>
+    )}
+  </Box>
+);
+
 const TripMetricsForm = ({
   open,
   onClose,
@@ -84,7 +103,7 @@ const TripMetricsForm = ({
   const [vehicleType, setVehicleType] = useState("TRUCK");
   const [calculatedMetrics, setCalculatedMetrics] = useState(null);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState(1); // Start with Manual Entry tab
+  const [activeTab, setActiveTab] = useState(1);
   const [hasExistingMetrics, setHasExistingMetrics] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   
@@ -134,7 +153,6 @@ const TripMetricsForm = ({
       }
     } catch (err) {
       console.log("No existing metrics for trip:", currentTripId);
-      // Don't show error - just means no metrics yet
       setHasExistingMetrics(false);
     } finally {
       setLoading(false);
@@ -158,7 +176,7 @@ const TripMetricsForm = ({
     setCalculatedMetrics(null);
     setHasExistingMetrics(false);
     setSaveSuccess(false);
-    setActiveTab(1); // Default to Manual Entry tab
+    setActiveTab(1);
     
     const origin = originLocation || 
                    tripData.originLocation || 
@@ -212,7 +230,6 @@ const TripMetricsForm = ({
     }));
   };
 
-  // Updated calculateMetrics function - uses the correct API endpoint
   const calculateMetrics = async () => {
     try {
       setCalculating(true);
@@ -240,7 +257,6 @@ const TripMetricsForm = ({
         vehicleType
       });
 
-      // Use the preview endpoint first (doesn't save)
       const result = await tripService.previewTripMetrics({
         originLocation: origin,
         destinationLocation: destination,
@@ -254,7 +270,6 @@ const TripMetricsForm = ({
 
       console.log("Calculation result:", result);
 
-      // Update form with calculated values
       const newFormData = {
         ...formData,
         totalDistance: result.totalDistanceKm?.toString() || result.totalDistance?.toString() || "",
@@ -275,13 +290,12 @@ const TripMetricsForm = ({
         warning: result.warning
       });
       
-      // Show warning if low confidence
       if (result.warning) {
         setError(`⚠️ Note: ${result.warning}`);
         setTimeout(() => setError(""), 5000);
       }
       
-      setActiveTab(1); // Switch to manual entry tab to edit/save
+      setActiveTab(1);
       
     } catch (err) {
       console.error("Auto calculation failed:", err);
@@ -299,13 +313,12 @@ const TripMetricsForm = ({
       }
       
       setError(errorMessage);
-      setActiveTab(1); // Switch to manual entry on error
+      setActiveTab(1);
     } finally {
       setCalculating(false);
     }
   };
 
-  // Updated saveMetrics function - uses PUT endpoint
   const saveMetrics = async () => {
     if (!tripId) {
       setError("Cannot save metrics: Trip ID is missing.");
@@ -317,7 +330,6 @@ const TripMetricsForm = ({
       setError("");
       setSaveSuccess(false);
 
-      // Validate required fields
       if (!formData.totalDistance || parseFloat(formData.totalDistance) <= 0) {
         setError("Distance is required and must be greater than 0.");
         setLoading(false);
@@ -330,7 +342,6 @@ const TripMetricsForm = ({
         return;
       }
 
-      // Build payload matching backend TripMetricsUpdateRequest
       const payload = {
         totalDistanceKm: parseFloat(formData.totalDistance) || 0,
         totalDurationHours: parseFloat(formData.estimatedDuration) || 0,
@@ -342,15 +353,12 @@ const TripMetricsForm = ({
 
       console.log("Saving metrics payload:", payload);
       
-      // Use PUT endpoint to update metrics
       await tripService.saveTripMetrics(tripId, payload);
 
       setSaveSuccess(true);
       
-      // Refresh metrics data
       await loadExistingMetrics(tripId);
       
-      // Show success briefly then close
       setTimeout(() => {
         if (onSuccess) onSuccess();
         if (onClose) onClose();
@@ -374,7 +382,6 @@ const TripMetricsForm = ({
     }
   };
 
-  // Function to apply calculated metrics to form
   const applyCalculatedMetrics = () => {
     if (calculatedMetrics) {
       setFormData(prev => ({
@@ -398,58 +405,38 @@ const TripMetricsForm = ({
       maxWidth="md"
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 2 }
+        sx: { borderRadius: 1.5 }
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <AutoGraph color="primary" />
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+      <DialogTitle sx={{ py: 1.5, px: 2.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: 1, borderColor: 'divider' }}>
+        <AutoGraph color="primary" sx={{ fontSize: '1.2rem' }} />
+        <Typography variant="h6" sx={{ flexGrow: 1, fontSize: '1rem', fontWeight: 600 }}>
           Trip Metrics {tripId && `#${tripId}`}
         </Typography>
         {hasExistingMetrics && (
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '2px 8px',
-              borderRadius: '16px',
-              fontSize: '0.75rem',
-              backgroundColor: 'info.light',
-              color: 'info.main',
-              fontWeight: 500,
-              ml: 1,
-            }}
-          >
-            Existing Metrics
-          </Box>
+          <Chip
+            label="Existing"
+            size="small"
+            color="info"
+            sx={{ height: 20, fontSize: '0.6rem' }}
+          />
         )}
         {saveSuccess && (
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '2px 8px',
-              borderRadius: '16px',
-              fontSize: '0.75rem',
-              backgroundColor: 'success.light',
-              color: 'success.main',
-              fontWeight: 500,
-              ml: 1,
-            }}
-          >
-            Saved!
-          </Box>
+          <Chip
+            label="Saved!"
+            size="small"
+            color="success"
+            sx={{ height: 20, fontSize: '0.6rem' }}
+          />
         )}
-        <IconButton onClick={onClose} size="small">
-          <Close />
+        <IconButton onClick={onClose} size="small" sx={{ p: 0.5 }}>
+          <Close sx={{ fontSize: '1rem' }} />
         </IconButton>
       </DialogTitle>
 
-      <Divider />
-
-      <DialogContent sx={{ pt: 3 }}>
+      <DialogContent sx={{ p: 2.5 }}>
         {error && (
-          <Alert severity="warning" sx={{ mb: 3 }} onClose={() => setError("")}>
+          <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError("")}>
             {error}
           </Alert>
         )}
@@ -458,40 +445,48 @@ const TripMetricsForm = ({
           <Paper 
             elevation={0} 
             sx={{ 
-              p: 2, 
-              mb: 3, 
+              p: 1.5, 
+              mb: 2, 
               bgcolor: 'primary.light', 
               color: 'primary.contrastText',
               display: 'flex',
               alignItems: 'center',
-              gap: 2
+              gap: 1.5,
+              borderRadius: 1
             }}
           >
-            <LocationOn />
+            <LocationOn sx={{ fontSize: '1rem' }} />
             <Box>
-              <Typography variant="subtitle2">
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block' }}>
                 From: {formData.originLocation || "Not specified"}
               </Typography>
-              <Typography variant="subtitle2">
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block' }}>
                 To: {formData.destinationLocation || "Not specified"}
               </Typography>
             </Box>
           </Paper>
         )}
 
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
           <Tabs 
             value={activeTab} 
             onChange={(e, newValue) => setActiveTab(newValue)}
             variant="fullWidth"
+            sx={{
+              '& .MuiTab-root': {
+                fontSize: '0.75rem',
+                minHeight: 36,
+                textTransform: 'none',
+              }
+            }}
           >
             <Tab 
-              icon={<Calculate />} 
+              icon={<Calculate sx={{ fontSize: '0.9rem' }} />} 
               label="Auto Calculator" 
               iconPosition="start"
             />
             <Tab 
-              icon={<Edit />} 
+              icon={<Edit sx={{ fontSize: '0.9rem' }} />} 
               label="Manual Entry" 
               iconPosition="start"
             />
@@ -499,12 +494,12 @@ const TripMetricsForm = ({
         </Box>
 
         {activeTab === 0 && (
-          <Stack spacing={3}>
-            <Typography variant="subtitle1" color="text.secondary">
+          <Stack spacing={2}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
               Automatically calculate trip metrics based on locations and vehicle type
             </Typography>
 
-            <Grid container spacing={2}>
+            <Grid container spacing={1.5}>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -514,8 +509,9 @@ const TripMetricsForm = ({
                   placeholder="Enter origin city or address"
                   size="small"
                   required
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                   InputProps={{
-                    startAdornment: <LocationCity sx={{ mr: 1, color: 'action.active' }} />,
+                    startAdornment: <LocationCity sx={{ mr: 0.5, fontSize: '0.9rem', color: 'action.active' }} />,
                   }}
                 />
               </Grid>
@@ -528,23 +524,25 @@ const TripMetricsForm = ({
                   placeholder="Enter destination city or address"
                   size="small"
                   required
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                   InputProps={{
-                    startAdornment: <LocationCity sx={{ mr: 1, color: 'action.active' }} />,
+                    startAdornment: <LocationCity sx={{ mr: 0.5, fontSize: '0.9rem', color: 'action.active' }} />,
                   }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Vehicle Type</InputLabel>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle Type</InputLabel>
                   <Select
                     value={vehicleType}
                     onChange={(e) => setVehicleType(e.target.value)}
                     label="Vehicle Type"
+                    sx={{ fontSize: '0.75rem' }}
                   >
-                    <MenuItem value="TRUCK">Truck (35 L/100km)</MenuItem>
-                    <MenuItem value="TRAILER">Trailer (40 L/100km)</MenuItem>
-                    <MenuItem value="VAN">Van (12 L/100km)</MenuItem>
-                    <MenuItem value="CAR">Car (8 L/100km)</MenuItem>
+                    <MenuItem value="TRUCK" sx={{ fontSize: '0.75rem' }}>Truck (35 L/100km)</MenuItem>
+                    <MenuItem value="TRAILER" sx={{ fontSize: '0.75rem' }}>Trailer (40 L/100km)</MenuItem>
+                    <MenuItem value="VAN" sx={{ fontSize: '0.75rem' }}>Van (12 L/100km)</MenuItem>
+                    <MenuItem value="CAR" sx={{ fontSize: '0.75rem' }}>Car (8 L/100km)</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -554,8 +552,8 @@ const TripMetricsForm = ({
                   variant="contained"
                   onClick={calculateMetrics}
                   disabled={calculating || !formData.originLocation || !formData.destinationLocation}
-                  startIcon={calculating ? <CircularProgress size={20} /> : <Calculate />}
-                  sx={{ height: '40px' }}
+                  startIcon={calculating ? <CircularProgress size={16} /> : <Calculate sx={{ fontSize: '0.9rem' }} />}
+                  sx={{ height: '40px', fontSize: '0.75rem' }}
                 >
                   {calculating ? "Calculating..." : "Calculate Metrics"}
                 </Button>
@@ -563,58 +561,54 @@ const TripMetricsForm = ({
             </Grid>
 
             {calculatedMetrics && (
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'success.light', color: 'success.contrastText' }}>
-                <Typography variant="subtitle2" gutterBottom>
+              <Paper elevation={0} sx={{ p: 1.5, bgcolor: 'success.light', color: 'success.contrastText', borderRadius: 1 }}>
+                <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 600, display: 'block', mb: 1 }}>
                   ✅ Calculated Results {calculatedMetrics.provider && `via ${calculatedMetrics.provider}`}
                 </Typography>
                 {calculatedMetrics.warning && (
-                  <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', display: 'block', mb: 1 }}>
                     ⚠️ {calculatedMetrics.warning}
                   </Typography>
                 )}
-                <Grid container spacing={2}>
+                <Grid container spacing={1}>
                   <Grid item xs={6} md={3}>
-                    <Box textAlign="center">
-                      <DirectionsCar fontSize="small" />
-                      <Typography variant="body2">Distance</Typography>
-                      <Typography variant="h6">
-                        {calculatedMetrics.totalDistanceKm || 0} km
-                      </Typography>
-                    </Box>
+                    <MetricCard
+                      icon={DirectionsCar}
+                      label="Distance"
+                      value={`${calculatedMetrics.totalDistanceKm || 0} km`}
+                      color="primary"
+                    />
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Box textAlign="center">
-                      <AccessTime fontSize="small" />
-                      <Typography variant="body2">Duration</Typography>
-                      <Typography variant="h6">
-                        {formatDuration(calculatedMetrics.totalDurationHours || 0)}
-                      </Typography>
-                    </Box>
+                    <MetricCard
+                      icon={AccessTime}
+                      label="Duration"
+                      value={formatDuration(calculatedMetrics.totalDurationHours || 0)}
+                      color="secondary"
+                    />
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Box textAlign="center">
-                      <LocalGasStation fontSize="small" />
-                      <Typography variant="body2">Fuel</Typography>
-                      <Typography variant="h6">
-                        {calculatedMetrics.fuelUsedLiters || 0} L
-                      </Typography>
-                    </Box>
+                    <MetricCard
+                      icon={LocalGasStation}
+                      label="Fuel"
+                      value={`${calculatedMetrics.fuelUsedLiters || 0} L`}
+                      color="warning"
+                    />
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Box textAlign="center">
-                      <AttachMoney fontSize="small" />
-                      <Typography variant="body2">Cost</Typography>
-                      <Typography variant="h6">
-                        R {calculatedMetrics.costAmount || 0}
-                      </Typography>
-                    </Box>
+                    <MetricCard
+                      icon={AttachMoney}
+                      label="Cost"
+                      value={`R ${calculatedMetrics.costAmount || 0}`}
+                      color="success"
+                    />
                   </Grid>
                 </Grid>
                 <Button
                   size="small"
                   variant="contained"
                   onClick={applyCalculatedMetrics}
-                  sx={{ mt: 2 }}
+                  sx={{ mt: 1.5, fontSize: '0.7rem' }}
                 >
                   Use These Values
                 </Button>
@@ -625,12 +619,12 @@ const TripMetricsForm = ({
 
         {activeTab === 1 && (
           <Box component="form" noValidate>
-            <Stack spacing={2}>
-              <Typography variant="subtitle1" color="text.secondary">
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                 Enter or edit trip metrics manually
               </Typography>
 
-              <Grid container spacing={2}>
+              <Grid container spacing={1.5}>
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
@@ -638,9 +632,10 @@ const TripMetricsForm = ({
                     type="number"
                     value={formData.totalDistance}
                     onChange={handleInputChange('totalDistance')}
-                    placeholder="Enter distance in kilometers"
+                    placeholder="Enter distance"
                     size="small"
                     required
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     inputProps={{ min: 0, step: 0.1 }}
                   />
                 </Grid>
@@ -651,9 +646,10 @@ const TripMetricsForm = ({
                     type="number"
                     value={formData.estimatedDuration}
                     onChange={handleInputChange('estimatedDuration')}
-                    placeholder="Enter duration in hours"
+                    placeholder="Enter duration"
                     size="small"
                     required
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     inputProps={{ min: 0, step: 0.1 }}
                     helperText={formData.estimatedDuration ? formatDuration(formData.estimatedDuration) : ""}
                   />
@@ -665,8 +661,9 @@ const TripMetricsForm = ({
                     type="number"
                     value={formData.fuelConsumption}
                     onChange={handleInputChange('fuelConsumption')}
-                    placeholder="Enter fuel consumption"
+                    placeholder="Enter fuel"
                     size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     inputProps={{ min: 0, step: 0.1 }}
                   />
                 </Grid>
@@ -677,11 +674,12 @@ const TripMetricsForm = ({
                     type="number"
                     value={formData.estimatedCost}
                     onChange={handleInputChange('estimatedCost')}
-                    placeholder="Enter estimated cost"
+                    placeholder="Enter cost"
                     size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     inputProps={{ min: 0, step: 0.01 }}
                     InputProps={{
-                      startAdornment: <Typography sx={{ mr: 1 }}>R</Typography>,
+                      startAdornment: <Typography sx={{ mr: 0.5, fontSize: '0.75rem' }}>R</Typography>,
                     }}
                   />
                 </Grid>
@@ -692,8 +690,9 @@ const TripMetricsForm = ({
                     type="number"
                     value={formData.delays}
                     onChange={handleInputChange('delays')}
-                    placeholder="Enter delay hours"
+                    placeholder="Enter delays"
                     size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     inputProps={{ min: 0, step: 0.1 }}
                   />
                 </Grid>
@@ -704,8 +703,9 @@ const TripMetricsForm = ({
                     type="number"
                     value={formData.incidents}
                     onChange={handleInputChange('incidents')}
-                    placeholder="Enter incident count"
+                    placeholder="Enter incidents"
                     size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     inputProps={{ min: 0, step: 1 }}
                   />
                 </Grid>
@@ -714,8 +714,8 @@ const TripMetricsForm = ({
               {(parseFloat(formData.delays) > 0 || parseInt(formData.incidents) > 0) && (
                 <Alert 
                   severity="warning" 
-                  icon={<Warning />}
-                  sx={{ mt: 1 }}
+                  icon={<Warning sx={{ fontSize: '0.9rem' }} />}
+                  sx={{ fontSize: '0.75rem' }}
                 >
                   {parseFloat(formData.delays) > 0 && `Delays: ${formData.delays} hours. `}
                   {parseInt(formData.incidents) > 0 && `Incidents: ${formData.incidents}. `}
@@ -727,10 +727,13 @@ const TripMetricsForm = ({
         )}
       </DialogContent>
 
-      <Divider />
-
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} color="inherit">
+      <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+        <Button 
+          onClick={onClose} 
+          color="inherit"
+          size="small"
+          sx={{ fontSize: '0.8rem' }}
+        >
           Cancel
         </Button>
         
@@ -739,7 +742,9 @@ const TripMetricsForm = ({
             variant="contained"
             onClick={saveMetrics}
             disabled={loading || !formData.totalDistance || !formData.estimatedDuration}
-            startIcon={loading ? <CircularProgress size={20} /> : <Save />}
+            startIcon={loading ? <CircularProgress size={16} /> : <Save sx={{ fontSize: '0.9rem' }} />}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
           >
             {loading ? "Saving..." : "Save Metrics"}
           </Button>
@@ -749,7 +754,9 @@ const TripMetricsForm = ({
           <Button
             variant="outlined"
             onClick={() => setActiveTab(1)}
-            startIcon={<Edit />}
+            startIcon={<Edit sx={{ fontSize: '0.9rem' }} />}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
           >
             Edit & Save
           </Button>
