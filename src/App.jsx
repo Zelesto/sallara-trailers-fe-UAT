@@ -1,15 +1,17 @@
 // src/App.jsx
-import React, { Suspense, lazy } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import React, { Suspense, lazy, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { CircularProgress, Box } from "@mui/material";
 
 import Layout from "./components/Layout/Layout";
 import PrivateRoute from "./components/Layout/PrivateRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import api from "./api/axiosConfig";
 
 /* -------------------------------------------------------------------------- */
 /* Lazy-loaded Pages (code splitting)                                          */
@@ -56,6 +58,20 @@ const Inventory = lazy(() => import("./pages/Inventory"));
 const Reports = lazy(() => import("./pages/Reports"));
 
 /* -------------------------------------------------------------------------- */
+/* Loading Fallback                                                            */
+/* -------------------------------------------------------------------------- */
+const LoadingFallback = () => (
+  <Box sx={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '100vh' 
+  }}>
+    <CircularProgress />
+  </Box>
+);
+
+/* -------------------------------------------------------------------------- */
 /* Theme                                                                       */
 /* -------------------------------------------------------------------------- */
 const theme = createTheme({
@@ -91,9 +107,43 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnWindowFocus: false,
+      retry: 1,
     },
   },
 });
+
+/* -------------------------------------------------------------------------- */
+/* Session Expiry Handler Component                                            */
+/* -------------------------------------------------------------------------- */
+const SessionExpiryHandler = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { logout } = useAuth();
+
+  useEffect(() => {
+    const handleSessionExpired = (event) => {
+      console.log('Session expired event received:', event);
+      // Clear auth data
+      api.clearToken();
+      logout();
+      
+      // Only redirect if not already on login page
+      if (location.pathname !== '/login') {
+        navigate('/login?session=expired', { replace: true });
+      }
+    };
+
+    // Listen for session expiry events
+    window.addEventListener('sessionExpired', handleSessionExpired);
+
+    // Clean up
+    return () => {
+      window.removeEventListener('sessionExpired', handleSessionExpired);
+    };
+  }, [navigate, location, logout]);
+
+  return null;
+};
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -114,12 +164,13 @@ function App() {
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <Router>
             <AuthProvider>
-              <Suspense fallback={<div>Loading...</div>}>
+              <SessionExpiryHandler />
+              <Suspense fallback={<LoadingFallback />}>
                 <Routes>
-                  {/* Public */}
+                  {/* Public Routes - Login must be first */}
                   <Route path="/login" element={<Login />} />
 
-                  {/* Private */}
+                  {/* Private Routes */}
                   <Route
                     path="/"
                     element={
@@ -192,7 +243,7 @@ function App() {
                     <Route path="inventory" element={<Inventory />} />
                   </Route>
 
-                  {/* Fallback */}
+                  {/* Fallback - Redirect to dashboard or login */}
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </Suspense>
