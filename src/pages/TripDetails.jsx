@@ -56,7 +56,7 @@ const formatNumber = (num, decimals = 0) => {
   }).format(number);
 };
 
-// Status Chip component
+// Status Chip component - Compact
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
   
@@ -68,13 +68,36 @@ const StatusChip = ({ status }) => {
         backgroundColor: config.bgColor,
         color: config.color,
         fontWeight: 600,
+        fontSize: '0.7rem',
+        height: 22,
         border: `1px solid ${config.color}20`,
-        '& .MuiChip-icon': { fontSize: '1rem' }
+        '& .MuiChip-label': { px: 1, py: 0.25 },
+        '& .MuiChip-icon': { fontSize: '0.8rem', ml: 0.5 }
       }}
       icon={<span>{config.icon}</span>}
     />
   );
 };
+
+// Compact Fuel Stats Card
+const FuelStatCard = ({ icon: Icon, title, value, subtitle, color = 'primary' }) => (
+  <Card>
+    <CardContent sx={{ p: 1.5, textAlign: 'center', '&:last-child': { pb: 1.5 } }}>
+      <Icon sx={{ fontSize: 28, color: `${color}.main`, mb: 0.5 }} />
+      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block' }}>
+        {title}
+      </Typography>
+      <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '0.95rem' }}>
+        {value}
+      </Typography>
+      {subtitle && (
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+          {subtitle}
+        </Typography>
+      )}
+    </CardContent>
+  </Card>
+);
 
 const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
   const [trip, setTrip] = useState(null);
@@ -101,7 +124,6 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
     setFuelError(null);
     
     try {
-      // Fetch trip details
       const tripData = await tripService.getTripById(tripId);
       setTrip(tripData);
       setNewStatus(tripData.status || '');
@@ -124,7 +146,6 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
         setActualEndTime(null);
       }
       
-      // Fetch fuel data in parallel
       try {
         const fuelResponse = await tripService.getTripFuelData(tripId);
         setFuelData(fuelResponse);
@@ -227,7 +248,6 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
     setError(null);
     
     try {
-      // Combine date and time for actual start
       let actualStartDateTime = null;
       if (actualStartDate && actualStartTime) {
         actualStartDateTime = dayjs(actualStartDate)
@@ -238,7 +258,6 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
         actualStartDateTime = dayjs(actualStartDate).startOf('day');
       }
 
-      // Combine date and time for actual end
       let actualEndDateTime = null;
       if (actualEndDate && actualEndTime) {
         actualEndDateTime = dayjs(actualEndDate)
@@ -270,10 +289,8 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
   const hasChanges = useMemo(() => {
     if (!trip) return false;
     
-    // Check status change
     if (trip.status !== newStatus) return true;
     
-    // Helper function to compare date times
     const compareDateTimes = (original, date, time) => {
       if (!original && (!date && !time)) return false;
       if (original && !date && !time) return true;
@@ -290,12 +307,10 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
       return false;
     };
     
-    // Check actual start changes
     if (compareDateTimes(trip.actualStartDate, actualStartDate, actualStartTime)) {
       return true;
     }
     
-    // Check actual end changes
     if (compareDateTimes(trip.actualEndDate, actualEndDate, actualEndTime)) {
       return true;
     }
@@ -312,7 +327,6 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
   };
 
   const handleAddFuelEntry = () => {
-    // Navigate to fuel entry form for this trip
     console.log('Navigate to fuel entry form for trip:', tripId);
   };
 
@@ -320,28 +334,29 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
     setActiveTab(newValue);
   };
 
-  // Fuel Entries Table Component
+  // Fuel Entries Table Component - Compact
   const FuelEntriesTable = () => {
     if (fuelLoading) {
       return (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
-          <CircularProgress />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight={150}>
+          <CircularProgress size={30} />
         </Box>
       );
     }
 
     if (!fuelData?.fuelEntries || fuelData.fuelEntries.length === 0) {
       return (
-        <Box textAlign="center" py={4}>
-          <FuelIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            No fuel entries recorded for this trip
+        <Box textAlign="center" py={3}>
+          <FuelIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: '0.8rem' }}>
+            No fuel entries recorded
           </Typography>
           <Button
             variant="outlined"
-            startIcon={<AddIcon />}
+            size="small"
+            startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
             onClick={handleAddFuelEntry}
-            sx={{ mt: 2 }}
+            sx={{ mt: 1, fontSize: '0.75rem' }}
           >
             Add Fuel Entry
           </Button>
@@ -351,55 +366,55 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
 
     return (
       <Box>
-        <TableContainer component={Paper} variant="outlined">
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
           <Table size="small">
             <TableHead sx={{ bgcolor: '#f5f5f5' }}>
               <TableRow>
-                <TableCell><strong>Date & Time</strong></TableCell>
-                <TableCell><strong>Fuel Station</strong></TableCell>
-                <TableCell align="right"><strong>Liters</strong></TableCell>
-                <TableCell align="right"><strong>Price/L (ZAR)</strong></TableCell>
-                <TableCell align="right"><strong>Total (ZAR)</strong></TableCell>
-                <TableCell align="right"><strong>Odometer</strong></TableCell>
-                <TableCell align="right"><strong>Receipt #</strong></TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Date & Time</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Fuel Station</TableCell>
+                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Liters</TableCell>
+                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Price/L</TableCell>
+                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Total</TableCell>
+                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Odometer</TableCell>
+                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Receipt #</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {fuelData.fuelEntries.map((entry, index) => (
                 <TableRow key={index} hover>
-                  <TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                     {dayjs(entry.date).format('DD MMM YYYY')}
-                    <Typography variant="caption" display="block" color="text.secondary">
+                    <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                       {dayjs(entry.date).format('HH:mm')}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                     {entry.station || 'N/A'}
                     {entry.stationLocation && (
-                      <Typography variant="caption" display="block" color="text.secondary">
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                         {entry.stationLocation}
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell align="right">
-                    <Typography fontWeight="medium">
+                  <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Typography fontWeight="medium" sx={{ fontSize: '0.7rem' }}>
                       {formatNumber(entry.liters, 1)}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">
-                    <Typography fontWeight="medium" color="primary">
+                  <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Typography fontWeight="medium" color="primary" sx={{ fontSize: '0.7rem' }}>
                       {formatCurrency(entry.pricePerLiter || 0)}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">
-                    <Typography fontWeight="bold">
+                  <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Typography fontWeight="bold" sx={{ fontSize: '0.7rem' }}>
                       {formatCurrency((entry.liters || 0) * (entry.pricePerLiter || 0))}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.75 }}>
                     {entry.odometer ? formatNumber(entry.odometer) : 'N/A'}
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.75 }}>
                     {entry.receiptNumber || 'N/A'}
                   </TableCell>
                 </TableRow>
@@ -419,25 +434,25 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
         maxWidth="lg"
         fullWidth
         PaperProps={{
-          sx: { maxHeight: '90vh', borderRadius: 2 }
+          sx: { maxHeight: '90vh', borderRadius: 1.5 }
         }}
       >
-        <DialogTitle sx={{ pb: 2 }}>
+        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Box>
-              <Typography variant="h5" component="div" fontWeight="bold">
+              <Typography variant="h6" component="div" fontWeight="600" sx={{ fontSize: '1rem' }}>
                 Trip Details
               </Typography>
-              <Typography variant="subtitle1" color="primary" fontWeight="medium">
+              <Typography variant="caption" color="primary" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
                 {trip ? `#${trip.tripNumber}` : 'Loading...'}
               </Typography>
             </Box>
             {trip && (
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={0.75} alignItems="center">
                 <StatusChip status={trip.status} />
                 <Tooltip title="Edit Trip">
-                  <IconButton size="small" color="primary">
-                    <EditIcon />
+                  <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
+                    <EditIcon sx={{ fontSize: '0.9rem' }} />
                   </IconButton>
                 </Tooltip>
               </Stack>
@@ -449,7 +464,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
           {error && (
             <Alert 
               severity="error" 
-              sx={{ mx: 3, mt: 2 }}
+              sx={{ mx: 2, mt: 2, fontSize: '0.8rem' }}
               onClose={() => setError(null)}
             >
               {error}
@@ -457,24 +472,35 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
           )}
           
           {loading && !trip ? (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
-              <CircularProgress />
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight={250}>
+              <CircularProgress size={35} />
             </Box>
           ) : trip ? (
             <Box>
-              {/* Tabs Navigation */}
-              <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
-                <Tabs value={activeTab} onChange={handleTabChange} aria-label="trip details tabs">
+              {/* Tabs Navigation - Compact */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+                <Tabs 
+                  value={activeTab} 
+                  onChange={handleTabChange} 
+                  aria-label="trip details tabs"
+                  sx={{
+                    '& .MuiTab-root': {
+                      fontSize: '0.75rem',
+                      minHeight: 40,
+                      textTransform: 'none',
+                    }
+                  }}
+                >
                   <Tab label="Overview" />
                   <Tab 
                     label={
-                      <Box display="flex" alignItems="center">
-                        Fuel Consumption
+                      <Box display="flex" alignItems="center" sx={{ fontSize: '0.75rem' }}>
+                        Fuel
                         {fuelStats.entriesCount > 0 && (
                           <Chip 
                             label={fuelStats.entriesCount} 
                             size="small" 
-                            sx={{ ml: 1, height: 20 }}
+                            sx={{ ml: 0.75, height: 18, fontSize: '0.6rem' }}
                           />
                         )}
                       </Box>
@@ -484,92 +510,93 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                 </Tabs>
               </Box>
 
-              {/* Tab Content */}
-              <Box sx={{ p: 3 }}>
+              {/* Tab Content - Compact */}
+              <Box sx={{ p: 2 }}>
                 {activeTab === 0 && (
-                  <Grid container spacing={3}>
+                  <Grid container spacing={2}>
                     <Grid item xs={12} md={8}>
-                      {/* Trip Information Card */}
-                      <Card variant="outlined" sx={{ mb: 3 }}>
+                      {/* Trip Information Card - Compact */}
+                      <Card variant="outlined" sx={{ mb: 2 }}>
                         <CardHeader 
                           title="Trip Information"
-                          titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
+                          titleTypographyProps={{ variant: 'subtitle2', fontWeight: 600, fontSize: '0.8rem' }}
+                          sx={{ py: 1, px: 2 }}
                         />
-                        <CardContent>
-                          <Grid container spacing={2}>
+                        <CardContent sx={{ p: 2, pt: 0 }}>
+                          <Grid container spacing={1.5}>
                             <Grid item xs={12} sm={6}>
-                              <Box display="flex" alignItems="center" mb={1}>
-                                <LocationIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
-                                <Typography variant="subtitle2" color="text.secondary">
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <LocationIcon fontSize="small" sx={{ mr: 0.75, color: 'primary.main', fontSize: '0.9rem' }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                   Origin
                                 </Typography>
                               </Box>
-                              <Typography variant="body1" fontWeight="medium">
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                 {trip.originLocation || '-'}
                               </Typography>
                               {trip.originCity && (
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                                   {trip.originCity}
                                 </Typography>
                               )}
                             </Grid>
                             
                             <Grid item xs={12} sm={6}>
-                              <Box display="flex" alignItems="center" mb={1}>
-                                <LocationIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
-                                <Typography variant="subtitle2" color="text.secondary">
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <LocationIcon fontSize="small" sx={{ mr: 0.75, color: 'primary.main', fontSize: '0.9rem' }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                   Destination
                                 </Typography>
                               </Box>
-                              <Typography variant="body1" fontWeight="medium">
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                 {trip.destinationLocation || '-'}
                               </Typography>
                               {trip.destinationCity && (
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                                   {trip.destinationCity}
                                 </Typography>
                               )}
                             </Grid>
                             
                             <Grid item xs={12} sm={6}>
-                              <Box display="flex" alignItems="center" mb={1}>
-                                <PersonIcon fontSize="small" sx={{ mr: 1, color: 'secondary.main' }} />
-                                <Typography variant="subtitle2" color="text.secondary">
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <PersonIcon fontSize="small" sx={{ mr: 0.75, color: 'secondary.main', fontSize: '0.9rem' }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                   Driver
                                 </Typography>
                               </Box>
-                              <Typography variant="body1" fontWeight="medium">
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                 {trip.driverName || 'Not Assigned'}
                               </Typography>
                               {trip.driverContact && (
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                                   {trip.driverContact}
                                 </Typography>
                               )}
                             </Grid>
                             
                             <Grid item xs={12} sm={6}>
-                              <Box display="flex" alignItems="center" mb={1}>
-                                <CarIcon fontSize="small" sx={{ mr: 1, color: 'info.main' }} />
-                                <Typography variant="subtitle2" color="text.secondary">
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <CarIcon fontSize="small" sx={{ mr: 0.75, color: 'info.main', fontSize: '0.9rem' }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                   Vehicle
                                 </Typography>
                               </Box>
-                              <Typography variant="body1" fontWeight="medium">
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                 {trip.vehicleRegistration || 'Not Assigned'}
                               </Typography>
                               {trip.vehicleModel && (
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                                   {trip.vehicleModel}
                                 </Typography>
                               )}
                             </Grid>
                             
                             <Grid item xs={12} sm={6}>
-                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }} gutterBottom>
                                 Planned Start
                               </Typography>
-                              <Typography variant="body1" fontWeight="medium">
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                 {trip.plannedStartDate 
                                   ? dayjs(trip.plannedStartDate).format('DD MMM YYYY, HH:mm')
                                   : '-'
@@ -578,10 +605,10 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                             </Grid>
                             
                             <Grid item xs={12} sm={6}>
-                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }} gutterBottom>
                                 Planned End
                               </Typography>
-                              <Typography variant="body1" fontWeight="medium">
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                 {trip.plannedEndDate 
                                   ? dayjs(trip.plannedEndDate).format('DD MMM YYYY, HH:mm')
                                   : '-'
@@ -591,10 +618,10 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
 
                             {trip.totalDistance && (
                               <Grid item xs={12} sm={6}>
-                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }} gutterBottom>
                                   Total Distance
                                 </Typography>
-                                <Typography variant="body1" fontWeight="medium" color="primary">
+                                <Typography variant="body2" fontWeight="500" color="primary" sx={{ fontSize: '0.8rem' }}>
                                   {formatNumber(trip.totalDistance)} km
                                 </Typography>
                               </Grid>
@@ -603,26 +630,28 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                         </CardContent>
                       </Card>
 
-                      {/* Update Card */}
+                      {/* Update Card - Compact */}
                       <Card variant="outlined">
                         <CardHeader 
                           title="Update Trip Details"
-                          titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
+                          titleTypographyProps={{ variant: 'subtitle2', fontWeight: 600, fontSize: '0.8rem' }}
+                          sx={{ py: 1, px: 2 }}
                         />
-                        <CardContent>
-                          <Grid container spacing={3}>
+                        <CardContent sx={{ p: 2, pt: 0 }}>
+                          <Grid container spacing={2}>
                             <Grid item xs={12} md={6}>
                               <FormControl fullWidth size="small">
-                                <InputLabel>Change Status</InputLabel>
+                                <InputLabel sx={{ fontSize: '0.75rem' }}>Change Status</InputLabel>
                                 <Select
                                   value={newStatus}
                                   label="Change Status"
                                   onChange={(e) => setNewStatus(e.target.value)}
+                                  sx={{ fontSize: '0.75rem' }}
                                 >
                                   {STATUS_OPTIONS.map(status => (
-                                    <MenuItem key={status} value={status}>
+                                    <MenuItem key={status} value={status} sx={{ fontSize: '0.75rem' }}>
                                       <Box display="flex" alignItems="center" gap={1}>
-                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: STATUS_CONFIG[status]?.color }} />
+                                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: STATUS_CONFIG[status]?.color }} />
                                         {STATUS_CONFIG[status]?.label || status}
                                       </Box>
                                     </MenuItem>
@@ -632,8 +661,8 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                             </Grid>
                             
                             <Grid item xs={12}>
-                              <Divider sx={{ my: 2 }} />
-                              <Typography variant="subtitle2" gutterBottom>
+                              <Divider sx={{ my: 1.5 }} />
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }} gutterBottom>
                                 Actual Times
                               </Typography>
                             </Grid>
@@ -652,10 +681,11 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                                   textField: { 
                                     fullWidth: true, 
                                     size: 'small',
+                                    sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
                                   } 
                                 }}
                               />
-                              <Box mt={1}>
+                              <Box mt={0.75}>
                                 <TimePicker
                                   label="Actual Start Time"
                                   value={actualStartTime}
@@ -664,7 +694,8 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                                     textField: { 
                                       fullWidth: true, 
                                       size: 'small',
-                                      disabled: !actualStartDate
+                                      disabled: !actualStartDate,
+                                      sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
                                     } 
                                   }}
                                 />
@@ -685,10 +716,11 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                                   textField: { 
                                     fullWidth: true, 
                                     size: 'small',
+                                    sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
                                   } 
                                 }}
                               />
-                              <Box mt={1}>
+                              <Box mt={0.75}>
                                 <TimePicker
                                   label="Actual End Time"
                                   value={actualEndTime}
@@ -697,7 +729,8 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                                     textField: { 
                                       fullWidth: true, 
                                       size: 'small',
-                                      disabled: !actualEndDate
+                                      disabled: !actualEndDate,
+                                      sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
                                     } 
                                   }}
                                 />
@@ -709,19 +742,20 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                     </Grid>
 
                     <Grid item xs={12} md={4}>
-                      {/* Summary Stats Card */}
-                      <Card variant="outlined" sx={{ mb: 3 }}>
+                      {/* Summary Stats Card - Compact */}
+                      <Card variant="outlined" sx={{ mb: 2 }}>
                         <CardHeader 
                           title="Quick Stats"
-                          titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
+                          titleTypographyProps={{ variant: 'subtitle2', fontWeight: 600, fontSize: '0.8rem' }}
+                          sx={{ py: 1, px: 2 }}
                         />
-                        <CardContent>
-                          <Stack spacing={2}>
+                        <CardContent sx={{ p: 2, pt: 0 }}>
+                          <Stack spacing={1.5}>
                             <Box>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                 Status
                               </Typography>
-                              <Typography variant="body1" fontWeight="medium">
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                 {STATUS_CONFIG[trip.status]?.label || trip.status}
                               </Typography>
                             </Box>
@@ -730,28 +764,28 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                               <>
                                 <Divider />
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                     Fuel Efficiency
                                   </Typography>
-                                  <Typography variant="body1" fontWeight="medium" color="success.main">
+                                  <Typography variant="body2" fontWeight="500" color="success.main" sx={{ fontSize: '0.8rem' }}>
                                     {tripEfficiency.kmPerLiter.toFixed(1)} km/L
                                   </Typography>
                                 </Box>
                                 
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                     Cost per Kilometer
                                   </Typography>
-                                  <Typography variant="body1" fontWeight="medium" color="primary">
+                                  <Typography variant="body2" fontWeight="500" color="primary" sx={{ fontSize: '0.8rem' }}>
                                     {formatCurrency(tripEfficiency.costPerKm)}/km
                                   </Typography>
                                 </Box>
                                 
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                     Total Distance
                                   </Typography>
-                                  <Typography variant="body1" fontWeight="medium">
+                                  <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                     {formatNumber(tripEfficiency.totalDistance)} km
                                   </Typography>
                                 </Box>
@@ -760,10 +794,10 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                             
                             {trip.cargoWeight && (
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                   Cargo Weight
                                 </Typography>
-                                <Typography variant="body1" fontWeight="medium">
+                                <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
                                   {formatNumber(trip.cargoWeight)} kg
                                 </Typography>
                               </Box>
@@ -772,26 +806,27 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                         </CardContent>
                       </Card>
 
-                      {/* Cargo Details Card */}
+                      {/* Cargo Details Card - Compact */}
                       <Card variant="outlined">
                         <CardHeader 
                           title="Cargo Details"
-                          titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
+                          titleTypographyProps={{ variant: 'subtitle2', fontWeight: 600, fontSize: '0.8rem' }}
+                          sx={{ py: 1, px: 2 }}
                         />
-                        <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        <CardContent sx={{ p: 2, pt: 0 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }} gutterBottom>
                             Description:
                           </Typography>
-                          <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap', mb: 1.5 }}>
                             {trip.cargoDescription || 'No description provided'}
                           </Typography>
                           
-                          <Divider sx={{ my: 2 }} />
+                          <Divider sx={{ my: 1.5 }} />
                           
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }} gutterBottom>
                             Notes:
                           </Typography>
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>
                             {trip.notes || 'No notes'}
                           </Typography>
                         </CardContent>
@@ -803,77 +838,55 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                 {activeTab === 1 && (
                   <Box>
                     {fuelError && (
-                      <Alert severity="warning" sx={{ mb: 2 }}>
+                      <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
                         {fuelError}
                       </Alert>
                     )}
 
-                    {/* Fuel Summary Cards */}
-                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                    {/* Fuel Summary Cards - Compact */}
+                    <Grid container spacing={1.5} sx={{ mb: 2 }}>
                       <Grid item xs={12} sm={6} md={3}>
-                        <Card>
-                          <CardContent sx={{ textAlign: 'center' }}>
-                            <FuelIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Total Fuel
-                            </Typography>
-                            <Typography variant="h5" fontWeight="bold">
-                              {formatNumber(fuelStats.totalLiters, 1)} L
-                            </Typography>
-                          </CardContent>
-                        </Card>
+                        <FuelStatCard
+                          icon={FuelIcon}
+                          title="Total Fuel"
+                          value={`${formatNumber(fuelStats.totalLiters, 1)} L`}
+                          color="primary"
+                        />
                       </Grid>
                       
                       <Grid item xs={12} sm={6} md={3}>
-                        <Card>
-                          <CardContent sx={{ textAlign: 'center' }}>
-                            <MoneyIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Total Cost
-                            </Typography>
-                            <Typography variant="h5" fontWeight="bold" color="success.main">
-                              {formatCurrency(fuelStats.totalCost)}
-                            </Typography>
-                          </CardContent>
-                        </Card>
+                        <FuelStatCard
+                          icon={MoneyIcon}
+                          title="Total Cost"
+                          value={formatCurrency(fuelStats.totalCost)}
+                          color="success"
+                        />
                       </Grid>
                       
                       <Grid item xs={12} sm={6} md={3}>
-                        <Card>
-                          <CardContent sx={{ textAlign: 'center' }}>
-                            <TrendingUpIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Avg. Price/L
-                            </Typography>
-                            <Typography variant="h5" fontWeight="bold">
-                              {formatCurrency(fuelStats.avgPricePerLiter)}
-                            </Typography>
-                            {fuelStats.maxPrice > 0 && fuelStats.minPrice < fuelStats.maxPrice && (
-                              <Typography variant="caption" color="text.secondary">
-                                Range: {formatCurrency(fuelStats.minPrice)} - {formatCurrency(fuelStats.maxPrice)}
-                              </Typography>
-                            )}
-                          </CardContent>
-                        </Card>
+                        <FuelStatCard
+                          icon={TrendingUpIcon}
+                          title="Avg. Price/L"
+                          value={formatCurrency(fuelStats.avgPricePerLiter)}
+                          color="warning"
+                          subtitle={fuelStats.maxPrice > 0 && fuelStats.minPrice < fuelStats.maxPrice 
+                            ? `Range: ${formatCurrency(fuelStats.minPrice)} - ${formatCurrency(fuelStats.maxPrice)}`
+                            : undefined}
+                        />
                       </Grid>
                       
                       <Grid item xs={12} sm={6} md={3}>
-                        <Card>
-                          <CardContent sx={{ textAlign: 'center' }}>
-                            <ReceiptIcon sx={{ fontSize: 40, color: 'info.main', mb: 1 }} />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Total Entries
-                            </Typography>
-                            <Typography variant="h5" fontWeight="bold">
-                              {fuelStats.entriesCount}
-                            </Typography>
-                          </CardContent>
-                        </Card>
+                        <FuelStatCard
+                          icon={ReceiptIcon}
+                          title="Total Entries"
+                          value={fuelStats.entriesCount}
+                          color="info"
+                        />
                       </Grid>
                     </Grid>
 
                     {/* Fuel Entries Table */}
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem', mb: 1 }}>
                       Fuel Entries
                     </Typography>
                     <FuelEntriesTable />
@@ -882,20 +895,20 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
 
                 {activeTab === 2 && (
                   <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
+                    <CardContent sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }} gutterBottom>
                         Documents & Attachments
                       </Typography>
-                      <Typography color="text.secondary" paragraph>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 2 }}>
                         Document management coming soon...
                       </Typography>
                       
-                      <Divider sx={{ my: 2 }} />
+                      <Divider sx={{ my: 1.5 }} />
                       
-                      <Typography variant="h6" gutterBottom>
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }} gutterBottom>
                         Additional Notes
                       </Typography>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>
                         {trip.additionalNotes || 'No additional notes'}
                       </Typography>
                     </CardContent>
@@ -904,18 +917,20 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
               </Box>
             </Box>
           ) : !loading && !trip ? (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
-              <Typography color="text.secondary">No trip data available</Typography>
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight={250}>
+              <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No trip data available</Typography>
             </Box>
           ) : null}
         </DialogContent>
         
-        <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ px: 2, py: 1.5, bgcolor: '#f8fafc', borderTop: 1, borderColor: 'divider' }}>
           <Button
-            startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            startIcon={loading ? <CircularProgress size={14} /> : <RefreshIcon sx={{ fontSize: '0.9rem' }} />}
             onClick={handleRefresh}
             disabled={loading || updating}
             variant="outlined"
+            size="small"
+            sx={{ fontSize: '0.75rem' }}
           >
             Refresh
           </Button>
@@ -926,6 +941,8 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
             onClick={handleClose}
             disabled={updating}
             variant="outlined"
+            size="small"
+            sx={{ fontSize: '0.75rem' }}
           >
             Close
           </Button>
@@ -933,9 +950,11 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
           {activeTab === 0 && hasChanges && (
             <Button
               variant="contained"
-              startIcon={updating ? <CircularProgress size={16} /> : <SaveIcon />}
+              startIcon={updating ? <CircularProgress size={14} /> : <SaveIcon sx={{ fontSize: '0.9rem' }} />}
               onClick={handleUpdateTrip}
               disabled={!hasChanges || updating || loading}
+              size="small"
+              sx={{ fontSize: '0.75rem' }}
             >
               {updating ? 'Saving...' : 'Save Changes'}
             </Button>
