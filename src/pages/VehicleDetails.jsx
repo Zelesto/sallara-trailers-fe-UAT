@@ -14,8 +14,6 @@ import {
   Alert,
   Card,
   CardContent,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -35,7 +33,7 @@ import {
 import { vehicleService } from '../services/vehicleService';
 
 // Compact Info Item Component
-const InfoItem = ({ label, value, icon: Icon, color = 'primary' }) => (
+const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false }) => (
   <Paper
     sx={{
       p: 1.5,
@@ -65,9 +63,13 @@ const InfoItem = ({ label, value, icon: Icon, color = 'primary' }) => (
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
           {label}
         </Typography>
-        <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
-          {value || 'N/A'}
-        </Typography>
+        {isChip ? (
+          <Box sx={{ mt: 0.25 }}>{value}</Box>
+        ) : (
+          <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
+            {value || 'N/A'}
+          </Typography>
+        )}
       </Box>
     </Stack>
   </Paper>
@@ -158,6 +160,14 @@ const VehicleDetails = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Alert severity="error" sx={{ fontSize: '0.8rem' }}>{error}</Alert>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => navigate('/vehicles')}
+          sx={{ mt: 2, fontSize: '0.8rem' }}
+        >
+          Back to Vehicles
+        </Button>
       </Box>
     );
   }
@@ -166,6 +176,14 @@ const VehicleDetails = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>Vehicle not found</Alert>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => navigate('/vehicles')}
+          sx={{ mt: 2, fontSize: '0.8rem' }}
+        >
+          Back to Vehicles
+        </Button>
       </Box>
     );
   }
@@ -282,7 +300,7 @@ const VehicleDetails = () => {
           <Grid item xs={12}>
             <Divider sx={{ my: 1.5 }} />
             <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
-              <Build sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+              <BuildIcon sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
               Service Information
             </Typography>
             <Grid container spacing={1.5}>
