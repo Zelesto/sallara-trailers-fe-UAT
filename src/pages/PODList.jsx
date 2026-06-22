@@ -37,7 +37,49 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
-import Breadcrumbs from '../components/Layout/Breadcrumbs';
+
+// Compact Stat Card Component
+const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
+  <Card sx={{ 
+    bgcolor: `${color}.main`, 
+    color: 'white',
+    height: '100%',
+    transition: 'transform 0.2s ease',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: 4
+    }
+  }}>
+    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box>
+          <Typography sx={{ 
+            color: 'rgba(255,255,255,0.8)', 
+            fontSize: '0.65rem',
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>
+            {title}
+          </Typography>
+          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem', mt: 0.25 }}>
+            {value}
+          </Typography>
+        </Box>
+        {Icon && (
+          <Box sx={{ 
+            bgcolor: 'rgba(255,255,255,0.15)', 
+            borderRadius: 1,
+            p: 0.5,
+            display: 'flex'
+          }}>
+            <Icon sx={{ fontSize: '1.1rem' }} />
+          </Box>
+        )}
+      </Stack>
+    </CardContent>
+  </Card>
+);
 
 const PODList = () => {
   const navigate = useNavigate();
@@ -94,43 +136,51 @@ const PODList = () => {
         size="small"
         label={info.label}
         color={info.color}
-        sx={{ fontWeight: 500 }}
+        sx={{ 
+          fontWeight: 500,
+          fontSize: '0.65rem',
+          height: 20,
+          '& .MuiChip-label': { px: 1, py: 0.25 }
+        }}
       />
     );
   };
 
   const getDocumentIcon = (type) => {
     const icons = {
-      PDF: <PdfIcon fontSize="small" />,
-      IMAGE: <ImageIcon fontSize="small" />,
-      JPG: <ImageIcon fontSize="small" />,
-      PNG: <ImageIcon fontSize="small" />,
-      DOC: <DescriptionIcon fontSize="small" />,
-      DOCX: <DescriptionIcon fontSize="small" />,
+      PDF: <PdfIcon sx={{ fontSize: '0.8rem' }} />,
+      IMAGE: <ImageIcon sx={{ fontSize: '0.8rem' }} />,
+      JPG: <ImageIcon sx={{ fontSize: '0.8rem' }} />,
+      PNG: <ImageIcon sx={{ fontSize: '0.8rem' }} />,
+      DOC: <DescriptionIcon sx={{ fontSize: '0.8rem' }} />,
+      DOCX: <DescriptionIcon sx={{ fontSize: '0.8rem' }} />,
     };
-    return icons[type] || <ReceiptIcon fontSize="small" />;
+    return icons[type] || <ReceiptIcon sx={{ fontSize: '0.8rem' }} />;
   };
 
   const columns = [
     {
       field: 'podNumber',
       headerName: 'POD Number',
-      width: 160,
+      width: 140,
+      headerClassName: 'pod-header',
       renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600} color="primary">
+        <Typography variant="body2" fontWeight={600} color="primary" sx={{ fontSize: '0.75rem' }}>
           {params.value}
         </Typography>
       ),
     },
     {
       field: 'tripId',
-      headerName: 'Trip ID',
-      width: 100,
+      headerName: 'Trip',
+      width: 80,
+      headerClassName: 'pod-header',
       renderCell: (params) => (
         <Chip
           label={`#${params.value || 'N/A'}`}
           size="small"
           variant="outlined"
+          sx={{ fontSize: '0.6rem', height: 18 }}
         />
       ),
     },
@@ -138,9 +188,10 @@ const PODList = () => {
       field: 'customerName',
       headerName: 'Customer',
       flex: 1,
-      minWidth: 150,
+      minWidth: 120,
+      headerClassName: 'pod-header',
       renderCell: (params) => (
-        <Typography variant="body2">
+        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
           {params.value || 'N/A'}
         </Typography>
       ),
@@ -148,38 +199,47 @@ const PODList = () => {
     {
       field: 'deliveryDate',
       headerName: 'Delivery Date',
-      width: 130,
+      width: 110,
+      headerClassName: 'pod-header',
       renderCell: (params) => (
-        params.value ? new Date(params.value).toLocaleDateString() : 'N/A'
+        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+          {params.value ? new Date(params.value).toLocaleDateString() : 'N/A'}
+        </Typography>
       ),
     },
     {
       field: 'status',
       headerName: 'Status',
-      width: 120,
+      width: 110,
+      headerClassName: 'pod-header',
       renderCell: (params) => getStatusChip(params.value),
     },
     {
       field: 'documentType',
       headerName: 'Document',
-      width: 110,
+      width: 100,
+      headerClassName: 'pod-header',
       renderCell: (params) => (
         <Chip
           size="small"
           icon={getDocumentIcon(params.value)}
           label={params.value || 'N/A'}
           variant="outlined"
+          sx={{ fontSize: '0.55rem', height: 18 }}
         />
       ),
     },
     {
       field: 'uploadedBy',
       headerName: 'Uploaded By',
-      width: 130,
+      width: 120,
+      headerClassName: 'pod-header',
       renderCell: (params) => (
         <Box>
-          <Typography variant="body2">{params.value || 'N/A'}</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+            {params.value || 'N/A'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
             {params.row.uploadedAt ? new Date(params.row.uploadedAt).toLocaleDateString() : ''}
           </Typography>
         </Box>
@@ -188,18 +248,20 @@ const PODList = () => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 140,
+      width: 120,
       sortable: false,
       filterable: false,
+      headerClassName: 'pod-header',
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', gap: 0.25 }}>
           <Tooltip title="View Details">
             <IconButton
               size="small"
               color="primary"
               onClick={() => navigate(`/pods/${params.row.id}`)}
+              sx={{ p: 0.5 }}
             >
-              <ViewIcon fontSize="small" />
+              <ViewIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Edit">
@@ -207,8 +269,9 @@ const PODList = () => {
               size="small"
               color="secondary"
               onClick={() => navigate(`/pods/${params.row.id}/edit`)}
+              sx={{ p: 0.5 }}
             >
-              <EditIcon fontSize="small" />
+              <EditIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
@@ -216,8 +279,9 @@ const PODList = () => {
               size="small"
               color="error"
               onClick={() => handleDelete(params.row.id)}
+              sx={{ p: 0.5 }}
             >
-              <DeleteIcon fontSize="small" />
+              <DeleteIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -243,110 +307,115 @@ const PODList = () => {
   };
 
   return (
-    <Box>
-      <Breadcrumbs />
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">Proof of Delivery (POD) Management</Typography>
-          <Typography variant="body2" color="text.secondary">Manage all proof of delivery documents</Typography>
+          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
+            Proof of Delivery (POD)
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+            Manage proof of delivery documents
+          </Typography>
         </Box>
         <Button
           variant="contained"
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
           onClick={() => navigate('/pods/new')}
-          sx={{ borderRadius: 2 }}
+          size="small"
+          sx={{ 
+            borderRadius: 1.5,
+            fontSize: '0.75rem',
+            py: 0.5,
+            px: 1.5
+          }}
         >
           Upload POD
         </Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>{error}</Alert>}
-      {successMessage && <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>{error}</Alert>}
+      {successMessage && <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ bgcolor: 'primary.light', color: 'white' }}>
-            <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Total PODs</Typography>
-              <Typography variant="h4" fontWeight="bold">{stats.total}</Typography>
-            </CardContent>
-          </Card>
+      {/* Stats Cards - Compact */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={6} sm={4} md={2.4}>
+          <StatCard title="Total" value={stats.total} color="primary" icon={ReceiptIcon} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ bgcolor: 'warning.main', color: 'white' }}>
-            <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Pending</Typography>
-              <Typography variant="h4" fontWeight="bold">{stats.pending}</Typography>
-            </CardContent>
-          </Card>
+        <Grid item xs={6} sm={4} md={2.4}>
+          <StatCard title="Pending" value={stats.pending} color="warning" icon={ReceiptIcon} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ bgcolor: 'success.main', color: 'white' }}>
-            <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Delivered</Typography>
-              <Typography variant="h4" fontWeight="bold">{stats.delivered}</Typography>
-            </CardContent>
-          </Card>
+        <Grid item xs={6} sm={4} md={2.4}>
+          <StatCard title="Delivered" value={stats.delivered} color="success" icon={ReceiptIcon} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ bgcolor: 'info.main', color: 'white' }}>
-            <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Verified</Typography>
-              <Typography variant="h4" fontWeight="bold">{stats.verified}</Typography>
-            </CardContent>
-          </Card>
+        <Grid item xs={6} sm={4} md={2.4}>
+          <StatCard title="Verified" value={stats.verified} color="info" icon={ReceiptIcon} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ bgcolor: 'error.main', color: 'white' }}>
-            <CardContent>
-              <Typography color="rgba(255,255,255,0.7)" gutterBottom>Rejected</Typography>
-              <Typography variant="h4" fontWeight="bold">{stats.rejected}</Typography>
-            </CardContent>
-          </Card>
+        <Grid item xs={6} sm={4} md={2.4}>
+          <StatCard title="Rejected" value={stats.rejected} color="error" icon={ReceiptIcon} />
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+      {/* Filters - Compact */}
+      <Paper sx={{ p: 1.5, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
           <TextField
-            placeholder="Search PODs by number, trip, or customer..."
+            placeholder="Search PODs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
-            sx={{ flex: 1 }}
+            sx={{ 
+              flex: 1,
+              '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+              '& .MuiInputBase-root': { fontSize: '0.8rem' }
+            }}
             InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
             <Select
               value={filterStatus}
               label="Status"
               onChange={(e) => setFilterStatus(e.target.value)}
+              sx={{ fontSize: '0.75rem' }}
             >
-              <MenuItem value="ALL">All Status</MenuItem>
-              <MenuItem value="PENDING">Pending</MenuItem>
-              <MenuItem value="DELIVERED">Delivered</MenuItem>
-              <MenuItem value="VERIFIED">Verified</MenuItem>
-              <MenuItem value="REJECTED">Rejected</MenuItem>
+              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
+              <MenuItem value="PENDING" sx={{ fontSize: '0.75rem' }}>Pending</MenuItem>
+              <MenuItem value="DELIVERED" sx={{ fontSize: '0.75rem' }}>Delivered</MenuItem>
+              <MenuItem value="VERIFIED" sx={{ fontSize: '0.75rem' }}>Verified</MenuItem>
+              <MenuItem value="REJECTED" sx={{ fontSize: '0.75rem' }}>Rejected</MenuItem>
             </Select>
           </FormControl>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPods}>
-            Refresh
-          </Button>
-          <Button variant="outlined" startIcon={<ExportIcon />}>
-            Export
-          </Button>
+          <Stack direction="row" spacing={0.75}>
+            <Button 
+              variant="outlined" 
+              startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />} 
+              onClick={loadPods}
+              size="small"
+              sx={{ fontSize: '0.75rem', py: 0.5 }}
+            >
+              Refresh
+            </Button>
+            <Button 
+              variant="outlined" 
+              startIcon={<ExportIcon sx={{ fontSize: '0.9rem' }} />}
+              size="small"
+              sx={{ fontSize: '0.75rem', py: 0.5 }}
+            >
+              Export
+            </Button>
+          </Stack>
         </Stack>
       </Paper>
 
-      <Paper sx={{ height: 500, width: '100%' }}>
+      {/* Data Grid - Compact */}
+      <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress />
-            <Typography sx={{ ml: 2 }}>Loading PODs...</Typography>
+            <CircularProgress size={30} />
+            <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading PODs...</Typography>
           </Box>
         ) : (
           <DataGrid
@@ -357,16 +426,26 @@ const PODList = () => {
             checkboxSelection={false}
             disableRowSelectionOnClick
             getRowId={(row) => row.id}
+            density="compact"
             sx={{
               border: 'none',
+              fontSize: '0.75rem',
               '& .MuiDataGrid-cell': {
                 borderRight: '1px solid #f0f0f0',
                 display: 'flex',
                 alignItems: 'center',
+                padding: '0 8px',
+                fontSize: '0.75rem',
               },
               '& .MuiDataGrid-columnHeaders': {
                 backgroundColor: '#f8f9fa',
                 borderBottom: '2px solid #e0e0e0',
+                minHeight: '36px !important',
+              },
+              '& .pod-header': {
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                color: '#333',
               },
               '& .MuiDataGrid-row:hover': {
                 backgroundColor: '#f5f5f5',
@@ -380,12 +459,29 @@ const PODList = () => {
               '& .MuiDataGrid-columnHeaderTitle': {
                 fontWeight: 600,
                 color: '#333',
-                fontSize: '0.875rem',
+                fontSize: '0.65rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.3px',
+              },
+              '& .MuiDataGrid-virtualScroller': {
+                '& .MuiDataGrid-row': {
+                  minHeight: '36px !important',
+                },
               },
             }}
           />
         )}
       </Paper>
+
+      {/* Footer - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+          Showing {filteredPods.length} of {pods.length} PODs
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+          Last updated: {new Date().toLocaleString()}
+        </Typography>
+      </Box>
     </Box>
   );
 };
