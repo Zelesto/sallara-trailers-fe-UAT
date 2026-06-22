@@ -65,15 +65,15 @@ import { styled } from '@mui/material/styles';
 
 // Import your logo images
 import fullLogoImage from '../assets/img/PGSALogo.png';
-import collapsedLogoImage from '../assets/img/SALLogo_sml.png'; // Create a smaller version of your logo
+import collapsedLogoImage from '../assets/img/SALLogo_sml.png';
 
 import Breadcrumbs from './Breadcrumbs';
 import TripForm from '../../pages/TripForm';
 
-const drawerWidth = 240; // Reduced from 280
-const collapsedDrawerWidth = 64; // Reduced from 70
+const drawerWidth = 240;
+const collapsedDrawerWidth = 64;
 
-// Styled components with shouldForwardProp to prevent boolean DOM attribute warning
+// Styled components...
 const LogoContainer = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'collapsed',
 })(({ theme, collapsed }) => ({
@@ -85,7 +85,6 @@ const LogoContainer = styled(Box, {
   minHeight: collapsed ? 64 : 80,
   position: 'relative',
   overflow: 'hidden',
-  //backgroundColor: theme.palette.primary.main,
   transition: theme.transitions.create(['min-height', 'padding'], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.enteringScreen,
@@ -235,15 +234,15 @@ const menuSections = [
           { text: 'Add Fuel Slip', path: '/fuel/slips/add', icon: <AddLocationIcon /> },
         ],
       },
-      {
-        title: 'Inventory',
-        icon: <InventoryIcon />,
-        items: [
-          { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
-          { text: 'Stock Movements', icon: <FuelIcon />, path: '/inventory/movements' },
-          { text: 'New Movement', icon: <AddLocationIcon />, path: '/inventory/movements/new' },
-        ],
-      },
+    ],
+  },
+  {
+    title: 'Inventory',
+    icon: <InventoryIcon />,
+    items: [
+      { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
+      { text: 'Stock Movements', icon: <FuelIcon />, path: '/inventory/movements' },
+      { text: 'New Movement', icon: <AddLocationIcon />, path: '/inventory/movements/new' },
     ],
   },
   {
@@ -373,7 +372,6 @@ const MainLayout = () => {
             alt="PGSA Logo"
             collapsed={sidebarCollapsed ? 1 : 0}
             onError={(e) => {
-              // Fallback if image fails to load
               e.target.style.display = 'none';
               e.target.parentElement.innerHTML = `
                 <div style="
@@ -394,29 +392,28 @@ const MainLayout = () => {
           />
           
           <BrandText collapsed={sidebarCollapsed ? 1 : 0}>
-  <Typography
-    variant="h6"
-    sx={{
-      fontWeight: 700,
-      color: 'text.primary',
-      lineHeight: 1.1,
-      mb: 0.25,
-    }}
-  >
-    Trailers
-  </Typography>
-
-  <Typography
-    variant="caption"
-    sx={{
-      color: 'text.secondary',
-      display: 'block',
-      fontSize: '0.7rem',
-    }}
-  >
-    v1.01
-  </Typography>
-</BrandText>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: 'text.primary',
+                lineHeight: 1.1,
+                mb: 0.25,
+              }}
+            >
+              Trailers
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+                fontSize: '0.7rem',
+              }}
+            >
+              v1.01
+            </Typography>
+          </BrandText>
         </LogoWrapper>
 
         <ToggleButton onClick={toggleSidebar} size="small">
