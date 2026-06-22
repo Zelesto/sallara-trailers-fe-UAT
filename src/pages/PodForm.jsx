@@ -21,7 +21,6 @@ import {
 import { ArrowBack, Save, CloudUpload, Search as SearchIcon } from '@mui/icons-material';
 import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
-import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'Pending' },
@@ -68,15 +67,13 @@ const PODForm = () => {
     setLoadingTrips(true);
     try {
       const response = await tripService.getAllTrips({ 
-        status: 'COMPLETED,FINALIZED',  // Default to COMPLETED, allow FINALIZED
+        status: 'COMPLETED,FINALIZED',
         size: 100 
       });
-      // Extract trips from response
       const tripsData = response?.content || response || [];
       setTrips(tripsData);
     } catch (err) {
       console.error('Error loading trips:', err);
-      // Try fallback - get all trips
       try {
         const fallbackResponse = await tripService.getAllTrips({ size: 100 });
         const fallbackData = fallbackResponse?.content || fallbackResponse || [];
@@ -215,7 +212,6 @@ const PODForm = () => {
     } catch (err) {
       console.error('Error saving POD:', err);
       
-      // Handle specific error messages
       let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
       if (err.status === 409) {
         errorMessage = 'The selected Trip does not exist or has already been finalized. Please select a valid trip.';
@@ -242,45 +238,49 @@ const PODForm = () => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Loading POD data...</Typography>
+        <CircularProgress size={40} />
+        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading POD data...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Breadcrumbs />
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">
+          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
             {isEditMode ? 'Edit POD' : 'Upload New POD'}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
             {isEditMode ? 'Update POD information' : 'Add a new proof of delivery document'}
           </Typography>
         </Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/pods')}>
+        <Button 
+          startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />} 
+          onClick={() => navigate('/pods')}
+          size="small"
+          sx={{ fontSize: '0.75rem' }}
+        >
           Back to PODs
         </Button>
       </Box>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <form onSubmit={handleSubmit}>
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError('')}>
               {error}
             </Alert>
           )}
           {success && (
-            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess('')}>
               {success}
             </Alert>
           )}
 
-          <Grid container spacing={3}>
-            {/* Trip Selection - Autocomplete with search */}
+          <Grid container spacing={2}>
+            {/* Trip Selection - Compact */}
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={filteredTrips}
@@ -302,11 +302,15 @@ const PODForm = () => {
                     required
                     error={!!formErrors.tripId}
                     helperText={formErrors.tripId || 'Search by Trip Number or Customer Name'}
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
                     InputProps={{
                       ...params.InputProps,
                       startAdornment: (
                         <>
-                          <SearchIcon sx={{ ml: 1, mr: -0.5, color: 'text.secondary' }} />
+                          <SearchIcon sx={{ ml: 0.5, mr: -0.5, fontSize: '0.9rem', color: 'text.secondary' }} />
                           {params.InputProps.startAdornment}
                         </>
                       ),
@@ -316,10 +320,10 @@ const PODForm = () => {
                 renderOption={(props, option) => (
                   <li {...props}>
                     <Box>
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
                         {option.tripNumber || `Trip #${option.id}`}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                         Customer: {option.customerName || 'N/A'} | 
                         Status: {option.status || 'N/A'} | 
                         Date: {option.plannedStartDate ? new Date(option.plannedStartDate).toLocaleDateString() : 'N/A'}
@@ -345,6 +349,10 @@ const PODForm = () => {
                 size="small"
                 error={!!formErrors.customerName}
                 helperText={formErrors.customerName}
+                sx={{
+                  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                  '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                }}
               />
             </Grid>
 
@@ -361,20 +369,25 @@ const PODForm = () => {
                 InputLabelProps={{ shrink: true }}
                 error={!!formErrors.deliveryDate}
                 helperText={formErrors.deliveryDate}
+                sx={{
+                  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                  '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                }}
               />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
                   label="Status"
                   onChange={handleChange}
+                  sx={{ fontSize: '0.8rem' }}
                 >
                   {STATUS_OPTIONS.map(option => (
-                    <MenuItem key={option.value} value={option.value}>
+                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
                       {option.label}
                     </MenuItem>
                   ))}
@@ -387,10 +400,14 @@ const PODForm = () => {
                 <Button
                   variant="outlined"
                   component="label"
-                  startIcon={<CloudUpload />}
+                  startIcon={<CloudUpload sx={{ fontSize: '0.9rem' }} />}
                   fullWidth
-                  sx={{ py: 2, borderStyle: 'dashed' }}
-                  error={!!formErrors.file}
+                  sx={{ 
+                    py: 1.5, 
+                    borderStyle: 'dashed',
+                    fontSize: '0.8rem',
+                    borderColor: formErrors.file ? 'error.main' : 'inherit'
+                  }}
                 >
                   {file ? file.name : 'Upload Document *'}
                   <input
@@ -401,12 +418,12 @@ const PODForm = () => {
                   />
                 </Button>
                 {formErrors.file && (
-                  <Typography color="error" variant="caption">
+                  <Typography color="error" variant="caption" sx={{ fontSize: '0.7rem' }}>
                     {formErrors.file}
                   </Typography>
                 )}
                 {file && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.65rem' }}>
                     File size: {(file.size / 1024).toFixed(2)} KB
                   </Typography>
                 )}
@@ -424,6 +441,10 @@ const PODForm = () => {
                     onChange={handleChange}
                     size="small"
                     disabled
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -435,6 +456,10 @@ const PODForm = () => {
                     onChange={handleChange}
                     size="small"
                     disabled
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
                   />
                 </Grid>
               </>
@@ -446,32 +471,44 @@ const PODForm = () => {
                 label="Notes"
                 name="notes"
                 multiline
-                rows={4}
+                rows={3}
                 value={formData.notes}
                 onChange={handleChange}
                 size="small"
                 placeholder="Additional notes about this POD..."
+                sx={{
+                  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                  '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+              <Divider sx={{ my: 1.5 }} />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 1 }}>
                 <Button
                   type="submit"
                   variant="contained"
-                  size="large"
-                  startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
+                  size="medium"
+                  startIcon={submitting ? <CircularProgress size={18} /> : <Save sx={{ fontSize: '0.9rem' }} />}
                   disabled={submitting}
-                  sx={{ minWidth: 200 }}
+                  sx={{ 
+                    minWidth: { xs: '100%', sm: 180 },
+                    fontSize: '0.8rem',
+                    py: 0.75
+                  }}
                 >
                   {submitting ? 'Saving...' : (isEditMode ? 'Update POD' : 'Upload POD')}
                 </Button>
                 <Button
                   variant="outlined"
-                  size="large"
+                  size="medium"
                   onClick={() => navigate('/pods')}
                   disabled={submitting}
+                  sx={{ 
+                    fontSize: '0.8rem',
+                    py: 0.75
+                  }}
                 >
                   Cancel
                 </Button>
@@ -484,4 +521,4 @@ const PODForm = () => {
   );
 };
 
-export default PodForm;
+export default PODForm;
