@@ -7,6 +7,7 @@ import {
   Typography,
   Box,
   Alert,
+  Divider,
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -65,32 +66,32 @@ const Login = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        p: { xs: 2, sm: 3 },
+        p: { xs: 1.5, sm: 2 },
       }}
     >
       <Paper
         elevation={6}
         sx={{
           width: '100%',
-          maxWidth: 520,
-          borderRadius: 4,
+          maxWidth: 440,
+          borderRadius: 2.5,
           p: {
-            xs: 3,
-            sm: 4,
-            md: 5,
+            xs: 2.5,
+            sm: 3,
+            md: 3.5,
           },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
         }}
       >
-        {/* Logo */}
+        {/* Logo - Smaller */}
         <Box
           sx={{
             width: '100%',
             display: 'flex',
             justifyContent: 'center',
-            mb: 3,
+            mb: 2,
           }}
         >
           <Box
@@ -99,9 +100,9 @@ const Login = () => {
             alt="PGSA Trailers Logo"
             sx={{
               width: {
-                xs: 240,
-                sm: 320,
-                md: 380,
+                xs: 160,
+                sm: 200,
+                md: 240,
               },
               maxWidth: '100%',
               height: 'auto',
@@ -117,25 +118,26 @@ const Login = () => {
           component="h1"
           sx={{
             fontSize: {
-              xs: '1.5rem',
-              sm: '1.75rem',
-              md: '2rem',
+              xs: '1.1rem',
+              sm: '1.25rem',
+              md: '1.4rem',
             },
             fontWeight: 700,
             textAlign: 'center',
-            mb: 1,
+            mb: 0.5,
           }}
         >
-          Fleet Management System
+          Fleet Management
         </Typography>
 
         <Typography
-          variant="body2"
+          variant="caption"
           color="text.secondary"
           sx={{
             textAlign: 'center',
-            mb: 0.5,
+            mb: 0.25,
             fontWeight: 500,
+            fontSize: '0.7rem',
           }}
         >
           Sallara Trailers
@@ -146,19 +148,26 @@ const Login = () => {
           color="text.secondary"
           sx={{
             display: 'block',
-            mb: 3,
+            mb: 2,
+            fontSize: '0.6rem',
           }}
         >
-          Version 1.0.1
+          v1.0.1
         </Typography>
+
+        <Divider sx={{ width: '100%', mb: 2 }} />
 
         <Typography
           variant="body2"
           color="text.secondary"
           align="center"
-          sx={{ mb: 3 }}
+          sx={{ 
+            mb: 2,
+            fontSize: '0.8rem',
+            fontWeight: 500
+          }}
         >
-          Sign in to your account
+          Sign in to continue
         </Typography>
 
         {error && (
@@ -166,7 +175,8 @@ const Login = () => {
             severity="error"
             sx={{
               width: '100%',
-              mb: 3,
+              mb: 2,
+              fontSize: '0.75rem',
             }}
             onClose={() => setError('')}
           >
@@ -179,11 +189,11 @@ const Login = () => {
           onSubmit={handleSubmit}
           sx={{
             width: '100%',
-            maxWidth: 400,
+            maxWidth: 360,
           }}
         >
           <TextField
-            margin="normal"
+            margin="dense"
             required
             fullWidth
             id="email"
@@ -194,10 +204,15 @@ const Login = () => {
             value={credentials.email}
             onChange={handleChange}
             disabled={loading}
+            size="small"
+            sx={{
+              '& .MuiInputLabel-root': { fontSize: '0.8rem' },
+              '& .MuiInputBase-root': { fontSize: '0.85rem' },
+            }}
           />
 
           <TextField
-            margin="normal"
+            margin="dense"
             required
             fullWidth
             name="password"
@@ -208,6 +223,12 @@ const Login = () => {
             value={credentials.password}
             onChange={handleChange}
             disabled={loading}
+            size="small"
+            sx={{
+              mt: 1.5,
+              '& .MuiInputLabel-root': { fontSize: '0.8rem' },
+              '& .MuiInputBase-root': { fontSize: '0.85rem' },
+            }}
           />
 
           <Button
@@ -216,12 +237,13 @@ const Login = () => {
             variant="contained"
             disabled={loading}
             sx={{
-              mt: 3,
-              mb: 2,
-              py: 1.5,
-              fontSize: '1rem',
+              mt: 2.5,
+              mb: 1.5,
+              py: 1,
+              fontSize: '0.85rem',
               fontWeight: 600,
-              borderRadius: 2,
+              borderRadius: 1.5,
+              textTransform: 'none',
             }}
           >
             {loading ? 'Signing In...' : 'Sign In'}
@@ -230,8 +252,8 @@ const Login = () => {
 
         <Box
           sx={{
-            mt: 3,
-            pt: 3,
+            mt: 2,
+            pt: 2,
             width: '100%',
             borderTop: '1px solid',
             borderColor: 'divider',
@@ -239,9 +261,12 @@ const Login = () => {
           }}
         >
           <Typography
-            variant="body2"
+            variant="caption"
             color="text.secondary"
-            gutterBottom
+            sx={{
+              display: 'block',
+              fontSize: '0.65rem',
+            }}
           >
             Don't have an account?
           </Typography>
@@ -249,23 +274,22 @@ const Login = () => {
           <Typography
             variant="caption"
             color="text.secondary"
-            display="block"
+            sx={{
+              display: 'block',
+              fontSize: '0.6rem',
+              mt: 0.5,
+            }}
           >
-            Contact Management
+            Contact Management • www.sallara.co.za
           </Typography>
 
           <Typography
             variant="caption"
             color="text.secondary"
-            display="block"
-          >
-            www.sallara.co.za
-          </Typography>
-
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            display="block"
+            sx={{
+              display: 'block',
+              fontSize: '0.6rem',
+            }}
           >
             IT@sallara.co.za
           </Typography>
