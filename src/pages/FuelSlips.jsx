@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';  // Added useNavigate
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { fuelService } from '../services/fuelService';
 import {
@@ -23,6 +23,8 @@ import {
   Button,
   Card,
   CardContent,
+  Stack,
+  Grid,
 } from '@mui/material';
 import {
   FilterList,
@@ -35,6 +37,7 @@ import {
   DirectionsCar,
   Event,
   AttachMoney,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
 // Currency formatter for South African Rand (ZAR)
@@ -58,6 +61,41 @@ const formatNumber = (num) => {
     maximumFractionDigits: 1,
   }).format(number);
 };
+
+// Compact Stat Card Component
+const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      <Stack direction="row" alignItems="center" spacing={1.5}>
+        <Box
+          sx={{
+            bgcolor: `${color}.light`,
+            borderRadius: 1,
+            p: 0.75,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon sx={{ fontSize: '1.2rem', color: `${color}.main` }} />
+        </Box>
+        <Box>
+          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
+            {value}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+            {title}
+          </Typography>
+          {subtitle && (
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+    </CardContent>
+  </Card>
+);
 
 function FuelSlips() {
   const params = useParams();
@@ -159,16 +197,33 @@ function FuelSlips() {
   // Handle view slip details
   const handleViewSlip = (id) => {
     console.log('View slip:', id);
-    // You can navigate to slip details or show a modal
-    // navigate(`/fuel/slips/${id}`);
+  };
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const filters = {};
+      if (driverFilter) filters.driverId = driverFilter;
+      if (vehicleFilter) filters.vehicleId = vehicleFilter;
+      if (params.id) filters.driverId = params.id;
+      
+      const data = await fuelService.getFuelSlips(filters);
+      setSlips(data || []);
+    } catch (err) {
+      console.error('Failed to refresh fuel slips:', err);
+      setError(err.message || 'Failed to refresh');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <Box textAlign="center">
-          <CircularProgress size={60} />
-          <Typography variant="h6" mt={2}>
+          <CircularProgress size={40} />
+          <Typography variant="body1" mt={1} sx={{ fontSize: '0.9rem' }}>
             Loading fuel slips...
           </Typography>
         </Box>
@@ -178,13 +233,15 @@ function FuelSlips() {
 
   if (error) {
     return (
-      <Box m={3}>
-        <Alert severity="error" sx={{ mb: 3 }}>
+      <Box m={2}>
+        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }}>
           {error}
         </Alert>
         <Button
           variant="contained"
+          size="small"
           onClick={() => window.location.reload()}
+          sx={{ fontSize: '0.8rem' }}
         >
           Retry
         </Button>
@@ -194,19 +251,21 @@ function FuelSlips() {
 
   if (!slips.length) {
     return (
-      <Box m={3}>
-        <Typography variant="h4" gutterBottom>
+      <Box m={2}>
+        <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600 }}>
+          <LocalGasStation sx={{ verticalAlign: 'middle', mr: 0.5, fontSize: '1.2rem' }} />
           Fuel Slips
         </Typography>
-        <Alert severity="info" sx={{ mt: 2 }}>
+        <Alert severity="info" sx={{ mt: 2, fontSize: '0.8rem' }}>
           No fuel slips found.
           {driverFilter || vehicleFilter ? ' Try clearing your filters.' : ''}
         </Alert>
         {(driverFilter || vehicleFilter) && (
           <Button
-            startIcon={<Clear />}
+            startIcon={<Clear sx={{ fontSize: '0.9rem' }} />}
             onClick={handleClearFilters}
-            sx={{ mt: 2 }}
+            size="small"
+            sx={{ mt: 2, fontSize: '0.8rem' }}
           >
             Clear Filters
           </Button>
@@ -216,200 +275,179 @@ function FuelSlips() {
   }
 
   return (
-    <Box m={3}>
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
         <Box>
-          <Typography variant="h4" gutterBottom>
-            <LocalGasStation sx={{ verticalAlign: 'middle', mr: 1 }} />
+          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
+            <LocalGasStation sx={{ verticalAlign: 'middle', mr: 0.5, fontSize: '1.2rem' }} />
             Fuel Slips
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage and monitor all fuel transactions in South African Rands (ZAR)
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+            Manage fuel transactions in ZAR
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<LocalGasStation />}
-          onClick={() => navigate('/fuel/slips/add')}
-          sx={{ ml: 2 }}
-        >
-          New Fuel Slip
-        </Button>
+        <Stack direction="row" spacing={0.75}>
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={handleRefresh} sx={{ p: 0.5 }}>
+              <RefreshIcon sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
+          <Button
+            variant="contained"
+            startIcon={<LocalGasStation sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => navigate('/fuel/slips/add')}
+            size="small"
+            sx={{ fontSize: '0.75rem', py: 0.5 }}
+          >
+            New Slip
+          </Button>
+        </Stack>
       </Box>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Compact */}
       {summary && (
-        <Box display="flex" gap={2} mb={3} flexWrap="wrap">
-          <Card sx={{ flex: 1, minWidth: 200 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={1}>
-                <AttachMoney color="primary" />
-                <Typography variant="h6">Total Cost</Typography>
-              </Box>
-              <Typography variant="h5" color="primary">
-                {formatCurrency(summary.totalAmount)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Total spend on fuel
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ flex: 1, minWidth: 200 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={1}>
-                <LocalGasStation color="secondary" />
-                <Typography variant="h6">Total Fuel</Typography>
-              </Box>
-              <Typography variant="h5" color="secondary">
-                {formatNumber(summary.totalQuantity)} L
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Total litres consumed
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ flex: 1, minWidth: 200 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={1}>
-                <AttachMoney color="success" />
-                <Typography variant="h6">Avg Price</Typography>
-              </Box>
-              <Typography variant="h5" color="success.main">
-                {formatCurrency(summary.averagePrice)}
-                <Typography component="span" variant="caption" ml={0.5}>
-                  /L
-                </Typography>
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Average price per litre
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ flex: 1, minWidth: 200 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={1}>
-                {summary.pendingCount > 0 ? (
-                  <Cancel color="warning" />
-                ) : (
-                  <CheckCircle color="success" />
-                )}
-                <Typography variant="h6">Status</Typography>
-              </Box>
-              <Box>
-                <Chip
-                  label={`${summary.finalizedCount} Finalized`}
-                  size="small"
-                  color="success"
-                  variant="outlined"
-                  sx={{ mr: 1, mb: 0.5 }}
-                />
-                {summary.pendingCount > 0 && (
-                  <Chip
-                    label={`${summary.pendingCount} Pending`}
-                    size="small"
-                    color="warning"
-                    variant="outlined"
-                  />
-                )}
-              </Box>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                {summary.slipCount} total slips
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
+        <Grid container spacing={1.5} sx={{ mb: 2 }}>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Total Cost"
+              value={formatCurrency(summary.totalAmount)}
+              icon={AttachMoney}
+              color="primary"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Total Fuel"
+              value={`${formatNumber(summary.totalQuantity)} L`}
+              icon={LocalGasStation}
+              color="secondary"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Avg Price"
+              value={`${formatCurrency(summary.averagePrice)}/L`}
+              icon={AttachMoney}
+              color="success"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Status"
+              value={`${summary.finalizedCount}/${summary.slipCount}`}
+              icon={summary.pendingCount > 0 ? Cancel : CheckCircle}
+              color={summary.pendingCount > 0 ? 'warning' : 'success'}
+              subtitle={`${summary.pendingCount} pending`}
+            />
+          </Grid>
+        </Grid>
       )}
 
-      {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <FilterList color="action" />
-            <Typography variant="h6">Filters</Typography>
-            {(driverFilter || vehicleFilter) && (
-              <Tooltip title="Clear filters">
-                <IconButton size="small" onClick={handleClearFilters}>
-                  <Clear />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
+      {/* Filters - Compact */}
+      <Paper sx={{ p: 1.5, mb: 2 }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <FilterList sx={{ fontSize: '0.9rem', color: 'action.active' }} />
+            <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+              Filters
+            </Typography>
+          </Stack>
+          {(driverFilter || vehicleFilter) && (
+            <Button
+              size="small"
+              startIcon={<Clear sx={{ fontSize: '0.8rem' }} />}
+              onClick={handleClearFilters}
+              sx={{ fontSize: '0.65rem' }}
+            >
+              Clear
+            </Button>
+          )}
+        </Stack>
 
-          <Box display="flex" gap={2} flexWrap="wrap">
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>
-                <Person fontSize="small" sx={{ mr: 0.5 }} />
-                Driver
-              </InputLabel>
-              <Select
-                value={driverFilter}
-                onChange={(e) => setDriverFilter(e.target.value)}
-                label="Driver"
-              >
-                <MenuItem value="">All Drivers</MenuItem>
-                {drivers.map(driver => (
-                  <MenuItem key={driver.id} value={driver.id}>
-                    {driver.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
+            <InputLabel sx={{ fontSize: '0.75rem' }}>
+              <Person sx={{ fontSize: '0.8rem', mr: 0.5 }} />
+              Driver
+            </InputLabel>
+            <Select
+              value={driverFilter}
+              onChange={(e) => setDriverFilter(e.target.value)}
+              label="Driver"
+              sx={{ fontSize: '0.75rem' }}
+            >
+              <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Drivers</MenuItem>
+              {drivers.map(driver => (
+                <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: '0.75rem' }}>
+                  {driver.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>
-                <DirectionsCar fontSize="small" sx={{ mr: 0.5 }} />
-                Vehicle
-              </InputLabel>
-              <Select
-                value={vehicleFilter}
-                onChange={(e) => setVehicleFilter(e.target.value)}
-                label="Vehicle"
-              >
-                <MenuItem value="">All Vehicles</MenuItem>
-                {vehicles.map(vehicle => (
-                  <MenuItem key={vehicle.id} value={vehicle.id}>
-                    {vehicle.regNumber}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </CardContent>
-      </Card>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
+            <InputLabel sx={{ fontSize: '0.75rem' }}>
+              <DirectionsCar sx={{ fontSize: '0.8rem', mr: 0.5 }} />
+              Vehicle
+            </InputLabel>
+            <Select
+              value={vehicleFilter}
+              onChange={(e) => setVehicleFilter(e.target.value)}
+              label="Vehicle"
+              sx={{ fontSize: '0.75rem' }}
+            >
+              <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Vehicles</MenuItem>
+              {vehicles.map(vehicle => (
+                <MenuItem key={vehicle.id} value={vehicle.id} sx={{ fontSize: '0.75rem' }}>
+                  {vehicle.regNumber}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
+      </Paper>
 
-      {/* Results count */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="body1" color="text.secondary">
-          Showing {slips.length} fuel slip{slips.length !== 1 ? 's' : ''}
-          {summary && ` • Total: ${formatCurrency(summary.totalAmount)}`}
+      {/* Results count - Compact */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+          {slips.length} slip{slips.length !== 1 ? 's' : ''}
+          {summary && ` • ${formatCurrency(summary.totalAmount)}`}
         </Typography>
         <Button
           size="small"
-          startIcon={<Clear />}
+          startIcon={<Clear sx={{ fontSize: '0.8rem' }} />}
           onClick={handleClearFilters}
           disabled={!driverFilter && !vehicleFilter}
+          sx={{ fontSize: '0.65rem' }}
         >
           Clear Filters
         </Button>
       </Box>
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
-        <Table>
+      {/* Table - Compact with Auto-Width */}
+      <TableContainer component={Paper} sx={{ borderRadius: 1, mb: 2 }}>
+        <Table size="small">
           <TableHead sx={{ bgcolor: 'action.hover' }}>
             <TableRow>
-              <TableCell><Event fontSize="small" sx={{ mr: 1 }} />Date</TableCell>
-              <TableCell><Person fontSize="small" sx={{ mr: 1 }} />Driver</TableCell>
-              <TableCell><DirectionsCar fontSize="small" sx={{ mr: 1 }} />Vehicle</TableCell>
-              <TableCell><LocalGasStation fontSize="small" sx={{ mr: 1 }} />Fuel</TableCell>
-              <TableCell><AttachMoney fontSize="small" sx={{ mr: 1 }} />Amount (ZAR)</TableCell>
-              <TableCell>Station</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
+                <Event sx={{ fontSize: '0.8rem', mr: 0.5 }} />Date
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
+                <Person sx={{ fontSize: '0.8rem', mr: 0.5 }} />Driver
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
+                <DirectionsCar sx={{ fontSize: '0.8rem', mr: 0.5 }} />Vehicle
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
+                <LocalGasStation sx={{ fontSize: '0.8rem', mr: 0.5 }} />Fuel
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
+                <AttachMoney sx={{ fontSize: '0.8rem', mr: 0.5 }} />Amount (ZAR)
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Station</TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Status</TableCell>
+              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -422,8 +460,8 @@ function FuelSlips() {
                   bgcolor: slip.finalized ? 'action.hover' : 'transparent'
                 }}
               >
-                <TableCell>
-                  <Typography variant="body2">
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
                     {slip.transactionDate
                       ? new Date(slip.transactionDate).toLocaleDateString('en-ZA', {
                           year: 'numeric',
@@ -435,77 +473,79 @@ function FuelSlips() {
                       : '-'}
                   </Typography>
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                   <Box>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                       {slip.driverName || '-'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
                       ID: {slip.driverId || 'N/A'}
                     </Typography>
                   </Box>
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                   <Box>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                       {slip.vehicleRegNumber || '-'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
                       ID: {slip.vehicleId || 'N/A'}
                     </Typography>
                   </Box>
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                   <Box>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                       {slip.quantity ? `${formatNumber(slip.quantity)} L` : '-'}
                     </Typography>
                     {slip.unitPrice && (
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
                         @ {formatCurrency(slip.unitPrice)}/L
                       </Typography>
                     )}
                   </Box>
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                   <Box>
-                    <Typography variant="body2" fontWeight="medium" color="primary">
+                    <Typography variant="body2" fontWeight="500" color="primary" sx={{ fontSize: '0.7rem' }}>
                       {formatCurrency(slip.totalAmount)}
                     </Typography>
                     {slip.quantity && slip.totalAmount && (
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
                         {formatCurrency(parseFloat(slip.totalAmount) / parseFloat(slip.quantity))}/L
                       </Typography>
                     )}
                   </Box>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
                     {slip.stationName || slip.location || '-'}
                   </Typography>
                   {slip.location && slip.stationName && (
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
                       {slip.location}
                     </Typography>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                   <Chip
                     label={slip.finalized ? 'Finalized' : 'Pending'}
                     size="small"
                     color={slip.finalized ? 'success' : 'warning'}
                     variant="outlined"
-                    icon={slip.finalized ? <CheckCircle /> : <Cancel />}
+                    icon={slip.finalized ? <CheckCircle sx={{ fontSize: '0.7rem' }} /> : <Cancel sx={{ fontSize: '0.7rem' }} />}
+                    sx={{ height: 20, fontSize: '0.6rem' }}
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
                   <Tooltip title="View Details">
                     <IconButton
                       size="small"
                       onClick={() => handleViewSlip(slip.id)}
                       color="primary"
+                      sx={{ p: 0.5 }}
                     >
-                      <Visibility fontSize="small" />
+                      <Visibility sx={{ fontSize: '0.9rem' }} />
                     </IconButton>
                   </Tooltip>
                 </TableCell>
@@ -515,30 +555,28 @@ function FuelSlips() {
         </Table>
       </TableContainer>
 
-      {/* Footer summary */}
+      {/* Footer summary - Compact */}
       {summary && (
-        <Card sx={{ mt: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
-          <CardContent>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Summary Totals
-                </Typography>
-                <Typography variant="body2">
-                  {summary.slipCount} slips • {formatNumber(summary.totalQuantity)} litres
-                </Typography>
-              </Box>
-              <Box textAlign="right">
-                <Typography variant="h5">
-                  {formatCurrency(summary.totalAmount)}
-                </Typography>
-                <Typography variant="body2">
-                  Average: {formatCurrency(summary.averagePrice)}/L
-                </Typography>
-              </Box>
+        <Paper sx={{ p: 1.5, bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 1 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                Summary Totals
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.9 }}>
+                {summary.slipCount} slips • {formatNumber(summary.totalQuantity)} litres
+              </Typography>
             </Box>
-          </CardContent>
-        </Card>
+            <Box textAlign={{ xs: 'left', sm: 'right' }}>
+              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                {formatCurrency(summary.totalAmount)}
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.9 }}>
+                Avg: {formatCurrency(summary.averagePrice)}/L
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
       )}
     </Box>
   );
