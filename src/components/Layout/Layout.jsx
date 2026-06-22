@@ -65,7 +65,7 @@ import { styled } from '@mui/material/styles';
 
 // Import your logo images
 import fullLogoImage from '../assets/img/PGSALogo.png';
-import collapsedLogoImage from '../assets/img/PGSALogoSmall.png'; // Create a smaller version of your logo
+import collapsedLogoImage from '../assets/img/SALLogo_sml.png'; // Create a smaller version of your logo
 
 import Breadcrumbs from './Breadcrumbs';
 import TripForm from '../../pages/TripForm';
