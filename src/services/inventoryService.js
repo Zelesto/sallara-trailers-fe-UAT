@@ -1,5 +1,5 @@
 // src/services/inventoryService.js
-import api from '../api';
+import api from './api';
 
 export const inventoryService = {
   // Get all inventory items with optional filters
