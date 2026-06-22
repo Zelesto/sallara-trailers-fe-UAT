@@ -46,8 +46,8 @@ import {
   Event,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { inventoryMovementService } from '../../services/inventoryMovementService';
-import { inventoryService } from '../../services/inventoryService';
+import { inventoryMovementService } from '../services/inventoryMovementService';
+import { inventoryService } from '../services/inventoryService';
 
 // Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
