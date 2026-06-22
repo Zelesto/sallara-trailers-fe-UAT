@@ -14,14 +14,24 @@ import {
   FormControl,
   InputLabel,
   Select,
-   Chip,
+  Chip,
   InputAdornment,
   FormHelperText, 
   Stack,
+  Divider,
 } from '@mui/material';
-import { ArrowBack, Save } from '@mui/icons-material';
+import { 
+  ArrowBack, 
+  Save, 
+  Person,
+  Email,
+  Phone,
+  Badge,
+  CalendarToday,
+  LocationOn,
+  VpnKey,
+} from '@mui/icons-material';
 import driverService from '../services/driverService';
-import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 const DriverForm = () => {
   const { id } = useParams();
@@ -166,39 +176,59 @@ const DriverForm = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress size={40} />
+        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading driver data...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Breadcrumbs />
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">
-          {isEditMode ? 'Edit Driver' : 'Create New Driver'}
-        </Typography>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/drivers')}>
-          Back
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Box>
+          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
+            {isEditMode ? 'Edit Driver' : 'Create New Driver'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+            {isEditMode ? 'Update driver information' : 'Add a new driver to the fleet'}
+          </Typography>
+        </Box>
+        <Button 
+          startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />} 
+          onClick={() => navigate('/drivers')}
+          size="small"
+          sx={{ fontSize: '0.75rem' }}
+        >
+          Back to Drivers
         </Button>
       </Box>
 
-      <Paper sx={{ p: 3 }}>
+      {/* Form */}
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <form onSubmit={handleSubmit}>
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError('')}>
               {error}
             </Alert>
           )}
           {success && (
-            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess('')}>
               {success}
             </Alert>
           )}
 
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
+            {/* Personal Information Section */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
+                <Person sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+                Personal Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+            </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -208,6 +238,7 @@ const DriverForm = () => {
                 onChange={handleChange}
                 required
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -219,6 +250,7 @@ const DriverForm = () => {
                 onChange={handleChange}
                 required
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
@@ -231,6 +263,10 @@ const DriverForm = () => {
                 value={formData.email}
                 onChange={handleChange}
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Email sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -241,7 +277,20 @@ const DriverForm = () => {
                 value={formData.phoneNumber}
                 onChange={handleChange}
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Phone sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
               />
+            </Grid>
+
+            {/* License Information Section */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                <Badge sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+                License Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -253,6 +302,10 @@ const DriverForm = () => {
                 onChange={handleChange}
                 required
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Badge sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -264,6 +317,7 @@ const DriverForm = () => {
                 onChange={handleChange}
                 size="small"
                 placeholder="e.g., EC, C1, etc."
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
@@ -277,6 +331,10 @@ const DriverForm = () => {
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><CalendarToday sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -289,23 +347,37 @@ const DriverForm = () => {
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><CalendarToday sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
               />
+            </Grid>
+
+            {/* Status & Address Section */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                <LocationOn sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+                Status & Address
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
                   label="Status"
+                  sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="AVAILABLE">Available</MenuItem>
-                  <MenuItem value="ON_LEAVE">On Leave</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                  <MenuItem value="SUSPENDED">Suspended</MenuItem>
+                  <MenuItem value="ACTIVE" sx={{ fontSize: '0.8rem' }}>Active</MenuItem>
+                  <MenuItem value="AVAILABLE" sx={{ fontSize: '0.8rem' }}>Available</MenuItem>
+                  <MenuItem value="ON_LEAVE" sx={{ fontSize: '0.8rem' }}>On Leave</MenuItem>
+                  <MenuItem value="INACTIVE" sx={{ fontSize: '0.8rem' }}>Inactive</MenuItem>
+                  <MenuItem value="SUSPENDED" sx={{ fontSize: '0.8rem' }}>Suspended</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -317,11 +389,24 @@ const DriverForm = () => {
                 value={formData.address}
                 onChange={handleChange}
                 size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><LocationOn sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
               />
             </Grid>
 
+            {/* Password Section (only for new drivers) */}
             {!isEditMode && (
               <>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                    <VpnKey sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+                    Password
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                </Grid>
+
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
@@ -333,8 +418,9 @@ const DriverForm = () => {
                     required
                     size="small"
                     error={!!passwordError}
-                    helperText={passwordError}
+                    helperText={passwordError || 'Minimum 6 characters'}
                     autoComplete="new-password"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -350,22 +436,37 @@ const DriverForm = () => {
                     error={!!passwordError}
                     helperText={passwordError}
                     autoComplete="new-password"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                   />
                 </Grid>
               </>
             )}
 
+            {/* Form Actions */}
             <Grid item xs={12}>
-              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+              <Divider sx={{ my: 1.5 }} />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button
                   type="submit"
                   variant="contained"
-                  startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
+                  size="medium"
+                  startIcon={submitting ? <CircularProgress size={18} /> : <Save sx={{ fontSize: '0.9rem' }} />}
                   disabled={submitting}
+                  sx={{ 
+                    minWidth: { xs: '100%', sm: 180 },
+                    fontSize: '0.8rem',
+                    py: 0.75
+                  }}
                 >
                   {submitting ? 'Saving...' : (isEditMode ? 'Update Driver' : 'Create Driver')}
                 </Button>
-                <Button variant="outlined" onClick={() => navigate('/drivers')}>
+                <Button
+                  variant="outlined"
+                  size="medium"
+                  onClick={() => navigate('/drivers')}
+                  disabled={submitting}
+                  sx={{ fontSize: '0.8rem', py: 0.75 }}
+                >
                   Cancel
                 </Button>
               </Stack>
