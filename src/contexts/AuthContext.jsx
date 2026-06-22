@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/auth';
 
@@ -9,6 +10,26 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => authService.getStoredUser());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Listen for session expiry events
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setSessionExpired(true);
+      setUser(null);
+      // Redirect to login with session expired parameter
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login') {
+        window.location.href = '/login?session=expired';
+      }
+    };
+
+    window.addEventListener('sessionExpired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('sessionExpired', handleSessionExpired);
+    };
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -16,8 +37,15 @@ export const AuthProvider = ({ children }) => {
         try {
           const userData = await authService.getCurrentUser();
           setUser(userData);
+          setSessionExpired(false);
         } catch (err) {
           console.error('Failed to load user:', err);
+          // If token is invalid, clear it
+          if (err.response?.status === 401) {
+            authService.logout();
+            setUser(null);
+            setSessionExpired(true);
+          }
         }
       }
       setLoading(false);
@@ -29,6 +57,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     setLoading(true);
     setError(null);
+    setSessionExpired(false);
     try {
       const result = await authService.login(credentials.email, credentials.password);
 
@@ -59,6 +88,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       setUser(user);
+      setSessionExpired(false);
 
       return {
         success: true,
@@ -78,6 +108,13 @@ export const AuthProvider = ({ children }) => {
     authService.logout();
     setUser(null);
     setError(null);
+    setSessionExpired(false);
+    
+    // Redirect to login if not already there
+    const currentPath = window.location.pathname;
+    if (currentPath !== '/login') {
+      window.location.href = '/login';
+    }
   };
 
   const register = async (userData) => {
@@ -119,12 +156,18 @@ export const AuthProvider = ({ children }) => {
       return userData;
     } catch (err) {
       console.error('Failed to refresh user:', err);
+      // If token is invalid, clear it
+      if (err.response?.status === 401) {
+        authService.logout();
+        setUser(null);
+        setSessionExpired(true);
+      }
       return null;
     }
   };
 
   // ---------------- RBAC Helpers ----------------
-  const isAuthenticated = () => !!user;
+  const isAuthenticated = () => !!user && !sessionExpired;
 
   const hasRole = (roleName) => {
     if (!user?.roles) return false;
@@ -160,6 +203,8 @@ export const AuthProvider = ({ children }) => {
     hasPermission,
     loading,
     error,
+    sessionExpired,
+    setSessionExpired,
     clearError: () => setError(null),
   };
 
