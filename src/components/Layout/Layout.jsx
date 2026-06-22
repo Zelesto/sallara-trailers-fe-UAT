@@ -63,37 +63,93 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
 
-// Import your logo image
-import logoImage from '../assets/img/PGSALogo.png'; // Update this path as needed
+// Import your logo images
+import fullLogoImage from '../assets/img/PGSALogo.png';
+import collapsedLogoImage from '../assets/img/PGSALogoSmall.png'; // Create a smaller version of your logo
 
 import Breadcrumbs from './Breadcrumbs';
 import TripForm from '../../pages/TripForm';
 
-const drawerWidth = 280;
-const collapsedDrawerWidth = 70;
+const drawerWidth = 240; // Reduced from 280
+const collapsedDrawerWidth = 64; // Reduced from 70
 
 // Styled components with shouldForwardProp to prevent boolean DOM attribute warning
-const LogoContainer = styled(Box)(({ theme }) => ({
+const LogoContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'collapsed',
+})(({ theme, collapsed }) => ({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: theme.spacing(1.5, 1.5),
+  justifyContent: 'center',
+  padding: collapsed ? theme.spacing(1, 0.5) : theme.spacing(1.5, 2),
   borderBottom: `1px solid ${theme.palette.divider}`,
-  minHeight: 180,
+  minHeight: collapsed ? 64 : 80,
   position: 'relative',
   overflow: 'hidden',
+  backgroundColor: theme.palette.primary.main,
+  transition: theme.transitions.create(['min-height', 'padding'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.enteringScreen,
+  }),
 }));
 
 const LogoWrapper = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'collapsed',
 })(({ theme, collapsed }) => ({
   display: 'flex',
-  flexDirection: collapsed ? 'row' : 'column',
+  flexDirection: collapsed ? 'row' : 'row',
   alignItems: 'center',
-  gap: theme.spacing(1),
+  gap: collapsed ? 0 : theme.spacing(1.5),
   transition: 'all 0.3s ease',
   width: '100%',
-  justifyContent: collapsed ? 'center' : 'center',
+  justifyContent: collapsed ? 'center' : 'flex-start',
+}));
+
+const LogoImage = styled('img', {
+  shouldForwardProp: (prop) => prop !== 'collapsed',
+})(({ theme, collapsed }) => ({
+  width: collapsed ? 36 : 48,
+  height: collapsed ? 36 : 48,
+  objectFit: 'contain',
+  transition: theme.transitions.create(['width', 'height'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.enteringScreen,
+  }),
+  flexShrink: 0,
+}));
+
+const BrandText = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'collapsed',
+})(({ theme, collapsed }) => ({
+  opacity: collapsed ? 0 : 1,
+  transition: theme.transitions.create('opacity', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textAlign: 'left',
+  flex: 1,
+  minWidth: 0,
+}));
+
+const ToggleButton = styled(IconButton)(({ theme }) => ({
+  position: 'absolute',
+  right: -12,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  '&:hover': {
+    backgroundColor: theme.palette.grey[100],
+  },
+  zIndex: 11,
+  boxShadow: theme.shadows[2],
+  width: 24,
+  height: 24,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
 }));
 
 const SidebarItem = styled(ListItemButton)(({ theme, selected }) => ({
@@ -302,157 +358,69 @@ const MainLayout = () => {
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <LogoContainer>
+      <LogoContainer collapsed={sidebarCollapsed ? 1 : 0}>
         <LogoWrapper collapsed={sidebarCollapsed ? 1 : 0}>
-          {sidebarCollapsed ? (
-            <Box sx={{
-              width: 40,
-              height: 40,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              borderRadius: 1,
-            }}>
-              <Box
-                component="img"
-                src={logoImage}
-                alt="PGSA Logo"
-                sx={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  padding: 0.5,
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = `
-                    <div style="
-                      width: 40px;
-                      height: 40px;
-                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                      border-radius: 8px;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      color: white;
-                      font-weight: bold;
-                      font-size: 14px;
-                    ">P</div>
-                  `;
-                }}
-              />
-            </Box>
-          ) : (
-            <>
-              <Box sx={{
-                width: 56,
-                height: 56,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                borderRadius: 1,
-              }}>
-                <Box
-                  component="img"
-                  src={logoImage}
-                  alt="PGSA Logo"
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    padding: 0.5,
-                  }}
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = `
-                      <div style="
-                        width: 56px;
-                        height: 56px;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        border-radius: 8px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: white;
-                        font-weight: bold;
-                        font-size: 18px;
-                      ">PGSA</div>
-                    `;
-                  }}
-                />
-              </Box>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.primary.main,
-                    mb: 0.25,
-                    fontSize: '0.95rem',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  TRAILERS
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 500,
-                    fontSize: '0.65rem',
-                    display: 'block',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  SALLARA NATIONWIDE LOGISTICS
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 500,
-                    fontSize: '0.6rem',
-                    display: 'block',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  v1.02
-                </Typography>
-              </Box>
-            </>
-          )}
+          <LogoImage
+            src={sidebarCollapsed ? collapsedLogoImage : fullLogoImage}
+            alt="PGSA Logo"
+            collapsed={sidebarCollapsed ? 1 : 0}
+            onError={(e) => {
+              // Fallback if image fails to load
+              e.target.style.display = 'none';
+              e.target.parentElement.innerHTML = `
+                <div style="
+                  width: ${sidebarCollapsed ? '36px' : '48px'};
+                  height: ${sidebarCollapsed ? '36px' : '48px'};
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  border-radius: ${sidebarCollapsed ? '8px' : '8px'};
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                  font-size: ${sidebarCollapsed ? '14px' : '18px'};
+                  flex-shrink: 0;
+                ">${sidebarCollapsed ? 'P' : 'PGSA'}</div>
+              `;
+            }}
+          />
+          
+          <BrandText collapsed={sidebarCollapsed ? 1 : 0}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 700,
+                color: 'white',
+                fontSize: '0.95rem',
+                lineHeight: 1.2,
+                letterSpacing: '0.5px',
+              }}
+            >
+              PGSA Trailers
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'rgba(255,255,255,0.8)',
+                fontWeight: 400,
+                fontSize: '0.6rem',
+                display: 'block',
+                lineHeight: 1.2,
+                opacity: 0.9,
+              }}
+            >
+              Sallara Nationwide Logistics
+            </Typography>
+          </BrandText>
         </LogoWrapper>
 
-        <IconButton
-          onClick={toggleSidebar}
-          size="small"
-          sx={{
-            position: 'absolute',
-            right: sidebarCollapsed ? -12 : 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            backgroundColor: theme.palette.grey[100],
-            border: `1px solid ${theme.palette.divider}`,
-            '&:hover': {
-              backgroundColor: theme.palette.grey[200],
-            },
-            zIndex: 11,
-            boxShadow: 2,
-            width: 24,
-            height: 24,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
+        <ToggleButton onClick={toggleSidebar} size="small">
           {sidebarCollapsed ? (
             <ChevronRight sx={{ fontSize: '1rem' }} />
           ) : (
             <ChevronLeft sx={{ fontSize: '1rem' }} />
           )}
-        </IconButton>
+        </ToggleButton>
       </LogoContainer>
 
       <MainContentWrapper>
@@ -908,7 +876,6 @@ const MainLayout = () => {
       >
         <Toolbar sx={{ minHeight: { xs: 48, sm: 52 } }} />
 
-        {/* Breadcrumbs - only here, not on individual pages */}
         <Breadcrumbs />
 
         <Outlet />
