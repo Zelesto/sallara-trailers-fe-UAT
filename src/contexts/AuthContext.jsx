@@ -1,5 +1,6 @@
 // src/contexts/AuthContext.jsx
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import authService from '../services/auth';
 
 const AuthContext = createContext({});
@@ -11,16 +12,27 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  
+  // Get navigate function - must be used inside Router
+  // We'll use a ref to store navigate since we can't use hook in event listeners
+  const navigateRef = React.useRef();
 
-  // Listen for session expiry events
+  // Set navigate ref when available
   useEffect(() => {
+    // This will be set by the component that uses useNavigate
+    // For now, we'll use window.location as fallback
     const handleSessionExpired = () => {
       setSessionExpired(true);
       setUser(null);
       // Redirect to login with session expired parameter
       const currentPath = window.location.pathname;
       if (currentPath !== '/login') {
-        window.location.href = '/login?session=expired';
+        // Use navigate if available, otherwise fallback to window.location
+        if (navigateRef.current) {
+          navigateRef.current('/login?session=expired', { replace: true });
+        } else {
+          window.location.href = '/login?session=expired';
+        }
       }
     };
 
@@ -31,6 +43,7 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  // Load user on mount
   useEffect(() => {
     const loadUser = async () => {
       if (authService.isAuthenticated()) {
@@ -41,8 +54,8 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
           console.error('Failed to load user:', err);
           // If token is invalid, clear it
-          if (err.response?.status === 401) {
-            authService.logout();
+          if (err.status === 401 || err.response?.status === 401) {
+            authService.clearAuthData();
             setUser(null);
             setSessionExpired(true);
           }
@@ -53,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  // AuthContext.jsx - Fix the login function
+  // Login function
   const login = async (credentials) => {
     setLoading(true);
     setError(null);
@@ -61,21 +74,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const result = await authService.login(credentials.email, credentials.password);
 
-      console.log('AuthContext login result:', result); // Debug
+      console.log('AuthContext login result:', result);
 
       // Check different response structures
       let token, user;
 
       if (result.token && result.user) {
-        // Direct structure: {token, user, success}
         token = result.token;
         user = result.user;
       } else if (result.data?.token) {
-        // Nested structure: {data: {token, user, success}}
         token = result.data.token;
         user = result.data.user;
       } else if (result.access_token) {
-        // Alternative structure: {access_token, user}
         token = result.access_token;
         user = result.user;
       } else {
@@ -89,6 +99,7 @@ export const AuthProvider = ({ children }) => {
 
       setUser(user);
       setSessionExpired(false);
+      setLoading(false);
 
       return {
         success: true,
@@ -98,25 +109,27 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const errorMessage = err.message || err.error || 'Login failed';
       setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
       setLoading(false);
+      return { success: false, error: errorMessage };
     }
   };
 
-  const logout = () => {
-    authService.logout();
+  // Logout function
+  const logout = useCallback(() => {
+    authService.clearAuthData();
     setUser(null);
     setError(null);
     setSessionExpired(false);
     
-    // Redirect to login if not already there
-    const currentPath = window.location.pathname;
-    if (currentPath !== '/login') {
+    // Use navigate if available, otherwise fallback to window.location
+    if (navigateRef.current) {
+      navigateRef.current('/login', { replace: true });
+    } else {
       window.location.href = '/login';
     }
-  };
+  }, []);
 
+  // Register function
   const register = async (userData) => {
     setLoading(true);
     setError(null);
@@ -132,6 +145,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Update profile function
   const updateProfile = async (profileData) => {
     setLoading(true);
     setError(null);
@@ -148,6 +162,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Refresh user function
   const refreshUser = async () => {
     if (!authService.isAuthenticated()) return null;
     try {
@@ -156,9 +171,8 @@ export const AuthProvider = ({ children }) => {
       return userData;
     } catch (err) {
       console.error('Failed to refresh user:', err);
-      // If token is invalid, clear it
-      if (err.response?.status === 401) {
-        authService.logout();
+      if (err.status === 401 || err.response?.status === 401) {
+        authService.clearAuthData();
         setUser(null);
         setSessionExpired(true);
       }
@@ -166,28 +180,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ---------------- RBAC Helpers ----------------
-  const isAuthenticated = () => !!user && !sessionExpired;
+  // RBAC Helpers
+  const isAuthenticated = useCallback(() => !!user && !sessionExpired, [user, sessionExpired]);
 
-  const hasRole = (roleName) => {
+  const hasRole = useCallback((roleName) => {
     if (!user?.roles) return false;
     return user.roles.some(role =>
       role.name === roleName ||
-      role.name === `ROLE_${roleName}`
+      role.name === `ROLE_${roleName}` ||
+      role === roleName ||
+      role === `ROLE_${roleName}`
     );
-  };
+  }, [user]);
 
-  const hasAnyRole = (roleNames) => roleNames.some(r => hasRole(r));
-  const hasAllRoles = (roleNames) => roleNames.every(r => hasRole(r));
+  const hasAnyRole = useCallback((roleNames) => roleNames.some(r => hasRole(r)), [hasRole]);
+  const hasAllRoles = useCallback((roleNames) => roleNames.every(r => hasRole(r)), [hasRole]);
 
-  const hasPermission = (resource, action) => {
+  const hasPermission = useCallback((resource, action) => {
     if (!user?.roles) return false;
     return user.roles.some(role =>
       role.permissions?.some(p =>
         p.resource === resource && p.action === action
       )
     );
-  };
+  }, [user]);
 
   const value = {
     user,
@@ -206,7 +222,25 @@ export const AuthProvider = ({ children }) => {
     sessionExpired,
     setSessionExpired,
     clearError: () => setError(null),
+    setNavigate: (navigate) => {
+      navigateRef.current = navigate;
+    }
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+// Custom hook that includes navigation
+export const useAuthWithNavigate = () => {
+  const navigate = useNavigate();
+  const auth = useAuth();
+  
+  // Set the navigate ref when the hook is used
+  useEffect(() => {
+    if (auth.setNavigate) {
+      auth.setNavigate(navigate);
+    }
+  }, [auth, navigate]);
+  
+  return auth;
 };
