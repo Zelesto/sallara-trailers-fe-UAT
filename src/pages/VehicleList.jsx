@@ -34,7 +34,49 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import vehicleService from '../services/vehicleService';
-import Breadcrumbs from '../components/Layout/Breadcrumbs';
+
+// Compact Stat Card Component
+const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
+  <Card sx={{ 
+    bgcolor: `${color}.main`, 
+    color: 'white',
+    height: '100%',
+    transition: 'transform 0.2s ease',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: 4
+    }
+  }}>
+    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box>
+          <Typography sx={{ 
+            color: 'rgba(255,255,255,0.8)', 
+            fontSize: '0.65rem',
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>
+            {title}
+          </Typography>
+          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem', mt: 0.25 }}>
+            {value}
+          </Typography>
+        </Box>
+        {Icon && (
+          <Box sx={{ 
+            bgcolor: 'rgba(255,255,255,0.15)', 
+            borderRadius: 1,
+            p: 0.5,
+            display: 'flex'
+          }}>
+            <Icon sx={{ fontSize: '1.1rem' }} />
+          </Box>
+        )}
+      </Stack>
+    </CardContent>
+  </Card>
+);
 
 const VehicleList = () => {
   const navigate = useNavigate();
@@ -84,59 +126,77 @@ const VehicleList = () => {
       INACTIVE: { color: 'error', label: 'Inactive' },
     };
     const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
-    return <Chip size="small" label={info.label} color={info.color} sx={{ fontWeight: 500 }} />;
+    return (
+      <Chip 
+        size="small" 
+        label={info.label} 
+        color={info.color} 
+        sx={{ 
+          fontWeight: 500,
+          fontSize: '0.6rem',
+          height: 20
+        }} 
+      />
+    );
   };
 
   const columns = [
     {
       field: 'registrationNumber',
       headerName: 'Registration',
-      width: 130,
+      flex: 0.8,
+      minWidth: 100,
       renderCell: (params) => (
         <Chip
           label={params.value}
           size="small"
           color="primary"
           variant="outlined"
-          sx={{ fontWeight: 600 }}
+          sx={{ 
+            fontWeight: 600,
+            fontSize: '0.65rem',
+            height: 20
+          }}
         />
       ),
     },
     {
       field: 'make',
       headerName: 'Make & Model',
-      flex: 1,
-      minWidth: 180,
+      flex: 1.2,
+      minWidth: 150,
       renderCell: (params) => (
         <Box>
-          <Typography variant="body2" fontWeight={500}>
+          <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.75rem' }}>
             {params.row.make} {params.row.model}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
             {params.row.year || ''}
           </Typography>
         </Box>
       ),
-      valueGetter: (params) => `${params.row.make || ''} ${params.row.model || ''}`.trim(),
     },
     {
       field: 'vehicleType',
       headerName: 'Type',
-      width: 120,
+      flex: 0.7,
+      minWidth: 80,
       renderCell: (params) => (
         <Chip
           label={params.value || 'N/A'}
           size="small"
           variant="outlined"
+          sx={{ fontSize: '0.55rem', height: 18 }}
         />
       ),
     },
     {
       field: 'capacityKg',
       headerName: 'Capacity',
-      width: 110,
+      flex: 0.6,
+      minWidth: 80,
       renderCell: (params) => (
-        <Typography variant="body2">
+        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
           {params.value ? `${params.value} kg` : 'N/A'}
         </Typography>
       ),
@@ -144,24 +204,27 @@ const VehicleList = () => {
     {
       field: 'status',
       headerName: 'Status',
-      width: 140,
+      flex: 0.7,
+      minWidth: 100,
       renderCell: (params) => getStatusChip(params.value),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 140,
+      flex: 0.8,
+      minWidth: 100,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', gap: 0.25 }}>
           <Tooltip title="View Details">
             <IconButton
               size="small"
               color="primary"
               onClick={() => navigate(`/vehicles/${params.row.id}`)}
+              sx={{ p: 0.5 }}
             >
-              <ViewIcon fontSize="small" />
+              <ViewIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Edit">
@@ -169,8 +232,9 @@ const VehicleList = () => {
               size="small"
               color="secondary"
               onClick={() => navigate(`/vehicles/${params.row.id}/edit`)}
+              sx={{ p: 0.5 }}
             >
-              <EditIcon fontSize="small" />
+              <EditIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
@@ -178,8 +242,9 @@ const VehicleList = () => {
               size="small"
               color="error"
               onClick={() => handleDelete(params.row.id)}
+              sx={{ p: 0.5 }}
             >
-              <DeleteIcon fontSize="small" />
+              <DeleteIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -204,103 +269,116 @@ const VehicleList = () => {
   };
 
   return (
-    <Box>
-      <Breadcrumbs />
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Vehicle Management</Typography>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
+            Vehicle Management
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+            Manage fleet vehicles
+          </Typography>
+        </Box>
         <Button
           variant="contained"
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
           onClick={() => navigate('/vehicles/new')}
-          sx={{ borderRadius: 2 }}
+          size="small"
+          sx={{ 
+            borderRadius: 1.5,
+            fontSize: '0.75rem',
+            py: 0.5,
+            px: 1.5
+          }}
         >
           Add Vehicle
         </Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>{error}</Alert>}
-      {successMessage && <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>{error}</Alert>}
+      {successMessage && <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>Total Vehicles</Typography>
-              <Typography variant="h4">{stats.total}</Typography>
-            </CardContent>
-          </Card>
+      {/* Stats Cards - Compact */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={6} sm={3}>
+          <StatCard title="Total Vehicles" value={stats.total} color="primary" icon={CarIcon} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>Active</Typography>
-              <Typography variant="h4" color="success.main">{stats.active}</Typography>
-            </CardContent>
-          </Card>
+        <Grid item xs={6} sm={3}>
+          <StatCard title="Active" value={stats.active} color="success" icon={CarIcon} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>In Maintenance</Typography>
-              <Typography variant="h4" color="warning.main">{stats.maintenance}</Typography>
-            </CardContent>
-          </Card>
+        <Grid item xs={6} sm={3}>
+          <StatCard title="In Maintenance" value={stats.maintenance} color="warning" icon={CarIcon} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>Out of Service</Typography>
-              <Typography variant="h4" color="error.main">{stats.outOfService}</Typography>
-            </CardContent>
-          </Card>
+        <Grid item xs={6} sm={3}>
+          <StatCard title="Out of Service" value={stats.outOfService} color="error" icon={CarIcon} />
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+      {/* Filters - Compact */}
+      <Paper sx={{ p: 1.5, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
           <TextField
             placeholder="Search vehicles..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
-            sx={{ flex: 1 }}
+            sx={{ 
+              flex: 1,
+              '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+              '& .MuiInputBase-root': { fontSize: '0.8rem' }
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon />
+                  <SearchIcon sx={{ fontSize: '0.9rem' }} />
                 </InputAdornment>
               ),
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
             <Select
               value={filterStatus}
               label="Status"
               onChange={(e) => setFilterStatus(e.target.value)}
+              sx={{ fontSize: '0.75rem' }}
             >
-              <MenuItem value="ALL">All Status</MenuItem>
-              <MenuItem value="ACTIVE">Active</MenuItem>
-              <MenuItem value="AVAILABLE">Available</MenuItem>
-              <MenuItem value="IN_MAINTENANCE">In Maintenance</MenuItem>
-              <MenuItem value="OUT_OF_SERVICE">Out of Service</MenuItem>
-              <MenuItem value="INACTIVE">Inactive</MenuItem>
+              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
+              <MenuItem value="ACTIVE" sx={{ fontSize: '0.75rem' }}>Active</MenuItem>
+              <MenuItem value="AVAILABLE" sx={{ fontSize: '0.75rem' }}>Available</MenuItem>
+              <MenuItem value="IN_MAINTENANCE" sx={{ fontSize: '0.75rem' }}>In Maintenance</MenuItem>
+              <MenuItem value="OUT_OF_SERVICE" sx={{ fontSize: '0.75rem' }}>Out of Service</MenuItem>
+              <MenuItem value="INACTIVE" sx={{ fontSize: '0.75rem' }}>Inactive</MenuItem>
             </Select>
           </FormControl>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadVehicles}>
-            Refresh
-          </Button>
-          <Button variant="outlined" startIcon={<ExportIcon />}>
-            Export
-          </Button>
+          <Stack direction="row" spacing={0.75}>
+            <Button 
+              variant="outlined" 
+              startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />} 
+              onClick={loadVehicles}
+              size="small"
+              sx={{ fontSize: '0.75rem', py: 0.5 }}
+            >
+              Refresh
+            </Button>
+            <Button 
+              variant="outlined" 
+              startIcon={<ExportIcon sx={{ fontSize: '0.9rem' }} />}
+              size="small"
+              sx={{ fontSize: '0.75rem', py: 0.5 }}
+            >
+              Export
+            </Button>
+          </Stack>
         </Stack>
       </Paper>
 
-      <Paper sx={{ height: 500, width: '100%' }}>
+      {/* Data Grid - Compact */}
+      <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress />
+            <CircularProgress size={30} />
           </Box>
         ) : (
           <DataGrid
@@ -311,18 +389,57 @@ const VehicleList = () => {
             checkboxSelection={false}
             disableRowSelectionOnClick
             getRowId={(row) => row.id}
+            density="compact"
             sx={{
               border: 'none',
-              '& .MuiDataGrid-cell': { borderRight: '1px solid #f0f0f0' },
+              fontSize: '0.75rem',
+              '& .MuiDataGrid-cell': {
+                borderRight: '1px solid #f0f0f0',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 8px',
+                fontSize: '0.75rem',
+              },
               '& .MuiDataGrid-columnHeaders': {
                 backgroundColor: '#f8f9fa',
                 borderBottom: '2px solid #e0e0e0',
+                minHeight: '36px !important',
               },
-              '& .MuiDataGrid-row:hover': { backgroundColor: '#f5f5f5' },
+              '& .MuiDataGrid-row:hover': {
+                backgroundColor: '#f5f5f5',
+              },
+              '& .MuiDataGrid-cell:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-columnHeader:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-columnHeaderTitle': {
+                fontWeight: 600,
+                color: '#333',
+                fontSize: '0.65rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.3px',
+              },
+              '& .MuiDataGrid-virtualScroller': {
+                '& .MuiDataGrid-row': {
+                  minHeight: '36px !important',
+                },
+              },
             }}
           />
         )}
       </Paper>
+
+      {/* Footer - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+          Showing {filteredVehicles.length} of {vehicles.length} vehicles
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+          Last updated: {new Date().toLocaleString()}
+        </Typography>
+      </Box>
     </Box>
   );
 };
