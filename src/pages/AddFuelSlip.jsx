@@ -1,4 +1,4 @@
-// src/pages/AddFuelSlip.jsx - COMPLETE FIXED VERSION
+// src/pages/AddFuelSlip.jsx - UPDATED VERSION
 import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, TextField, Button, Grid, Card, CardContent,
@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { fuelService } from '../services/fuelService';
 import { vehicleService } from '../services/vehicleService';
 import { driverService } from '../services/driverService';
-import {tripService} from '../services/tripService';
+import { tripService } from '../services/tripService';
 
 // Constants
 const COMMON_STATIONS = ['BP Station', 'Shell Station', 'Caltex Station', 'Engen Station', 'Total Station', 'Sasol Station', 'Puma Station'];
@@ -52,6 +52,18 @@ const extractRegistrationNumber = (input) => {
   // If we can't extract, return the first word
   return input.split(' ')[0].toUpperCase();
 };
+
+// Compact Info Item Component
+const InfoItem = ({ label, value }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #f0f0f0' }}>
+    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+      {label}:
+    </Typography>
+    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
+      {value || 'N/A'}
+    </Typography>
+  </Box>
+);
 
 const AddFuelSlip = () => {
   const navigate = useNavigate();
@@ -122,7 +134,6 @@ const AddFuelSlip = () => {
     try {
       setFetchingData(true);
 
-      // Fetch all data in parallel
       const [vehiclesData, driversData, tripsData] = await Promise.all([
         vehicleService.getAllVehicles(),
         driverService.getAllDrivers(),
@@ -135,35 +146,15 @@ const AddFuelSlip = () => {
         trips: tripsData?.length || 0
       });
 
-      // DEBUG: Check first trip structure
-      if (tripsData && tripsData[0]) {
-        console.log('First trip structure:', tripsData[0]);
-        console.log('Trip keys:', Object.keys(tripsData[0]));
-        console.log('Trip vehicle:', tripsData[0].vehicle);
-        console.log('Trip driver:', tripsData[0].driver);
-      }
-
-      // Helper function to extract data
       const extractData = (response) => {
         if (!response) return [];
-
-        // If it's already an array
         if (Array.isArray(response)) return response;
-
-        // If it has a data property that's an array
         if (response.data && Array.isArray(response.data)) return response.data;
-
-        // If it has a content property that's an array
         if (response.content && Array.isArray(response.content)) return response.content;
-
-        // If it has a results property that's an array
         if (response.results && Array.isArray(response.results)) return response.results;
-
-        // Try to convert object values to array
         if (typeof response === 'object' && !Array.isArray(response)) {
           return Object.values(response);
         }
-
         return [];
       };
 
@@ -206,7 +197,6 @@ const AddFuelSlip = () => {
     }
 
     try {
-      // Find the selected trip - use strict equality
       const selectedTrip = trips.find(t => t.id && t.id.toString() === tripId.toString());
       console.log('Selected trip object:', selectedTrip);
 
@@ -215,12 +205,11 @@ const AddFuelSlip = () => {
         return;
       }
 
-      // Prepare new form data
       let newFormData = { ...formData, tripId };
       let newVehicleValue = '';
       let newDriverValue = '';
 
-      // METHOD 1: If trip has vehicle/driver IDs directly
+      // Auto-populate vehicle
       if (selectedTrip.vehicleId) {
         const vehicle = vehicles.find(v => v.id && v.id.toString() === selectedTrip.vehicleId.toString());
         if (vehicle) {
@@ -229,21 +218,16 @@ const AddFuelSlip = () => {
           newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || vehicle.plateNumber || '';
           newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
         }
-      }
-      // METHOD 2: If trip has vehicle object embedded
-      else if (selectedTrip.vehicle && selectedTrip.vehicle.id) {
+      } else if (selectedTrip.vehicle && selectedTrip.vehicle.id) {
         const vehicle = selectedTrip.vehicle;
         console.log('Found vehicle in trip object:', vehicle);
         newFormData.vehicleId = vehicle.id;
         newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || vehicle.plateNumber || '';
         newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
-      }
-      // METHOD 3: If trip has vehicle registration string
-      else if (selectedTrip.vehicleRegistration) {
+      } else if (selectedTrip.vehicleRegistration) {
         console.log('Trip has vehicleRegistration:', selectedTrip.vehicleRegistration);
         newFormData.vehicleManual = selectedTrip.vehicleRegistration;
 
-        // Try to find matching vehicle - more flexible matching
         const matchingVehicle = vehicles.find(v => {
           const regNum = v.registrationNumber || v.regNumber || v.plateNumber;
           if (!regNum) return false;
@@ -259,7 +243,7 @@ const AddFuelSlip = () => {
         }
       }
 
-      // Similar logic for driver
+      // Auto-populate driver
       if (selectedTrip.driverId) {
         const driver = drivers.find(d => d.id && d.id.toString() === selectedTrip.driverId.toString());
         if (driver) {
@@ -278,7 +262,6 @@ const AddFuelSlip = () => {
         console.log('Trip has driverName:', selectedTrip.driverName);
         newFormData.driverManual = selectedTrip.driverName;
 
-        // Try to find matching driver - more flexible matching
         const matchingDriver = drivers.find(d => {
           const driverName = d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim();
           if (!driverName) return false;
@@ -294,7 +277,6 @@ const AddFuelSlip = () => {
         }
       }
 
-      // Update state
       setFormData(newFormData);
       setVehicleInputValue(newVehicleValue);
       setDriverInputValue(newDriverValue);
@@ -330,7 +312,6 @@ const AddFuelSlip = () => {
     const mode = e.target.value;
     setEntryMode(mode);
 
-    // Clear all fields when changing mode
     setFormData(prev => ({
       ...prev,
       tripId: '',
@@ -352,16 +333,13 @@ const AddFuelSlip = () => {
     let newVehicleInputValue = '';
 
     if (newValue && typeof newValue === 'object') {
-      // Selected from dropdown
       newVehicleId = newValue.id;
       newVehicleManual = newValue.registrationNumber || newValue.regNumber || newValue.plateNumber || '';
       newVehicleInputValue = `${newVehicleManual} - ${newValue.make || ''} ${newValue.model || ''}`.trim();
     } else if (typeof newValue === 'string') {
-      // Manual typing
       newVehicleManual = extractRegistrationNumber(newValue);
       newVehicleInputValue = newValue;
     } else {
-      // Cleared
       newVehicleManual = '';
       newVehicleInputValue = '';
     }
@@ -383,16 +361,13 @@ const AddFuelSlip = () => {
     let newDriverInputValue = '';
 
     if (newValue && typeof newValue === 'object') {
-      // Selected from dropdown
       newDriverId = newValue.id;
       newDriverManual = newValue.fullName || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim();
       newDriverInputValue = newDriverManual;
     } else if (typeof newValue === 'string') {
-      // Manual typing
       newDriverManual = newValue;
       newDriverInputValue = newValue;
     } else {
-      // Cleared
       newDriverManual = '';
       newDriverInputValue = '';
     }
@@ -489,14 +464,12 @@ const AddFuelSlip = () => {
   };
 
   // Submission
-  // In handleSubmit function - Update the payload preparation
   const handleSubmit = async () => {
     try {
       setLoading(true);
       setError('');
       setSuccess('');
 
-      // Ensure we have clean registration number
       const vehicleRegistration = extractRegistrationNumber(formData.vehicleManual);
 
       if (!vehicleRegistration) {
@@ -505,7 +478,6 @@ const AddFuelSlip = () => {
         return;
       }
 
-      // Prepare payload - ENHANCED VERSION
       const payload = {
         slipNumber: formData.slipNumber,
         transactionDate: new Date(formData.transactionDate).toISOString(),
@@ -517,7 +489,6 @@ const AddFuelSlip = () => {
         stationName: formData.stationName || 'Unknown Station',
         location: formData.location || 'Unknown Location',
         paymentMethod: formData.paymentMethod || 'Cash',
-        // NEW: Add these fields
         tripId: formData.tripId || null,
         odometerReading: formData.odometerReading ? parseFloat(formData.odometerReading) : null,
         pumpNumber: formData.pumpNumber || null,
@@ -527,9 +498,8 @@ const AddFuelSlip = () => {
         driverId: formData.driverId || null
       };
 
-      console.log('Submitting ENHANCED fuel slip:', payload);
+      console.log('Submitting fuel slip:', payload);
 
-      // Call the API
       const response = await fuelService.createFuelSlip(payload);
       console.log('Fuel slip created:', response);
 
@@ -562,29 +532,31 @@ const AddFuelSlip = () => {
       case 0:
         return (
           <Box>
-            <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Person /> Basic Information
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              <Person sx={{ fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Basic Information
             </Typography>
 
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
+            <Card sx={{ mb: 2 }}>
+              <CardContent sx={{ p: 1.5 }}>
                 <FormControl component="fieldset">
-                  <FormLabel component="legend">Select Entry Mode</FormLabel>
+                  <FormLabel sx={{ fontSize: '0.8rem' }}>Select Entry Mode</FormLabel>
                   <RadioGroup row value={entryMode} onChange={handleEntryModeChange}>
-                    <FormControlLabel value="manual" control={<Radio />} label="Manual Entry" />
-                    <FormControlLabel value="trip" control={<Radio />} label="Select Active Trip" />
+                    <FormControlLabel value="manual" control={<Radio size="small" />} label="Manual Entry" sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }} />
+                    <FormControlLabel value="trip" control={<Radio size="small" />} label="Select Active Trip" sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }} />
                   </RadioGroup>
                 </FormControl>
               </CardContent>
             </Card>
 
             {entryMode === 'trip' && (
-              <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel>Trip</InputLabel>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Trip</InputLabel>
                 <Select
                   value={formData.tripId}
                   onChange={(e) => handleTripSelection(e.target.value)}
                   label="Trip"
+                  sx={{ fontSize: '0.8rem' }}
                   renderValue={(selected) => {
                     const trip = availableTrips.find(t => t.id && t.id.toString() === selected.toString());
                     return trip
@@ -592,9 +564,9 @@ const AddFuelSlip = () => {
                       : '-- Select a Trip --';
                   }}
                 >
-                  <MenuItem value="">-- Select a Trip --</MenuItem>
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>-- Select a Trip --</MenuItem>
                   {availableTrips.map(trip => (
-                    <MenuItem key={trip.id} value={trip.id}>
+                    <MenuItem key={trip.id} value={trip.id} sx={{ fontSize: '0.8rem' }}>
                       {`${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'}`}
                     </MenuItem>
                   ))}
@@ -602,34 +574,38 @@ const AddFuelSlip = () => {
               </FormControl>
             )}
 
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Slip Number"
                   name="slipNumber"
+                  size="small"
                   value={formData.slipNumber}
                   onChange={handleInputChange}
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton onClick={() => setFormData(prev => ({ ...prev, slipNumber: generateSlipNumber() }))}>
-                          <LocalOffer />
+                        <IconButton size="small" onClick={() => setFormData(prev => ({ ...prev, slipNumber: generateSlipNumber() }))}>
+                          <LocalOffer sx={{ fontSize: '0.9rem' }} />
                         </IconButton>
                       </InputAdornment>
-                    )
+                    ),
+                    sx: { fontSize: '0.8rem' }
                   }}
-                  sx={{ mb: 2 }}
                 />
                 <TextField
                   fullWidth
                   label="Transaction Date & Time"
                   type="datetime-local"
                   name="transactionDate"
+                  size="small"
                   value={formData.transactionDate}
                   onChange={handleInputChange}
                   InputLabelProps={{ shrink: true }}
-                  sx={{ mb: 2 }}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
               </Grid>
 
@@ -637,6 +613,7 @@ const AddFuelSlip = () => {
                 <Autocomplete
                   freeSolo
                   options={vehicles}
+                  size="small"
                   getOptionLabel={(option) => {
                     if (typeof option === 'string') return option;
                     return `${option.registrationNumber || option.regNumber || option.plateNumber || ''} - ${option.make || ''} ${option.model || ''}`.trim();
@@ -652,16 +629,18 @@ const AddFuelSlip = () => {
                     <TextField
                       {...params}
                       label="Vehicle Registration *"
+                      size="small"
                       helperText="Type registration number or select from list"
                       error={!formData.vehicleManual && !formData.vehicleId}
+                      sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     />
                   )}
-                  sx={{ mb: 2 }}
                 />
 
                 <Autocomplete
                   freeSolo
                   options={drivers}
+                  size="small"
                   getOptionLabel={(option) => {
                     if (typeof option === 'string') return option;
                     return option.fullName || `${option.firstName || ''} ${option.lastName || ''}`.trim();
@@ -677,8 +656,10 @@ const AddFuelSlip = () => {
                     <TextField
                       {...params}
                       label="Driver Name *"
+                      size="small"
                       helperText="Type name or select from list"
                       error={!formData.driverManual && !formData.driverId}
+                      sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                     />
                   )}
                 />
@@ -690,25 +671,27 @@ const AddFuelSlip = () => {
       case 1:
         return (
           <Box>
-            <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LocalGasStation /> Fuel Details
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              <LocalGasStation sx={{ fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Fuel Details
             </Typography>
 
             {stepErrors.length > 0 && stepErrors.map((err, i) => (
-              <Alert key={i} severity="error" sx={{ mb: 1 }}>{err}</Alert>
+              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem' }}>{err}</Alert>
             ))}
 
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Fuel Type</InputLabel>
+                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Fuel Type</InputLabel>
                   <Select
                     name="fuelType"
                     value={formData.fuelType}
                     onChange={handleInputChange}
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {FUEL_TYPES.map(ft => (
-                      <MenuItem key={ft} value={ft}>{ft}</MenuItem>
+                      <MenuItem key={ft} value={ft} sx={{ fontSize: '0.8rem' }}>{ft}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -718,12 +701,14 @@ const AddFuelSlip = () => {
                   label="Quantity (L)"
                   name="quantity"
                   type="number"
+                  size="small"
                   value={formData.quantity}
                   onChange={handleInputChange}
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                   InputProps={{
-                    endAdornment: <InputAdornment position="end">L</InputAdornment>
+                    endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>L</InputAdornment>,
+                    sx: { fontSize: '0.8rem' }
                   }}
-                  sx={{ mb: 2 }}
                 />
 
                 <TextField
@@ -731,22 +716,28 @@ const AddFuelSlip = () => {
                   label="Unit Price"
                   name="unitPrice"
                   type="number"
+                  size="small"
                   value={formData.unitPrice}
                   onChange={handleInputChange}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                   InputProps={{
-                    startAdornment: <InputAdornment position="start">R</InputAdornment>,
-                    endAdornment: <InputAdornment position="end">/L</InputAdornment>
+                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '0.7rem' }}>R</InputAdornment>,
+                    endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>/L</InputAdornment>,
+                    sx: { fontSize: '0.8rem' }
                   }}
-                  sx={{ mb: 2 }}
                 />
 
                 <TextField
                   fullWidth
                   label="Total Amount"
                   name="totalAmount"
+                  size="small"
                   value={formatCurrency(formData.totalAmount || calculatedTotal)}
-                  InputProps={{ readOnly: true }}
-                  sx={{ mb: 2 }}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{
+                    readOnly: true,
+                    sx: { fontSize: '0.8rem', fontWeight: 600 }
+                  }}
                 />
               </Grid>
 
@@ -756,38 +747,46 @@ const AddFuelSlip = () => {
                   label="Odometer Reading (km)"
                   name="odometerReading"
                   type="number"
+                  size="small"
                   value={formData.odometerReading}
                   onChange={handleInputChange}
-                  sx={{ mb: 2 }}
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
 
                 <TextField
                   fullWidth
                   label="Pump Number"
                   name="pumpNumber"
+                  size="small"
                   value={formData.pumpNumber}
                   onChange={handleInputChange}
-                  sx={{ mb: 2 }}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
 
                 <TextField
                   fullWidth
                   label="Receipt Number"
                   name="receiptNumber"
+                  size="small"
                   value={formData.receiptNumber}
                   onChange={handleInputChange}
-                  sx={{ mb: 2 }}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
 
                 <TextField
                   fullWidth
                   label="Notes"
                   name="notes"
+                  size="small"
                   value={formData.notes}
                   onChange={handleInputChange}
                   multiline
                   rows={2}
-                  sx={{ mb: 2 }}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
               </Grid>
             </Grid>
@@ -797,63 +796,78 @@ const AddFuelSlip = () => {
       case 2:
         return (
           <Box>
-            <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LocationOn /> Location & Payment
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              <LocationOn sx={{ fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Location & Payment
             </Typography>
 
             {stepErrors.length > 0 && stepErrors.map((err, i) => (
-              <Alert key={i} severity="error" sx={{ mb: 1 }}>{err}</Alert>
+              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem' }}>{err}</Alert>
             ))}
 
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <Autocomplete
                   freeSolo
                   options={COMMON_STATIONS}
+                  size="small"
                   value={formData.stationName}
                   onInputChange={(event, newValue) => {
                     setFormData(prev => ({ ...prev, stationName: newValue }));
                   }}
                   renderInput={(params) => (
-                    <TextField {...params} label="Station Name" sx={{ mb: 2 }} />
+                    <TextField
+                      {...params}
+                      label="Station Name"
+                      size="small"
+                      sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    />
                   )}
                 />
 
                 <Autocomplete
                   freeSolo
                   options={COMMON_LOCATIONS}
+                  size="small"
                   value={formData.location}
                   onInputChange={(event, newValue) => {
                     setFormData(prev => ({ ...prev, location: newValue }));
                   }}
                   renderInput={(params) => (
-                    <TextField {...params} label="Location" sx={{ mb: 2 }} />
+                    <TextField
+                      {...params}
+                      label="Location"
+                      size="small"
+                      sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    />
                   )}
                 />
 
                 <Button
-                  startIcon={<MyLocation />}
+                  startIcon={<MyLocation sx={{ fontSize: '0.9rem' }} />}
                   onClick={getCurrentLocation}
                   disabled={gettingLocation}
-                  sx={{ mb: 2 }}
+                  size="small"
+                  sx={{ mt: 1.5, fontSize: '0.75rem' }}
                 >
                   {gettingLocation ? 'Getting Location...' : 'Use Current Location'}
                 </Button>
 
                 {locationError && (
-                  <Typography color="error" sx={{ mt: 1 }}>{locationError}</Typography>
+                  <Typography color="error" sx={{ mt: 1, fontSize: '0.75rem' }}>{locationError}</Typography>
                 )}
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Payment Method</InputLabel>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Payment Method</InputLabel>
                   <Select
                     value={formData.paymentMethod}
                     onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {PAYMENT_METHODS.map(m => (
-                      <MenuItem key={m} value={m}>{m}</MenuItem>
+                      <MenuItem key={m} value={m} sx={{ fontSize: '0.8rem' }}>{m}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -866,30 +880,34 @@ const AddFuelSlip = () => {
         const selectedTrip = getSelectedTrip();
         return (
           <Box>
-            <Typography variant="h5" sx={{ mb: 3 }}>Review & Submit</Typography>
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              Review & Submit
+            </Typography>
 
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>Fuel Slip Details</Typography>
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
+                Fuel Slip Details
+              </Typography>
 
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Typography><strong>Slip Number:</strong> {formData.slipNumber}</Typography>
-                  <Typography><strong>Date:</strong> {new Date(formData.transactionDate).toLocaleString()}</Typography>
-                  <Typography><strong>Entry Mode:</strong> {entryMode === 'trip' ? 'Trip-based' : 'Manual'}</Typography>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} md={6}>
+                  <InfoItem label="Slip Number" value={formData.slipNumber} />
+                  <InfoItem label="Date" value={new Date(formData.transactionDate).toLocaleString()} />
+                  <InfoItem label="Entry Mode" value={entryMode === 'trip' ? 'Trip-based' : 'Manual'} />
                   {formData.tripId && selectedTrip && (
-                    <Typography><strong>Trip:</strong> {selectedTrip.tripNumber || `Trip #${selectedTrip.id}`}</Typography>
+                    <InfoItem label="Trip" value={selectedTrip.tripNumber || `Trip #${selectedTrip.id}`} />
                   )}
-                  <Typography><strong>Vehicle:</strong> {extractRegistrationNumber(formData.vehicleManual)}</Typography>
-                  <Typography><strong>Driver:</strong> {formData.driverManual}</Typography>
+                  <InfoItem label="Vehicle" value={extractRegistrationNumber(formData.vehicleManual)} />
+                  <InfoItem label="Driver" value={formData.driverManual} />
                 </Grid>
 
-                <Grid item xs={6}>
-                  <Typography><strong>Fuel Type:</strong> {formData.fuelType}</Typography>
-                  <Typography><strong>Quantity:</strong> {formData.quantity} L</Typography>
-                  <Typography><strong>Unit Price:</strong> {formatCurrency(formData.unitPrice)}</Typography>
-                  <Typography><strong>Total:</strong> {formatCurrency(formData.totalAmount)}</Typography>
-                  <Typography><strong>Station:</strong> {formData.stationName}</Typography>
-                  <Typography><strong>Location:</strong> {formData.location}</Typography>
+                <Grid item xs={12} md={6}>
+                  <InfoItem label="Fuel Type" value={formData.fuelType} />
+                  <InfoItem label="Quantity" value={`${formData.quantity} L`} />
+                  <InfoItem label="Unit Price" value={formatCurrency(formData.unitPrice)} />
+                  <InfoItem label="Total" value={formatCurrency(formData.totalAmount)} />
+                  <InfoItem label="Station" value={formData.stationName} />
+                  <InfoItem label="Location" value={formData.location} />
                 </Grid>
               </Grid>
             </Paper>
@@ -902,26 +920,33 @@ const AddFuelSlip = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/fuel/slips')} sx={{ mb: 2 }}>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />}
+          onClick={() => navigate('/fuel/slips')}
+          size="small"
+          sx={{ fontSize: '0.75rem', mb: 1 }}
+        >
           Back to Fuel Slips
         </Button>
-        <Box display="flex" alignItems="center" gap={2}>
-          <LocalGasStation sx={{ fontSize: 40, color: 'primary.main' }} />
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <LocalGasStation sx={{ fontSize: 28, color: 'primary.main' }} />
           <Box>
-            <Typography variant="h4">Add New Fuel Slip</Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+              Add New Fuel Slip
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
               Record a new fuel transaction for your fleet
             </Typography>
           </Box>
         </Box>
       </Box>
 
-      {/* Stepper */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stepper activeStep={activeStep} alternativeLabel>
+      {/* Stepper - Compact */}
+      <Paper sx={{ p: 1.5, mb: 2 }}>
+        <Stepper activeStep={activeStep} alternativeLabel sx={{ '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
           {STEPS.map(label => (
             <Step key={label}><StepLabel>{label}</StepLabel></Step>
           ))}
@@ -930,35 +955,40 @@ const AddFuelSlip = () => {
 
       {/* Alerts */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+        <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess('')}>
           {success}
         </Alert>
       )}
 
       {/* Form Content */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         {fetchingData && activeStep === 0 ? (
           <Box display="flex" justifyContent="center" alignItems="center" p={3}>
-            <CircularProgress />
-            <Typography sx={{ ml: 2 }}>Loading data...</Typography>
+            <CircularProgress size={30} />
+            <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading data...</Typography>
           </Box>
         ) : (
           <>
             {renderStepContent()}
 
-            {/* Navigation Buttons */}
+            {/* Navigation Buttons - Compact */}
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-              <Button disabled={activeStep === 0} onClick={handleBack}>
+              <Button
+                disabled={activeStep === 0}
+                onClick={handleBack}
+                size="small"
+                sx={{ fontSize: '0.8rem' }}
+              >
                 Back
               </Button>
 
               {activeStep < STEPS.length - 1 ? (
-                <Button variant="contained" onClick={handleNext}>
+                <Button variant="contained" onClick={handleNext} size="small" sx={{ fontSize: '0.8rem' }}>
                   Next
                 </Button>
               ) : (
@@ -967,7 +997,9 @@ const AddFuelSlip = () => {
                   color="primary"
                   onClick={handleSubmit}
                   disabled={loading}
-                  startIcon={loading && <CircularProgress size={20} />}
+                  size="small"
+                  sx={{ fontSize: '0.8rem' }}
+                  startIcon={loading && <CircularProgress size={16} />}
                 >
                   {loading ? 'Submitting...' : 'Submit Fuel Slip'}
                 </Button>
@@ -977,8 +1009,8 @@ const AddFuelSlip = () => {
         )}
       </Paper>
 
-      {/* TEMPORARY DEBUG SECTION */}
-      <Paper sx={{ p: 2, mt: 3, bgcolor: '#f5f5f5' }}>
+      {/* Debug Section - Hidden by default, uncomment if needed */}
+      {/* <Paper sx={{ p: 2, mt: 3, bgcolor: '#f5f5f5' }}>
         <Typography variant="h6" gutterBottom>Debug Info:</Typography>
         <Grid container spacing={2}>
           <Grid item xs={6}>
@@ -1000,7 +1032,7 @@ const AddFuelSlip = () => {
             </pre>
           </Grid>
         </Grid>
-      </Paper>
+      </Paper> */}
     </Box>
   );
 };
