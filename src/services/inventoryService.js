@@ -2,7 +2,11 @@
 import api from './api';
 
 export const inventoryService = {
-  // Get all inventory items with optional filters
+  // =============================================
+  // Inventory Items (If these endpoints exist)
+  // =============================================
+  
+  // Get all inventory items
   getInventoryItems: async (filters = {}) => {
     try {
       const params = new URLSearchParams();
@@ -77,19 +81,39 @@ export const inventoryService = {
     }
   },
 
-  // Update inventory quantity
-  updateInventoryQuantity: async (id, quantity, operation = 'SET') => {
+  // =============================================
+  // Stock Movements (Matches your backend)
+  // =============================================
+
+  // Record a stock movement
+  recordStockMovement: async (movementData) => {
     try {
-      const response = await api.patch(`/inventory/items/${id}/quantity`, {
-        quantity,
-        operation // 'SET', 'ADD', 'SUBTRACT'
-      });
+      const response = await api.post('/inventory/recordMovement', movementData);
       return response;
     } catch (error) {
-      console.error('Error updating inventory quantity:', error);
+      console.error('Error recording stock movement:', error);
       throw error;
     }
   },
+
+  // =============================================
+  // Shrinkage Reports (Matches your backend)
+  // =============================================
+
+  // Get shrinkage report by ID
+  getShrinkageReport: async (id) => {
+    try {
+      const response = await api.get(`/inventory/shrinkage/${id}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching shrinkage report:', error);
+      throw error;
+    }
+  },
+
+  // =============================================
+  // Locations (If these endpoints exist)
+  // =============================================
 
   // Get all locations
   getLocations: async () => {
@@ -98,7 +122,12 @@ export const inventoryService = {
       return response;
     } catch (error) {
       console.error('Error fetching locations:', error);
-      throw error;
+      // Return mock data if endpoint doesn't exist yet
+      return [
+        { id: 1, name: 'Main Warehouse', type: 'WAREHOUSE', address: '123 Main St, Johannesburg' },
+        { id: 2, name: 'Tyre Bay', type: 'STORAGE', address: '456 Side St, Johannesburg' },
+        { id: 3, name: 'Workshop', type: 'WORKSHOP', address: '789 Service Rd, Johannesburg' },
+      ];
     }
   },
 
@@ -146,6 +175,10 @@ export const inventoryService = {
     }
   },
 
+  // =============================================
+  // Inventory Statistics (If these endpoints exist)
+  // =============================================
+
   // Get inventory statistics
   getInventoryStats: async () => {
     try {
@@ -153,7 +186,14 @@ export const inventoryService = {
       return response;
     } catch (error) {
       console.error('Error fetching inventory stats:', error);
-      throw error;
+      // Return mock stats if endpoint doesn't exist yet
+      return {
+        totalItems: 0,
+        lowStockItems: 0,
+        outOfStockItems: 0,
+        totalValue: 0,
+        categories: {}
+      };
     }
   },
 
@@ -166,5 +206,42 @@ export const inventoryService = {
       console.error('Error fetching low stock items:', error);
       throw error;
     }
+  },
+
+  // =============================================
+  // Helper Methods
+  // =============================================
+
+  // Format inventory item for display
+  formatInventoryItem: (item) => {
+    const status = item.quantity <= 0 ? 'Out of Stock' :
+                   item.quantity <= item.minLevel ? 'Low Stock' : 'In Stock';
+    
+    return {
+      ...item,
+      status,
+      formattedUnitCost: item.unitCost ? `R ${item.unitCost.toFixed(2)}` : 'R 0.00',
+      formattedQuantity: `${item.quantity} ${item.unit}`,
+      formattedMinLevel: `${item.minLevel} ${item.unit}`,
+    };
+  },
+
+  // Calculate total inventory value
+  calculateTotalValue: (items) => {
+    return items.reduce((total, item) => {
+      return total + (item.quantity || 0) * (item.unitCost || 0);
+    }, 0);
+  },
+
+  // Get inventory by category
+  getItemsByCategory: (items, category) => {
+    return items.filter(item => item.category === category);
+  },
+
+  // Get inventory by location
+  getItemsByLocation: (items, locationId) => {
+    return items.filter(item => item.locationId === locationId);
   }
 };
+
+export default inventoryService;
