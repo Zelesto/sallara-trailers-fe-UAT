@@ -396,7 +396,7 @@ const MainLayout = () => {
                 letterSpacing: '0.5px',
               }}
             >
-              PGSA Trailers
+              Trailers
             </Typography>
             <Typography
               variant="caption"
@@ -410,6 +410,7 @@ const MainLayout = () => {
               }}
             >
               Sallara Nationwide Logistics
+              V1.01
             </Typography>
           </BrandText>
         </LogoWrapper>
