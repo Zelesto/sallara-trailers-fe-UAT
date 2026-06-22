@@ -55,8 +55,8 @@ const TripAnalytics = lazy(() => import("./pages/TripAnalytics"));
 const Logs = lazy(() => import("./pages/Logs"));
 const Billing = lazy(() => import("./pages/Billing"));
 const Inventory = lazy(() => import("./pages/Inventory"));
-const StockMovementForm = lazy(() => import("./pages/inventory/StockMovementForm"));
-const MovementHistory = lazy(() => import("./pages/inventory/MovementHistory"));
+const StockMovementForm = lazy(() => import("./pages/StockMovementForm"));
+const MovementHistory = lazy(() => import("./pages/MovementHistory"));
 const Reports = lazy(() => import("./pages/Reports"));
 
 /* -------------------------------------------------------------------------- */
