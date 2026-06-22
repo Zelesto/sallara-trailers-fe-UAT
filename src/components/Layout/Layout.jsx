@@ -77,9 +77,9 @@ const LogoContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: theme.spacing(2, 2),
+  padding: theme.spacing(1.5, 1.5),
   borderBottom: `1px solid ${theme.palette.divider}`,
-  minHeight: 250,
+  minHeight: 180,
   position: 'relative',
   overflow: 'hidden',
 }));
@@ -90,16 +90,18 @@ const LogoWrapper = styled(Box, {
   display: 'flex',
   flexDirection: collapsed ? 'row' : 'column',
   alignItems: 'center',
-  gap: theme.spacing(1.5),
+  gap: theme.spacing(1),
   transition: 'all 0.3s ease',
   width: '100%',
   justifyContent: collapsed ? 'center' : 'center',
 }));
 
 const SidebarItem = styled(ListItemButton)(({ theme, selected }) => ({
-  borderRadius: theme.spacing(1),
-  margin: theme.spacing(0.5, 1),
-  paddingLeft: theme.spacing(2.5),
+  borderRadius: theme.spacing(0.75),
+  margin: theme.spacing(0.25, 0.75),
+  paddingLeft: theme.spacing(2),
+  paddingTop: theme.spacing(0.5),
+  paddingBottom: theme.spacing(0.5),
   '&.Mui-selected': {
     backgroundColor: theme.palette.primary.light + '20',
     color: theme.palette.primary.main,
@@ -110,10 +112,12 @@ const SidebarItem = styled(ListItemButton)(({ theme, selected }) => ({
 }));
 
 const SectionHeader = styled(ListItemButton)(({ theme }) => ({
-  borderRadius: theme.spacing(1),
-  margin: theme.spacing(0.5, 1),
-  marginTop: theme.spacing(2),
+  borderRadius: theme.spacing(0.75),
+  margin: theme.spacing(0.25, 0.75),
+  marginTop: theme.spacing(1.5),
   backgroundColor: 'transparent',
+  paddingTop: theme.spacing(0.5),
+  paddingBottom: theme.spacing(0.5),
   '&:hover': {
     backgroundColor: theme.palette.grey[100],
   },
@@ -122,12 +126,12 @@ const SectionHeader = styled(ListItemButton)(({ theme }) => ({
 const MainContentWrapper = styled(Box)(({ theme }) => ({
   flex: 1,
   overflowY: 'auto',
-  paddingBottom: '80px',
+  paddingBottom: '70px',
 }));
 
 const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
   borderTop: `1px solid ${theme.palette.divider}`,
-  padding: collapsed ? theme.spacing(1.5, 1) : theme.spacing(2),
+  padding: collapsed ? theme.spacing(1, 0.75) : theme.spacing(1.5),
   position: 'fixed',
   bottom: 0,
   left: 0,
@@ -224,7 +228,6 @@ const MainLayout = () => {
   const [expandedMenuItems, setExpandedMenuItems] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
   
-  // ADD STATE FOR TRIP MODAL
   const [tripModalOpen, setTripModalOpen] = useState(false);
   
   const { user, logout } = useAuth();
@@ -288,17 +291,13 @@ const MainLayout = () => {
     logout();
   };
 
-  // UPDATED: Open Trip Modal instead of navigating
   const handleNewTrip = () => {
     setTripModalOpen(true);
   };
 
-  // ADD: Callback for when trip is created successfully
   const handleTripCreated = (tripData) => {
     console.log('Trip created successfully:', tripData);
     setTripModalOpen(false);
-    // Optional: Show success notification
-    // You can add a snackbar/notification here
   };
 
   const drawer = (
@@ -306,10 +305,9 @@ const MainLayout = () => {
       <LogoContainer>
         <LogoWrapper collapsed={sidebarCollapsed ? 1 : 0}>
           {sidebarCollapsed ? (
-            // Collapsed state: Show larger logo
             <Box sx={{
-              width: 48,
-              height: 48,
+              width: 40,
+              height: 40,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -330,8 +328,8 @@ const MainLayout = () => {
                   e.target.style.display = 'none';
                   e.target.parentElement.innerHTML = `
                     <div style="
-                      width: 48px;
-                      height: 48px;
+                      width: 40px;
+                      height: 40px;
                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                       border-radius: 8px;
                       display: flex;
@@ -339,18 +337,17 @@ const MainLayout = () => {
                       justify-content: center;
                       color: white;
                       font-weight: bold;
-                      font-size: 16px;
+                      font-size: 14px;
                     ">P</div>
                   `;
                 }}
               />
             </Box>
           ) : (
-            // Expanded state: Show larger logo with text
             <>
               <Box sx={{
-                width: 64,
-                height: 64,
+                width: 56,
+                height: 56,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -371,8 +368,8 @@ const MainLayout = () => {
                     e.target.style.display = 'none';
                     e.target.parentElement.innerHTML = `
                       <div style="
-                        width: 64px;
-                        height: 64px;
+                        width: 56px;
+                        height: 56px;
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                         border-radius: 8px;
                         display: flex;
@@ -380,7 +377,7 @@ const MainLayout = () => {
                         justify-content: center;
                         color: white;
                         font-weight: bold;
-                        font-size: 20px;
+                        font-size: 18px;
                       ">PGSA</div>
                     `;
                   }}
@@ -393,7 +390,7 @@ const MainLayout = () => {
                     fontWeight: 700,
                     color: theme.palette.primary.main,
                     mb: 0.25,
-                    fontSize: '1.1rem',
+                    fontSize: '0.95rem',
                     lineHeight: 1.2,
                   }}
                 >
@@ -404,7 +401,7 @@ const MainLayout = () => {
                   sx={{
                     color: 'text.secondary',
                     fontWeight: 500,
-                    fontSize: '0.75rem',
+                    fontSize: '0.65rem',
                     display: 'block',
                     lineHeight: 1.2,
                   }}
@@ -416,7 +413,7 @@ const MainLayout = () => {
                   sx={{
                     color: 'text.secondary',
                     fontWeight: 500,
-                    fontSize: '0.7rem',
+                    fontSize: '0.6rem',
                     display: 'block',
                     lineHeight: 1.2,
                   }}
@@ -428,7 +425,6 @@ const MainLayout = () => {
           )}
         </LogoWrapper>
 
-        {/* Toggle button */}
         <IconButton
           onClick={toggleSidebar}
           size="small"
@@ -444,17 +440,17 @@ const MainLayout = () => {
             },
             zIndex: 11,
             boxShadow: 2,
-            width: 28,
-            height: 28,
+            width: 24,
+            height: 24,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
           {sidebarCollapsed ? (
-            <ChevronRight sx={{ fontSize: '1.2rem' }} />
+            <ChevronRight sx={{ fontSize: '1rem' }} />
           ) : (
-            <ChevronLeft sx={{ fontSize: '1.2rem' }} />
+            <ChevronLeft sx={{ fontSize: '1rem' }} />
           )}
         </IconButton>
       </LogoContainer>
@@ -465,17 +461,17 @@ const MainLayout = () => {
             {!sidebarCollapsed ? (
               <>
                 <SectionHeader onClick={() => toggleSection(index)}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
                     {section.icon}
                   </ListItemIcon>
                   <ListItemText
                     primary={section.title}
                     primaryTypographyProps={{
-                      fontSize: '0.875rem',
+                      fontSize: '0.8rem',
                       fontWeight: 600,
                     }}
                   />
-                  {expandedSections[index] ? <ExpandLess /> : <ExpandMore />}
+                  {expandedSections[index] ? <ExpandLess sx={{ fontSize: '1rem' }} /> : <ExpandMore sx={{ fontSize: '1rem' }} />}
                 </SectionHeader>
 
                 <Collapse in={expandedSections[index]} timeout="auto" unmountOnExit>
@@ -498,31 +494,31 @@ const MainLayout = () => {
                             onClick={() => hasSubItems ? toggleMenuItem(item.text) : handleNavigation(item.path)}
                             selected={isSelected}
                             sx={{
-                              py: theme.spacing(0.75),
+                              py: theme.spacing(0.5),
                               backgroundColor: hasSubItems && location.pathname.startsWith(item.path + '/')
                                 ? theme.palette.primary.light + '20'
                                 : 'inherit',
                             }}
                           >
-                            <ListItemIcon sx={{ minWidth: 40 }}>
+                            <ListItemIcon sx={{ minWidth: 36 }}>
                               {item.icon}
                             </ListItemIcon>
                             <ListItemText
                               primary={item.text}
                               primaryTypographyProps={{
-                                fontSize: '0.875rem',
+                                fontSize: '0.8rem',
                                 fontWeight: 500,
                               }}
                             />
                             {hasSubItems && (
                               isMenuItemExpanded
-                                ? <ExpandLess sx={{ fontSize: '1rem' }} />
-                                : <ExpandMore sx={{ fontSize: '1rem' }} />
+                                ? <ExpandLess sx={{ fontSize: '0.9rem' }} />
+                                : <ExpandMore sx={{ fontSize: '0.9rem' }} />
                             )}
                           </SidebarItem>
 
                           {hasSubItems && isMenuItemExpanded && (
-                            <List disablePadding sx={{ pl: 4 }}>
+                            <List disablePadding sx={{ pl: 3.5 }}>
                               {item.subItems.map((subItem) => {
                                 const isSubSelected = location.pathname === subItem.path ||
                                                      location.pathname.startsWith(subItem.path + '/') ||
@@ -534,18 +530,17 @@ const MainLayout = () => {
                                     onClick={() => handleNavigation(subItem.path)}
                                     selected={isSubSelected}
                                     sx={{
-                                      py: theme.spacing(0.5),
-                                      pl: theme.spacing(4),
-                                      fontSize: '0.8125rem',
+                                      py: theme.spacing(0.25),
+                                      pl: theme.spacing(3.5),
                                     }}
                                   >
-                                    <ListItemIcon sx={{ minWidth: 36 }}>
+                                    <ListItemIcon sx={{ minWidth: 32 }}>
                                       {subItem.icon}
                                     </ListItemIcon>
                                     <ListItemText
                                       primary={subItem.text}
                                       primaryTypographyProps={{
-                                        fontSize: '0.8125rem',
+                                        fontSize: '0.75rem',
                                         fontWeight: 500,
                                       }}
                                     />
@@ -564,18 +559,18 @@ const MainLayout = () => {
               <Box>
                 <Box sx={{
                   px: 0.5,
-                  py: 0.5,
+                  py: 0.25,
                   textAlign: 'center',
                   mx: 0.5,
-                  mb: 0.5,
-                  mt: 1,
+                  mb: 0.25,
+                  mt: 0.5,
                 }}>
                   <Typography
                     variant="caption"
                     sx={{
                       color: 'text.secondary',
                       fontWeight: 600,
-                      fontSize: '0.6rem',
+                      fontSize: '0.5rem',
                       letterSpacing: '0.5px',
                       textTransform: 'uppercase',
                     }}
@@ -595,10 +590,10 @@ const MainLayout = () => {
                           selected={isSelected}
                           sx={{
                             justifyContent: 'center',
-                            py: 1.25,
+                            py: 0.75,
                             borderRadius: 1,
-                            margin: 0.5,
-                            minHeight: 44,
+                            margin: 0.25,
+                            minHeight: 36,
                             '&.Mui-selected': {
                               backgroundColor: theme.palette.primary.light + '20',
                               position: 'relative',
@@ -609,7 +604,7 @@ const MainLayout = () => {
                                 top: '50%',
                                 transform: 'translateY(-50%)',
                                 width: 3,
-                                height: 20,
+                                height: 16,
                                 backgroundColor: theme.palette.primary.main,
                                 borderRadius: '0 3px 3px 0',
                               },
@@ -631,7 +626,7 @@ const MainLayout = () => {
               </Box>
             )}
             {!sidebarCollapsed && index < menuSections.length - 1 && (
-              <Divider sx={{ my: 2, mx: 3 }} />
+              <Divider sx={{ my: 1.5, mx: 2 }} />
             )}
           </React.Fragment>
         ))}
@@ -639,13 +634,14 @@ const MainLayout = () => {
 
       <UserProfileContainer collapsed={sidebarCollapsed}>
         {!sidebarCollapsed ? (
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={1.5} alignItems="center">
             <Avatar
               sx={{
-                width: 40,
-                height: 40,
+                width: 34,
+                height: 34,
                 bgcolor: 'primary.main',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: '0.9rem',
               }}
               onClick={handleUserMenuOpen}
             >
@@ -657,6 +653,7 @@ const MainLayout = () => {
                 variant="subtitle2"
                 fontWeight={600}
                 noWrap
+                sx={{ fontSize: '0.8rem' }}
               >
                 {user?.username}
               </Typography>
@@ -665,6 +662,7 @@ const MainLayout = () => {
                 variant="caption"
                 color="text.secondary"
                 noWrap
+                sx={{ fontSize: '0.65rem' }}
               >
                 {user?.roles?.map(r => r.name).join(', ')}
               </Typography>
@@ -677,15 +675,16 @@ const MainLayout = () => {
               sx={{
                 justifyContent: 'center',
                 borderRadius: 1,
-                py: 1.5,
+                py: 1,
                 px: 0,
               }}
             >
               <Avatar
                 sx={{
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   bgcolor: 'primary.main',
+                  fontSize: '0.75rem',
                 }}
               >
                 {user?.username?.charAt(0).toUpperCase() || <Person />}
@@ -720,7 +719,8 @@ const MainLayout = () => {
           justifyContent: 'space-between',
           flexWrap: 'nowrap',
           overflow: 'hidden',
-          minHeight: { xs: 56, sm: 64 },
+          minHeight: { xs: 48, sm: 52 },
+          px: { xs: 1, sm: 1.5 },
         }}>
           <Box sx={{ 
             display: 'flex', 
@@ -732,9 +732,9 @@ const MainLayout = () => {
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { md: 'none' } }}
+              sx={{ mr: 1, display: { md: 'none' } }}
             >
-              <MenuIcon />
+              <MenuIcon sx={{ fontSize: '1.2rem' }} />
             </IconButton>
 
             <Typography 
@@ -742,35 +742,35 @@ const MainLayout = () => {
               noWrap 
               sx={{ 
                 fontWeight: 600,
-                fontSize: { xs: '0.9rem', sm: '1rem', md: '1.1rem' },
+                fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' },
                 whiteSpace: 'nowrap',
               }}
             >
-              Fleet Management System
+              Fleet Management
             </Typography>
           </Box>
 
           <Stack 
             direction="row" 
-            spacing={{ xs: 0.5, sm: 1 }} 
+            spacing={{ xs: 0.5, sm: 0.75 }}
             alignItems="center"
             sx={{
               flexShrink: 0,
               '& .MuiIconButton-root': {
-                padding: { xs: 0.5, sm: 1 },
+                padding: { xs: 0.5, sm: 0.75 },
               },
             }}
           >
             <IconButton size="small" sx={{ borderRadius: 1 }}>
-              <Search sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+              <Search sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
             </IconButton>
             <IconButton size="small" sx={{ borderRadius: 1 }}>
               <Badge badgeContent={3} color="error">
-                <Notifications sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+                <Notifications sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
               </Badge>
             </IconButton>
             <IconButton size="small" sx={{ borderRadius: 1 }}>
-              <Settings sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+              <Settings sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
             </IconButton>
 
             <Button
@@ -778,22 +778,22 @@ const MainLayout = () => {
               size="small"
               onClick={handleNewTrip}
               sx={{
-                borderRadius: 2,
+                borderRadius: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
-                px: { xs: 1, sm: 2 },
-                py: { xs: 0.5, sm: 1 },
+                px: { xs: 1, sm: 1.5 },
+                py: { xs: 0.4, sm: 0.5 },
                 backgroundColor: theme.palette.success.main,
                 '&:hover': {
                   backgroundColor: theme.palette.success.dark,
                 },
-                fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                minWidth: { xs: 'auto', sm: 'auto' },
+                fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                minWidth: 'auto',
                 '& .MuiButton-startIcon': {
-                  marginRight: { xs: 0.5, sm: 1 },
+                  marginRight: { xs: 0.25, sm: 0.5 },
                 },
               }}
-              startIcon={<AddLocationIcon sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }} />}
+              startIcon={<AddLocationIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.85rem' } }} />}
             >
               {isSmallScreen ? 'New' : 'New Trip'}
             </Button>
@@ -895,7 +895,7 @@ const MainLayout = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 1, sm: 2, md: 3 },
+          p: { xs: 1, sm: 1.5, md: 2 },
           width: { md: `calc(100% - ${sidebarCollapsed ? collapsedDrawerWidth : drawerWidth}px)` },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
@@ -906,24 +906,22 @@ const MainLayout = () => {
           overflowX: 'hidden',
         }}
       >
-        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
+        <Toolbar sx={{ minHeight: { xs: 48, sm: 52 } }} />
 
+        {/* Breadcrumbs - only here, not on individual pages */}
         <Breadcrumbs />
 
         <Outlet />
       </Box>
 
-      {/* ADD TRIP FORM MODAL - Available from any screen */}
       <TripForm
         open={tripModalOpen}
         onClose={() => setTripModalOpen(false)}
         mode="create"
         onSuccess={handleTripCreated}
         fetchTrips={() => {
-          // Optional: Refresh trips if on trips page
           if (location.pathname === '/trips' || location.pathname.startsWith('/trips')) {
             // The TripList component will handle refresh
-            // You could use a context or event emitter here
           }
         }}
       />
