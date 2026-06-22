@@ -198,34 +198,72 @@ const Inventory = () => {
     loadData();
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [itemsData, locationsData, statsData] = await Promise.all([
-        inventoryService.getInventoryItems(),
-        inventoryService.getLocations(),
-        inventoryService.getInventoryStats(),
-      ]);
 
-      setInventoryItems(itemsData || []);
-      setLocations(locationsData || []);
-      setStats(statsData);
-    } catch (err) {
-      console.error('Error loading inventory data:', err);
-      setError('Failed to load inventory data');
-      // Use mock data for demo if API fails
-      setInventoryItems([
-        { id: 1, sku: 'ENG-OIL-5W30', name: 'Engine Oil 5W-30', description: 'Synthetic Engine Oil 5W-30 Grade', unit: 'LITER', unitCost: 150, category: 'LUBRICANTS', minLevel: 20, locationId: 1 },
-        { id: 2, sku: 'FIL-AIR-123', name: 'Air Filter', description: 'Heavy Duty Air Filter for Trucks', unit: 'EA', unitCost: 450, category: 'FILTERS', minLevel: 10, locationId: 1 },
-      ]);
-      setLocations([
-        { id: 1, name: 'Main Warehouse', type: 'WAREHOUSE', address: '123 Main St, Johannesburg' }
-      ]);
-    } finally {
-      setLoading(false);
+// Update the loadData function to properly extract the content array
+const loadData = async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    // Get items with pagination
+    const itemsResponse = await inventoryService.getInventoryItems(0, 20);
+    console.log('Items response:', itemsResponse);
+    
+    // Extract items - handle both array and paginated response
+    let itemsData = [];
+    if (Array.isArray(itemsResponse)) {
+      itemsData = itemsResponse;
+    } else if (itemsResponse && itemsResponse.content) {
+      itemsData = itemsResponse.content;
+    } else if (itemsResponse && itemsResponse.data) {
+      itemsData = Array.isArray(itemsResponse.data) ? itemsResponse.data : [];
+    } else if (itemsResponse && typeof itemsResponse === 'object') {
+      // Try to find any array property
+      const values = Object.values(itemsResponse);
+      const arrayProp = values.find(v => Array.isArray(v));
+      itemsData = arrayProp || [];
     }
-  };
+    
+    console.log('Items data:', itemsData);
+    setInventoryItems(itemsData);
+
+    // Get locations
+    const locationsResponse = await inventoryService.getLocations();
+    let locationsData = [];
+    if (Array.isArray(locationsResponse)) {
+      locationsData = locationsResponse;
+    } else if (locationsResponse && locationsResponse.data) {
+      locationsData = Array.isArray(locationsResponse.data) ? locationsResponse.data : [];
+    } else if (locationsResponse && typeof locationsResponse === 'object') {
+      const values = Object.values(locationsResponse);
+      const arrayProp = values.find(v => Array.isArray(v));
+      locationsData = arrayProp || [];
+    }
+    setLocations(locationsData);
+
+    // Get stats
+    const statsResponse = await inventoryService.getInventoryStats();
+    setStats(statsResponse);
+
+  } catch (err) {
+    console.error('Error loading inventory data:', err);
+    setError('Failed to load inventory data');
+    // Use mock data for demo if API fails
+    setInventoryItems(mockItems);
+    setLocations(mockLocations);
+    setStats({
+      totalItems: mockItems.length,
+      categoryCounts: {
+        'LUBRICANTS': 1,
+        'FILTERS': 2,
+        'BRAKES': 1,
+        'TYRES': 1,
+        'FLUIDS': 1
+      }
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Calculate category counts
   const categoryStats = useMemo(() => {
