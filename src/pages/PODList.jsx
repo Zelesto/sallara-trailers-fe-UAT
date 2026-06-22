@@ -99,7 +99,19 @@ const PODList = () => {
     try {
       const response = await podService.getAllPods();
       const data = Array.isArray(response) ? response : (response?.content || []);
-      setPods(data);
+      
+      // Transform data to handle both tripId and tripNumber
+      const transformedData = data.map(pod => ({
+        ...pod,
+        // If tripNumber doesn't exist, try to get it from trip object or use tripId as fallback
+        tripNumber: pod.tripNumber || pod.trip?.tripNumber || pod.tripId || 'N/A',
+        // Keep tripId for reference
+        tripId: pod.tripId || pod.trip?.id || null,
+        // Ensure customerName exists
+        customerName: pod.customerName || pod.customer?.name || 'N/A',
+      }));
+      
+      setPods(transformedData);
       setError(null);
     } catch (err) {
       setError('Failed to load PODs');
@@ -166,23 +178,26 @@ const PODList = () => {
       headerClassName: 'pod-header',
       renderCell: (params) => (
         <Typography variant="body2" fontWeight={600} color="primary" sx={{ fontSize: '0.75rem' }}>
-          {params.value}
+          {params.value || 'N/A'}
         </Typography>
       ),
     },
     {
       field: 'tripNumber',
       headerName: 'Trip',
-      width: 80,
+      width: 100,
       headerClassName: 'pod-header',
-      renderCell: (params) => (
-        <Chip
-          label={`#${params.value || 'N/A'}`}
-          size="small"
-          variant="outlined"
-          sx={{ fontSize: '0.6rem', height: 18 }}
-        />
-      ),
+      renderCell: (params) => {
+        const tripValue = params.value || params.row.tripNumber || params.row.trip?.tripNumber || 'N/A';
+        return (
+          <Chip
+            label={`#${tripValue}`}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.6rem', height: 18 }}
+          />
+        );
+      },
     },
     {
       field: 'customerName',
@@ -192,7 +207,7 @@ const PODList = () => {
       headerClassName: 'pod-header',
       renderCell: (params) => (
         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-          {params.value || 'N/A'}
+          {params.value || params.row.customer?.name || 'N/A'}
         </Typography>
       ),
     },
@@ -237,7 +252,7 @@ const PODList = () => {
       renderCell: (params) => (
         <Box>
           <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-            {params.value || 'N/A'}
+            {params.value || params.row.uploader?.name || 'N/A'}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
             {params.row.uploadedAt ? new Date(params.row.uploadedAt).toLocaleDateString() : ''}
@@ -293,7 +308,8 @@ const PODList = () => {
   const filteredPods = pods.filter(pod => {
     const searchMatch = 
       (pod.podNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (pod.customerName || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (pod.customerName || pod.customer?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (pod.tripNumber || pod.trip?.tripNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
     const statusMatch = filterStatus === 'ALL' || pod.status === filterStatus;
     return searchMatch && statusMatch;
   });
