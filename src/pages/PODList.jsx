@@ -185,7 +185,7 @@ const PODList = () => {
     {
       field: 'tripNumber',
       headerName: 'Trip',
-      width: 100,
+      width: 140,
       headerClassName: 'pod-header',
       renderCell: (params) => {
         const tripValue = params.value || params.row.tripNumber || params.row.trip?.tripNumber || 'N/A';
