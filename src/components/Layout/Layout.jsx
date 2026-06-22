@@ -85,7 +85,7 @@ const LogoContainer = styled(Box, {
   minHeight: collapsed ? 64 : 80,
   position: 'relative',
   overflow: 'hidden',
-  backgroundColor: theme.palette.primary.main,
+  //backgroundColor: theme.palette.primary.main,
   transition: theme.transitions.create(['min-height', 'padding'], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.enteringScreen,
@@ -386,33 +386,29 @@ const MainLayout = () => {
           />
           
           <BrandText collapsed={sidebarCollapsed ? 1 : 0}>
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: 700,
-                color: 'white',
-                fontSize: '0.95rem',
-                lineHeight: 1.2,
-                letterSpacing: '0.5px',
-              }}
-            >
-              Trailers
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: 'rgba(255,255,255,0.8)',
-                fontWeight: 400,
-                fontSize: '0.6rem',
-                display: 'block',
-                lineHeight: 1.2,
-                opacity: 0.9,
-              }}
-            >
-              Sallara Nationwide Logistics
-              V1.01
-            </Typography>
-          </BrandText>
+  <Typography
+    variant="h6"
+    sx={{
+      fontWeight: 700,
+      color: 'text.primary',
+      lineHeight: 1.1,
+      mb: 0.25,
+    }}
+  >
+    Trailers
+  </Typography>
+
+  <Typography
+    variant="caption"
+    sx={{
+      color: 'text.secondary',
+      display: 'block',
+      fontSize: '0.7rem',
+    }}
+  >
+    v1.01
+  </Typography>
+</BrandText>
         </LogoWrapper>
 
         <ToggleButton onClick={toggleSidebar} size="small">
