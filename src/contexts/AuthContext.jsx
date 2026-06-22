@@ -234,6 +234,28 @@ export const AuthProvider = ({ children }) => {
 export const useAuthWithNavigate = () => {
   const navigate = useNavigate();
   const auth = useAuth();
+// Listen for session expiry events
+useEffect(() => {
+  const handleSessionExpired = () => {
+    setSessionExpired(true);
+    setUser(null);
+    // Clear auth data
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Redirect to login with session expired parameter
+    const currentPath = window.location.pathname;
+    if (currentPath !== '/login') {
+      window.location.href = '/login?session=expired';
+    }
+  };
+
+  window.addEventListener('sessionExpired', handleSessionExpired);
+
+  return () => {
+    window.removeEventListener('sessionExpired', handleSessionExpired);
+  };
+}, []);
   
   // Set the navigate ref when the hook is used
   useEffect(() => {
