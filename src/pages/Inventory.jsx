@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// src/pages/Inventory.jsx
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -29,6 +30,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  CircularProgress,
+  Divider,
 } from '@mui/material';
 import {
   Inventory as InventoryIcon,
@@ -44,7 +47,10 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
+  Category as CategoryIcon,
+  LocationOn,
 } from '@mui/icons-material';
+import { inventoryService } from '../services/inventoryService';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
@@ -82,23 +88,27 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => 
 );
 
 // Compact Inventory Item Component
-const InventoryItem = ({ item, onView, onEdit, onDelete }) => {
-  const getStatusConfig = (status) => {
-    const configs = {
-      'In Stock': { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} /> },
-      'Low Stock': { color: 'warning', icon: <WarningIcon sx={{ fontSize: '0.8rem' }} /> },
-      'Out of Stock': { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} /> },
-    };
-    return configs[status] || { color: 'default', icon: null };
+const InventoryItem = ({ item, onView, onEdit, onDelete, locations }) => {
+  const getStatusConfig = (quantity, minLevel) => {
+    if (quantity <= 0) {
+      return { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Out of Stock' };
+    } else if (quantity <= minLevel) {
+      return { color: 'warning', icon: <WarningIcon sx={{ fontSize: '0.8rem' }} />, label: 'Low Stock' };
+    }
+    return { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} />, label: 'In Stock' };
   };
 
-  const statusConfig = getStatusConfig(item.status);
+  const statusConfig = getStatusConfig(item.quantity, item.minLevel);
+  const location = locations?.find(l => l.id === item.locationId);
 
   return (
     <TableRow hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
           {item.name}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+          SKU: {item.sku}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -113,6 +123,9 @@ const InventoryItem = ({ item, onView, onEdit, onDelete }) => {
         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
           {item.quantity} {item.unit}
         </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+          Unit Cost: R {item.unitCost?.toFixed(2) || '0.00'}
+        </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
@@ -121,12 +134,12 @@ const InventoryItem = ({ item, onView, onEdit, onDelete }) => {
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {item.location}
+          {location?.name || 'N/A'}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Chip
-          label={item.status}
+          label={statusConfig.label}
           color={statusConfig.color}
           size="small"
           icon={statusConfig.icon}
@@ -157,36 +170,97 @@ const InventoryItem = ({ item, onView, onEdit, onDelete }) => {
 };
 
 const Inventory = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [stats, setStats] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [formData, setFormData] = useState({
+    sku: '',
+    name: '',
+    description: '',
+    unit: 'EA',
+    unitCost: '',
+    category: '',
+    minLevel: '',
+    locationId: '',
+  });
+  const [formErrors, setFormErrors] = useState({});
 
-  // Mock data
-  const inventoryItems = [
-    { id: 1, name: 'Engine Oil 15W-40', category: 'Lubricants', quantity: 45, unit: 'Liters', minLevel: 20, location: 'Main Store', status: 'In Stock' },
-    { id: 2, name: 'Air Filter', category: 'Filters', quantity: 12, unit: 'Pieces', minLevel: 10, location: 'Main Store', status: 'Low Stock' },
-    { id: 3, name: 'Brake Pads', category: 'Brakes', quantity: 8, unit: 'Sets', minLevel: 5, location: 'Workshop', status: 'Low Stock' },
-    { id: 4, name: 'Tyre 295/80R22.5', category: 'Tyres', quantity: 24, unit: 'Pieces', minLevel: 15, location: 'Tyre Bay', status: 'In Stock' },
-    { id: 5, name: 'Coolant', category: 'Fluids', quantity: 60, unit: 'Liters', minLevel: 30, location: 'Main Store', status: 'In Stock' },
-    { id: 6, name: 'Fuel Filter', category: 'Filters', quantity: 5, unit: 'Pieces', minLevel: 8, location: 'Main Store', status: 'Out of Stock' },
-  ];
+  // Load data
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const categories = [
-    { name: 'Lubricants', count: 3, icon: OilBarrel },
-    { name: 'Filters', count: 2, icon: Build },
-    { name: 'Tyres', count: 1, icon: LocalShipping },
-    { name: 'Brakes', count: 1, icon: Build },
-  ];
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [itemsData, locationsData, statsData] = await Promise.all([
+        inventoryService.getInventoryItems(),
+        inventoryService.getLocations(),
+        inventoryService.getInventoryStats(),
+      ]);
+
+      setInventoryItems(itemsData || []);
+      setLocations(locationsData || []);
+      setStats(statsData);
+    } catch (err) {
+      console.error('Error loading inventory data:', err);
+      setError('Failed to load inventory data');
+      // Use mock data for demo if API fails
+      setInventoryItems([
+        { id: 1, sku: 'ENG-OIL-5W30', name: 'Engine Oil 5W-30', description: 'Synthetic Engine Oil 5W-30 Grade', unit: 'LITER', unitCost: 150, category: 'LUBRICANTS', minLevel: 20, locationId: 1 },
+        { id: 2, sku: 'FIL-AIR-123', name: 'Air Filter', description: 'Heavy Duty Air Filter for Trucks', unit: 'EA', unitCost: 450, category: 'FILTERS', minLevel: 10, locationId: 1 },
+      ]);
+      setLocations([
+        { id: 1, name: 'Main Warehouse', type: 'WAREHOUSE', address: '123 Main St, Johannesburg' }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate category counts
+  const categoryStats = useMemo(() => {
+    const counts = {};
+    inventoryItems.forEach(item => {
+      counts[item.category] = (counts[item.category] || 0) + 1;
+    });
+    return counts;
+  }, [inventoryItems]);
+
+  const categoryIcons = {
+    'LUBRICANTS': OilBarrel,
+    'FILTERS': Build,
+    'TYRES': LocalShipping,
+    'BRAKES': Build,
+    'FLUIDS': OilBarrel,
+  };
 
   // Filter items
   const filteredItems = inventoryItems.filter(item => {
-    const searchMatch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchMatch = 
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category?.toLowerCase().includes(searchTerm.toLowerCase());
     const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
-    const statusMatch = statusFilter === 'all' || item.status === statusFilter;
+    
+    let statusMatch = true;
+    if (statusFilter !== 'all') {
+      const quantity = item.quantity || 0;
+      const minLevel = item.minLevel || 0;
+      if (statusFilter === 'In Stock') statusMatch = quantity > minLevel;
+      else if (statusFilter === 'Low Stock') statusMatch = quantity > 0 && quantity <= minLevel;
+      else if (statusFilter === 'Out of Stock') statusMatch = quantity <= 0;
+    }
+    
     return searchMatch && categoryMatch && statusMatch;
   });
 
@@ -197,23 +271,101 @@ const Inventory = () => {
 
   const handleEdit = (item) => {
     setSelectedItem(item);
+    setFormData({
+      sku: item.sku || '',
+      name: item.name || '',
+      description: item.description || '',
+      unit: item.unit || 'EA',
+      unitCost: item.unitCost || '',
+      category: item.category || '',
+      minLevel: item.minLevel || '',
+      locationId: item.locationId || '',
+    });
     setShowAddDialog(true);
   };
 
-  const handleDelete = (item) => {
-    if (window.confirm(`Are you sure you want to delete "${item.name}"?`)) {
-      console.log('Deleting item:', item);
+  const handleDelete = async (item) => {
+    if (!window.confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+    try {
+      await inventoryService.deleteInventoryItem(item.id);
+      setError(null);
+      loadData();
+    } catch (err) {
+      setError('Failed to delete item');
     }
   };
 
   const handleAddNew = () => {
     setSelectedItem(null);
+    setFormData({
+      sku: '',
+      name: '',
+      description: '',
+      unit: 'EA',
+      unitCost: '',
+      category: '',
+      minLevel: '',
+      locationId: '',
+    });
+    setFormErrors({});
     setShowAddDialog(true);
   };
 
-  // Get unique categories for filter
-  const uniqueCategories = [...new Set(inventoryItems.map(item => item.category))];
-  const uniqueStatuses = [...new Set(inventoryItems.map(item => item.status))];
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.sku.trim()) errors.sku = 'SKU is required';
+    if (!formData.name.trim()) errors.name = 'Name is required';
+    if (!formData.category) errors.category = 'Category is required';
+    if (!formData.locationId) errors.locationId = 'Location is required';
+    if (!formData.minLevel || parseFloat(formData.minLevel) < 0) errors.minLevel = 'Valid min level is required';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    try {
+      const payload = {
+        ...formData,
+        unitCost: parseFloat(formData.unitCost) || 0,
+        minLevel: parseInt(formData.minLevel) || 0,
+      };
+
+      if (selectedItem) {
+        await inventoryService.updateInventoryItem(selectedItem.id, payload);
+      } else {
+        await inventoryService.createInventoryItem(payload);
+      }
+
+      setShowAddDialog(false);
+      loadData();
+    } catch (err) {
+      setError(err.message || 'Failed to save inventory item');
+    }
+  };
+
+  const getUniqueCategories = () => {
+    const cats = new Set(inventoryItems.map(item => item.category));
+    return Array.from(cats);
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress size={40} />
+        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading inventory...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
@@ -232,13 +384,19 @@ const Inventory = () => {
         </Stack>
       </Box>
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
       {/* Search and Actions - Compact */}
       <Paper sx={{ p: 1.5, mb: 2 }}>
         <Grid container spacing={1.5} alignItems="center">
           <Grid item xs={12} md={5}>
             <TextField
               fullWidth
-              placeholder="Search inventory items..."
+              placeholder="Search by name, SKU, or category..."
               size="small"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -263,7 +421,7 @@ const Inventory = () => {
                 sx={{ fontSize: '0.75rem' }}
               >
                 <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Categories</MenuItem>
-                {uniqueCategories.map(cat => (
+                {getUniqueCategories().map(cat => (
                   <MenuItem key={cat} value={cat} sx={{ fontSize: '0.75rem' }}>{cat}</MenuItem>
                 ))}
               </Select>
@@ -279,16 +437,16 @@ const Inventory = () => {
                 sx={{ fontSize: '0.75rem' }}
               >
                 <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
-                {uniqueStatuses.map(status => (
-                  <MenuItem key={status} value={status} sx={{ fontSize: '0.75rem' }}>{status}</MenuItem>
-                ))}
+                <MenuItem value="In Stock" sx={{ fontSize: '0.75rem' }}>In Stock</MenuItem>
+                <MenuItem value="Low Stock" sx={{ fontSize: '0.75rem' }}>Low Stock</MenuItem>
+                <MenuItem value="Out of Stock" sx={{ fontSize: '0.75rem' }}>Out of Stock</MenuItem>
               </Select>
             </FormControl>
           </Grid>
           <Grid item xs={12} md={2}>
             <Stack direction="row" spacing={0.75}>
               <Tooltip title="Refresh">
-                <IconButton size="small" sx={{ p: 0.5 }}>
+                <IconButton size="small" onClick={loadData} sx={{ p: 0.5 }}>
                   <RefreshIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
@@ -308,20 +466,23 @@ const Inventory = () => {
 
       {/* Stats Cards - Compact */}
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
-        {categories.map((category) => (
-          <Grid item xs={6} sm={6} md={3} key={category.name}>
-            <StatCard
-              title={category.name}
-              value={category.count}
-              icon={category.icon}
-              color={
-                category.name === 'Lubricants' ? 'primary' :
-                category.name === 'Filters' ? 'info' :
-                category.name === 'Tyres' ? 'warning' : 'secondary'
-              }
-            />
-          </Grid>
-        ))}
+        {Object.entries(categoryStats).map(([category, count]) => {
+          const Icon = categoryIcons[category] || CategoryIcon;
+          return (
+            <Grid item xs={6} sm={4} md={3} key={category}>
+              <StatCard
+                title={category}
+                value={count}
+                icon={Icon}
+                color={
+                  category === 'LUBRICANTS' ? 'primary' :
+                  category === 'FILTERS' ? 'info' :
+                  category === 'TYRES' ? 'warning' : 'secondary'
+                }
+              />
+            </Grid>
+          );
+        })}
       </Grid>
 
       {/* Inventory Table - Compact */}
@@ -342,7 +503,7 @@ const Inventory = () => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item Name</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item</TableCell>
                   <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Category</TableCell>
                   <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Quantity</TableCell>
                   <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Min Level</TableCell>
@@ -365,6 +526,7 @@ const Inventory = () => {
                     <InventoryItem
                       key={item.id}
                       item={item}
+                      locations={locations}
                       onView={handleView}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
@@ -375,15 +537,6 @@ const Inventory = () => {
             </Table>
           </TableContainer>
         </CardContent>
-        <CardActions sx={{ justifyContent: 'flex-end', p: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button 
-            variant="outlined" 
-            size="small"
-            sx={{ fontSize: '0.75rem' }}
-          >
-            View All Items
-          </Button>
-        </CardActions>
       </Card>
 
       {/* View Dialog - Compact */}
@@ -402,15 +555,33 @@ const Inventory = () => {
         <DialogContent sx={{ p: 2.5 }}>
           {selectedItem && (
             <Stack spacing={2}>
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Item Name
-                </Typography>
-                <Typography variant="body1" fontWeight="500" sx={{ fontSize: '0.9rem' }}>
-                  {selectedItem.name}
-                </Typography>
-              </Box>
               <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    SKU
+                  </Typography>
+                  <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.85rem' }}>
+                    {selectedItem.sku}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    Name
+                  </Typography>
+                  <Typography variant="body1" fontWeight="500" sx={{ fontSize: '0.9rem' }}>
+                    {selectedItem.name}
+                  </Typography>
+                </Grid>
+                {selectedItem.description && (
+                  <Grid item xs={12}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                      Description
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                      {selectedItem.description}
+                    </Typography>
+                  </Grid>
+                )}
                 <Grid item xs={6}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                     Category
@@ -421,10 +592,10 @@ const Inventory = () => {
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                    Location
+                    Unit
                   </Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                    {selectedItem.location}
+                    {selectedItem.unit}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -443,16 +614,29 @@ const Inventory = () => {
                     {selectedItem.minLevel} {selectedItem.unit}
                   </Typography>
                 </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    Unit Cost
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                    R {selectedItem.unitCost?.toFixed(2) || '0.00'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    Location
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                    {locations.find(l => l.id === selectedItem.locationId)?.name || 'N/A'}
+                  </Typography>
+                </Grid>
                 <Grid item xs={12}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                     Status
                   </Typography>
                   <Chip
-                    label={selectedItem.status}
-                    color={
-                      selectedItem.status === 'In Stock' ? 'success' :
-                      selectedItem.status === 'Low Stock' ? 'warning' : 'error'
-                    }
+                    label={selectedItem.quantity <= 0 ? 'Out of Stock' : selectedItem.quantity <= selectedItem.minLevel ? 'Low Stock' : 'In Stock'}
+                    color={selectedItem.quantity <= 0 ? 'error' : selectedItem.quantity <= selectedItem.minLevel ? 'warning' : 'success'}
                     size="small"
                     sx={{ mt: 0.5 }}
                   />
@@ -495,71 +679,131 @@ const Inventory = () => {
         <DialogContent sx={{ p: 2.5 }}>
           <Stack spacing={2}>
             <TextField
-              label="Item Name"
+              label="SKU *"
+              name="sku"
+              value={formData.sku}
+              onChange={handleFormChange}
               fullWidth
               size="small"
-              defaultValue={selectedItem?.name || ''}
+              error={!!formErrors.sku}
+              helperText={formErrors.sku}
               sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
             />
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Category</InputLabel>
-              <Select
-                label="Category"
-                defaultValue={selectedItem?.category || ''}
-                sx={{ fontSize: '0.75rem' }}
-              >
-                {uniqueCategories.map(cat => (
-                  <MenuItem key={cat} value={cat} sx={{ fontSize: '0.75rem' }}>{cat}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <TextField
+              label="Item Name *"
+              name="name"
+              value={formData.name}
+              onChange={handleFormChange}
+              fullWidth
+              size="small"
+              error={!!formErrors.name}
+              helperText={formErrors.name}
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+            />
+            <TextField
+              label="Description"
+              name="description"
+              value={formData.description}
+              onChange={handleFormChange}
+              fullWidth
+              size="small"
+              multiline
+              rows={2}
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+            />
+            <Grid container spacing={1.5}>
+              <Grid item xs={6}>
+                <FormControl fullWidth size="small" error={!!formErrors.category}>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Category *</InputLabel>
+                  <Select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleFormChange}
+                    label="Category *"
+                    sx={{ fontSize: '0.75rem' }}
+                  >
+                    <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Select Category</MenuItem>
+                    <MenuItem value="LUBRICANTS" sx={{ fontSize: '0.75rem' }}>Lubricants</MenuItem>
+                    <MenuItem value="FILTERS" sx={{ fontSize: '0.75rem' }}>Filters</MenuItem>
+                    <MenuItem value="TYRES" sx={{ fontSize: '0.75rem' }}>Tyres</MenuItem>
+                    <MenuItem value="BRAKES" sx={{ fontSize: '0.75rem' }}>Brakes</MenuItem>
+                    <MenuItem value="FLUIDS" sx={{ fontSize: '0.75rem' }}>Fluids</MenuItem>
+                    <MenuItem value="OTHER" sx={{ fontSize: '0.75rem' }}>Other</MenuItem>
+                  </Select>
+                  {formErrors.category && <Typography variant="caption" color="error" sx={{ fontSize: '0.65rem' }}>{formErrors.category}</Typography>}
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  label="Unit"
+                  name="unit"
+                  value={formData.unit}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                />
+              </Grid>
+            </Grid>
             <Grid container spacing={1.5}>
               <Grid item xs={6}>
                 <TextField
                   label="Quantity"
                   type="number"
+                  name="quantity"
                   fullWidth
                   size="small"
-                  defaultValue={selectedItem?.quantity || ''}
                   sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ inputProps: { min: 0 } }}
                 />
               </Grid>
               <Grid item xs={6}>
                 <TextField
-                  label="Unit"
+                  label="Min Level *"
+                  type="number"
+                  name="minLevel"
+                  value={formData.minLevel}
+                  onChange={handleFormChange}
                   fullWidth
                   size="small"
-                  defaultValue={selectedItem?.unit || ''}
+                  error={!!formErrors.minLevel}
+                  helperText={formErrors.minLevel}
                   sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ inputProps: { min: 0 } }}
                 />
               </Grid>
             </Grid>
             <TextField
-              label="Min Level"
+              label="Unit Cost"
               type="number"
+              name="unitCost"
+              value={formData.unitCost}
+              onChange={handleFormChange}
               fullWidth
               size="small"
-              defaultValue={selectedItem?.minLevel || ''}
               sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">R</InputAdornment>,
+                inputProps: { min: 0, step: 0.01 }
+              }}
             />
-            <TextField
-              label="Location"
-              fullWidth
-              size="small"
-              defaultValue={selectedItem?.location || ''}
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-            />
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+            <FormControl fullWidth size="small" error={!!formErrors.locationId}>
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Location *</InputLabel>
               <Select
-                label="Status"
-                defaultValue={selectedItem?.status || 'In Stock'}
+                name="locationId"
+                value={formData.locationId}
+                onChange={handleFormChange}
+                label="Location *"
                 sx={{ fontSize: '0.75rem' }}
               >
-                <MenuItem value="In Stock" sx={{ fontSize: '0.75rem' }}>In Stock</MenuItem>
-                <MenuItem value="Low Stock" sx={{ fontSize: '0.75rem' }}>Low Stock</MenuItem>
-                <MenuItem value="Out of Stock" sx={{ fontSize: '0.75rem' }}>Out of Stock</MenuItem>
+                <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Select Location</MenuItem>
+                {locations.map(loc => (
+                  <MenuItem key={loc.id} value={loc.id} sx={{ fontSize: '0.75rem' }}>
+                    {loc.name} ({loc.type})
+                  </MenuItem>
+                ))}
               </Select>
+              {formErrors.locationId && <Typography variant="caption" color="error" sx={{ fontSize: '0.65rem' }}>{formErrors.locationId}</Typography>}
             </FormControl>
           </Stack>
         </DialogContent>
@@ -571,7 +815,7 @@ const Inventory = () => {
             variant="contained" 
             size="small" 
             sx={{ fontSize: '0.8rem' }}
-            onClick={() => setShowAddDialog(false)}
+            onClick={handleSubmit}
           >
             {selectedItem ? 'Update' : 'Add'} Item
           </Button>
