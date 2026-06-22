@@ -171,7 +171,7 @@ const PODList = () => {
       ),
     },
     {
-      field: 'tripId',
+      field: 'tripNumber',
       headerName: 'Trip',
       width: 80,
       headerClassName: 'pod-header',
