@@ -11,7 +11,7 @@ import { CircularProgress, Box } from "@mui/material";
 import Layout from "./components/Layout/Layout";
 import PrivateRoute from "./components/Layout/PrivateRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import api from "./api/axiosConfig";
+import api from "./api";
 
 /* -------------------------------------------------------------------------- */
 /* Lazy-loaded Pages (code splitting)                                          */
