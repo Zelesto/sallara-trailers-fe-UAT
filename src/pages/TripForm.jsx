@@ -104,7 +104,7 @@ const PROVINCES = [
   'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
 ];
 
-/* ===================== Address Component ===================== */
+/* ===================== Address Component - Compact ===================== */
 function AddressSection({ label, address, onChange, errors = {}, disabled = false }) {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [loadingCity, setLoadingCity] = useState(false);
@@ -146,17 +146,25 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
   };
 
   return (
-    <Card variant="outlined" sx={{ mb: 2 }}>
-      <CardContent>
-        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-          <LocationOn fontSize="small" color="primary" />
-          <Typography variant="subtitle1" fontWeight="medium">{label}</Typography>
+    <Card variant="outlined" sx={{ mb: 1.5 }}>
+      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+          <LocationOn fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+          <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+            {label}
+          </Typography>
           {address.latitude && address.longitude && (
-            <Chip size="small" label="📍 Geocoded" color="success" variant="outlined" />
+            <Chip 
+              size="small" 
+              label="📍 Geocoded" 
+              color="success" 
+              variant="outlined"
+              sx={{ height: 20, fontSize: '0.6rem' }}
+            />
           )}
         </Stack>
 
-        <Grid container spacing={2}>
+        <Grid container spacing={1.5}>
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -166,6 +174,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
               size="small"
               placeholder="e.g., 16275 Imbuzana Street"
               disabled={disabled}
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
             />
           </Grid>
 
@@ -187,13 +196,14 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
                   error={!!errors.city}
                   helperText={errors.city || 'Start typing for suggestions'}
                   disabled={disabled}
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 />
               )}
               renderOption={(props, option) => (
                 <li {...props}>
                   <Box>
-                    <Typography variant="body2">{option.city}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{option.city}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                       {option.province}
                       {option.zipCode && ` • ${option.zipCode}`}
                     </Typography>
@@ -213,34 +223,35 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
               placeholder="e.g., 1475"
               inputProps={{ maxLength: 4 }}
               disabled={disabled}
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
             />
           </Grid>
 
           <Grid item xs={6} md={3}>
             <FormControl fullWidth size="small" error={!!errors.province}>
-              <InputLabel>Province</InputLabel>
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Province</InputLabel>
               <Select
                 value={address.province || ''}
                 label="Province"
                 onChange={(e) => onChange({ ...address, province: e.target.value })}
                 disabled={disabled}
+                sx={{ fontSize: '0.75rem' }}
               >
-                <MenuItem value="">Select province</MenuItem>
+                <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Select province</MenuItem>
                 {PROVINCES.map(p => (
-                  <MenuItem key={p} value={p}>{p}</MenuItem>
+                  <MenuItem key={p} value={p} sx={{ fontSize: '0.75rem' }}>{p}</MenuItem>
                 ))}
               </Select>
-              {errors.province && <FormHelperText>{errors.province}</FormHelperText>}
+              {errors.province && <FormHelperText sx={{ fontSize: '0.65rem' }}>{errors.province}</FormHelperText>}
             </FormControl>
           </Grid>
 
-          {/* Manual coordinate entry */}
           <Grid item xs={12}>
-            <Divider sx={{ my: 1 }} />
-            <Typography variant="caption" color="text.secondary">
+            <Divider sx={{ my: 0.75 }} />
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
               Coordinates (optional)
             </Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+            <Stack direction="row" spacing={1.5} sx={{ mt: 0.75 }}>
               <TextField
                 fullWidth
                 label="Latitude"
@@ -250,6 +261,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
                 size="small"
                 placeholder="e.g., -26.3378"
                 InputProps={{ inputProps: { step: 'any' } }}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
               <TextField
                 fullWidth
@@ -260,6 +272,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
                 size="small"
                 placeholder="e.g., 28.2023"
                 InputProps={{ inputProps: { step: 'any' } }}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Stack>
           </Grid>
@@ -269,7 +282,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
   );
 }
 
-/* ===================== Main Component ===================== */
+/* ===================== Main Component - Compact ===================== */
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -465,7 +478,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       const originAddress = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
       const destAddress = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
 
-      // ⚠️ DO NOT send tripNumber - backend generates it
       const payload = {
         tripType: form.tripType,
         status: form.status,
@@ -516,7 +528,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         cancellationReason: form.cancellationReason || null
       };
 
-      // Remove undefined/null values
       Object.keys(payload).forEach(key => {
         if (payload[key] === undefined || payload[key] === null) {
           delete payload[key];
@@ -559,61 +570,78 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
-          <Typography variant="h6">
+      <Dialog 
+        open={open} 
+        onClose={onClose} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', py: 1.5, px: 2 }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
             {mode === 'create' ? 'Create New Trip' : `Edit Trip`}
           </Typography>
         </DialogTitle>
 
-        <DialogContent dividers sx={{ overflowY: 'auto' }}>
+        <DialogContent dividers sx={{ overflowY: 'auto', p: 2 }}>
           {loading && (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress size={30} />
             </Box>
           )}
 
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
               {error}
             </Alert>
           )}
 
           {successMessage && (
-            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
+            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage(null)}>
               {successMessage}
             </Alert>
           )}
 
           {!loading && (
-            <Stack spacing={3}>
-              {/* Trip Type */}
-              <Grid container spacing={2}>
+            <Stack spacing={2}>
+              {/* Trip Type & Priority - Compact */}
+              <Grid container spacing={1.5}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Trip Type</InputLabel>
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Trip Type</InputLabel>
                     <Select
                       value={form.tripType}
                       label="Trip Type"
                       onChange={(e) => handleFieldChange('tripType', e.target.value)}
+                      sx={{ fontSize: '0.75rem' }}
                     >
                       {TRIP_TYPE_OPTIONS.map(type => (
-                        <MenuItem key={type} value={type}>{type}</MenuItem>
+                        <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>{type}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Priority</InputLabel>
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Priority</InputLabel>
                     <Select
                       value={form.priority}
                       label="Priority"
                       onChange={(e) => handleFieldChange('priority', e.target.value)}
+                      sx={{ fontSize: '0.75rem' }}
                     >
                       {PRIORITY_OPTIONS.map(p => (
-                        <MenuItem key={p.value} value={p.value}>
-                          <Chip label={p.label} size="small" color={p.color} />
+                        <MenuItem key={p.value} value={p.value} sx={{ fontSize: '0.75rem' }}>
+                          <Chip 
+                            label={p.label} 
+                            size="small" 
+                            color={p.color} 
+                            sx={{ height: 20, fontSize: '0.6rem' }}
+                          />
                         </MenuItem>
                       ))}
                     </Select>
@@ -630,8 +658,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   errors={{ city: formErrors.originCity, province: formErrors.originProvince }}
                 />
 
-                <Box display="flex" justifyContent="center" my={-1} position="relative" zIndex={1}>
-                  <IconButton onClick={handleSwapLocations} sx={{ bgcolor: 'background.paper', boxShadow: 1 }}>
+                <Box display="flex" justifyContent="center" my={-0.5} position="relative" zIndex={1}>
+                  <IconButton 
+                    onClick={handleSwapLocations} 
+                    sx={{ 
+                      bgcolor: 'background.paper', 
+                      boxShadow: 1,
+                      width: 28,
+                      height: 28,
+                      '& .MuiSvgIcon-root': { fontSize: '1rem' }
+                    }}
+                  >
                     <SwapHoriz />
                   </IconButton>
                 </Box>
@@ -644,15 +681,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 />
               </Box>
 
-              {/* Schedule */}
+              {/* Schedule - Compact */}
               <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" spacing={1} mb={2}>
-                    <ScheduleIcon fontSize="small" color="primary" />
-                    <Typography variant="subtitle1" fontWeight="medium">Schedule</Typography>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <ScheduleIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Schedule
+                    </Typography>
                   </Stack>
 
-                  <Grid container spacing={2}>
+                  <Grid container spacing={1.5}>
                     <Grid item xs={12} md={6}>
                       <DateTimePicker
                         label="Planned Start Date & Time *"
@@ -664,7 +703,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             size: 'small',
                             required: true,
                             error: !!formErrors.plannedStartDate,
-                            helperText: formErrors.plannedStartDate
+                            helperText: formErrors.plannedStartDate,
+                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
                           }
                         }}
                       />
@@ -679,7 +719,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             fullWidth: true,
                             size: 'small',
                             error: !!formErrors.plannedEndDate,
-                            helperText: formErrors.plannedEndDate
+                            helperText: formErrors.plannedEndDate,
+                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
                           }
                         }}
                       />
@@ -692,7 +733,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.estimatedDuration}
                         onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
                         size="small"
-                        InputProps={{ endAdornment: 'hrs' }}
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>hrs</InputAdornment>
+                        }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12} md={4}>
@@ -703,7 +747,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.plannedDistanceKm}
                         onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
                         size="small"
-                        InputProps={{ endAdornment: 'km' }}
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>km</InputAdornment>
+                        }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12} md={4}>
@@ -714,69 +761,77 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.plannedDurationHours}
                         onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
                         size="small"
-                        InputProps={{ endAdornment: 'hrs' }}
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>hrs</InputAdornment>
+                        }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                   </Grid>
                 </CardContent>
               </Card>
 
-              {/* Assignment */}
+              {/* Assignment - Compact */}
               <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" spacing={1} mb={2}>
-                    <DirectionsCar fontSize="small" color="primary" />
-                    <Typography variant="subtitle1" fontWeight="medium">Assignment</Typography>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <DirectionsCar fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Assignment
+                    </Typography>
                   </Stack>
 
-                  <Grid container spacing={2}>
+                  <Grid container spacing={1.5}>
                     <Grid item xs={12} md={4}>
                       <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
-                        <InputLabel>Vehicle *</InputLabel>
+                        <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
                         <Select
                           value={form.vehicleId}
                           label="Vehicle *"
                           onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
+                          sx={{ fontSize: '0.75rem' }}
                         >
-                          <MenuItem value=""><em>Select vehicle</em></MenuItem>
+                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select vehicle</em></MenuItem>
                           {vehicles.map(v => (
-                            <MenuItem key={v.id} value={v.id.toString()}>
+                            <MenuItem key={v.id} value={v.id.toString()} sx={{ fontSize: '0.75rem' }}>
                               {v.registrationNumber} - {v.make} {v.model}
                             </MenuItem>
                           ))}
                         </Select>
-                        {formErrors.vehicleId && <FormHelperText error>{formErrors.vehicleId}</FormHelperText>}
+                        {formErrors.vehicleId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.vehicleId}</FormHelperText>}
                       </FormControl>
                     </Grid>
                     <Grid item xs={12} md={4}>
                       <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
-                        <InputLabel>Driver *</InputLabel>
+                        <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
                         <Select
                           value={form.driverId}
                           label="Driver *"
                           onChange={(e) => handleFieldChange('driverId', e.target.value)}
+                          sx={{ fontSize: '0.75rem' }}
                         >
-                          <MenuItem value=""><em>Select driver</em></MenuItem>
+                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select driver</em></MenuItem>
                           {drivers.map(d => (
-                            <MenuItem key={d.id} value={d.id.toString()}>
+                            <MenuItem key={d.id} value={d.id.toString()} sx={{ fontSize: '0.75rem' }}>
                               {d.firstName} {d.lastName}
                             </MenuItem>
                           ))}
                         </Select>
-                        {formErrors.driverId && <FormHelperText error>{formErrors.driverId}</FormHelperText>}
+                        {formErrors.driverId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.driverId}</FormHelperText>}
                       </FormControl>
                     </Grid>
                     <Grid item xs={12} md={4}>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Supervisor</InputLabel>
+                        <InputLabel sx={{ fontSize: '0.75rem' }}>Supervisor</InputLabel>
                         <Select
                           value={form.supervisorId}
                           label="Supervisor"
                           onChange={(e) => handleFieldChange('supervisorId', e.target.value)}
+                          sx={{ fontSize: '0.75rem' }}
                         >
-                          <MenuItem value=""><em>Select supervisor</em></MenuItem>
+                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select supervisor</em></MenuItem>
                           {supervisors.map(s => (
-                            <MenuItem key={s.id} value={s.id.toString()}>
+                            <MenuItem key={s.id} value={s.id.toString()} sx={{ fontSize: '0.75rem' }}>
                               {s.firstName} {s.lastName}
                             </MenuItem>
                           ))}
@@ -787,29 +842,32 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </CardContent>
               </Card>
 
-              {/* Commodity & Cargo */}
+              {/* Commodity & Cargo - Compact */}
               <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" spacing={1} mb={2}>
-                    <Description fontSize="small" color="primary" />
-                    <Typography variant="subtitle1" fontWeight="medium">Commodity & Cargo</Typography>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <Description fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Commodity & Cargo
+                    </Typography>
                   </Stack>
 
-                  <Grid container spacing={2}>
+                  <Grid container spacing={1.5}>
                     <Grid item xs={12} md={6}>
                       <FormControl fullWidth size="small" required error={!!formErrors.commodityType}>
-                        <InputLabel>Commodity Type *</InputLabel>
+                        <InputLabel sx={{ fontSize: '0.75rem' }}>Commodity Type *</InputLabel>
                         <Select
                           value={form.commodityType}
                           label="Commodity Type *"
                           onChange={(e) => handleFieldChange('commodityType', e.target.value)}
+                          sx={{ fontSize: '0.75rem' }}
                         >
-                          <MenuItem value=""><em>Select commodity</em></MenuItem>
+                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select commodity</em></MenuItem>
                           {COMMODITY_OPTIONS.map(c => (
-                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                            <MenuItem key={c} value={c} sx={{ fontSize: '0.75rem' }}>{c}</MenuItem>
                           ))}
                         </Select>
-                        {formErrors.commodityType && <FormHelperText error>{formErrors.commodityType}</FormHelperText>}
+                        {formErrors.commodityType && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.commodityType}</FormHelperText>}
                       </FormControl>
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -819,6 +877,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.cargoDescription}
                         onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
                         size="small"
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12} md={4}>
@@ -830,9 +889,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
                         size="small"
                         InputProps={{
-                          startAdornment: <InputAdornment position="start"><Scale /></InputAdornment>,
-                          endAdornment: <InputAdornment position="end">kg</InputAdornment>
+                          startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>kg</InputAdornment>
                         }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12} md={4}>
@@ -844,8 +904,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
                         size="small"
                         InputProps={{
-                          startAdornment: <InputAdornment position="start"><AttachMoney /></InputAdornment>
+                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>
                         }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12} md={4}>
@@ -856,22 +917,27 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.palletCount}
                         onChange={(e) => handleFieldChange('palletCount', e.target.value)}
                         size="small"
-                        InputProps={{ endAdornment: 'pallets' }}
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>pallets</InputAdornment>
+                        }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                   </Grid>
                 </CardContent>
               </Card>
 
-              {/* Financial */}
+              {/* Financial Estimates - Compact */}
               <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" spacing={1} mb={2}>
-                    <Receipt fontSize="small" color="primary" />
-                    <Typography variant="subtitle1" fontWeight="medium">Financial Estimates</Typography>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <Receipt fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Financial Estimates
+                    </Typography>
                   </Stack>
 
-                  <Grid container spacing={2}>
+                  <Grid container spacing={1.5}>
                     <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
@@ -881,8 +947,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         onChange={(e) => handleFieldChange('estimatedTollCost', e.target.value)}
                         size="small"
                         InputProps={{
-                          startAdornment: <InputAdornment position="start"><Toll /></InputAdornment>
+                          startAdornment: <InputAdornment position="start"><Toll sx={{ fontSize: '0.9rem' }} /></InputAdornment>
                         }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -894,23 +961,26 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         onChange={(e) => handleFieldChange('estimatedOtherExpenses', e.target.value)}
                         size="small"
                         InputProps={{
-                          startAdornment: <InputAdornment position="start"><AttachMoney /></InputAdornment>
+                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>
                         }}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                   </Grid>
                 </CardContent>
               </Card>
 
-              {/* Notes */}
+              {/* Notes - Compact */}
               <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" spacing={1} mb={2}>
-                    <Comment fontSize="small" color="primary" />
-                    <Typography variant="subtitle1" fontWeight="medium">Notes</Typography>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <Comment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Notes
+                    </Typography>
                   </Stack>
 
-                  <Grid container spacing={2}>
+                  <Grid container spacing={1.5}>
                     <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
@@ -918,6 +988,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.referenceNumber}
                         onChange={(e) => handleFieldChange('referenceNumber', e.target.value)}
                         size="small"
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -927,17 +998,19 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.purchaseOrderNumber}
                         onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
                         size="small"
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
                         multiline
-                        rows={3}
+                        rows={2}
                         label="Special Instructions"
                         value={form.specialInstructions}
                         onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
                         size="small"
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                     <Grid item xs={12}>
@@ -949,45 +1022,50 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.driverNotes}
                         onChange={(e) => handleFieldChange('driverNotes', e.target.value)}
                         size="small"
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                       />
                     </Grid>
                   </Grid>
                 </CardContent>
               </Card>
 
-              {/* Status */}
+              {/* Status - Compact */}
               <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" spacing={1} mb={2}>
-                    <Assignment fontSize="small" color="primary" />
-                    <Typography variant="subtitle1" fontWeight="medium">Status</Typography>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <Assignment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Status
+                    </Typography>
                   </Stack>
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} md={6}>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Status</InputLabel>
+                        <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
                         <Select
                           value={form.status}
                           label="Status"
                           onChange={(e) => handleFieldChange('status', e.target.value)}
+                          sx={{ fontSize: '0.75rem' }}
                         >
                           {STATUS_OPTIONS.map(s => (
-                            <MenuItem key={s} value={s}>{s}</MenuItem>
+                            <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
                           ))}
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={6}>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Approval Status</InputLabel>
+                        <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
                         <Select
                           value={form.approvalStatus}
                           label="Approval Status"
                           onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
+                          sx={{ fontSize: '0.75rem' }}
                         >
                           {APPROVAL_STATUS_OPTIONS.map(s => (
-                            <MenuItem key={s} value={s}>{s}</MenuItem>
+                            <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
                           ))}
                         </Select>
                       </FormControl>
@@ -999,15 +1077,23 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           )}
         </DialogContent>
 
-        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
-          <Button startIcon={<Close />} onClick={onClose} disabled={submitting}>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', p: 1.5 }}>
+          <Button 
+            startIcon={<Close />} 
+            onClick={onClose} 
+            disabled={submitting}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
+          >
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
-            startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
+            startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
             disabled={submitting || loading}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
           >
             {submitting ? 'Saving...' : (mode === 'create' ? 'Create Trip' : 'Update Trip')}
           </Button>
