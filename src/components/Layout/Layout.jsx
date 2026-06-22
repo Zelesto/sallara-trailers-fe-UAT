@@ -236,14 +236,16 @@ const menuSections = [
         ],
       },
       {
-  title: 'Inventory',
-  icon: <InventoryIcon />,
-  items: [
-    { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
-    { text: 'Stock Movements', icon: <LocalGasStation />, path: '/inventory/movements' },
-    { text: 'Stock Movement', icon: <AddLocation />, path: '/inventory/movements/new' },
-  ],
-},
+        title: 'Inventory',
+        icon: <InventoryIcon />,
+        items: [
+          { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
+          { text: 'Stock Movements', icon: <FuelIcon />, path: '/inventory/movements' },
+          { text: 'New Movement', icon: <AddLocationIcon />, path: '/inventory/movements/new' },
+        ],
+      },
+    ],
+  },
   {
     title: 'Assets',
     icon: <DirectionsCar />,
