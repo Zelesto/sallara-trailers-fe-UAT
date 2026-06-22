@@ -1,4 +1,4 @@
-// src/pages/VehicleForm.jsx
+// src/pages/vehicles/VehicleForm.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -16,10 +16,8 @@ import {
   Select,
   Stack,
   Divider,
-  Card,
-  CardContent,
-   Chip,
-    InputAdornment,
+  Chip,
+  InputAdornment,
   FormHelperText,
 } from '@mui/material';
 import { 
@@ -31,13 +29,10 @@ import {
   Build,
   CalendarToday,
   Description,
-  Numbers,
   Scale,
-  Warehouse,
   Settings,
 } from '@mui/icons-material';
 import { vehicleService } from '../services/vehicleService';
-import Breadcrumbs from '../components/Layout/Breadcrumbs';
 
 // Constants
 const VEHICLE_TYPES = [
@@ -188,7 +183,6 @@ const VehicleForm = () => {
     setSuccess('');
 
     if (!validateForm()) {
-      // Scroll to first error
       const firstErrorField = Object.keys(formErrors)[0];
       const element = document.querySelector(`[name="${firstErrorField}"]`);
       if (element) {
@@ -229,76 +223,69 @@ const VehicleForm = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    const statusMap = {
-      ACTIVE: 'success',
-      AVAILABLE: 'info',
-      IN_MAINTENANCE: 'warning',
-      OUT_OF_SERVICE: 'error',
-      INACTIVE: 'default',
-    };
-    return statusMap[status] || 'default';
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
+    try {
+      await vehicleService.deleteVehicle(id);
+      navigate('/vehicles');
+    } catch (err) {
+      setError('Failed to delete vehicle');
+    }
   };
 
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Loading vehicle data...</Typography>
+        <CircularProgress size={40} />
+        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading vehicle data...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Breadcrumbs />
-      
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">
+          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
             {isEditMode ? 'Edit Vehicle' : 'Create New Vehicle'}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
             {isEditMode ? 'Update vehicle information' : 'Add a new vehicle to the fleet'}
           </Typography>
         </Box>
         <Button 
-          startIcon={<ArrowBack />} 
+          startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />} 
           onClick={() => navigate('/vehicles')}
-          sx={{ 
-            '&:hover': {
-              backgroundColor: 'action.hover',
-            }
-          }}
+          size="small"
+          sx={{ fontSize: '0.75rem' }}
         >
           Back to Vehicles
         </Button>
       </Box>
 
       {/* Form */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <form onSubmit={handleSubmit}>
-          {/* Alerts */}
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError('')}>
               {error}
             </Alert>
           )}
           {success && (
-            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess('')}>
               {success}
             </Alert>
           )}
 
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             {/* Basic Information Section */}
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                <DirectionsCar sx={{ mr: 1, verticalAlign: 'middle' }} />
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
+                <DirectionsCar sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
                 Basic Information
               </Typography>
-              <Divider sx={{ mb: 3 }} />
+              <Divider sx={{ mb: 2 }} />
             </Grid>
 
             <Grid item xs={12} md={4}>
@@ -313,6 +300,7 @@ const VehicleForm = () => {
                 error={!!formErrors.registrationNumber}
                 helperText={formErrors.registrationNumber}
                 placeholder="e.g., ABC123GP"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
@@ -328,6 +316,7 @@ const VehicleForm = () => {
                 error={!!formErrors.make}
                 helperText={formErrors.make}
                 placeholder="e.g., SCANIA, MERCEDES, VOLVO"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
@@ -343,6 +332,7 @@ const VehicleForm = () => {
                 error={!!formErrors.model}
                 helperText={formErrors.model}
                 placeholder="e.g., R500, ACTROS, FH16"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
@@ -357,65 +347,68 @@ const VehicleForm = () => {
                 size="small"
                 error={!!formErrors.year}
                 helperText={formErrors.year || 'e.g., 2023'}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{ inputProps: { min: 1900, max: new Date().getFullYear() + 1 } }}
               />
             </Grid>
 
             <Grid item xs={12} md={4}>
               <FormControl fullWidth size="small" error={!!formErrors.vehicleType}>
-                <InputLabel>Vehicle Type *</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle Type *</InputLabel>
                 <Select
                   name="vehicleType"
                   value={formData.vehicleType}
                   label="Vehicle Type *"
                   onChange={handleChange}
                   required
+                  sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="">Select Type</MenuItem>
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Type</MenuItem>
                   {VEHICLE_TYPES.map(type => (
-                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                    <MenuItem key={type} value={type} sx={{ fontSize: '0.8rem' }}>{type}</MenuItem>
                   ))}
                 </Select>
                 {formErrors.vehicleType && (
-                  <FormHelperText error>{formErrors.vehicleType}</FormHelperText>
+                  <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.vehicleType}</FormHelperText>
                 )}
               </FormControl>
             </Grid>
 
             <Grid item xs={12} md={4}>
               <FormControl fullWidth size="small" error={!!formErrors.status}>
-                <InputLabel>Status *</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Status *</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
                   label="Status *"
                   onChange={handleChange}
                   required
+                  sx={{ fontSize: '0.8rem' }}
                 >
                   {STATUS_OPTIONS.map(option => (
-                    <MenuItem key={option.value} value={option.value}>
+                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
                       <Chip 
                         label={option.label} 
                         size="small" 
                         color={option.color} 
-                        sx={{ fontWeight: 500 }}
+                        sx={{ height: 18, fontSize: '0.55rem' }}
                       />
                     </MenuItem>
                   ))}
                 </Select>
                 {formErrors.status && (
-                  <FormHelperText error>{formErrors.status}</FormHelperText>
+                  <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.status}</FormHelperText>
                 )}
               </FormControl>
             </Grid>
 
             {/* Specifications Section */}
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, mt: 2 }}>
-                <Settings sx={{ mr: 1, verticalAlign: 'middle' }} />
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                <Settings sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
                 Specifications
               </Typography>
-              <Divider sx={{ mb: 3 }} />
+              <Divider sx={{ mb: 2 }} />
             </Grid>
 
             <Grid item xs={12} md={4}>
@@ -427,6 +420,7 @@ const VehicleForm = () => {
                 onChange={handleChange}
                 size="small"
                 placeholder="Vehicle Identification Number"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
@@ -439,21 +433,23 @@ const VehicleForm = () => {
                 onChange={handleChange}
                 size="small"
                 placeholder="e.g., White, Blue, Red"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
             <Grid item xs={12} md={4}>
               <FormControl fullWidth size="small">
-                <InputLabel>Fuel Type</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Fuel Type</InputLabel>
                 <Select
                   name="fuelType"
                   value={formData.fuelType}
                   label="Fuel Type"
                   onChange={handleChange}
+                  sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="">Select Fuel Type</MenuItem>
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Fuel Type</MenuItem>
                   {FUEL_TYPES.map(type => (
-                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                    <MenuItem key={type} value={type} sx={{ fontSize: '0.8rem' }}>{type}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -470,9 +466,10 @@ const VehicleForm = () => {
                 size="small"
                 error={!!formErrors.capacityKg}
                 helperText={formErrors.capacityKg || 'Maximum load capacity in kilograms'}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><Scale /></InputAdornment>,
-                  endAdornment: <InputAdornment position="end">kg</InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                  endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>kg</InputAdornment>,
                 }}
               />
             </Grid>
@@ -488,9 +485,10 @@ const VehicleForm = () => {
                 size="small"
                 error={!!formErrors.currentMileage}
                 helperText={formErrors.currentMileage}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><Speed /></InputAdornment>,
-                  endAdornment: <InputAdornment position="end">km</InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><Speed sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                  endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>km</InputAdornment>,
                 }}
               />
             </Grid>
@@ -504,6 +502,7 @@ const VehicleForm = () => {
                 onChange={handleChange}
                 size="small"
                 placeholder="e.g., 12.8L, 16L"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
@@ -518,20 +517,21 @@ const VehicleForm = () => {
                 size="small"
                 error={!!formErrors.fuelConsumption}
                 helperText={formErrors.fuelConsumption || 'Average fuel consumption'}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><LocalGasStation /></InputAdornment>,
-                  endAdornment: <InputAdornment position="end">L/100km</InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><LocalGasStation sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                  endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>L/100km</InputAdornment>,
                 }}
               />
             </Grid>
 
             {/* Service Information Section */}
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, mt: 2 }}>
-                <Build sx={{ mr: 1, verticalAlign: 'middle' }} />
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                <Build sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
                 Service Information
               </Typography>
-              <Divider sx={{ mb: 3 }} />
+              <Divider sx={{ mb: 2 }} />
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -544,8 +544,9 @@ const VehicleForm = () => {
                 onChange={handleChange}
                 size="small"
                 InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><CalendarToday /></InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><CalendarToday sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
                 }}
               />
             </Grid>
@@ -560,19 +561,20 @@ const VehicleForm = () => {
                 onChange={handleChange}
                 size="small"
                 InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><CalendarToday /></InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><CalendarToday sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
                 }}
               />
             </Grid>
 
             {/* Notes Section */}
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, mt: 2 }}>
-                <Description sx={{ mr: 1, verticalAlign: 'middle' }} />
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                <Description sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
                 Additional Information
               </Typography>
-              <Divider sx={{ mb: 3 }} />
+              <Divider sx={{ mb: 2 }} />
             </Grid>
 
             <Grid item xs={12}>
@@ -581,38 +583,39 @@ const VehicleForm = () => {
                 label="Notes"
                 name="notes"
                 multiline
-                rows={4}
+                rows={3}
                 value={formData.notes}
                 onChange={handleChange}
                 size="small"
                 placeholder="Any additional information about the vehicle..."
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
             {/* Form Actions */}
             <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+              <Divider sx={{ my: 1.5 }} />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button
                   type="submit"
                   variant="contained"
-                  size="large"
-                  startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
+                  size="medium"
+                  startIcon={submitting ? <CircularProgress size={18} /> : <Save sx={{ fontSize: '0.9rem' }} />}
                   disabled={submitting}
-                  sx={{
-                    minWidth: 200,
-                    '&:hover': {
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                    }
+                  sx={{ 
+                    minWidth: { xs: '100%', sm: 180 },
+                    fontSize: '0.8rem',
+                    py: 0.75
                   }}
                 >
                   {submitting ? 'Saving...' : (isEditMode ? 'Update Vehicle' : 'Create Vehicle')}
                 </Button>
                 <Button
                   variant="outlined"
-                  size="large"
+                  size="medium"
                   onClick={() => navigate('/vehicles')}
                   disabled={submitting}
+                  sx={{ fontSize: '0.8rem', py: 0.75 }}
                 >
                   Cancel
                 </Button>
@@ -620,18 +623,14 @@ const VehicleForm = () => {
                   <Button
                     variant="text"
                     color="error"
-                    size="large"
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to delete this vehicle?')) {
-                        vehicleService.deleteVehicle(id).then(() => {
-                          navigate('/vehicles');
-                        }).catch(err => {
-                          setError('Failed to delete vehicle');
-                        });
-                      }
-                    }}
+                    size="medium"
+                    onClick={handleDelete}
                     disabled={submitting}
-                    sx={{ ml: 'auto' }}
+                    sx={{ 
+                      ml: { xs: 0, sm: 'auto' },
+                      fontSize: '0.8rem',
+                      py: 0.75
+                    }}
                   >
                     Delete Vehicle
                   </Button>
