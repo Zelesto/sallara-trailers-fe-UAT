@@ -26,9 +26,64 @@ import {
   CalendarToday as CalendarIcon,
   LocationOn as LocationIcon,
   DirectionsCar as CarIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import driverService from '../services/driverService';
-import Breadcrumbs from '../components/Layout/Breadcrumbs';
+
+// Compact Info Item Component
+const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false }) => (
+  <Paper
+    sx={{
+      p: 1.5,
+      bgcolor: 'grey.50',
+      borderRadius: 1,
+      border: '1px solid',
+      borderColor: 'divider',
+      height: '100%',
+    }}
+  >
+    <Stack direction="row" alignItems="center" spacing={1}>
+      {Icon && (
+        <Box
+          sx={{
+            bgcolor: `${color}.light`,
+            borderRadius: 1,
+            p: 0.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon sx={{ fontSize: '1rem', color: `${color}.main` }} />
+        </Box>
+      )}
+      <Box>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+          {label}
+        </Typography>
+        {isChip ? (
+          <Box sx={{ mt: 0.25 }}>{value}</Box>
+        ) : (
+          <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
+            {value || 'N/A'}
+          </Typography>
+        )}
+      </Box>
+    </Stack>
+  </Paper>
+);
+
+// Compact Audit Item Component
+const AuditItem = ({ label, value, by }) => (
+  <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={0.5}>
+    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+      <strong>{label}:</strong> {value}
+    </Typography>
+    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+      By: {by || 'N/A'}
+    </Typography>
+  </Box>
+);
 
 const DriverDetails = () => {
   const { id } = useParams();
@@ -74,201 +129,207 @@ const DriverDetails = () => {
       SUSPENDED: { color: 'error', label: 'Suspended' },
     };
     const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
-    return <Chip label={info.label} color={info.color} sx={{ fontWeight: 600 }} />;
+    return (
+      <Chip 
+        label={info.label} 
+        color={info.color} 
+        sx={{ 
+          fontWeight: 600, 
+          fontSize: '0.7rem', 
+          height: 24,
+          '& .MuiChip-label': { px: 1 }
+        }}
+      />
+    );
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress size={40} />
+        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading driver details...</Typography>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box>
-        <Breadcrumbs />
-        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+      <Box sx={{ p: 2 }}>
+        <Alert severity="error" sx={{ fontSize: '0.8rem' }}>{error}</Alert>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => navigate('/drivers')}
+          sx={{ mt: 2, fontSize: '0.8rem' }}
+        >
+          Back to Drivers
+        </Button>
       </Box>
     );
   }
 
   if (!driver) {
     return (
-      <Box>
-        <Breadcrumbs />
-        <Alert severity="warning" sx={{ mt: 2 }}>Driver not found</Alert>
+      <Box sx={{ p: 2 }}>
+        <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>Driver not found</Alert>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => navigate('/drivers')}
+          sx={{ mt: 2, fontSize: '0.8rem' }}
+        >
+          Back to Drivers
+        </Button>
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Breadcrumbs />
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/drivers')}>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Button 
+          startIcon={<ArrowBackIcon sx={{ fontSize: '0.9rem' }} />} 
+          onClick={() => navigate('/drivers')}
+          size="small"
+          sx={{ fontSize: '0.75rem' }}
+        >
           Back to Drivers
         </Button>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={0.75}>
           <Button
             variant="outlined"
-            startIcon={<EditIcon />}
+            startIcon={<EditIcon sx={{ fontSize: '0.9rem' }} />}
             onClick={() => navigate(`/drivers/${id}/edit`)}
+            size="small"
+            sx={{ fontSize: '0.75rem', py: 0.5 }}
           >
             Edit
           </Button>
           <Button
             variant="outlined"
             color="error"
-            startIcon={<DeleteIcon />}
+            startIcon={<DeleteIcon sx={{ fontSize: '0.9rem' }} />}
             onClick={handleDelete}
+            size="small"
+            sx={{ fontSize: '0.75rem', py: 0.5 }}
           >
             Delete
           </Button>
         </Stack>
       </Box>
 
-      {/* Header Card */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack direction="row" spacing={3} alignItems="center">
+      {/* Summary Card - Compact */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
             <Avatar
               sx={{
-                width: 80,
-                height: 80,
+                width: 64,
+                height: 64,
                 bgcolor: 'primary.main',
-                fontSize: 32,
+                fontSize: 24,
                 fontWeight: 600,
+                flexShrink: 0,
               }}
             >
               {driver.firstName?.charAt(0)}{driver.lastName?.charAt(0)}
             </Avatar>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="h4" fontWeight="bold">
-                {driver.firstName} {driver.lastName}
-              </Typography>
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Driver ID: #{driver.id}
+            <Box sx={{ flex: 1, width: '100%' }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem' }}>
+                  {driver.firstName} {driver.lastName}
                 </Typography>
                 {getStatusChip(driver.status)}
               </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                Driver ID: #{driver.id}
+              </Typography>
             </Box>
           </Stack>
         </CardContent>
       </Card>
 
-      {/* Details Grid */}
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+      {/* Details Grid - Compact */}
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
+          <PersonIcon sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
           Personal Information
         </Typography>
         
-        <Grid container spacing={3}>
+        <Grid container spacing={1.5}>
           <Grid item xs={12} md={6}>
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Full Name</Typography>
-                <Typography variant="body1" fontWeight={500}>
-                  {driver.firstName} {driver.lastName}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Email</Typography>
-                <Typography variant="body1">
-                  {driver.email || 'N/A'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Phone Number</Typography>
-                <Typography variant="body1">
-                  {driver.phoneNumber || 'N/A'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Address</Typography>
-                <Typography variant="body1">
-                  {driver.address || 'N/A'}
-                </Typography>
-              </Box>
+            <Stack spacing={1.5}>
+              <InfoItem label="Full Name" value={`${driver.firstName} ${driver.lastName}`} icon={PersonIcon} color="primary" />
+              <InfoItem label="Email" value={driver.email} icon={EmailIcon} color="secondary" />
+              <InfoItem label="Phone Number" value={driver.phoneNumber} icon={PhoneIcon} color="success" />
+              <InfoItem label="Address" value={driver.address} icon={LocationIcon} color="warning" />
             </Stack>
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">License Number</Typography>
-                <Typography variant="body1" fontWeight={500}>
-                  {driver.licenseNumber || 'N/A'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">License Type</Typography>
-                <Typography variant="body1">
-                  {driver.licenseType || 'N/A'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">License Expiry</Typography>
-                <Typography variant="body1">
-                  {driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Hire Date</Typography>
-                <Typography variant="body1">
-                  {driver.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'}
-                </Typography>
-              </Box>
+            <Stack spacing={1.5}>
+              <InfoItem label="License Number" value={driver.licenseNumber} icon={BadgeIcon} color="primary" />
+              <InfoItem label="License Type" value={driver.licenseType} icon={BadgeIcon} color="info" />
+              <InfoItem label="License Expiry" value={driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} icon={CalendarIcon} color="warning" />
+              <InfoItem label="Hire Date" value={driver.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} icon={CalendarIcon} color="secondary" />
             </Stack>
           </Grid>
 
+          {/* Additional Information */}
           <Grid item xs={12}>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" gutterBottom>Additional Information</Typography>
-            <Grid container spacing={2}>
+            <Divider sx={{ my: 1.5 }} />
+            <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
+              Additional Information
+            </Typography>
+            <Grid container spacing={1.5}>
               <Grid item xs={12} md={4}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CarIcon color="action" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Assigned Vehicle
-                    </Typography>
-                    <Typography variant="body2">
-                      {driver.vehicleId ? `Vehicle #${driver.vehicleId}` : 'Not Assigned'}
-                    </Typography>
-                  </Box>
-                </Box>
+                <InfoItem 
+                  label="Assigned Vehicle" 
+                  value={driver.vehicleId ? `Vehicle #${driver.vehicleId}` : 'Not Assigned'} 
+                  icon={CarIcon} 
+                  color="info" 
+                />
               </Grid>
               <Grid item xs={12} md={4}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BadgeIcon color="action" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Trips Completed
-                    </Typography>
-                    <Typography variant="body2">
-                      {driver.tripsCompleted || 0}
-                    </Typography>
-                  </Box>
-                </Box>
+                <InfoItem 
+                  label="Trips Completed" 
+                  value={driver.tripsCompleted || 0} 
+                  icon={CarIcon} 
+                  color="success" 
+                />
               </Grid>
               <Grid item xs={12} md={4}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarIcon color="action" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Last Active
-                    </Typography>
-                    <Typography variant="body2">
-                      {driver.lastActive ? new Date(driver.lastActive).toLocaleDateString() : 'N/A'}
-                    </Typography>
-                  </Box>
-                </Box>
+                <InfoItem 
+                  label="Last Active" 
+                  value={driver.lastActive ? new Date(driver.lastActive).toLocaleDateString() : 'N/A'} 
+                  icon={CalendarIcon} 
+                  color="warning" 
+                />
               </Grid>
             </Grid>
+          </Grid>
+
+          {/* Audit Trail */}
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1.5 }} />
+            <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
+              Audit Trail
+            </Typography>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+              <Stack spacing={0.5}>
+                <AuditItem 
+                  label="Created" 
+                  value={driver.createdAt ? new Date(driver.createdAt).toLocaleString() : 'N/A'} 
+                  by={driver.createdBy} 
+                />
+                <AuditItem 
+                  label="Last Updated" 
+                  value={driver.updatedAt ? new Date(driver.updatedAt).toLocaleString() : 'N/A'} 
+                  by={driver.updatedBy} 
+                />
+              </Stack>
+            </Paper>
           </Grid>
         </Grid>
       </Paper>
