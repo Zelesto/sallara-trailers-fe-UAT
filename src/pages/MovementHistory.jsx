@@ -107,32 +107,39 @@ const MovementHistory = () => {
     loadMovements();
   }, []);
 
-  const loadMovements = async () => {
-    setLoading(true);
-    try {
-      const data = await inventoryMovementService.getMovementHistory();
-      setMovements(data || []);
-      calculateStats(data || []);
-    } catch (err) {
-      console.error('Error loading movements:', err);
-      setError('Failed to load movement history');
-    } finally {
-      setLoading(false);
+
+const loadMovements = async () => {
+  setLoading(true);
+  try {
+    const data = await inventoryMovementService.getMovementHistory();
+    console.log('Movement history response:', data);
+    
+    // Extract movements from paginated response
+    let movementsData = [];
+    if (Array.isArray(data)) {
+      movementsData = data;
+    } else if (data && data.content) {
+      movementsData = data.content;
+    } else if (data && data.data) {
+      movementsData = Array.isArray(data.data) ? data.data : [];
+    } else if (data && typeof data === 'object') {
+      // Try to find any array property
+      const values = Object.values(data);
+      const arrayProp = values.find(v => Array.isArray(v));
+      movementsData = arrayProp || [];
     }
-  };
-
-  const calculateStats = (data) => {
-    const pending = data.filter(m => m.approvalStatus === 'PENDING').length;
-    const approved = data.filter(m => m.approvalStatus === 'APPROVED').length;
-    const rejected = data.filter(m => m.approvalStatus === 'REJECTED').length;
-    setStats({
-      total: data.length,
-      pending,
-      approved,
-      rejected,
-    });
-  };
-
+    
+    console.log('Extracted movements:', movementsData);
+    setMovements(movementsData);
+    calculateStats(movementsData);
+  } catch (err) {
+    console.error('Error loading movements:', err);
+    setError('Failed to load movement history');
+    setMovements([]);
+  } finally {
+    setLoading(false);
+  }
+};
   const handleApprove = async () => {
     try {
       await inventoryMovementService.approveMovement(
