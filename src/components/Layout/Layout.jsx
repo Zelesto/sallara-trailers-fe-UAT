@@ -1,4 +1,5 @@
 // src/components/Layout/Layout.jsx
+// src/components/Layout/Layout.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -25,10 +26,11 @@ import {
   MenuItem,
   Collapse,
   Tooltip,
-  MenuList,
-  Popper,
+  Chip,
   Paper,
+  Popper,
   ClickAwayListener,
+  MenuList,
 } from '@mui/material';
 
 import {
@@ -75,6 +77,7 @@ import collapsedLogoImage from '../assets/img/SALLogo_sml.png';
 
 import Breadcrumbs from './Breadcrumbs';
 import TripForm from '../../pages/TripForm';
+
 
 const drawerWidth = 240;
 const collapsedDrawerWidth = 64;
