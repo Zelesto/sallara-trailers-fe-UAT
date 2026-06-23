@@ -26,7 +26,12 @@ import {
   CircularProgress,
   LinearProgress,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Badge,
 } from '@mui/material';
 import {
   DirectionsCar,
@@ -43,9 +48,14 @@ import {
   Map,
   Timeline,
   Assessment,
-  CheckCircle
+  CheckCircle,
+  Warning as WarningIcon,
+  Cancel as CancelIcon,
+  Inventory as InventoryIcon,
+  AddAlert as AddAlertIcon,
 } from '@mui/icons-material';
 import { analyticsService } from '../services/analyticsService';
+import { inventoryNotificationService } from '../services/inventoryNotificationService';
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
@@ -187,12 +197,97 @@ const StatCard = React.memo(({
   </Card>
 ));
 
+// Low Stock Alert Component
+const LowStockAlert = ({ items }) => {
+  if (!items || items.length === 0) return null;
+
+  const urgentItems = items.filter(item => item.quantity <= 0);
+  const warningItems = items.filter(item => item.quantity > 0 && item.quantity <= item.minLevel);
+
+  return (
+    <Paper sx={{ p: 1.5, mb: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+      <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+        <Badge badgeContent={items.length} color="error">
+          <AddAlertIcon color="error" />
+        </Badge>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
+          Low Stock Alerts
+        </Typography>
+        {urgentItems.length > 0 && (
+          <Chip
+            label={`${urgentItems.length} Out of Stock`}
+            color="error"
+            size="small"
+            sx={{ height: 20, fontSize: '0.6rem' }}
+          />
+        )}
+        {warningItems.length > 0 && (
+          <Chip
+            label={`${warningItems.length} Low Stock`}
+            color="warning"
+            size="small"
+            sx={{ height: 20, fontSize: '0.6rem' }}
+          />
+        )}
+      </Stack>
+
+      <Grid container spacing={1}>
+        {items.slice(0, 4).map((item, index) => (
+          <Grid item xs={12} sm={6} key={index}>
+            <Paper
+              sx={{
+                p: 1,
+                backgroundColor: item.quantity <= 0 ? '#ffebee' : '#fff3e0',
+                borderLeft: `3px solid ${item.quantity <= 0 ? '#f44336' : '#ff9800'}`,
+                borderRadius: 0.5,
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
+                    {item.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                    {item.quantity} {item.unitOfMeasure || 'units'} remaining
+                  </Typography>
+                </Box>
+                <Chip
+                  label={item.quantity <= 0 ? 'Out of Stock' : 'Low Stock'}
+                  color={item.quantity <= 0 ? 'error' : 'warning'}
+                  size="small"
+                  sx={{ height: 18, fontSize: '0.55rem' }}
+                />
+              </Stack>
+              {item.minLevel && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+                  Min Level: {item.minLevel} {item.unitOfMeasure || 'units'}
+                </Typography>
+              )}
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+
+      {items.length > 4 && (
+        <Button
+          size="small"
+          sx={{ mt: 1.5, fontSize: '0.7rem' }}
+          onClick={() => window.location.href = '/inventory?filter=low-stock'}
+        >
+          View all {items.length} low stock items
+        </Button>
+      )}
+    </Paper>
+  );
+};
+
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
   const [period, setPeriod] = useState('30days');
   const [refreshing, setRefreshing] = useState(false);
+  const [lowStockItems, setLowStockItems] = useState([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -223,16 +318,18 @@ const Dashboard = () => {
 
       const formatDate = (date) => date.toISOString().split('T')[0];
       
-      const response = await analyticsService.getDashboardKPIs(
-        formatDate(startDate),
-        formatDate(endDate)
-      );
+      const [response, lowStock] = await Promise.all([
+        analyticsService.getDashboardKPIs(formatDate(startDate), formatDate(endDate)),
+        inventoryNotificationService.getLowStockItems().catch(() => [])
+      ]);
 
       if (response && response.success !== false) {
         setDashboardData(response);
       } else {
         throw new Error(response?.message || 'Invalid response structure');
       }
+
+      setLowStockItems(Array.isArray(lowStock) ? lowStock : (lowStock?.content || []));
 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -590,6 +687,11 @@ const Dashboard = () => {
         >
           {error}
         </Alert>
+      )}
+
+      {/* Low Stock Alerts */}
+      {lowStockItems.length > 0 && (
+        <LowStockAlert items={lowStockItems} />
       )}
 
       {/* Time Period Selector - Compact */}
