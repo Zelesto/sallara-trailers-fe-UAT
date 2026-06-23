@@ -291,64 +291,75 @@ const Dashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const fetchDashboardData = async (isRefresh = false) => {
-    try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
 
-      setError(null);
+const fetchDashboardData = async (isRefresh = false) => {
+  try {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
 
-      const endDate = new Date();
-      let startDate = new Date();
+    setError(null);
 
-      switch (period) {
-        case '7days':
-          startDate.setDate(endDate.getDate() - 7);
-          break;
-        case '90days':
-          startDate.setDate(endDate.getDate() - 90);
-          break;
-        case '365days':
-          startDate.setDate(endDate.getDate() - 365);
-          break;
-        case '30days':
-        default:
-          startDate.setDate(endDate.getDate() - 30);
-      }
+    const endDate = new Date();
+    let startDate = new Date();
 
-      const formatDate = (date) => date.toISOString().split('T')[0];
-      
-      const [response, lowStock] = await Promise.all([
-        analyticsService.getDashboardKPIs(formatDate(startDate), formatDate(endDate)),
-        inventoryNotificationService.getLowStockItems().catch(() => [])
-      ]);
-
-      if (response && response.success !== false) {
-        setDashboardData(response);
-      } else {
-        throw new Error(response?.message || 'Invalid response structure');
-      }
-
-      setLowStockItems(Array.isArray(lowStock) ? lowStock : (lowStock?.content || []));
-
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError(err.message || 'Failed to load dashboard data');
-      
-      if (!dashboardData) {
-        setDashboardData({
-          summary: { activeVehicles: 0, activeDrivers: 0, avgFuelEfficiency: 0 },
-          period: { startDate: new Date(), endDate: new Date() },
-          topDrivers: [],
-          topVehicles: [],
-          recentActivities: []
-        });
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    switch (period) {
+      case '7days':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case '90days':
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      case '365days':
+        startDate.setDate(endDate.getDate() - 365);
+        break;
+      case '30days':
+      default:
+        startDate.setDate(endDate.getDate() - 30);
     }
-  };
+
+    const formatDate = (date) => date.toISOString().split('T')[0];
+    
+    // Fetch dashboard data and low stock items separately with error handling
+    const [response, lowStock] = await Promise.all([
+      analyticsService.getDashboardKPIs(formatDate(startDate), formatDate(endDate)),
+      // Use a try-catch for low stock items
+      (async () => {
+        try {
+          return await inventoryNotificationService.getLowStockItems();
+        } catch (error) {
+          console.warn('Low stock endpoint not available:', error);
+          return [];
+        }
+      })()
+    ]);
+
+    if (response && response.success !== false) {
+      setDashboardData(response);
+    } else {
+      throw new Error(response?.message || 'Invalid response structure');
+    }
+
+    // Set low stock items - ensure it's an array
+    setLowStockItems(Array.isArray(lowStock) ? lowStock : (lowStock?.content || []));
+
+  } catch (err) {
+    console.error('Error fetching dashboard data:', err);
+    setError(err.message || 'Failed to load dashboard data');
+    
+    if (!dashboardData) {
+      setDashboardData({
+        summary: { activeVehicles: 0, activeDrivers: 0, avgFuelEfficiency: 0 },
+        period: { startDate: new Date(), endDate: new Date() },
+        topDrivers: [],
+        topVehicles: [],
+        recentActivities: []
+      });
+    }
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
   useEffect(() => {
     fetchDashboardData();
