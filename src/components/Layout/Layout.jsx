@@ -66,6 +66,7 @@ import {
   FileCopy as BatchIcon,
   CheckCircle as FinalizeIcon,
   Pending as PendingIcon,
+   PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
@@ -271,7 +272,7 @@ const menuSections = [
     items: [
       { text: 'Vehicles', icon: <DirectionsCar />, path: '/vehicles' },
       { text: 'Drivers', icon: <Person />, path: '/drivers' },
-      { text: 'All Customers', icon: <PeopleIcon />, path: '/customers' },
+      { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
     ],
   },
   {
