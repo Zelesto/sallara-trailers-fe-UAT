@@ -31,26 +31,34 @@ export const inventoryMovementService = {
   },
 
   // Get movement history with filters
-  getMovementHistory: async (filters = {}) => {
-    try {
-      const params = new URLSearchParams();
-      if (filters.itemId) params.append('itemId', filters.itemId);
-      if (filters.movementType) params.append('movementType', filters.movementType);
-      if (filters.approvalStatus) params.append('approvalStatus', filters.approvalStatus);
-      if (filters.startDate) params.append('startDate', filters.startDate);
-      if (filters.endDate) params.append('endDate', filters.endDate);
-      if (filters.performedBy) params.append('performedBy', filters.performedBy);
-      
-      const queryString = params.toString();
-      const url = queryString ? `/inventory/movements?${queryString}` : '/inventory/movements';
-      
-      const response = await api.get(url);
-      return response;
-    } catch (error) {
-      console.error('Error fetching movement history:', error);
-      throw error;
-    }
-  },
+getMovementHistory: async (filters = {}) => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.itemId) params.append('itemId', filters.itemId);
+    if (filters.movementType) params.append('movementType', filters.movementType);
+    if (filters.approvalStatus) params.append('approvalStatus', filters.approvalStatus);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.performedBy) params.append('performedBy', filters.performedBy);
+    
+    // Add pagination parameters
+    if (filters.page !== undefined) params.append('page', filters.page);
+    if (filters.size !== undefined) params.append('size', filters.size);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/inventory/movements?${queryString}` : '/inventory/movements';
+    
+    const response = await api.get(url);
+    console.log('Movement history response:', response);
+    
+    // The response should already be the paginated object from the interceptor
+    // Return the paginated object
+    return response;
+  } catch (error) {
+    console.error('Error fetching movement history:', error);
+    throw error;
+  }
+},
 
   // Get movements by item
   getMovementsByItem: async (itemId, page = 0, size = 20) => {
