@@ -25,6 +25,10 @@ import {
   MenuItem,
   Collapse,
   Tooltip,
+  MenuList,
+  Popper,
+  Paper,
+  ClickAwayListener,
 } from '@mui/material';
 
 import {
@@ -59,9 +63,11 @@ import {
   Receipt as PodIcon,
   FileCopy as BatchIcon,
   CheckCircle as FinalizeIcon,
+  Pending as PendingIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
+import { inventoryMovementService } from '../../services/inventoryMovementService';
 
 // Import your logo images
 import fullLogoImage from '../assets/img/PGSALogo.png';
@@ -243,6 +249,7 @@ const menuSections = [
       { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
       { text: 'Stock Movements', icon: <FuelIcon />, path: '/inventory/movements' },
       { text: 'New Movement', icon: <AddLocationIcon />, path: '/inventory/movements/new' },
+      { text: 'Pending Approvals', icon: <PendingIcon />, path: '/inventory/movements?status=PENDING' },
     ],
   },
   {
@@ -290,6 +297,9 @@ const MainLayout = () => {
   const [expandedSections, setExpandedSections] = useState({});
   const [expandedMenuItems, setExpandedMenuItems] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [pendingApprovalItems, setPendingApprovalItems] = useState([]);
   
   const [tripModalOpen, setTripModalOpen] = useState(false);
   
@@ -301,6 +311,21 @@ const MainLayout = () => {
   const location = useLocation();
   const sidebarRef = useRef(null);
   
+  // Fetch pending approvals
+  const fetchPendingApprovals = async () => {
+    try {
+      const data = await inventoryMovementService.getPendingApprovals();
+      const pendingList = Array.isArray(data) ? data : (data?.content || []);
+      setPendingApprovalItems(pendingList);
+      setPendingApprovals(pendingList.length);
+    } catch (error) {
+      console.error('Error fetching pending approvals:', error);
+      // Don't show error to user, just set to 0
+      setPendingApprovals(0);
+      setPendingApprovalItems([]);
+    }
+  };
+
   useEffect(() => {
     const savedSidebarState = localStorage.getItem('sidebarCollapsed');
     if (savedSidebarState !== null) {
@@ -311,6 +336,15 @@ const MainLayout = () => {
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // Fetch pending approvals on mount and periodically
+  useEffect(() => {
+    if (user) {
+      fetchPendingApprovals();
+      const interval = setInterval(fetchPendingApprovals, 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -342,11 +376,20 @@ const MainLayout = () => {
     setAnchorEl(null);
   };
 
+  const handleNotificationOpen = (event) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchorEl(null);
+  };
+
   const handleNavigation = (path) => {
     navigate(path);
     if (isMobile) {
       setMobileOpen(false);
     }
+    handleNotificationClose();
   };
 
   const handleLogout = () => {
@@ -458,6 +501,9 @@ const MainLayout = () => {
                                                   location.pathname.startsWith(sub.path)
                                                 ));
 
+                      // Add badge for pending approvals in inventory menu
+                      const showBadge = item.text === 'Pending Approvals' && pendingApprovals > 0;
+
                       return (
                         <React.Fragment key={item.text}>
                           <SidebarItem
@@ -480,6 +526,13 @@ const MainLayout = () => {
                                 fontWeight: 500,
                               }}
                             />
+                            {showBadge && (
+                              <Badge
+                                badgeContent={pendingApprovals}
+                                color="warning"
+                                sx={{ mr: 1 }}
+                              />
+                            )}
                             {hasSubItems && (
                               isMenuItemExpanded
                                 ? <ExpandLess sx={{ fontSize: '0.9rem' }} />
@@ -553,6 +606,8 @@ const MainLayout = () => {
                   {section.items.map((item) => {
                     const isSelected = location.pathname === item.path ||
                                       (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+                    const showBadge = item.text === 'Pending Approvals' && pendingApprovals > 0;
+                    
                     return (
                       <Tooltip key={item.text} title={item.text} placement="right" arrow>
                         <ListItemButton
@@ -588,6 +643,23 @@ const MainLayout = () => {
                           }}>
                             {item.icon}
                           </ListItemIcon>
+                          {showBadge && (
+                            <Badge
+                              badgeContent={pendingApprovals}
+                              color="warning"
+                              sx={{
+                                position: 'absolute',
+                                top: 2,
+                                right: 2,
+                                '& .MuiBadge-badge': {
+                                  fontSize: '0.5rem',
+                                  minWidth: 16,
+                                  height: 16,
+                                  padding: '0 4px',
+                                }
+                              }}
+                            />
+                          )}
                         </ListItemButton>
                       </Tooltip>
                     );
@@ -734,11 +806,96 @@ const MainLayout = () => {
             <IconButton size="small" sx={{ borderRadius: 1 }}>
               <Search sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
             </IconButton>
-            <IconButton size="small" sx={{ borderRadius: 1 }}>
-              <Badge badgeContent={3} color="error">
+            
+            {/* Notification Bell with Pending Approvals */}
+            <IconButton 
+              size="small" 
+              sx={{ borderRadius: 1 }}
+              onClick={handleNotificationOpen}
+            >
+              <Badge 
+                badgeContent={pendingApprovals} 
+                color="warning"
+                invisible={pendingApprovals === 0}
+              >
                 <Notifications sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
               </Badge>
             </IconButton>
+
+            {/* Notification Popover */}
+            <Popper
+              open={Boolean(notificationAnchorEl)}
+              anchorEl={notificationAnchorEl}
+              placement="bottom-end"
+              style={{ zIndex: 1300 }}
+            >
+              <ClickAwayListener onClickAway={handleNotificationClose}>
+                <Paper sx={{ 
+                  width: 320, 
+                  maxHeight: 400, 
+                  overflow: 'auto',
+                  mt: 1,
+                  boxShadow: 3,
+                  borderRadius: 1.5,
+                }}>
+                  <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                      Pending Approvals ({pendingApprovals})
+                    </Typography>
+                  </Box>
+                  <MenuList>
+                    {pendingApprovalItems.length === 0 ? (
+                      <MenuItem disabled sx={{ py: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                          No pending approvals
+                        </Typography>
+                      </MenuItem>
+                    ) : (
+                      pendingApprovalItems.slice(0, 5).map((item) => (
+                        <MenuItem 
+                          key={item.id}
+                          onClick={() => handleNavigation('/inventory/movements')}
+                          sx={{ 
+                            py: 1.5,
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            '&:last-child': { borderBottom: 'none' }
+                          }}
+                        >
+                          <Box sx={{ width: '100%' }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                                {item.itemName || `Item #${item.itemId}`}
+                              </Typography>
+                              <Chip
+                                label={item.movementType}
+                                size="small"
+                                color={item.movementType === 'IN' ? 'success' : item.movementType === 'OUT' ? 'error' : 'warning'}
+                                sx={{ height: 18, fontSize: '0.55rem' }}
+                              />
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                              {item.quantity} units • {item.reason || 'No reason provided'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
+                              {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))
+                    )}
+                    {pendingApprovalItems.length > 5 && (
+                      <MenuItem onClick={() => handleNavigation('/inventory/movements')}>
+                        <Typography variant="body2" color="primary" sx={{ fontSize: '0.75rem' }}>
+                          View all {pendingApprovalItems.length} pending approvals
+                        </Typography>
+                      </MenuItem>
+                    )}
+                  </MenuList>
+                </Paper>
+              </ClickAwayListener>
+            </Popper>
+
             <IconButton size="small" sx={{ borderRadius: 1 }}>
               <Settings sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
             </IconButton>
