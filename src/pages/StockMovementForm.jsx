@@ -24,7 +24,6 @@ import {
   InputAdornment,
   Switch,
   FormControlLabel,
-  Autocomplete,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -36,7 +35,7 @@ import {
   LocalAtm,
   Inventory,
   Person,
-  Event,
+  Pending,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { inventoryService } from '../services/inventoryService';
@@ -86,6 +85,19 @@ const StockMovementForm = () => {
   });
 
   const [formErrors, setFormErrors] = useState({});
+
+  // Auto-generate reference number
+  useEffect(() => {
+    if (!formData.referenceNumber && formData.movementType) {
+      const prefix = formData.movementType === 'IN' ? 'IN' : 
+                     formData.movementType === 'OUT' ? 'OUT' : 'ADJ';
+      const timestamp = new Date().getTime().toString().slice(-8);
+      setFormData(prev => ({
+        ...prev,
+        referenceNumber: `${prefix}-${timestamp}`
+      }));
+    }
+  }, [formData.movementType]);
 
   useEffect(() => {
     loadData();
@@ -156,14 +168,6 @@ const StockMovementForm = () => {
     if (!formData.movementType) errors.movementType = 'Please select movement type';
     if (!formData.reason) errors.reason = 'Please provide a reason';
     
-    // Validate approval requirements
-    if (formData.movementType === 'OUT' && !formData.requiresApproval) {
-      errors.requiresApproval = 'Stock Out requires approval';
-    }
-    if (formData.movementType === 'ADJUSTMENT' && !formData.requiresApproval) {
-      errors.requiresApproval = 'Adjustment requires approval';
-    }
-    
     // Invoice reference required for Stock In
     if (formData.movementType === 'IN' && !formData.referenceNumber) {
       errors.referenceNumber = 'Invoice/Purchase Order number is required for Stock In';
@@ -188,10 +192,11 @@ const StockMovementForm = () => {
       return;
     }
 
-    await submitMovement();
+    // Stock In with reference is auto-approved
+    await submitMovement(false);
   };
 
-  const submitMovement = async () => {
+  const submitMovement = async (approved = false) => {
     setSubmitting(true);
     setError('');
     setSuccess('');
@@ -204,13 +209,23 @@ const StockMovementForm = () => {
         requiresApproval: formData.requiresApproval || 
                           formData.movementType === 'OUT' || 
                           formData.movementType === 'ADJUSTMENT',
-        approvalStatus: formData.requiresApproval || 
-                        formData.movementType === 'OUT' || 
-                        formData.movementType === 'ADJUSTMENT' ? 'PENDING' : 'APPROVED',
+        approvalStatus: 'PENDING',
       };
 
-      await inventoryMovementService.recordMovement(payload);
-      setSuccess('Stock movement recorded successfully!');
+      // If approved now, set approval details
+      if (approved) {
+        payload.approvalStatus = 'APPROVED';
+        payload.approvedBy = 'Current User';
+        payload.approvedAt = new Date().toISOString();
+      }
+
+      const response = await inventoryMovementService.recordMovement(payload);
+      
+      if (payload.approvalStatus === 'APPROVED') {
+        setSuccess('✅ Stock movement created and approved successfully!');
+      } else {
+        setSuccess('✅ Stock movement created and submitted for approval!');
+      }
       
       setTimeout(() => {
         navigate('/inventory/movements');
@@ -388,7 +403,7 @@ const StockMovementForm = () => {
               </FormControl>
             </Grid>
 
-            {/* Reference Number */}
+            {/* Reference Number - Auto-generated */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -398,12 +413,13 @@ const StockMovementForm = () => {
                 onChange={handleChange}
                 size="small"
                 error={!!formErrors.referenceNumber}
-                helperText={formErrors.referenceNumber || 'Invoice/PO number for stock in'}
+                helperText={formErrors.referenceNumber || 'Auto-generated reference number'}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
                   startAdornment: formData.movementType === 'IN' ? (
                     <InputAdornment position="start"><Receipt sx={{ fontSize: '0.9rem' }} /></InputAdornment>
                   ) : null,
+                  readOnly: true,
                 }}
               />
             </Grid>
@@ -452,7 +468,7 @@ const StockMovementForm = () => {
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                       {formData.movementType === 'IN' 
-                        ? 'Stock In requires invoice reference for tracking'
+                        ? 'Stock In with reference is auto-approved'
                         : 'Stock Out and Adjustments require manager approval'
                       }
                     </Typography>
@@ -503,7 +519,7 @@ const StockMovementForm = () => {
                   startIcon={submitting ? <CircularProgress size={18} /> : <Save sx={{ fontSize: '0.9rem' }} />}
                   sx={{ minWidth: 180, fontSize: '0.8rem' }}
                 >
-                  {submitting ? 'Recording...' : 'Record Movement'}
+                  {submitting ? 'Saving...' : 'Save Movement'}
                 </Button>
                 <Button
                   variant="outlined"
@@ -519,57 +535,120 @@ const StockMovementForm = () => {
         </form>
       </Paper>
 
-      {/* Confirmation Dialog */}
+      {/* Approval Confirmation Dialog */}
       <Dialog
         open={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
         maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: { borderRadius: 1.5 } }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>
           <Box display="flex" alignItems="center" gap={1}>
-            <Warning color="warning" />
+            <Warning color="warning" sx={{ fontSize: '1.2rem' }} />
             <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-              Confirm Stock Movement
+              Approval Required
             </Typography>
           </Box>
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              This movement requires approval before it can be processed.
+            <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
+              This movement requires approval. You can:
+              <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                <li>Submit for approval (manager will approve later)</li>
+                <li>Approve now (if you have permission)</li>
+              </ul>
             </Alert>
-            <Stack spacing={1}>
-              <Typography variant="body2">
-                <strong>Item:</strong> {getItemName(formData.itemId)}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Type:</strong> {MOVEMENT_TYPES.find(t => t.value === formData.movementType)?.label || formData.movementType}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Quantity:</strong> {formData.quantity} {selectedItem?.unitOfMeasure || 'units'}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Reason:</strong> {formData.reason}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Approval Status:</strong> Pending
-              </Typography>
+            <Stack spacing={1.5}>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  Item
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                  {getItemName(formData.itemId)}
+                </Typography>
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  Type
+                </Typography>
+                <Chip
+                  label={MOVEMENT_TYPES.find(t => t.value === formData.movementType)?.label || formData.movementType}
+                  color={MOVEMENT_TYPES.find(t => t.value === formData.movementType)?.color || 'default'}
+                  size="small"
+                  sx={{ height: 20, fontSize: '0.6rem' }}
+                />
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  Quantity
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                  {formData.quantity} {selectedItem?.unitOfMeasure || 'units'}
+                </Typography>
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  Reason
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                  {formData.reason}
+                </Typography>
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  Reference
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                  {formData.referenceNumber}
+                </Typography>
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  Status
+                </Typography>
+                <Chip
+                  label="Pending Approval"
+                  color="warning"
+                  size="small"
+                  icon={<Pending sx={{ fontSize: '0.7rem' }} />}
+                  sx={{ height: 20, fontSize: '0.6rem' }}
+                />
+              </Box>
             </Stack>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowConfirmDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
-            Cancel
-          </Button>
+        <DialogActions sx={{ flexDirection: 'column', gap: 1, p: 2.5, pt: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
+            <Button
+              onClick={() => setShowConfirmDialog(false)}
+              variant="outlined"
+              size="small"
+              sx={{ fontSize: '0.8rem', flex: 1 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => submitMovement(false)}
+              variant="contained"
+              color="warning"
+              size="small"
+              sx={{ fontSize: '0.8rem', flex: 1 }}
+              startIcon={<Pending sx={{ fontSize: '0.9rem' }} />}
+            >
+              Submit for Approval
+            </Button>
+          </Stack>
           <Button
-            onClick={submitMovement}
+            onClick={() => submitMovement(true)}
             variant="contained"
-            color="warning"
+            color="success"
             size="small"
-            sx={{ fontSize: '0.8rem' }}
+            sx={{ fontSize: '0.8rem', width: '100%' }}
+            startIcon={<CheckCircle sx={{ fontSize: '0.9rem' }} />}
           >
-            Submit for Approval
+            Approve Now
           </Button>
         </DialogActions>
       </Dialog>
