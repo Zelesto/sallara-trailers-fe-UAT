@@ -43,6 +43,10 @@ const LoadDetails = lazy(() => import("./pages/load/LoadDetails"));
 const LoadForm = lazy(() => import("./pages/load/LoadForm"));
 const LoadMerge = lazy(() => import("./pages/load/LoadMerge"));
 
+const CustomerList = lazy(() => import("./pages/customer/CustomerList"));
+const CustomerForm = lazy(() => import("./pages/customer/CustomerForm"));
+const CustomerDetails = lazy(() => import("./pages/customer/CustomerDetails"));
+
 const FinanceDashboard = lazy(() => import("./pages/finance/FinanceDashboard"));
 const AccountsPage = lazy(() => import("./pages/finance/AccountsPage"));
 const ExpensesPage = lazy(() => import("./pages/finance/ExpensePage"));
@@ -223,6 +227,12 @@ function App() {
                     <Route path="loads/new" element={<LoadForm />} />
                     <Route path="loads/:loadNumber" element={<LoadDetails />} />
                     <Route path="loads/merge" element={<LoadMerge />} />
+
+                    {/* Customer */}
+                    <Route path="customers" element={<CustomerList />} />
+                    <Route path="customers/new" element={<CustomerForm />} />
+                    <Route path="customers/:id" element={<CustomerDetails />} />
+                    <Route path="customers/:id/edit" element={<CustomerForm />} />
                     
                     {/* Fuel */}
                     <Route path="fuel/slips" element={<FuelSlips />} />
