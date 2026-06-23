@@ -229,15 +229,15 @@ const menuSections = [
         ],
       },
       {
-      text: 'Load Management',
-      icon: <LocalShipping />,
-      path: '/loads',
-      subItems: [
-        { text: 'All Loads', path: '/loads', icon: <LocalShipping /> },
-        { text: 'New Load', path: '/loads/new', icon: <AddLocationIcon /> },
-        { text: 'Smart Merge', path: '/loads/merge', icon: <MergeIcon /> },
-      ],
-    },
+        text: 'Load Management',
+        icon: <LocalShippingIcon />,  // Use LocalShippingIcon
+        path: '/loads',
+        subItems: [
+          { text: 'All Loads', path: '/loads', icon: <LocalShippingIcon /> },
+          { text: 'New Load', path: '/loads/new', icon: <AddLocationIcon /> },
+          { text: 'Smart Merge', path: '/loads/merge', icon: <MergeIcon /> },
+        ],
+      },
       {
         text: 'POD Management',
         icon: <PodIcon />,
@@ -274,7 +274,14 @@ const menuSections = [
     items: [
       { text: 'Vehicles', icon: <DirectionsCar />, path: '/vehicles' },
       { text: 'Drivers', icon: <Person />, path: '/drivers' },
-      { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
+    ],
+  },
+  {
+    title: 'Customers',
+    icon: <People />,
+    items: [
+      { text: 'All Customers', icon: <People />, path: '/customers' },
+      { text: 'Add Customer', icon: <PersonAddIcon />, path: '/customers/new' },
     ],
   },
   {
