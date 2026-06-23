@@ -103,43 +103,59 @@ const MovementHistory = () => {
     rejected: 0,
   });
 
+  // Define calculateStats BEFORE it's used
+  const calculateStats = (data) => {
+    const movementsArray = Array.isArray(data) ? data : [];
+    const pending = movementsArray.filter(m => m.approvalStatus === 'PENDING').length;
+    const approved = movementsArray.filter(m => m.approvalStatus === 'APPROVED').length;
+    const rejected = movementsArray.filter(m => m.approvalStatus === 'REJECTED').length;
+    setStats({
+      total: movementsArray.length,
+      pending,
+      approved,
+      rejected,
+    });
+  };
+
   useEffect(() => {
     loadMovements();
   }, []);
 
-
-const loadMovements = async () => {
-  setLoading(true);
-  try {
-    const data = await inventoryMovementService.getMovementHistory();
-    console.log('Movement history response:', data);
-    
-    // Extract movements from paginated response
-    let movementsData = [];
-    if (Array.isArray(data)) {
-      movementsData = data;
-    } else if (data && data.content) {
-      movementsData = data.content;
-    } else if (data && data.data) {
-      movementsData = Array.isArray(data.data) ? data.data : [];
-    } else if (data && typeof data === 'object') {
-      // Try to find any array property
-      const values = Object.values(data);
-      const arrayProp = values.find(v => Array.isArray(v));
-      movementsData = arrayProp || [];
+  const loadMovements = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await inventoryMovementService.getMovementHistory();
+      console.log('Movement history response:', data);
+      
+      // Extract movements from paginated response
+      let movementsData = [];
+      if (Array.isArray(data)) {
+        movementsData = data;
+      } else if (data && data.content) {
+        movementsData = data.content;
+      } else if (data && data.data) {
+        movementsData = Array.isArray(data.data) ? data.data : [];
+      } else if (data && typeof data === 'object') {
+        // Try to find any array property
+        const values = Object.values(data);
+        const arrayProp = values.find(v => Array.isArray(v));
+        movementsData = arrayProp || [];
+      }
+      
+      console.log('Extracted movements:', movementsData);
+      setMovements(movementsData);
+      calculateStats(movementsData);
+    } catch (err) {
+      console.error('Error loading movements:', err);
+      setError('Failed to load movement history');
+      setMovements([]);
+      calculateStats([]);
+    } finally {
+      setLoading(false);
     }
-    
-    console.log('Extracted movements:', movementsData);
-    setMovements(movementsData);
-    calculateStats(movementsData);
-  } catch (err) {
-    console.error('Error loading movements:', err);
-    setError('Failed to load movement history');
-    setMovements([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleApprove = async () => {
     try {
       await inventoryMovementService.approveMovement(
@@ -205,13 +221,13 @@ const loadMovements = async () => {
   };
 
   const filteredMovements = useMemo(() => {
-    let filtered = movements;
+    let filtered = Array.isArray(movements) ? movements : [];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(m =>
-        m.itemName?.toLowerCase().includes(term) ||
-        m.reason?.toLowerCase().includes(term) ||
-        m.referenceNumber?.toLowerCase().includes(term)
+        (m.itemName || '').toLowerCase().includes(term) ||
+        (m.reason || '').toLowerCase().includes(term) ||
+        (m.referenceNumber || '').toLowerCase().includes(term)
       );
     }
     if (filterType !== 'ALL') {
