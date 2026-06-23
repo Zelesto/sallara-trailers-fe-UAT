@@ -1,5 +1,4 @@
 // src/components/Layout/Layout.jsx
-// src/components/Layout/Layout.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -50,7 +49,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  Notifications,
+  Notifications,  // Add this - it was missing
   Search,
   AdminPanelSettings,
   People,
@@ -66,9 +65,9 @@ import {
   FileCopy as BatchIcon,
   CheckCircle as FinalizeIcon,
   Pending as PendingIcon,
-   PersonAdd as PersonAddIcon,
-    LocalShipping as LocalShippingIcon, 
-  Merge as MergeIcon,                   
+  PersonAdd as PersonAddIcon,
+  LocalShipping as LocalShippingIcon,
+  Merge as MergeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
@@ -80,7 +79,6 @@ import collapsedLogoImage from '../assets/img/SALLogo_sml.png';
 
 import Breadcrumbs from './Breadcrumbs';
 import TripForm from '../../pages/TripForm';
-
 
 const drawerWidth = 240;
 const collapsedDrawerWidth = 64;
