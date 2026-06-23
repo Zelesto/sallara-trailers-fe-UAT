@@ -226,6 +226,16 @@ const menuSections = [
         ],
       },
       {
+      text: 'Load Management',
+      icon: <LocalShipping />,
+      path: '/loads',
+      subItems: [
+        { text: 'All Loads', path: '/loads', icon: <LocalShipping /> },
+        { text: 'New Load', path: '/loads/new', icon: <AddLocationIcon /> },
+        { text: 'Smart Merge', path: '/loads/merge', icon: <MergeIcon /> },
+      ],
+    },
+      {
         text: 'POD Management',
         icon: <PodIcon />,
         path: '/pods',
