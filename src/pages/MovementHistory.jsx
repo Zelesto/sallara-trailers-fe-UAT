@@ -45,7 +45,7 @@ import {
   Person,
   Event,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { inventoryMovementService } from '../services/inventoryMovementService';
 import { inventoryService } from '../services/inventoryService';
 
@@ -86,6 +86,7 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => 
 
 const MovementHistory = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,6 +103,15 @@ const MovementHistory = () => {
     approved: 0,
     rejected: 0,
   });
+
+  // Parse URL parameters on mount
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const statusParam = params.get('status');
+    if (statusParam && ['PENDING', 'APPROVED', 'REJECTED'].includes(statusParam)) {
+      setFilterStatus(statusParam);
+    }
+  }, [location.search]);
 
   // Define calculateStats BEFORE it's used
   const calculateStats = (data) => {
@@ -182,6 +192,18 @@ const MovementHistory = () => {
       console.error('Error rejecting movement:', err);
       setError('Failed to reject movement');
     }
+  };
+
+  const handleFilterStatusChange = (status) => {
+    setFilterStatus(status);
+    // Update URL without reload
+    const params = new URLSearchParams(location.search);
+    if (status === 'ALL') {
+      params.delete('status');
+    } else {
+      params.set('status', status);
+    }
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
   };
 
   const getMovementTypeChip = (type) => {
@@ -271,6 +293,20 @@ const MovementHistory = () => {
           >
             New Movement
           </Button>
+          {stats.pending > 0 && (
+            <Chip
+              label={`${stats.pending} pending`}
+              color="warning"
+              size="small"
+              onClick={() => handleFilterStatusChange('PENDING')}
+              sx={{ 
+                cursor: 'pointer', 
+                height: 28,
+                fontSize: '0.7rem',
+                '&:hover': { opacity: 0.8 }
+              }}
+            />
+          )}
         </Stack>
       </Box>
 
@@ -326,7 +362,7 @@ const MovementHistory = () => {
             <Select
               value={filterStatus}
               label="Status"
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => handleFilterStatusChange(e.target.value)}
               sx={{ fontSize: '0.75rem' }}
             >
               <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
@@ -364,7 +400,9 @@ const MovementHistory = () => {
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
                   <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                    No movements found
+                    {filterStatus !== 'ALL' 
+                      ? `No ${filterStatus.toLowerCase()} movements found` 
+                      : 'No movements found'}
                   </Typography>
                 </TableCell>
               </TableRow>
