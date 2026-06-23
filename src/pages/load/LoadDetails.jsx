@@ -17,6 +17,10 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+} from '@mui/material';
+
+// Import Timeline components from @mui/lab
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
@@ -24,7 +28,8 @@ import {
   TimelineContent,
   TimelineDot,
   TimelineOppositeContent,
-} from '@mui/material';
+} from '@mui/lab';
+
 import {
   ArrowBack,
   LocalShipping,
@@ -39,6 +44,25 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadService } from '../../services/loadService';
+
+// Info Item Component
+const InfoItem = ({ label, value, icon: Icon, isChip = false }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    {Icon && <Icon sx={{ fontSize: '0.9rem', color: 'text.secondary' }} />}
+    <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
+        {label}
+      </Typography>
+      {isChip ? (
+        <Box sx={{ mt: 0.25 }}>{value}</Box>
+      ) : (
+        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+          {value || 'N/A'}
+        </Typography>
+      )}
+    </Box>
+  </Box>
+);
 
 const LoadDetails = () => {
   const { loadNumber } = useParams();
@@ -284,24 +308,5 @@ const LoadDetails = () => {
     </Box>
   );
 };
-
-// Info Item Component
-const InfoItem = ({ label, value, icon: Icon, isChip = false }) => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-    {Icon && <Icon sx={{ fontSize: '0.9rem', color: 'text.secondary' }} />}
-    <Box>
-      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
-        {label}
-      </Typography>
-      {isChip ? (
-        <Box sx={{ mt: 0.25 }}>{value}</Box>
-      ) : (
-        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-          {value || 'N/A'}
-        </Typography>
-      )}
-    </Box>
-  </Box>
-);
 
 export default LoadDetails;
