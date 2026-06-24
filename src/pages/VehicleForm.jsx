@@ -36,7 +36,7 @@ import {
   Numbers,
   AttachMoney,
 } from '@mui/icons-material';
-import { vehicleService } from '../../services/vehicleService';
+import { vehicleService } from '../services/vehicleService';
 
 // Constants - Must match backend enums exactly
 const VEHICLE_TYPES = [
