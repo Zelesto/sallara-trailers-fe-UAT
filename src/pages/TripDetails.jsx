@@ -6,7 +6,12 @@ import {
   Select, MenuItem, FormControl, InputLabel,
   TextField, CircularProgress, Alert,
   Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, Tooltip, Stack, LinearProgress
+  IconButton, Tooltip, Stack, LinearProgress,
+  Dialog as MuiDialog,
+  DialogActions as MuiDialogActions,
+  DialogContent as MuiDialogContent,
+  DialogTitle as MuiDialogTitle,
+  FormControlLabel, Switch, Menu
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -23,7 +28,14 @@ import {
   TrendingDown as TrendingDownIcon,
   Edit as EditIcon,
   Add as AddIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  Warning as WarningIcon,
+  ReportProblem as IncidentIcon,
+  Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  MoreVert as MoreVertIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
@@ -80,6 +92,60 @@ const StatusChip = ({ status }) => {
   );
 };
 
+// Incident Severity Chip
+const SeverityChip = ({ severity }) => {
+  const configs = {
+    LOW: { label: 'Low', color: '#2e7d32', bgColor: '#e8f5e9' },
+    MEDIUM: { label: 'Medium', color: '#ed6c02', bgColor: '#fff3e0' },
+    HIGH: { label: 'High', color: '#d32f2f', bgColor: '#ffebee' },
+    CRITICAL: { label: 'Critical', color: '#b71c1c', bgColor: '#ffcdd2' }
+  };
+  
+  const config = configs[severity] || configs.MEDIUM;
+  
+  return (
+    <Chip
+      label={config.label}
+      size="small"
+      sx={{
+        backgroundColor: config.bgColor,
+        color: config.color,
+        fontWeight: 600,
+        fontSize: '0.65rem',
+        height: 20,
+        '& .MuiChip-label': { px: 1, py: 0.25 }
+      }}
+    />
+  );
+};
+
+// Incident Status Chip
+const IncidentStatusChip = ({ status }) => {
+  const configs = {
+    OPEN: { label: 'Open', color: '#d32f2f', bgColor: '#ffebee' },
+    IN_PROGRESS: { label: 'In Progress', color: '#ed6c02', bgColor: '#fff3e0' },
+    RESOLVED: { label: 'Resolved', color: '#2e7d32', bgColor: '#e8f5e9' },
+    CLOSED: { label: 'Closed', color: '#757575', bgColor: '#f5f5f5' }
+  };
+  
+  const config = configs[status] || configs.OPEN;
+  
+  return (
+    <Chip
+      label={config.label}
+      size="small"
+      sx={{
+        backgroundColor: config.bgColor,
+        color: config.color,
+        fontWeight: 600,
+        fontSize: '0.65rem',
+        height: 20,
+        '& .MuiChip-label': { px: 1, py: 0.25 }
+      }}
+    />
+  );
+};
+
 // Compact Info Item Component
 const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
@@ -118,6 +184,426 @@ const FuelStatCard = ({ icon: Icon, title, value, subtitle, color = 'primary' })
     </CardContent>
   </Card>
 );
+
+// ===================== INCIDENTS SECTION =====================
+
+// Incident Form Dialog
+const IncidentForm = ({ open, onClose, onSave, tripId, incident = null }) => {
+  const [formData, setFormData] = useState({
+    incidentType: '',
+    severity: 'MEDIUM',
+    description: '',
+    location: '',
+    requiresAssistance: false
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (incident) {
+      setFormData({
+        incidentType: incident.incidentType || '',
+        severity: incident.severity || 'MEDIUM',
+        description: incident.description || '',
+        location: incident.location || '',
+        requiresAssistance: incident.requiresAssistance || false
+      });
+    } else {
+      setFormData({
+        incidentType: '',
+        severity: 'MEDIUM',
+        description: '',
+        location: '',
+        requiresAssistance: false
+      });
+    }
+  }, [incident]);
+
+  const handleSubmit = async () => {
+    if (!formData.incidentType || !formData.description) {
+      setError('Incident type and description are required');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const payload = {
+        ...formData,
+        tripId
+      };
+
+      if (incident?.id) {
+        await tripService.updateIncident(tripId, incident.id, payload);
+      } else {
+        await tripService.reportIncident(tripId, payload);
+      }
+
+      onSave();
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to save incident');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <MuiDialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <MuiDialogTitle sx={{ py: 1.5 }}>
+        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+          {incident ? 'Update Incident' : 'Report New Incident'}
+        </Typography>
+      </MuiDialogTitle>
+      <MuiDialogContent dividers sx={{ p: 2 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Incident Type"
+              value={formData.incidentType}
+              onChange={(e) => setFormData({ ...formData, incidentType: e.target.value })}
+              required
+              size="small"
+              placeholder="e.g., Mechanical Failure, Accident, Weather Delay"
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Severity</InputLabel>
+              <Select
+                value={formData.severity}
+                label="Severity"
+                onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
+              >
+                <MenuItem value="LOW">Low</MenuItem>
+                <MenuItem value="MEDIUM">Medium</MenuItem>
+                <MenuItem value="HIGH">High</MenuItem>
+                <MenuItem value="CRITICAL">Critical</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Location"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              size="small"
+              placeholder="e.g., N1 Highway, Cape Town"
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              required
+              size="small"
+              placeholder="Describe the incident in detail..."
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.requiresAssistance}
+                  onChange={(e) => setFormData({ ...formData, requiresAssistance: e.target.checked })}
+                  size="small"
+                />
+              }
+              label="Requires Assistance"
+            />
+          </Grid>
+        </Grid>
+      </MuiDialogContent>
+      <MuiDialogActions sx={{ p: 1.5 }}>
+        <Button onClick={onClose} size="small">Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={loading}
+          startIcon={loading && <CircularProgress size={16} />}
+          size="small"
+        >
+          {loading ? 'Saving...' : (incident ? 'Update' : 'Report')}
+        </Button>
+      </MuiDialogActions>
+    </MuiDialog>
+  );
+};
+
+// Incidents Tab Component
+const IncidentsTab = ({ tripId, trip }) => {
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingIncident, setEditingIncident] = useState(null);
+  const [filter, setFilter] = useState('ALL');
+
+  const fetchIncidents = useCallback(async () => {
+    if (!tripId) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const data = await tripService.getTripIncidents(tripId);
+      setIncidents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching incidents:', err);
+      setError('Failed to load incidents');
+    } finally {
+      setLoading(false);
+    }
+  }, [tripId]);
+
+  useEffect(() => {
+    if (tripId) {
+      fetchIncidents();
+    }
+  }, [tripId, fetchIncidents]);
+
+  const handleSaveIncident = () => {
+    fetchIncidents();
+  };
+
+  const handleEdit = (incident) => {
+    setEditingIncident(incident);
+    setFormOpen(true);
+  };
+
+  const handleDelete = async (incidentId) => {
+    if (!window.confirm('Are you sure you want to delete this incident?')) return;
+    
+    try {
+      await tripService.deleteIncident(tripId, incidentId);
+      fetchIncidents();
+    } catch (err) {
+      console.error('Error deleting incident:', err);
+      setError('Failed to delete incident');
+    }
+  };
+
+  const filteredIncidents = useMemo(() => {
+    if (filter === 'ALL') return incidents;
+    return incidents.filter(i => i.status === filter);
+  }, [incidents, filter]);
+
+  const stats = useMemo(() => {
+    const total = incidents.length;
+    const open = incidents.filter(i => i.status === 'OPEN').length;
+    const inProgress = incidents.filter(i => i.status === 'IN_PROGRESS').length;
+    const resolved = incidents.filter(i => i.status === 'RESOLVED').length;
+    const critical = incidents.filter(i => i.severity === 'CRITICAL').length;
+    return { total, open, inProgress, resolved, critical };
+  }, [incidents]);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={150}>
+        <CircularProgress size={30} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Stats Row */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={3}>
+          <Card variant="outlined">
+            <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>Total</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem' }}>{stats.total}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={3}>
+          <Card variant="outlined" sx={{ borderColor: stats.open > 0 ? '#d32f2f' : 'divider' }}>
+            <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>Open</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem', color: stats.open > 0 ? '#d32f2f' : 'inherit' }}>
+                {stats.open}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={3}>
+          <Card variant="outlined" sx={{ borderColor: stats.critical > 0 ? '#b71c1c' : 'divider' }}>
+            <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>Critical</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem', color: stats.critical > 0 ? '#b71c1c' : 'inherit' }}>
+                {stats.critical}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={3}>
+          <Card variant="outlined">
+            <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>Resolved</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem', color: stats.resolved > 0 ? '#2e7d32' : 'inherit' }}>
+                {stats.resolved}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Actions */}
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
+          onClick={() => { setEditingIncident(null); setFormOpen(true); }}
+          sx={{ fontSize: '0.75rem' }}
+        >
+          Report Incident
+        </Button>
+        
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <Select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            displayEmpty
+            sx={{ fontSize: '0.75rem' }}
+          >
+            <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All</MenuItem>
+            <MenuItem value="OPEN" sx={{ fontSize: '0.75rem' }}>Open</MenuItem>
+            <MenuItem value="IN_PROGRESS" sx={{ fontSize: '0.75rem' }}>In Progress</MenuItem>
+            <MenuItem value="RESOLVED" sx={{ fontSize: '0.75rem' }}>Resolved</MenuItem>
+          </Select>
+        </FormControl>
+        
+        <Button
+          size="small"
+          startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />}
+          onClick={fetchIncidents}
+          sx={{ fontSize: '0.75rem' }}
+        >
+          Refresh
+        </Button>
+      </Stack>
+
+      {/* Incidents Table */}
+      {filteredIncidents.length === 0 ? (
+        <Box textAlign="center" py={3}>
+          <IncidentIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+            No incidents reported
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => { setEditingIncident(null); setFormOpen(true); }}
+            sx={{ mt: 1, fontSize: '0.75rem' }}
+          >
+            Report First Incident
+          </Button>
+        </Box>
+      ) : (
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
+          <Table size="small">
+            <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+              <TableRow>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Type</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Severity</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Description</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Reported</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }} align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredIncidents.map((incident) => (
+                <TableRow key={incident.id} hover>
+                  <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <IncidentIcon sx={{ fontSize: '0.8rem', color: 'error.main' }} />
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {incident.incidentType}
+                      </Typography>
+                    </Stack>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                    <SeverityChip severity={incident.severity} />
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                    <Tooltip title={incident.description}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {incident.description}
+                      </Typography>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                    <IncidentStatusChip status={incident.status} />
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+                      {dayjs(incident.reportedAt).format('DD MMM YYYY')}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.6rem' }}>
+                      {dayjs(incident.reportedAt).format('HH:mm')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center" sx={{ py: 0.75 }}>
+                    <Stack direction="row" spacing={0.5} justifyContent="center">
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => handleEdit(incident)} sx={{ p: 0.5 }}>
+                          <EditIcon sx={{ fontSize: '0.8rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" onClick={() => handleDelete(incident.id)} sx={{ p: 0.5, color: 'error.main' }}>
+                          <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {/* Incident Form Dialog */}
+      <IncidentForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSave={handleSaveIncident}
+        tripId={tripId}
+        incident={editingIncident}
+      />
+    </Box>
+  );
+};
+
+// ===================== MAIN TRIP DETAILS COMPONENT =====================
 
 const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
   const [trip, setTrip] = useState(null);
@@ -515,6 +1001,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                   <Tab 
                     label={
                       <Box display="flex" alignItems="center" sx={{ fontSize: '0.75rem' }}>
+                        <FuelIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />
                         Fuel
                         {fuelStats.entriesCount > 0 && (
                           <Chip 
@@ -523,6 +1010,20 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                             sx={{ ml: 0.75, height: 18, fontSize: '0.6rem' }}
                           />
                         )}
+                      </Box>
+                    } 
+                  />
+                  <Tab 
+                    label={
+                      <Box display="flex" alignItems="center" sx={{ fontSize: '0.75rem' }}>
+                        <IncidentIcon sx={{ fontSize: '0.9rem', mr: 0.5 }} />
+                        Incidents
+                        <Chip 
+                          label={trip.incidentsCount || 0} 
+                          size="small" 
+                          color={trip.incidentsCount > 0 ? 'error' : 'default'}
+                          sx={{ ml: 0.75, height: 18, fontSize: '0.6rem' }}
+                        />
                       </Box>
                     } 
                   />
@@ -544,7 +1045,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                         />
                         <CardContent sx={{ p: 2, pt: 0 }}>
                           <Grid container spacing={1.5}>
-                            {/* Customer Information - NEW */}
+                            {/* Customer Information */}
                             <Grid item xs={12}>
                               <Box display="flex" alignItems="center" mb={0.5}>
                                 <BusinessIcon fontSize="small" sx={{ mr: 0.75, color: 'primary.main', fontSize: '0.9rem' }} />
@@ -941,6 +1442,10 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                 )}
 
                 {activeTab === 2 && (
+                  <IncidentsTab tripId={tripId} trip={trip} />
+                )}
+
+                {activeTab === 3 && (
                   <Card variant="outlined">
                     <CardContent sx={{ p: 2 }}>
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }} gutterBottom>
