@@ -22,7 +22,8 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   Edit as EditIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
@@ -78,6 +79,25 @@ const StatusChip = ({ status }) => {
     />
   );
 };
+
+// Compact Info Item Component
+const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+    {Icon && <Icon sx={{ fontSize: '0.9rem', color: `${color}.main` }} />}
+    <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
+        {label}
+      </Typography>
+      {isChip ? (
+        <Box sx={{ mt: 0.25 }}>{value}</Box>
+      ) : (
+        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+          {value || 'N/A'}
+        </Typography>
+      )}
+    </Box>
+  </Box>
+);
 
 // Compact Fuel Stats Card
 const FuelStatCard = ({ icon: Icon, title, value, subtitle, color = 'primary' }) => (
@@ -524,6 +544,24 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                         />
                         <CardContent sx={{ p: 2, pt: 0 }}>
                           <Grid container spacing={1.5}>
+                            {/* Customer Information - NEW */}
+                            <Grid item xs={12}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <BusinessIcon fontSize="small" sx={{ mr: 0.75, color: 'primary.main', fontSize: '0.9rem' }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                  Customer
+                                </Typography>
+                              </Box>
+                              <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.8rem' }}>
+                                {trip.customerName || 'No Customer Assigned'}
+                              </Typography>
+                              {trip.customerCode && (
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                  Code: {trip.customerCode}
+                                </Typography>
+                              )}
+                            </Grid>
+
                             <Grid item xs={12} sm={6}>
                               <Box display="flex" alignItems="center" mb={0.5}>
                                 <LocationIcon fontSize="small" sx={{ mr: 0.75, color: 'primary.main', fontSize: '0.9rem' }} />
@@ -751,6 +789,15 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                         />
                         <CardContent sx={{ p: 2, pt: 0 }}>
                           <Stack spacing={1.5}>
+                            <InfoItem 
+                              label="Customer" 
+                              value={trip.customerName || 'No Customer'} 
+                              icon={BusinessIcon} 
+                              color="primary"
+                            />
+                            
+                            <Divider />
+                            
                             <Box>
                               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                 Status
