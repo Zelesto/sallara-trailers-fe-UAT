@@ -36,7 +36,7 @@ import {
   Numbers,
   AttachMoney,
 } from '@mui/icons-material';
-import { vehicleService } from '../../services/vehicleService';
+import { vehicleService } from '../services/vehicleService';
 
 // Constants - must match database values
 const VEHICLE_TYPES = ['TRUCK', 'TRAILER', 'VAN', 'CAR'];
