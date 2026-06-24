@@ -1,29 +1,6 @@
 // src/services/vehicleService.js
 import api from './api';
 
-// Helper to validate enum values
-const validateEnumValue = (key, value) => {
-  // VehicleStatus enum values
-  const validStatuses = [
-    'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'REPAIR', 
-    'SOLD', 'DECOMMISSIONED', 'AVAILABLE', 'ASSIGNED', 
-    'IN_USE', 'OUT_OF_SERVICE', 'RETIRED'
-  ];
-  
-  // VehicleType enum values
-  const validTypes = ['TRUCK', 'TRAILER', 'VAN', 'CAR'];
-  
-  if (key === 'status') {
-    return validStatuses.includes(value) ? value : 'AVAILABLE';
-  }
-  
-  if (key === 'vehicleType' || key === 'vehicle_type') {
-    return validTypes.includes(value) ? value : 'TRUCK';
-  }
-  
-  return value;
-};
-
 // Helper to map frontend camelCase to backend snake_case for requests
 const toSnakeCase = (data) => {
   if (!data || typeof data !== 'object') return data;
@@ -55,49 +32,17 @@ const toSnakeCase = (data) => {
     purchaseDate: 'purchase_date',
     purchasePrice: 'purchase_price',
     currentValue: 'current_value',
-    category: 'category',
-    vin: 'vin'
+    category: 'category'
   };
   
   Object.keys(data).forEach(key => {
     const snakeKey = mappings[key] || key;
-    let value = data[key];
-    
-    // Validate enum values
-    if (key === 'status') {
-      value = validateEnumValue('status', value);
+    // Skip undefined or null values except for required fields
+    if (data[key] === undefined || data[key] === null) {
+      return;
     }
-    if (key === 'vehicleType') {
-      value = validateEnumValue('vehicleType', value);
-    }
-    
-    // Skip null/undefined/empty values (except required fields)
-    if (value === null || value === undefined || value === '') {
-      const requiredFields = ['registration_number', 'make', 'model', 'vehicle_type', 'status'];
-      if (!requiredFields.includes(snakeKey)) {
-        return; // Skip this key
-      }
-    }
-    
-    result[snakeKey] = value;
+    result[snakeKey] = data[key];
   });
-  
-  // Ensure required fields are always present
-  if (!result.registration_number) {
-    throw new Error('Registration number is required');
-  }
-  if (!result.make) {
-    throw new Error('Make is required');
-  }
-  if (!result.model) {
-    throw new Error('Model is required');
-  }
-  if (!result.vehicle_type) {
-    result.vehicle_type = 'TRUCK';
-  }
-  if (!result.status) {
-    result.status = 'AVAILABLE';
-  }
   
   return result;
 };
@@ -192,97 +137,108 @@ export const vehicleService = {
     }
   },
 
-
-createVehicle: async (vehicleData) => {
-  try {
-    console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
-    
-    // Only include fields that exist in the database
-    const payload = {
-      registration_number: vehicleData.registrationNumber || '',
-      make: vehicleData.make || '',
-      model: vehicleData.model || '',
-      vehicle_type: vehicleData.vehicleType || 'TRUCK',
-      status: vehicleData.status || 'AVAILABLE',
-    };
-    
-    // Add optional fields only if they have values (and exist in DB)
-    if (vehicleData.vin) payload.vin = vehicleData.vin;
-    if (vehicleData.year) payload.year = vehicleData.year;
-    if (vehicleData.fuelType) payload.fuel_type = vehicleData.fuelType;
-    if (vehicleData.currentMileage !== undefined && vehicleData.currentMileage !== null) {
-      payload.current_mileage = vehicleData.currentMileage;
-    }
-    if (vehicleData.currentOdometer !== undefined && vehicleData.currentOdometer !== null) {
-      payload.current_odometer = vehicleData.currentOdometer;
-    }
-    if (vehicleData.avgConsumption !== undefined && vehicleData.avgConsumption !== null) {
-      payload.avg_consumption = vehicleData.avgConsumption;
-    }
-    if (vehicleData.lastServiceDate) payload.last_service_date = vehicleData.lastServiceDate;
-    if (vehicleData.lastServiceOdometer) payload.last_service_odometer = vehicleData.lastServiceOdometer;
-    if (vehicleData.serviceIntervalDays) payload.service_interval_days = vehicleData.serviceIntervalDays;
-    if (vehicleData.serviceIntervalKm) payload.service_interval_km = vehicleData.serviceIntervalKm;
-    if (vehicleData.insurancePolicyNumber) payload.insurance_policy_number = vehicleData.insurancePolicyNumber;
-    if (vehicleData.insuranceExpiry) payload.insurance_expiry = vehicleData.insuranceExpiry;
-    if (vehicleData.roadworthyExpiry) payload.roadworthy_expiry = vehicleData.roadworthyExpiry;
-    if (vehicleData.fleetNumber) payload.fleet_number = vehicleData.fleetNumber;
-    if (vehicleData.notes) payload.notes = vehicleData.notes;
-    if (vehicleData.category) payload.category = vehicleData.category;
-    if (vehicleData.purchaseDate) payload.purchase_date = vehicleData.purchaseDate;
-    if (vehicleData.purchasePrice !== undefined && vehicleData.purchasePrice !== null) {
-      payload.purchase_price = vehicleData.purchasePrice;
-    }
-    if (vehicleData.currentValue !== undefined && vehicleData.currentValue !== null) {
-      payload.current_value = vehicleData.currentValue;
-    }
-    
-    // Remove empty strings, null, and undefined values
-    Object.keys(payload).forEach(key => {
-      if (payload[key] === null || payload[key] === undefined || payload[key] === '') {
-        delete payload[key];
+  createVehicle: async (vehicleData) => {
+    try {
+      console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
+      
+      // Build payload with only the fields that exist in the database
+      const payload = {};
+      
+      // Required fields
+      if (vehicleData.registrationNumber) {
+        payload.registration_number = vehicleData.registrationNumber;
+      } else {
+        throw new Error('Registration number is required');
       }
-    });
-    
-    console.log('🚗 Sending payload (snake_case):', payload);
-    
-    const response = await api.post('/vehicles', payload);
-    const created = response?.data || response;
-    console.log('✅ Vehicle created successfully:', created);
-    
-    return toCamelCase(created);
-  } catch (error) {
-    console.error('❌ Error creating vehicle:', error);
-    console.error('❌ Error response:', error.response);
-    
-    if (error.response?.data) {
-      console.error('❌ Error data:', error.response.data);
+      
+      if (vehicleData.make) {
+        payload.make = vehicleData.make;
+      } else {
+        throw new Error('Make is required');
+      }
+      
+      if (vehicleData.model) {
+        payload.model = vehicleData.model;
+      } else {
+        throw new Error('Model is required');
+      }
+      
+      // Optional fields - only include if they have values
+      if (vehicleData.vin) payload.vin = vehicleData.vin;
+      if (vehicleData.year) payload.year = vehicleData.year;
+      if (vehicleData.fuelType) payload.fuel_type = vehicleData.fuelType;
+      if (vehicleData.vehicleType) payload.vehicle_type = vehicleData.vehicleType;
+      if (vehicleData.status) payload.status = vehicleData.status;
+      
+      // Numeric fields - only include if they have values
+      if (vehicleData.currentMileage !== undefined && vehicleData.currentMileage !== null && vehicleData.currentMileage !== '') {
+        payload.current_mileage = parseFloat(vehicleData.currentMileage);
+      }
+      if (vehicleData.currentOdometer !== undefined && vehicleData.currentOdometer !== null && vehicleData.currentOdometer !== '') {
+        payload.current_odometer = parseFloat(vehicleData.currentOdometer);
+      }
+      if (vehicleData.avgConsumption !== undefined && vehicleData.avgConsumption !== null && vehicleData.avgConsumption !== '') {
+        payload.avg_consumption = parseFloat(vehicleData.avgConsumption);
+      }
+      if (vehicleData.lastServiceOdometer !== undefined && vehicleData.lastServiceOdometer !== null && vehicleData.lastServiceOdometer !== '') {
+        payload.last_service_odometer = parseFloat(vehicleData.lastServiceOdometer);
+      }
+      if (vehicleData.serviceIntervalDays !== undefined && vehicleData.serviceIntervalDays !== null && vehicleData.serviceIntervalDays !== '') {
+        payload.service_interval_days = parseInt(vehicleData.serviceIntervalDays);
+      }
+      if (vehicleData.serviceIntervalKm !== undefined && vehicleData.serviceIntervalKm !== null && vehicleData.serviceIntervalKm !== '') {
+        payload.service_interval_km = parseFloat(vehicleData.serviceIntervalKm);
+      }
+      if (vehicleData.purchasePrice !== undefined && vehicleData.purchasePrice !== null && vehicleData.purchasePrice !== '') {
+        payload.purchase_price = parseFloat(vehicleData.purchasePrice);
+      }
+      if (vehicleData.currentValue !== undefined && vehicleData.currentValue !== null && vehicleData.currentValue !== '') {
+        payload.current_value = parseFloat(vehicleData.currentValue);
+      }
+      
+      // Date fields
+      if (vehicleData.lastServiceDate) payload.last_service_date = vehicleData.lastServiceDate;
+      if (vehicleData.insuranceExpiry) payload.insurance_expiry = vehicleData.insuranceExpiry;
+      if (vehicleData.roadworthyExpiry) payload.roadworthy_expiry = vehicleData.roadworthyExpiry;
+      if (vehicleData.purchaseDate) payload.purchase_date = vehicleData.purchaseDate;
+      
+      // String fields
+      if (vehicleData.insurancePolicyNumber) payload.insurance_policy_number = vehicleData.insurancePolicyNumber;
+      if (vehicleData.fleetNumber) payload.fleet_number = vehicleData.fleetNumber;
+      if (vehicleData.notes) payload.notes = vehicleData.notes;
+      if (vehicleData.category) payload.category = vehicleData.category;
+      
+      console.log('🚗 Sending payload (snake_case):', payload);
+      
+      const response = await api.post('/vehicles', payload);
+      const created = response?.data || response;
+      console.log('✅ Vehicle created successfully:', created);
+      
+      return toCamelCase(created);
+    } catch (error) {
+      console.error('❌ Error creating vehicle:', error);
+      
+      if (error.response) {
+        console.error('❌ Error status:', error.response.status);
+        console.error('❌ Error data:', error.response.data);
+        
+        if (error.response.data?.message) {
+          throw new Error(error.response.data.message);
+        }
+        if (error.response.data?.detail) {
+          throw new Error(error.response.data.detail);
+        }
+        if (error.response.data?.errors) {
+          const errorMessages = Object.entries(error.response.data.errors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join(', ');
+          throw new Error(`Validation errors: ${errorMessages}`);
+        }
+      }
+      
+      throw new Error(error.message || 'Failed to create vehicle');
     }
-    
-    // Check for duplicate key error
-    if (error.response?.data?.message?.includes('duplicate key') || 
-        error.response?.data?.detail?.includes('already exists')) {
-      throw new Error('A vehicle with this registration number or VIN already exists.');
-    }
-    
-    if (error.response?.data?.errors) {
-      const errorMessages = Object.entries(error.response.data.errors)
-        .map(([field, message]) => `${field}: ${message}`)
-        .join(', ');
-      throw new Error(`Validation errors: ${errorMessages}`);
-    }
-    
-    if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
-    }
-    
-    if (error.response?.data?.detail) {
-      throw new Error(error.response.data.detail);
-    }
-    
-    throw new Error(`Failed to create vehicle: ${error.message}`);
-  }
-},
+  },
 
   updateVehicle: async (id, vehicleData) => {
     try {
@@ -368,16 +324,6 @@ createVehicle: async (vehicleData) => {
 
   updateVehicleStatus: async (id, status) => {
     try {
-      const validStatuses = [
-        'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'REPAIR', 
-        'SOLD', 'DECOMMISSIONED', 'AVAILABLE', 'ASSIGNED', 
-        'IN_USE', 'OUT_OF_SERVICE', 'RETIRED'
-      ];
-      
-      if (!validStatuses.includes(status)) {
-        throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
-      }
-      
       const response = await api.patch(`/vehicles/${id}/status`, { status });
       const updated = response?.data || response;
       return toCamelCase(updated);
