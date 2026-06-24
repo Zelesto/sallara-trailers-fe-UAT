@@ -29,8 +29,12 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Pending as PendingIcon,
+  AttachMoney as MoneyIcon,
+  Receipt as ReceiptIcon,
+  Numbers as NumbersIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
-import { vehicleService } from '../services/vehicleService';
+import { vehicleService } from '../../services/vehicleService';
 
 // Compact Info Item Component
 const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false }) => (
@@ -87,6 +91,40 @@ const AuditItem = ({ label, value, by }) => (
   </Box>
 );
 
+// Vehicle Status Chip Component - Updated to match VehicleStatus enum
+const VehicleStatusChip = ({ status }) => {
+  const statusMap = {
+    AVAILABLE: { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} />, label: 'Available' },
+    ASSIGNED: { color: 'info', icon: <PersonIcon sx={{ fontSize: '0.8rem' }} />, label: 'Assigned' },
+    IN_USE: { color: 'primary', icon: <RouteIcon sx={{ fontSize: '0.8rem' }} />, label: 'In Use' },
+    ACTIVE: { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} />, label: 'Active' },
+    INACTIVE: { color: 'default', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Inactive' },
+    MAINTENANCE: { color: 'warning', icon: <BuildIcon sx={{ fontSize: '0.8rem' }} />, label: 'Maintenance' },
+    REPAIR: { color: 'warning', icon: <BuildIcon sx={{ fontSize: '0.8rem' }} />, label: 'Repair' },
+    OUT_OF_SERVICE: { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Out of Service' },
+    SOLD: { color: 'default', icon: <MoneyIcon sx={{ fontSize: '0.8rem' }} />, label: 'Sold' },
+    DECOMMISSIONED: { color: 'default', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Decommissioned' },
+    RETIRED: { color: 'default', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Retired' },
+  };
+  
+  const info = statusMap[status] || { color: 'default', icon: null, label: status || 'Unknown' };
+  
+  return (
+    <Chip 
+      label={info.label} 
+      color={info.color} 
+      icon={info.icon}
+      sx={{ 
+        fontWeight: 600, 
+        fontSize: '0.7rem', 
+        height: 24,
+        '& .MuiChip-label': { px: 1 },
+        '& .MuiChip-icon': { fontSize: '0.8rem' }
+      }}
+    />
+  );
+};
+
 const VehicleDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -122,29 +160,25 @@ const VehicleDetails = () => {
     }
   };
 
-  const getStatusChip = (status) => {
-    const statusMap = {
-      ACTIVE: { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} />, label: 'Active' },
-      AVAILABLE: { color: 'info', icon: <PendingIcon sx={{ fontSize: '0.8rem' }} />, label: 'Available' },
-      IN_MAINTENANCE: { color: 'warning', icon: <BuildIcon sx={{ fontSize: '0.8rem' }} />, label: 'In Maintenance' },
-      OUT_OF_SERVICE: { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Out of Service' },
-      INACTIVE: { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Inactive' },
-    };
-    const info = statusMap[status] || { color: 'default', icon: null, label: status || 'Unknown' };
-    return (
-      <Chip 
-        label={info.label} 
-        color={info.color} 
-        icon={info.icon}
-        sx={{ 
-          fontWeight: 600, 
-          fontSize: '0.7rem', 
-          height: 24,
-          '& .MuiChip-label': { px: 1 },
-          '& .MuiChip-icon': { fontSize: '0.8rem' }
-        }}
-      />
-    );
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (!amount) return 'N/A';
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  // Format date
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-ZA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   if (loading) {
@@ -248,20 +282,22 @@ const VehicleDetails = () => {
                 <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem' }}>
                   {vehicle.make} {vehicle.model}
                 </Typography>
-                {getStatusChip(vehicle.status)}
+                <VehicleStatusChip status={vehicle.status} />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 0.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                   <strong>Registration:</strong> {vehicle.registrationNumber || 'N/A'}
                 </Typography>
+                {vehicle.fleetNumber && (
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    <strong>Fleet:</strong> {vehicle.fleetNumber}
+                  </Typography>
+                )}
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                   <strong>Year:</strong> {vehicle.year || 'N/A'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                   <strong>Type:</strong> {vehicle.vehicleType || 'N/A'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  <strong>Capacity:</strong> {vehicle.capacityKg ? `${vehicle.capacityKg} kg` : 'N/A'}
                 </Typography>
               </Stack>
             </Box>
@@ -282,17 +318,22 @@ const VehicleDetails = () => {
               <InfoItem label="Make & Model" value={`${vehicle.make} ${vehicle.model}`} icon={CarIcon} color="secondary" />
               <InfoItem label="Year" value={vehicle.year || 'N/A'} icon={CalendarIcon} color="warning" />
               <InfoItem label="Vehicle Type" value={vehicle.vehicleType || 'N/A'} icon={CarIcon} color="info" />
-              <InfoItem label="Status" value={getStatusChip(vehicle.status)} isChip />
+              <InfoItem label="Status" value={<VehicleStatusChip status={vehicle.status} />} isChip />
+              {vehicle.fleetNumber && (
+                <InfoItem label="Fleet Number" value={vehicle.fleetNumber} icon={NumbersIcon} color="primary" />
+              )}
             </Stack>
           </Grid>
 
           <Grid item xs={12} md={6}>
             <Stack spacing={1.5}>
-              <InfoItem label="Capacity" value={vehicle.capacityKg ? `${vehicle.capacityKg} kg` : 'N/A'} icon={SpeedIcon} color="primary" />
               <InfoItem label="Fuel Type" value={vehicle.fuelType || 'N/A'} icon={FuelIcon} color="success" />
               <InfoItem label="Current Mileage" value={vehicle.currentMileage ? `${vehicle.currentMileage.toLocaleString()} km` : 'N/A'} icon={SpeedIcon} color="info" />
-              <InfoItem label="Engine Size" value={vehicle.engineSize || 'N/A'} icon={BuildIcon} color="warning" />
-              <InfoItem label="Fuel Consumption" value={vehicle.fuelConsumption || 'N/A'} icon={FuelIcon} color="error" />
+              <InfoItem label="Current Odometer" value={vehicle.currentOdometer ? `${vehicle.currentOdometer.toLocaleString()} km` : 'N/A'} icon={SpeedIcon} color="primary" />
+              <InfoItem label="Avg Fuel Consumption" value={vehicle.avgConsumption ? `${vehicle.avgConsumption} L/100km` : 'N/A'} icon={FuelIcon} color="error" />
+              {vehicle.vin && (
+                <InfoItem label="VIN Number" value={vehicle.vin} icon={CarIcon} color="secondary" />
+              )}
             </Stack>
           </Grid>
 
@@ -304,46 +345,98 @@ const VehicleDetails = () => {
               Service Information
             </Typography>
             <Grid container spacing={1.5}>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <InfoItem 
                   label="Last Service Date" 
-                  value={vehicle.lastServiceDate ? new Date(vehicle.lastServiceDate).toLocaleDateString() : 'N/A'} 
+                  value={formatDate(vehicle.lastServiceDate)} 
                   icon={CalendarIcon} 
                   color="info" 
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <InfoItem 
-                  label="Next Service Date" 
-                  value={vehicle.nextServiceDate ? new Date(vehicle.nextServiceDate).toLocaleDateString() : 'N/A'} 
-                  icon={CalendarIcon} 
-                  color="warning" 
+                  label="Last Service Odometer" 
+                  value={vehicle.lastServiceOdometer ? `${vehicle.lastServiceOdometer.toLocaleString()} km` : 'N/A'} 
+                  icon={SpeedIcon} 
+                  color="info" 
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <InfoItem 
+                  label="Category" 
+                  value={vehicle.category || 'N/A'} 
+                  icon={CarIcon} 
+                  color="primary" 
                 />
               </Grid>
             </Grid>
           </Grid>
 
-          {/* Additional Info */}
+          {/* Financial Information */}
           <Grid item xs={12}>
             <Divider sx={{ my: 1.5 }} />
             <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
-              Additional Information
+              <MoneyIcon sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+              Financial Information
             </Typography>
             <Grid container spacing={1.5}>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <InfoItem 
-                  label="VIN Number" 
-                  value={vehicle.vinNumber || 'N/A'} 
-                  icon={CarIcon} 
+                  label="Purchase Date" 
+                  value={formatDate(vehicle.purchaseDate)} 
+                  icon={CalendarIcon} 
+                  color="warning" 
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <InfoItem 
+                  label="Purchase Price" 
+                  value={formatCurrency(vehicle.purchasePrice)} 
+                  icon={MoneyIcon} 
+                  color="success" 
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <InfoItem 
+                  label="Current Value" 
+                  value={formatCurrency(vehicle.currentValue)} 
+                  icon={MoneyIcon} 
                   color="primary" 
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+            </Grid>
+          </Grid>
+
+          {/* Insurance & Roadworthy */}
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1.5 }} />
+            <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
+              <ReceiptIcon sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+              Insurance & Roadworthy
+            </Typography>
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} md={4}>
                 <InfoItem 
-                  label="Color" 
-                  value={vehicle.color || 'N/A'} 
-                  icon={CarIcon} 
-                  color="secondary" 
+                  label="Insurance Policy" 
+                  value={vehicle.insurancePolicyNumber || 'N/A'} 
+                  icon={ReceiptIcon} 
+                  color="info" 
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <InfoItem 
+                  label="Insurance Expiry" 
+                  value={formatDate(vehicle.insuranceExpiry)} 
+                  icon={CalendarIcon} 
+                  color={vehicle.insuranceExpiry && new Date(vehicle.insuranceExpiry) < new Date() ? 'error' : 'success'} 
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <InfoItem 
+                  label="Roadworthy Expiry" 
+                  value={formatDate(vehicle.roadworthyExpiry)} 
+                  icon={CalendarIcon} 
+                  color={vehicle.roadworthyExpiry && new Date(vehicle.roadworthyExpiry) < new Date() ? 'error' : 'success'} 
                 />
               </Grid>
             </Grid>
@@ -354,6 +447,7 @@ const VehicleDetails = () => {
             <Grid item xs={12}>
               <Divider sx={{ my: 1.5 }} />
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
+                <DescriptionIcon sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
                 Notes
               </Typography>
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
