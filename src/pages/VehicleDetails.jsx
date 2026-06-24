@@ -34,7 +34,7 @@ import {
   Numbers as NumbersIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
-import { vehicleService } from '../../services/vehicleService';
+import { vehicleService } from '../services/vehicleService';
 
 // Compact Info Item Component
 const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false }) => (
