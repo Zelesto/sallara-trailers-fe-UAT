@@ -55,7 +55,8 @@ const toSnakeCase = (data) => {
     purchaseDate: 'purchase_date',
     purchasePrice: 'purchase_price',
     currentValue: 'current_value',
-    category: 'category'
+    category: 'category',
+    vin: 'vin'
   };
   
   Object.keys(data).forEach(key => {
@@ -70,16 +71,33 @@ const toSnakeCase = (data) => {
       value = validateEnumValue('vehicleType', value);
     }
     
-    // Handle null/undefined
+    // Skip null/undefined/empty values (except required fields)
     if (value === null || value === undefined || value === '') {
-      // Don't include empty strings for optional fields
-      if (!['registration_number', 'make', 'model', 'vehicle_type', 'status'].includes(snakeKey)) {
+      const requiredFields = ['registration_number', 'make', 'model', 'vehicle_type', 'status'];
+      if (!requiredFields.includes(snakeKey)) {
         return; // Skip this key
       }
     }
     
     result[snakeKey] = value;
   });
+  
+  // Ensure required fields are always present
+  if (!result.registration_number) {
+    throw new Error('Registration number is required');
+  }
+  if (!result.make) {
+    throw new Error('Make is required');
+  }
+  if (!result.model) {
+    throw new Error('Model is required');
+  }
+  if (!result.vehicle_type) {
+    result.vehicle_type = 'TRUCK';
+  }
+  if (!result.status) {
+    result.status = 'AVAILABLE';
+  }
   
   return result;
 };
@@ -140,28 +158,20 @@ const processVehicles = (data) => {
 };
 
 export const vehicleService = {
-  /**
-   * Get all vehicles
-   * @param {Object} params - Query parameters (page, size, sort, search)
-   * @returns {Promise<Array>} List of vehicles
-   */
   getAllVehicles: async (params = {}) => {
     try {
       const response = await api.get('/vehicles', { params });
       console.log('Vehicle Service Response:', response);
       
-      // Handle different response structures
       const data = response?.data || response;
       
       if (data?.content !== undefined) {
-        // Paginated response - process content
         return {
           ...data,
           content: data.content.map(vehicle => toCamelCase(vehicle))
         };
       }
       if (Array.isArray(data)) {
-        // Direct array response
         return data.map(vehicle => toCamelCase(vehicle));
       }
       return toCamelCase(data) || [];
@@ -171,11 +181,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Get vehicle by ID
-   * @param {number|string} id - Vehicle ID
-   * @returns {Promise<Object>} Vehicle object
-   */
   getVehicleById: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}`);
@@ -187,36 +192,12 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Create a new vehicle
-   * @param {Object} vehicleData - Vehicle data (camelCase)
-   * @returns {Promise<Object>} Created vehicle
-   */
   createVehicle: async (vehicleData) => {
     try {
       console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
       
-      // Ensure required fields are present
-      const requiredFields = ['registrationNumber', 'make', 'model'];
-      for (const field of requiredFields) {
-        if (!vehicleData[field]) {
-          throw new Error(`${field} is required`);
-        }
-      }
-      
-      // Convert to snake_case for backend with enum validation
+      // Convert to snake_case for backend
       const payload = toSnakeCase(vehicleData);
-      
-      // Ensure required fields are in payload
-      if (!payload.registration_number) {
-        throw new Error('Registration number is required');
-      }
-      if (!payload.make) {
-        throw new Error('Make is required');
-      }
-      if (!payload.model) {
-        throw new Error('Model is required');
-      }
       
       console.log('🚗 Sending payload (snake_case):', payload);
       
@@ -224,11 +205,14 @@ export const vehicleService = {
       const created = response?.data || response;
       console.log('✅ Vehicle created successfully:', created);
       
-      // Return as camelCase for frontend
       return toCamelCase(created);
     } catch (error) {
       console.error('❌ Error creating vehicle:', error);
-      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error response:', error.response);
+      
+      if (error.response?.data) {
+        console.error('❌ Error data:', error.response.data);
+      }
       
       if (error.response?.data?.errors) {
         const errorMessages = Object.entries(error.response.data.errors)
@@ -237,26 +221,21 @@ export const vehicleService = {
         throw new Error(`Validation errors: ${errorMessages}`);
       }
       
-      // If the error has a message from the server, use it
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       }
       
-      throw error;
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
+      
+      throw new Error(`Failed to create vehicle: ${error.message}`);
     }
   },
 
-  /**
-   * Update an existing vehicle
-   * @param {number|string} id - Vehicle ID
-   * @param {Object} vehicleData - Updated vehicle data (camelCase)
-   * @returns {Promise<Object>} Updated vehicle
-   */
   updateVehicle: async (id, vehicleData) => {
     try {
-      // Convert to snake_case for backend with enum validation
       const payload = toSnakeCase(vehicleData);
-      
       const response = await api.put(`/vehicles/${id}`, payload);
       const updated = response?.data || response;
       return toCamelCase(updated);
@@ -266,17 +245,9 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Patch/Partially update a vehicle
-   * @param {number|string} id - Vehicle ID
-   * @param {Object} vehicleData - Partial vehicle data (camelCase)
-   * @returns {Promise<Object>} Updated vehicle
-   */
   patchVehicle: async (id, vehicleData) => {
     try {
-      // Convert to snake_case for backend with enum validation
       const payload = toSnakeCase(vehicleData);
-      
       const response = await api.patch(`/vehicles/${id}`, payload);
       const updated = response?.data || response;
       return toCamelCase(updated);
@@ -286,11 +257,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Delete a vehicle
-   * @param {number|string} id - Vehicle ID
-   * @returns {Promise<Object>} Deletion response
-   */
   deleteVehicle: async (id) => {
     try {
       const response = await api.delete(`/vehicles/${id}`);
@@ -301,11 +267,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Get vehicle by registration number
-   * @param {string} registrationNumber - Vehicle registration
-   * @returns {Promise<Object>} Vehicle object
-   */
   getVehicleByRegistration: async (registrationNumber) => {
     try {
       const response = await api.get(`/vehicles/registration/${registrationNumber}`);
@@ -317,11 +278,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Search vehicles
-   * @param {string} searchTerm - Search term
-   * @returns {Promise<Array>} List of matching vehicles
-   */
   searchVehicles: async (searchTerm) => {
     try {
       const response = await api.get('/vehicles/search', {
@@ -335,11 +291,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Get vehicles by status
-   * @param {string} status - Vehicle status
-   * @returns {Promise<Array>} List of vehicles with given status
-   */
   getVehiclesByStatus: async (status) => {
     try {
       const response = await api.get('/vehicles/status', {
@@ -353,10 +304,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Get available vehicles (not assigned to active trips)
-   * @returns {Promise<Array>} List of available vehicles
-   */
   getAvailableVehicles: async () => {
     try {
       const response = await api.get('/vehicles/available');
@@ -368,15 +315,8 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Update vehicle status
-   * @param {number|string} id - Vehicle ID
-   * @param {string} status - New status (must match VehicleStatus enum)
-   * @returns {Promise<Object>} Updated vehicle
-   */
   updateVehicleStatus: async (id, status) => {
     try {
-      // Validate status against enum
       const validStatuses = [
         'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'REPAIR', 
         'SOLD', 'DECOMMISSIONED', 'AVAILABLE', 'ASSIGNED', 
@@ -396,11 +336,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Get vehicle maintenance history
-   * @param {number|string} id - Vehicle ID
-   * @returns {Promise<Array>} List of maintenance records
-   */
   getVehicleMaintenanceHistory: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}/maintenance`);
@@ -412,11 +347,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Get vehicle statistics
-   * @param {number|string} id - Vehicle ID
-   * @returns {Promise<Object>} Vehicle statistics
-   */
   getVehicleStatistics: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}/statistics`);
@@ -428,12 +358,6 @@ export const vehicleService = {
     }
   },
 
-  /**
-   * Get vehicle trip history
-   * @param {number|string} id - Vehicle ID
-   * @param {Object} params - Query parameters (page, size, sort)
-   * @returns {Promise<Object>} Paginated trip history
-   */
   getVehicleTripHistory: async (id, params = {}) => {
     try {
       const response = await api.get(`/vehicles/${id}/trips`, { params });
