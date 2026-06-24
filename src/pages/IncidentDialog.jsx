@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Button, Box, Typography,
@@ -7,7 +7,8 @@ import {
 } from '@mui/material';
 import {
   Warning as WarningIcon,
-  Report as ReportIcon
+  Report as ReportIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 
 const INCIDENT_TYPES = [
@@ -30,7 +31,14 @@ const INCIDENT_SEVERITY = [
   { value: 'CRITICAL', label: 'Critical - Safety/emergency' }
 ];
 
-const IncidentDialog = ({ open, onClose, onSubmit, trip }) => {
+const IncidentDialog = ({ 
+  open, 
+  onClose, 
+  onSubmit, 
+  trip, 
+  initialData = null,
+  isEditing = false 
+}) => {
   const [incidentType, setIncidentType] = useState('');
   const [customType, setCustomType] = useState('');
   const [severity, setSeverity] = useState('MEDIUM');
@@ -39,14 +47,39 @@ const IncidentDialog = ({ open, onClose, onSubmit, trip }) => {
   const [requiresAssistance, setRequiresAssistance] = useState('NO');
   const [error, setError] = useState('');
 
+  // Load initial data when editing
+  useEffect(() => {
+    if (initialData && isEditing) {
+      setIncidentType(initialData.incidentType || '');
+      setCustomType('');
+      setSeverity(initialData.severity || 'MEDIUM');
+      setDescription(initialData.description || '');
+      setLocation(initialData.location || '');
+      setRequiresAssistance(initialData.requiresAssistance ? 'YES' : 'NO');
+    } else {
+      // Reset form when not editing
+      setIncidentType('');
+      setCustomType('');
+      setSeverity('MEDIUM');
+      setDescription('');
+      setLocation('');
+      setRequiresAssistance('NO');
+    }
+  }, [initialData, isEditing, open]);
+
   const handleSubmit = () => {
     if (!incidentType) {
       setError('Please select incident type');
       return;
     }
 
+    if (incidentType === 'OTHER' && !customType.trim()) {
+      setError('Please specify the custom incident type');
+      return;
+    }
+
     const incidentData = {
-      incidentType: incidentType === 'OTHER' ? customType : incidentType,
+      incidentType: incidentType === 'OTHER' ? customType.trim() : incidentType,
       severity,
       description: description.trim(),
       location: location.trim() || undefined,
@@ -58,12 +91,6 @@ const IncidentDialog = ({ open, onClose, onSubmit, trip }) => {
   };
 
   const handleClose = () => {
-    setIncidentType('');
-    setCustomType('');
-    setSeverity('MEDIUM');
-    setDescription('');
-    setLocation('');
-    setRequiresAssistance('NO');
     setError('');
     onClose();
   };
@@ -72,19 +99,30 @@ const IncidentDialog = ({ open, onClose, onSubmit, trip }) => {
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center" gap={1}>
-          <WarningIcon color="warning" />
-          <Typography variant="h6">Report Incident</Typography>
+          {isEditing ? (
+            <EditIcon color="primary" />
+          ) : (
+            <WarningIcon color="warning" />
+          )}
+          <Typography variant="h6">
+            {isEditing ? 'Update Incident' : 'Report Incident'}
+          </Typography>
         </Box>
       </DialogTitle>
       
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          <Alert severity="info">
-            Reporting incident for trip: <strong>#{trip.tripNumber}</strong>
+          <Alert severity={isEditing ? "info" : "info"}>
+            {isEditing 
+              ? `Updating incident for trip: #${trip?.tripNumber || ''}`
+              : `Reporting incident for trip: #${trip?.tripNumber || ''}`
+            }
           </Alert>
 
           {error && (
-            <Alert severity="error">{error}</Alert>
+            <Alert severity="error" onClose={() => setError('')}>
+              {error}
+            </Alert>
           )}
 
           <FormControl fullWidth required>
@@ -92,7 +130,12 @@ const IncidentDialog = ({ open, onClose, onSubmit, trip }) => {
             <Select
               value={incidentType}
               label="Incident Type"
-              onChange={(e) => setIncidentType(e.target.value)}
+              onChange={(e) => {
+                setIncidentType(e.target.value);
+                if (e.target.value !== 'OTHER') {
+                  setCustomType('');
+                }
+              }}
             >
               {INCIDENT_TYPES.map((type) => (
                 <MenuItem key={type.value} value={type.value}>
@@ -168,11 +211,15 @@ const IncidentDialog = ({ open, onClose, onSubmit, trip }) => {
         <Button
           onClick={handleSubmit}
           variant="contained"
-          color="warning"
-          startIcon={<ReportIcon />}
-          disabled={!incidentType || !description}
+          color={isEditing ? "primary" : "warning"}
+          startIcon={isEditing ? <EditIcon /> : <ReportIcon />}
+          disabled={
+            !incidentType || 
+            !description || 
+            (incidentType === 'OTHER' && !customType.trim())
+          }
         >
-          Report Incident
+          {isEditing ? 'Update Incident' : 'Report Incident'}
         </Button>
       </DialogActions>
     </Dialog>
