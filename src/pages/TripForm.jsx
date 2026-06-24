@@ -41,7 +41,9 @@ import {
   Comment,
   Assignment,
   Toll,
-  Receipt
+  Receipt,
+  Person as PersonIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 
 import {
@@ -54,6 +56,7 @@ import { tripService } from '../services/tripService';
 import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
 import { routingService } from '../services/routingService';
+import { customerService } from '../services/customerService';
 
 /* ===================== Helpers ===================== */
 const formatDateForAPI = (date) =>
@@ -289,6 +292,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [formErrors, setFormErrors] = useState({});
@@ -320,6 +324,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     vehicleId: '',
     driverId: '',
     supervisorId: '',
+    customerId: '',
     loadId: '',
     notes: '',
     specialInstructions: '',
@@ -337,13 +342,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setError(null);
 
     try {
-      const [vRes, dRes] = await Promise.all([
+      const [vRes, dRes, cRes] = await Promise.all([
         vehicleService.getAllVehicles().catch(() => []),
-        driverService.getAllDrivers().catch(() => [])
+        driverService.getAllDrivers().catch(() => []),
+        customerService.getActiveCustomers().catch(() => [])
       ]);
 
       setVehicles(filterActiveVehicles(vRes));
       setDrivers(filterAvailableDrivers(dRes));
+      setCustomers(Array.isArray(cRes) ? cRes : (cRes?.content || []));
 
       try {
         const usersResponse = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN');
@@ -358,7 +365,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       }
     } catch (err) {
       console.error('Failed to load data:', err);
-      setError('Failed to load vehicles or drivers');
+      setError('Failed to load vehicles, drivers, or customers');
     } finally {
       setLoading(false);
     }
@@ -389,6 +396,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           vehicleId: '',
           driverId: '',
           supervisorId: '',
+          customerId: '',
           loadId: '',
           notes: '',
           specialInstructions: '',
@@ -412,6 +420,42 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     if (!open) return;
     loadData();
   }, [open, loadData]);
+
+  // Populate form with initial data when editing
+  useEffect(() => {
+    if (initialData && open) {
+      setForm(prev => ({
+        ...prev,
+        ...initialData,
+        vehicleId: initialData.vehicleId || '',
+        driverId: initialData.driverId || '',
+        supervisorId: initialData.supervisorId || '',
+        customerId: initialData.customerId || '',
+      }));
+      if (initialData.originLocation) {
+        setOrigin(prev => ({
+          ...prev,
+          street: initialData.originStreetAddress || '',
+          city: initialData.originCity || '',
+          zipCode: initialData.originZipCode || '',
+          province: initialData.originProvince || '',
+          latitude: initialData.originLatitude || null,
+          longitude: initialData.originLongitude || null,
+        }));
+      }
+      if (initialData.destinationLocation) {
+        setDestination(prev => ({
+          ...prev,
+          street: initialData.destinationStreetAddress || '',
+          city: initialData.destinationCity || '',
+          zipCode: initialData.destinationZipCode || '',
+          province: initialData.destinationProvince || '',
+          latitude: initialData.destinationLatitude || null,
+          longitude: initialData.destinationLongitude || null,
+        }));
+      }
+    }
+  }, [initialData, open]);
 
   // Validate form
   const validateForm = useCallback(() => {
@@ -496,6 +540,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
         driverId: form.driverId ? parseInt(form.driverId, 10) : null,
         supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
+        customerId: form.customerId ? parseInt(form.customerId, 10) : null,
 
         commodityType: form.commodityType || null,
         cargoDescription: form.cargoDescription || null,
@@ -536,10 +581,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
       console.log('📤 Creating trip:', payload);
 
-      const result = await tripService.createTrip(payload);
-      console.log('✅ Trip created:', result);
-
-      setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+      let result;
+      if (mode === 'edit' && initialData?.id) {
+        result = await tripService.updateTrip(initialData.id, payload);
+        setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
+      } else {
+        result = await tripService.createTrip(payload);
+        setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+      }
 
       if (fetchTrips) await fetchTrips();
       if (onSuccess) onSuccess(result);
@@ -549,8 +598,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       }, 1500);
 
     } catch (err) {
-      console.error('❌ Create trip error:', err);
-      let errorMessage = 'Failed to create trip';
+      console.error('❌ Trip error:', err);
+      let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
 
       if (err.response?.status === 409) {
         errorMessage = 'Duplicate trip detected.';
@@ -559,14 +608,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       } else if (err.response?.status === 429) {
         errorMessage = 'Rate limit exceeded. Trip saved, coordinates will update later.';
       } else {
-        errorMessage = err.response?.data?.message || err.message || 'Failed to create trip';
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
 
       setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
-  }, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting]);
+  }, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting, mode, initialData]);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -583,7 +632,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', py: 1.5, px: 2 }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-            {mode === 'create' ? 'Create New Trip' : `Edit Trip`}
+            {mode === 'create' ? 'Create New Trip' : 'Edit Trip'}
           </Typography>
         </DialogTitle>
 
@@ -648,6 +697,34 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   </FormControl>
                 </Grid>
               </Grid>
+
+              {/* Customer Selection - NEW */}
+              <Card variant="outlined">
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+                    <BusinessIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Customer
+                    </Typography>
+                  </Stack>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Select Customer</InputLabel>
+                    <Select
+                      value={form.customerId}
+                      label="Select Customer"
+                      onChange={(e) => handleFieldChange('customerId', e.target.value)}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      <MenuItem value="" sx={{ fontSize: '0.75rem' }}>No Customer</MenuItem>
+                      {customers.map(customer => (
+                        <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: '0.75rem' }}>
+                          {customer.name} ({customer.customerCode})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </CardContent>
+              </Card>
 
               {/* Origin & Destination */}
               <Box sx={{ position: 'relative' }}>
