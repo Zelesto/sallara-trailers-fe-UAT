@@ -192,24 +192,23 @@ export const vehicleService = {
     }
   },
 
-  // src/services/vehicleService.js
 
 createVehicle: async (vehicleData) => {
   try {
     console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
     
-    // Start with only the required fields
+    // Only include fields that exist in the database
     const payload = {
       registration_number: vehicleData.registrationNumber || '',
       make: vehicleData.make || '',
       model: vehicleData.model || '',
-      vehicle_type: validateEnumValue('vehicleType', vehicleData.vehicleType || 'TRUCK'),
-      status: validateEnumValue('status', vehicleData.status || 'AVAILABLE')
+      vehicle_type: vehicleData.vehicleType || 'TRUCK',
+      status: vehicleData.status || 'AVAILABLE',
     };
     
-    // Add optional fields only if they have values
-    if (vehicleData.year) payload.year = vehicleData.year;
+    // Add optional fields only if they have values (and exist in DB)
     if (vehicleData.vin) payload.vin = vehicleData.vin;
+    if (vehicleData.year) payload.year = vehicleData.year;
     if (vehicleData.fuelType) payload.fuel_type = vehicleData.fuelType;
     if (vehicleData.currentMileage !== undefined && vehicleData.currentMileage !== null) {
       payload.current_mileage = vehicleData.currentMileage;
@@ -238,7 +237,7 @@ createVehicle: async (vehicleData) => {
       payload.current_value = vehicleData.currentValue;
     }
     
-    // Remove empty strings and null values
+    // Remove empty strings, null, and undefined values
     Object.keys(payload).forEach(key => {
       if (payload[key] === null || payload[key] === undefined || payload[key] === '') {
         delete payload[key];
@@ -258,6 +257,12 @@ createVehicle: async (vehicleData) => {
     
     if (error.response?.data) {
       console.error('❌ Error data:', error.response.data);
+    }
+    
+    // Check for duplicate key error
+    if (error.response?.data?.message?.includes('duplicate key') || 
+        error.response?.data?.detail?.includes('already exists')) {
+      throw new Error('A vehicle with this registration number or VIN already exists.');
     }
     
     if (error.response?.data?.errors) {
