@@ -1,3 +1,4 @@
+// src/pages/TripList.jsx
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
@@ -15,7 +16,8 @@ import {
 import {
   Add, Edit, Delete, Visibility, CheckCircle, Refresh,
   Search as SearchIcon, Dashboard, PlayArrow, Stop,
-  Warning as WarningIcon, LocationCity, PinDrop, SwapHoriz
+  Warning as WarningIcon, LocationCity, PinDrop, SwapHoriz,
+  Person as PersonIcon, Business as BusinessIcon
 } from '@mui/icons-material';
 
 /* ================================
@@ -231,6 +233,7 @@ function TripList() {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
 
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -244,9 +247,13 @@ function TripList() {
     total: 0,
   });
 
-  // Get unique cities for filter dropdown
+  // Get unique cities and customers for filter dropdowns
   const uniqueCities = useMemo(() => {
     return [...new Set(trips.map(trip => trip.originCity).filter(Boolean))];
+  }, [trips]);
+
+  const uniqueCustomers = useMemo(() => {
+    return [...new Set(trips.map(trip => trip.customerName).filter(Boolean))];
   }, [trips]);
 
   /* ================================
@@ -257,7 +264,8 @@ function TripList() {
     size = pagination.pageSize,
     search = searchText,
     status = statusFilter,
-    city = cityFilter
+    city = cityFilter,
+    customer = customerFilter
   } = {}) => {
     setLoading(true);
 
@@ -268,11 +276,11 @@ function TripList() {
         ...(search && { search }),
         ...(status !== 'all' && { status }),
         ...(city && { city }),
+        ...(customer && { customer }),
         sortBy: 'tripNumber',
-        sortOrder: 'DESC' // NEWEST FIRST
+        sortOrder: 'DESC'
       });
 
-      // Additional safety: Sort client-side to ensure newest first
       const sortedContent = (response.content || []).sort((a, b) => 
         new Date(b.createdAt) - new Date(a.createdAt)
       );
@@ -291,7 +299,7 @@ function TripList() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageSize, searchText, statusFilter, cityFilter]);
+  }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter]);
 
   /* ================================
      Initial Load
@@ -309,7 +317,7 @@ function TripList() {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [searchText, statusFilter, cityFilter]);
+  }, [searchText, statusFilter, cityFilter, customerFilter]);
 
   /* ================================
      Trip Actions
@@ -428,6 +436,7 @@ function TripList() {
     setSearchText('');
     setStatusFilter('all');
     setCityFilter('');
+    setCustomerFilter('');
   };
 
   /* ================================
@@ -491,14 +500,14 @@ function TripList() {
         </Box>
       </Box>
 
-      {/* Filters - Compact */}
+      {/* Filters - Compact with Customer Filter */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
             <TextField
               size="small"
               label="Search"
-              placeholder="Trip #, City..."
+              placeholder="Trip #, City, Customer..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               InputProps={{
@@ -544,9 +553,26 @@ function TripList() {
               </FormControl>
             )}
 
+            {uniqueCustomers.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Customer</InputLabel>
+                <Select
+                  value={customerFilter}
+                  onChange={(e) => setCustomerFilter(e.target.value)}
+                  label="Customer"
+                  sx={{ fontSize: '0.75rem' }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Customers</MenuItem>
+                  {uniqueCustomers.map(customer => (
+                    <MenuItem key={customer} value={customer} sx={{ fontSize: '0.75rem' }}>{customer}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
             <Button 
               onClick={handleClearFilters}
-              disabled={!searchText && statusFilter === 'all' && !cityFilter}
+              disabled={!searchText && statusFilter === 'all' && !cityFilter && !customerFilter}
               variant="outlined"
               size="small"
               sx={{ fontSize: '0.7rem', py: 0.5 }}
@@ -557,12 +583,13 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table - Compact */}
+      {/* Table - Compact with Customer Column */}
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Trip Number</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Customer</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Origin</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Destination</TableCell>
@@ -575,13 +602,13 @@ function TripList() {
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 2 }}>
                   <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                    {searchText || statusFilter !== 'all' || cityFilter
+                    {searchText || statusFilter !== 'all' || cityFilter || customerFilter
                       ? 'No trips match your filters'
                       : 'No trips found'}
                   </Typography>
-                  {(searchText || statusFilter !== 'all' || cityFilter) && (
+                  {(searchText || statusFilter !== 'all' || cityFilter || customerFilter) && (
                     <Button 
                       onClick={handleClearFilters}
                       sx={{ mt: 1, fontSize: '0.7rem' }}
@@ -607,6 +634,21 @@ function TripList() {
                       <Typography fontWeight="medium" sx={{ fontSize: '0.75rem' }}>
                         {trip.tripNumber}
                       </Typography>
+                    </TableCell>
+
+                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                      {trip.customerName ? (
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <BusinessIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                            {trip.customerName}
+                          </Typography>
+                        </Stack>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          N/A
+                        </Typography>
+                      )}
                     </TableCell>
 
                     <TableCell sx={{ py: 0.75 }}>
