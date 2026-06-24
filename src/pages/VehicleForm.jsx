@@ -36,15 +36,10 @@ import {
   Numbers,
   AttachMoney,
 } from '@mui/icons-material';
-import { vehicleService } from '../services/vehicleService';
+import { vehicleService } from '../../services/vehicleService';
 
-// Constants - Must match backend enums exactly
-const VEHICLE_TYPES = [
-  'TRUCK',
-  'TRAILER',
-  'VAN',
-  'CAR'
-];
+// Constants - must match database values
+const VEHICLE_TYPES = ['TRUCK', 'TRAILER', 'VAN', 'CAR'];
 
 const FUEL_TYPES = [
   'Diesel',
@@ -57,7 +52,6 @@ const FUEL_TYPES = [
   'Other'
 ];
 
-// Must match VehicleStatus enum exactly
 const STATUS_OPTIONS = [
   { value: 'AVAILABLE', label: 'Available', color: 'success' },
   { value: 'ASSIGNED', label: 'Assigned', color: 'info' },
@@ -192,21 +186,6 @@ const VehicleForm = () => {
     if (formData.year && (isNaN(formData.year) || formData.year < 1900 || formData.year > new Date().getFullYear() + 1)) {
       errors.year = 'Please enter a valid year';
     }
-    if (formData.currentMileage && isNaN(formData.currentMileage)) {
-      errors.currentMileage = 'Mileage must be a number';
-    }
-    if (formData.currentOdometer && isNaN(formData.currentOdometer)) {
-      errors.currentOdometer = 'Odometer must be a number';
-    }
-    if (formData.avgConsumption && isNaN(formData.avgConsumption)) {
-      errors.avgConsumption = 'Fuel consumption must be a number';
-    }
-    if (formData.purchasePrice && isNaN(formData.purchasePrice)) {
-      errors.purchasePrice = 'Purchase price must be a number';
-    }
-    if (formData.currentValue && isNaN(formData.currentValue)) {
-      errors.currentValue = 'Current value must be a number';
-    }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -229,19 +208,35 @@ const VehicleForm = () => {
 
     setSubmitting(true);
     try {
-      // Prepare data for API - all fields are already in camelCase
+      // Prepare data - only include fields that have values
       const vehicleData = {
-        ...formData,
-        year: formData.year ? parseInt(formData.year, 10) : null,
-        currentMileage: formData.currentMileage ? parseFloat(formData.currentMileage) : 0,
-        avgConsumption: formData.avgConsumption ? parseFloat(formData.avgConsumption) : 0,
-        currentOdometer: formData.currentOdometer ? parseFloat(formData.currentOdometer) : 0,
-        lastServiceOdometer: formData.lastServiceOdometer ? parseFloat(formData.lastServiceOdometer) : null,
-        serviceIntervalDays: formData.serviceIntervalDays ? parseInt(formData.serviceIntervalDays, 10) : null,
-        serviceIntervalKm: formData.serviceIntervalKm ? parseFloat(formData.serviceIntervalKm) : null,
-        purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : null,
-        currentValue: formData.currentValue ? parseFloat(formData.currentValue) : null,
+        registrationNumber: formData.registrationNumber.trim(),
+        make: formData.make.trim(),
+        model: formData.model.trim(),
+        vehicleType: formData.vehicleType,
+        status: formData.status,
       };
+
+      // Add optional fields if they have values
+      if (formData.vin?.trim()) vehicleData.vin = formData.vin.trim();
+      if (formData.year) vehicleData.year = parseInt(formData.year, 10);
+      if (formData.fuelType) vehicleData.fuelType = formData.fuelType;
+      if (formData.currentMileage) vehicleData.currentMileage = parseFloat(formData.currentMileage);
+      if (formData.avgConsumption) vehicleData.avgConsumption = parseFloat(formData.avgConsumption);
+      if (formData.currentOdometer) vehicleData.currentOdometer = parseFloat(formData.currentOdometer);
+      if (formData.lastServiceDate) vehicleData.lastServiceDate = formData.lastServiceDate;
+      if (formData.lastServiceOdometer) vehicleData.lastServiceOdometer = parseFloat(formData.lastServiceOdometer);
+      if (formData.serviceIntervalDays) vehicleData.serviceIntervalDays = parseInt(formData.serviceIntervalDays, 10);
+      if (formData.serviceIntervalKm) vehicleData.serviceIntervalKm = parseFloat(formData.serviceIntervalKm);
+      if (formData.insurancePolicyNumber?.trim()) vehicleData.insurancePolicyNumber = formData.insurancePolicyNumber.trim();
+      if (formData.insuranceExpiry) vehicleData.insuranceExpiry = formData.insuranceExpiry;
+      if (formData.roadworthyExpiry) vehicleData.roadworthyExpiry = formData.roadworthyExpiry;
+      if (formData.fleetNumber?.trim()) vehicleData.fleetNumber = formData.fleetNumber.trim();
+      if (formData.notes?.trim()) vehicleData.notes = formData.notes.trim();
+      if (formData.category?.trim()) vehicleData.category = formData.category.trim();
+      if (formData.purchaseDate) vehicleData.purchaseDate = formData.purchaseDate;
+      if (formData.purchasePrice) vehicleData.purchasePrice = parseFloat(formData.purchasePrice);
+      if (formData.currentValue) vehicleData.currentValue = parseFloat(formData.currentValue);
 
       let result;
       if (isEditMode) {
@@ -286,7 +281,6 @@ const VehicleForm = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
@@ -306,7 +300,6 @@ const VehicleForm = () => {
         </Button>
       </Box>
 
-      {/* Form */}
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <form onSubmit={handleSubmit}>
           {error && (
@@ -321,7 +314,6 @@ const VehicleForm = () => {
           )}
 
           <Grid container spacing={2}>
-            {/* Basic Information Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
                 <DirectionsCar sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
@@ -349,12 +341,12 @@ const VehicleForm = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label="Fleet Number"
-                name="fleetNumber"
-                value={formData.fleetNumber}
+                label="VIN Number"
+                name="vin"
+                value={formData.vin}
                 onChange={handleChange}
                 size="small"
-                placeholder="e.g., F-001"
+                placeholder="Vehicle Identification Number"
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
@@ -362,12 +354,12 @@ const VehicleForm = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label="VIN Number"
-                name="vin"
-                value={formData.vin}
+                label="Fleet Number"
+                name="fleetNumber"
+                value={formData.fleetNumber}
                 onChange={handleChange}
                 size="small"
-                placeholder="Vehicle Identification Number"
+                placeholder="e.g., F-001"
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
@@ -486,7 +478,6 @@ const VehicleForm = () => {
               </FormControl>
             </Grid>
 
-            {/* Specifications Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
                 <Settings sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
@@ -504,8 +495,7 @@ const VehicleForm = () => {
                 value={formData.currentOdometer}
                 onChange={handleChange}
                 size="small"
-                error={!!formErrors.currentOdometer}
-                helperText={formErrors.currentOdometer || 'Current odometer reading'}
+                placeholder="Current odometer reading"
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start"><Speed sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
@@ -523,8 +513,6 @@ const VehicleForm = () => {
                 value={formData.currentMileage}
                 onChange={handleChange}
                 size="small"
-                error={!!formErrors.currentMileage}
-                helperText={formErrors.currentMileage}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start"><Speed sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
@@ -542,8 +530,6 @@ const VehicleForm = () => {
                 value={formData.avgConsumption}
                 onChange={handleChange}
                 size="small"
-                error={!!formErrors.avgConsumption}
-                helperText={formErrors.avgConsumption || 'Average fuel consumption'}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start"><LocalGasStation sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
@@ -552,7 +538,6 @@ const VehicleForm = () => {
               />
             </Grid>
 
-            {/* Service Information Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
                 <Build sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
@@ -609,7 +594,6 @@ const VehicleForm = () => {
               />
             </Grid>
 
-            {/* Financial Information */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
                 <AttachMoney sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
@@ -644,8 +628,6 @@ const VehicleForm = () => {
                 value={formData.purchasePrice || ''}
                 onChange={handleChange}
                 size="small"
-                error={!!formErrors.purchasePrice}
-                helperText={formErrors.purchasePrice}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
@@ -662,8 +644,6 @@ const VehicleForm = () => {
                 value={formData.currentValue || ''}
                 onChange={handleChange}
                 size="small"
-                error={!!formErrors.currentValue}
-                helperText={formErrors.currentValue}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
@@ -681,9 +661,6 @@ const VehicleForm = () => {
                 size="small"
                 placeholder="Policy number"
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start"><Receipt sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
-                }}
               />
             </Grid>
 
@@ -715,7 +692,6 @@ const VehicleForm = () => {
               />
             </Grid>
 
-            {/* Notes Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
                 <Description sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
@@ -739,7 +715,6 @@ const VehicleForm = () => {
               />
             </Grid>
 
-            {/* Form Actions */}
             <Grid item xs={12}>
               <Divider sx={{ my: 1.5 }} />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
