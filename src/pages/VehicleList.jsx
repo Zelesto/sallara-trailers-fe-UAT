@@ -33,7 +33,7 @@ import {
   DirectionsCar as CarIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import vehicleService from '../services/vehicleService';
+import { vehicleService } from '../../services/vehicleService';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
@@ -78,6 +78,38 @@ const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
   </Card>
 );
 
+// Status Chip Component - Updated to match VehicleStatus enum
+const VehicleStatusChip = ({ status }) => {
+  const statusMap = {
+    AVAILABLE: { color: 'success', label: 'Available' },
+    ASSIGNED: { color: 'info', label: 'Assigned' },
+    IN_USE: { color: 'primary', label: 'In Use' },
+    ACTIVE: { color: 'success', label: 'Active' },
+    INACTIVE: { color: 'default', label: 'Inactive' },
+    MAINTENANCE: { color: 'warning', label: 'Maintenance' },
+    REPAIR: { color: 'warning', label: 'Repair' },
+    OUT_OF_SERVICE: { color: 'error', label: 'Out of Service' },
+    SOLD: { color: 'default', label: 'Sold' },
+    DECOMMISSIONED: { color: 'default', label: 'Decommissioned' },
+    RETIRED: { color: 'default', label: 'Retired' },
+  };
+  
+  const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
+  
+  return (
+    <Chip 
+      size="small" 
+      label={info.label} 
+      color={info.color} 
+      sx={{ 
+        fontWeight: 500,
+        fontSize: '0.6rem',
+        height: 20
+      }} 
+    />
+  );
+};
+
 const VehicleList = () => {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
@@ -95,9 +127,11 @@ const VehicleList = () => {
     setLoading(true);
     try {
       const response = await vehicleService.getAllVehicles();
+      // The service already converts snake_case to camelCase
       setVehicles(response || []);
       setError(null);
     } catch (err) {
+      console.error('Error loading vehicles:', err);
       setError('Failed to load vehicles');
     } finally {
       setLoading(false);
@@ -117,28 +151,21 @@ const VehicleList = () => {
     }
   };
 
-  const getStatusChip = (status) => {
-    const statusMap = {
-      ACTIVE: { color: 'success', label: 'Active' },
-      AVAILABLE: { color: 'info', label: 'Available' },
-      IN_MAINTENANCE: { color: 'warning', label: 'In Maintenance' },
-      OUT_OF_SERVICE: { color: 'error', label: 'Out of Service' },
-      INACTIVE: { color: 'error', label: 'Inactive' },
-    };
-    const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
-    return (
-      <Chip 
-        size="small" 
-        label={info.label} 
-        color={info.color} 
-        sx={{ 
-          fontWeight: 500,
-          fontSize: '0.6rem',
-          height: 20
-        }} 
-      />
-    );
-  };
+  // Status options for filter - must match VehicleStatus enum
+  const STATUS_FILTER_OPTIONS = [
+    { value: 'ALL', label: 'All Status' },
+    { value: 'AVAILABLE', label: 'Available' },
+    { value: 'ASSIGNED', label: 'Assigned' },
+    { value: 'IN_USE', label: 'In Use' },
+    { value: 'ACTIVE', label: 'Active' },
+    { value: 'INACTIVE', label: 'Inactive' },
+    { value: 'MAINTENANCE', label: 'Maintenance' },
+    { value: 'REPAIR', label: 'Repair' },
+    { value: 'OUT_OF_SERVICE', label: 'Out of Service' },
+    { value: 'SOLD', label: 'Sold' },
+    { value: 'DECOMMISSIONED', label: 'Decommissioned' },
+    { value: 'RETIRED', label: 'Retired' },
+  ];
 
   const columns = [
     {
@@ -168,10 +195,11 @@ const VehicleList = () => {
       renderCell: (params) => (
         <Box>
           <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.75rem' }}>
-            {params.row.make} {params.row.model}
+            {params.row.make || ''} {params.row.model || ''}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
             {params.row.year || ''}
+            {params.row.fleetNumber && ` • Fleet: ${params.row.fleetNumber}`}
           </Typography>
         </Box>
       ),
@@ -179,8 +207,8 @@ const VehicleList = () => {
     {
       field: 'vehicleType',
       headerName: 'Type',
-      flex: 0.7,
-      minWidth: 80,
+      flex: 0.6,
+      minWidth: 70,
       renderCell: (params) => (
         <Chip
           label={params.value || 'N/A'}
@@ -191,13 +219,24 @@ const VehicleList = () => {
       ),
     },
     {
-      field: 'capacityKg',
-      headerName: 'Capacity',
+      field: 'currentOdometer',
+      headerName: 'Odometer',
       flex: 0.6,
       minWidth: 80,
       renderCell: (params) => (
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {params.value ? `${params.value} kg` : 'N/A'}
+          {params.value ? `${params.value.toLocaleString()} km` : 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'fuelType',
+      headerName: 'Fuel',
+      flex: 0.5,
+      minWidth: 60,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontSize: '0.65rem' }}>
+          {params.value || 'N/A'}
         </Typography>
       ),
     },
@@ -206,7 +245,7 @@ const VehicleList = () => {
       headerName: 'Status',
       flex: 0.7,
       minWidth: 100,
-      renderCell: (params) => getStatusChip(params.value),
+      renderCell: (params) => <VehicleStatusChip status={params.value} />,
     },
     {
       field: 'actions',
@@ -256,16 +295,31 @@ const VehicleList = () => {
     const searchMatch = 
       (vehicle.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (vehicle.make || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (vehicle.model || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (vehicle.model || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (vehicle.fleetNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (vehicle.vin || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
     const statusMatch = filterStatus === 'ALL' || vehicle.status === filterStatus;
     return searchMatch && statusMatch;
   });
 
+  // Calculate stats using correct enum values
   const stats = {
     total: vehicles.length,
-    active: vehicles.filter(v => v.status === 'ACTIVE' || v.status === 'AVAILABLE').length,
-    maintenance: vehicles.filter(v => v.status === 'IN_MAINTENANCE').length,
-    outOfService: vehicles.filter(v => v.status === 'OUT_OF_SERVICE').length,
+    active: vehicles.filter(v => 
+      v.status === 'ACTIVE' || 
+      v.status === 'AVAILABLE' || 
+      v.status === 'ASSIGNED' || 
+      v.status === 'IN_USE'
+    ).length,
+    maintenance: vehicles.filter(v => 
+      v.status === 'MAINTENANCE' || 
+      v.status === 'REPAIR'
+    ).length,
+    outOfService: vehicles.filter(v => 
+      v.status === 'OUT_OF_SERVICE' || 
+      v.status === 'INACTIVE'
+    ).length,
   };
 
   return (
@@ -344,12 +398,11 @@ const VehicleList = () => {
               onChange={(e) => setFilterStatus(e.target.value)}
               sx={{ fontSize: '0.75rem' }}
             >
-              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
-              <MenuItem value="ACTIVE" sx={{ fontSize: '0.75rem' }}>Active</MenuItem>
-              <MenuItem value="AVAILABLE" sx={{ fontSize: '0.75rem' }}>Available</MenuItem>
-              <MenuItem value="IN_MAINTENANCE" sx={{ fontSize: '0.75rem' }}>In Maintenance</MenuItem>
-              <MenuItem value="OUT_OF_SERVICE" sx={{ fontSize: '0.75rem' }}>Out of Service</MenuItem>
-              <MenuItem value="INACTIVE" sx={{ fontSize: '0.75rem' }}>Inactive</MenuItem>
+              {STATUS_FILTER_OPTIONS.map(option => (
+                <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <Stack direction="row" spacing={0.75}>
