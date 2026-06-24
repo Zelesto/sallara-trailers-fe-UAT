@@ -1,6 +1,72 @@
 // src/services/vehicleService.js
 import api from './api';
 
+// Helper to map frontend camelCase to backend snake_case for requests
+const toSnakeCase = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  const result = {};
+  const mappings = {
+    registrationNumber: 'registration_number',
+    currentMileage: 'current_mileage',
+    avgConsumption: 'avg_consumption',
+    currentOdometer: 'current_odometer',
+    lastServiceDate: 'last_service_date',
+    serviceIntervalDays: 'service_interval_days',
+    serviceIntervalKm: 'service_interval_km',
+    fuelType: 'fuel_type',
+    licensePlate: 'license_plate',
+    vehicleType: 'vehicle_type'
+  };
+  
+  Object.keys(data).forEach(key => {
+    const snakeKey = mappings[key] || key;
+    result[snakeKey] = data[key];
+  });
+  
+  return result;
+};
+
+// Helper to map backend snake_case to frontend camelCase for responses
+const toCamelCase = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  const result = {};
+  const mappings = {
+    registration_number: 'registrationNumber',
+    current_mileage: 'currentMileage',
+    avg_consumption: 'avgConsumption',
+    current_odometer: 'currentOdometer',
+    last_service_date: 'lastServiceDate',
+    service_interval_days: 'serviceIntervalDays',
+    service_interval_km: 'serviceIntervalKm',
+    fuel_type: 'fuelType',
+    license_plate: 'licensePlate',
+    vehicle_type: 'vehicleType'
+  };
+  
+  Object.keys(data).forEach(key => {
+    const camelKey = mappings[key] || key;
+    result[camelKey] = data[key];
+  });
+  
+  return result;
+};
+
+// Helper to process arrays of vehicles
+const processVehicles = (data) => {
+  if (Array.isArray(data)) {
+    return data.map(vehicle => toCamelCase(vehicle));
+  }
+  if (data?.content && Array.isArray(data.content)) {
+    return {
+      ...data,
+      content: data.content.map(vehicle => toCamelCase(vehicle))
+    };
+  }
+  return data;
+};
+
 export const vehicleService = {
   /**
    * Get all vehicles
@@ -13,15 +79,20 @@ export const vehicleService = {
       console.log('Vehicle Service Response:', response);
       
       // Handle different response structures
-      if (response?.content !== undefined) {
-        // Paginated response
-        return response.content;
+      const data = response?.data || response;
+      
+      if (data?.content !== undefined) {
+        // Paginated response - process content
+        return {
+          ...data,
+          content: data.content.map(vehicle => toCamelCase(vehicle))
+        };
       }
-      if (Array.isArray(response)) {
+      if (Array.isArray(data)) {
         // Direct array response
-        return response;
+        return data.map(vehicle => toCamelCase(vehicle));
       }
-      return response || [];
+      return toCamelCase(data) || [];
     } catch (error) {
       console.error('Error fetching vehicles:', error);
       throw error;
@@ -36,7 +107,8 @@ export const vehicleService = {
   getVehicleById: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}`);
-      return response;
+      const data = response?.data || response;
+      return toCamelCase(data);
     } catch (error) {
       console.error(`Error fetching vehicle ${id}:`, error);
       throw error;
@@ -45,17 +117,46 @@ export const vehicleService = {
 
   /**
    * Create a new vehicle
-   * @param {Object} vehicleData - Vehicle data
+   * @param {Object} vehicleData - Vehicle data (camelCase)
    * @returns {Promise<Object>} Created vehicle
    */
   createVehicle: async (vehicleData) => {
     try {
-      console.log('Creating vehicle with data:', vehicleData);
-      const response = await api.post('/vehicles', vehicleData);
-      console.log('Vehicle created successfully:', response);
-      return response;
+      console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
+      
+      // Convert to snake_case for backend
+      const payload = toSnakeCase(vehicleData);
+      
+      // Ensure required fields are present
+      if (!payload.registration_number) {
+        throw new Error('Registration number is required');
+      }
+      if (!payload.make) {
+        throw new Error('Make is required');
+      }
+      if (!payload.model) {
+        throw new Error('Model is required');
+      }
+      
+      console.log('🚗 Sending payload (snake_case):', payload);
+      
+      const response = await api.post('/vehicles', payload);
+      const created = response?.data || response;
+      console.log('✅ Vehicle created successfully:', created);
+      
+      // Return as camelCase for frontend
+      return toCamelCase(created);
     } catch (error) {
-      console.error('Error creating vehicle:', error);
+      console.error('❌ Error creating vehicle:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.entries(error.response.data.errors)
+          .map(([field, message]) => `${field}: ${message}`)
+          .join(', ');
+        throw new Error(`Validation errors: ${errorMessages}`);
+      }
+      
       throw error;
     }
   },
@@ -63,13 +164,17 @@ export const vehicleService = {
   /**
    * Update an existing vehicle
    * @param {number|string} id - Vehicle ID
-   * @param {Object} vehicleData - Updated vehicle data
+   * @param {Object} vehicleData - Updated vehicle data (camelCase)
    * @returns {Promise<Object>} Updated vehicle
    */
   updateVehicle: async (id, vehicleData) => {
     try {
-      const response = await api.put(`/vehicles/${id}`, vehicleData);
-      return response;
+      // Convert to snake_case for backend
+      const payload = toSnakeCase(vehicleData);
+      
+      const response = await api.put(`/vehicles/${id}`, payload);
+      const updated = response?.data || response;
+      return toCamelCase(updated);
     } catch (error) {
       console.error(`Error updating vehicle ${id}:`, error);
       throw error;
@@ -79,13 +184,17 @@ export const vehicleService = {
   /**
    * Patch/Partially update a vehicle
    * @param {number|string} id - Vehicle ID
-   * @param {Object} vehicleData - Partial vehicle data
+   * @param {Object} vehicleData - Partial vehicle data (camelCase)
    * @returns {Promise<Object>} Updated vehicle
    */
   patchVehicle: async (id, vehicleData) => {
     try {
-      const response = await api.patch(`/vehicles/${id}`, vehicleData);
-      return response;
+      // Convert to snake_case for backend
+      const payload = toSnakeCase(vehicleData);
+      
+      const response = await api.patch(`/vehicles/${id}`, payload);
+      const updated = response?.data || response;
+      return toCamelCase(updated);
     } catch (error) {
       console.error(`Error patching vehicle ${id}:`, error);
       throw error;
@@ -100,7 +209,7 @@ export const vehicleService = {
   deleteVehicle: async (id) => {
     try {
       const response = await api.delete(`/vehicles/${id}`);
-      return response;
+      return response?.data || response;
     } catch (error) {
       console.error(`Error deleting vehicle ${id}:`, error);
       throw error;
@@ -115,7 +224,8 @@ export const vehicleService = {
   getVehicleByRegistration: async (registrationNumber) => {
     try {
       const response = await api.get(`/vehicles/registration/${registrationNumber}`);
-      return response;
+      const data = response?.data || response;
+      return toCamelCase(data);
     } catch (error) {
       console.error(`Error fetching vehicle by registration ${registrationNumber}:`, error);
       throw error;
@@ -132,7 +242,8 @@ export const vehicleService = {
       const response = await api.get('/vehicles/search', {
         params: { q: searchTerm }
       });
-      return response || [];
+      const data = response?.data || response;
+      return processVehicles(data);
     } catch (error) {
       console.error('Error searching vehicles:', error);
       throw error;
@@ -149,7 +260,8 @@ export const vehicleService = {
       const response = await api.get('/vehicles/status', {
         params: { status }
       });
-      return response || [];
+      const data = response?.data || response;
+      return processVehicles(data);
     } catch (error) {
       console.error(`Error fetching vehicles with status ${status}:`, error);
       throw error;
@@ -163,7 +275,8 @@ export const vehicleService = {
   getAvailableVehicles: async () => {
     try {
       const response = await api.get('/vehicles/available');
-      return response || [];
+      const data = response?.data || response;
+      return processVehicles(data);
     } catch (error) {
       console.error('Error fetching available vehicles:', error);
       throw error;
@@ -179,7 +292,8 @@ export const vehicleService = {
   updateVehicleStatus: async (id, status) => {
     try {
       const response = await api.patch(`/vehicles/${id}/status`, { status });
-      return response;
+      const updated = response?.data || response;
+      return toCamelCase(updated);
     } catch (error) {
       console.error(`Error updating vehicle status ${id}:`, error);
       throw error;
@@ -194,7 +308,8 @@ export const vehicleService = {
   getVehicleMaintenanceHistory: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}/maintenance`);
-      return response || [];
+      const data = response?.data || response;
+      return processVehicles(data);
     } catch (error) {
       console.error(`Error fetching maintenance history for vehicle ${id}:`, error);
       throw error;
@@ -209,7 +324,8 @@ export const vehicleService = {
   getVehicleStatistics: async (id) => {
     try {
       const response = await api.get(`/vehicles/${id}/statistics`);
-      return response;
+      const data = response?.data || response;
+      return toCamelCase(data);
     } catch (error) {
       console.error(`Error fetching statistics for vehicle ${id}:`, error);
       throw error;
@@ -225,7 +341,8 @@ export const vehicleService = {
   getVehicleTripHistory: async (id, params = {}) => {
     try {
       const response = await api.get(`/vehicles/${id}/trips`, { params });
-      return response;
+      const data = response?.data || response;
+      return processVehicles(data);
     } catch (error) {
       console.error(`Error fetching trip history for vehicle ${id}:`, error);
       throw error;
