@@ -59,8 +59,15 @@ import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
 
 /* ===================== Helpers ===================== */
-const formatDateForAPI = (date) =>
-  date ? dayjs(date).format('YYYY-MM-DDTHH:mm:ss') : null;
+const formatDateForAPI = (date) => {
+  if (!date) return null;
+  // If it's a dayjs object, use it directly
+  if (dayjs.isDayjs(date)) {
+    return date.format('YYYY-MM-DDTHH:mm:ss');
+  }
+  // If it's a string or Date, convert to dayjs first
+  return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
+};
 
 const filterActiveVehicles = (vehicles) =>
   (vehicles || []).filter(v =>
@@ -494,9 +501,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   };
 
-  const handleDateTimeChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-  };
+ const handleDateTimeChange = (field, value) => {
+  // value is a dayjs object from the DateTimePicker
+  setForm(prev => ({ ...prev, [field]: value }));
+  if (formErrors[field]) {
+    setFormErrors(prev => ({ ...prev, [field]: '' }));
+  }
+};
 
   const handleSwapLocations = () => {
     const temp = origin;
@@ -771,36 +782,36 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   <Grid container spacing={1.5}>
                     <Grid item xs={12} md={6}>
                       <DateTimePicker
-                        label="Planned Start Date & Time *"
-                        value={form.plannedStartDate}
-                        onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            required: true,
-                            error: !!formErrors.plannedStartDate,
-                            helperText: formErrors.plannedStartDate,
-                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
-                          }
-                        }}
-                      />
+  label="Planned Start Date & Time *"
+  value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
+  onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
+  slotProps={{
+    textField: {
+      fullWidth: true,
+      size: 'small',
+      required: true,
+      error: !!formErrors.plannedStartDate,
+      helperText: formErrors.plannedStartDate,
+      sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+    }
+  }}
+/>
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <DateTimePicker
-                        label="Planned End Date & Time"
-                        value={form.plannedEndDate}
-                        onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            error: !!formErrors.plannedEndDate,
-                            helperText: formErrors.plannedEndDate,
-                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
-                          }
-                        }}
-                      />
+  label="Planned End Date & Time"
+  value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
+  onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
+  slotProps={{
+    textField: {
+      fullWidth: true,
+      size: 'small',
+      error: !!formErrors.plannedEndDate,
+      helperText: formErrors.plannedEndDate,
+      sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+    }
+  }}
+/>
                     </Grid>
                     <Grid item xs={12} md={4}>
                       <TextField
