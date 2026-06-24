@@ -6,12 +6,7 @@ import {
   Select, MenuItem, FormControl, InputLabel,
   TextField, CircularProgress, Alert,
   Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, Tooltip, Stack, LinearProgress,
-  Dialog as MuiDialog,
-  DialogActions as MuiDialogActions,
-  DialogContent as MuiDialogContent,
-  DialogTitle as MuiDialogTitle,
-  FormControlLabel, Switch, Menu
+  IconButton, Tooltip, Stack, LinearProgress
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -43,6 +38,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
+import IncidentDialog from './IncidentDialog'; // Import the IncidentDialog
 
 // Import your complete status configuration
 import { STATUS_CONFIG, STATUS_OPTIONS } from './TripList';
@@ -185,176 +181,18 @@ const FuelStatCard = ({ icon: Icon, title, value, subtitle, color = 'primary' })
   </Card>
 );
 
-// ===================== INCIDENTS SECTION =====================
+// ===================== INCIDENTS TAB COMPONENT =====================
 
-// Incident Form Dialog
-const IncidentForm = ({ open, onClose, onSave, tripId, incident = null }) => {
-  const [formData, setFormData] = useState({
-    incidentType: '',
-    severity: 'MEDIUM',
-    description: '',
-    location: '',
-    requiresAssistance: false
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (incident) {
-      setFormData({
-        incidentType: incident.incidentType || '',
-        severity: incident.severity || 'MEDIUM',
-        description: incident.description || '',
-        location: incident.location || '',
-        requiresAssistance: incident.requiresAssistance || false
-      });
-    } else {
-      setFormData({
-        incidentType: '',
-        severity: 'MEDIUM',
-        description: '',
-        location: '',
-        requiresAssistance: false
-      });
-    }
-  }, [incident]);
-
-  const handleSubmit = async () => {
-    if (!formData.incidentType || !formData.description) {
-      setError('Incident type and description are required');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const payload = {
-        ...formData,
-        tripId
-      };
-
-      if (incident?.id) {
-        await tripService.updateIncident(tripId, incident.id, payload);
-      } else {
-        await tripService.reportIncident(tripId, payload);
-      }
-
-      onSave();
-      onClose();
-    } catch (err) {
-      setError(err.message || 'Failed to save incident');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <MuiDialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <MuiDialogTitle sx={{ py: 1.5 }}>
-        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-          {incident ? 'Update Incident' : 'Report New Incident'}
-        </Typography>
-      </MuiDialogTitle>
-      <MuiDialogContent dividers sx={{ p: 2 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Incident Type"
-              value={formData.incidentType}
-              onChange={(e) => setFormData({ ...formData, incidentType: e.target.value })}
-              required
-              size="small"
-              placeholder="e.g., Mechanical Failure, Accident, Weather Delay"
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Severity</InputLabel>
-              <Select
-                value={formData.severity}
-                label="Severity"
-                onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
-              >
-                <MenuItem value="LOW">Low</MenuItem>
-                <MenuItem value="MEDIUM">Medium</MenuItem>
-                <MenuItem value="HIGH">High</MenuItem>
-                <MenuItem value="CRITICAL">Critical</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Location"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              size="small"
-              placeholder="e.g., N1 Highway, Cape Town"
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              required
-              size="small"
-              placeholder="Describe the incident in detail..."
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.requiresAssistance}
-                  onChange={(e) => setFormData({ ...formData, requiresAssistance: e.target.checked })}
-                  size="small"
-                />
-              }
-              label="Requires Assistance"
-            />
-          </Grid>
-        </Grid>
-      </MuiDialogContent>
-      <MuiDialogActions sx={{ p: 1.5 }}>
-        <Button onClick={onClose} size="small">Cancel</Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={loading}
-          startIcon={loading && <CircularProgress size={16} />}
-          size="small"
-        >
-          {loading ? 'Saving...' : (incident ? 'Update' : 'Report')}
-        </Button>
-      </MuiDialogActions>
-    </MuiDialog>
-  );
-};
-
-// Incidents Tab Component
 const IncidentsTab = ({ tripId, trip }) => {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingIncident, setEditingIncident] = useState(null);
   const [filter, setFilter] = useState('ALL');
+  const [incidentDialogOpen, setIncidentDialogOpen] = useState(false);
+  const [editingIncident, setEditingIncident] = useState(null);
+  const [editingIncidentData, setEditingIncidentData] = useState(null);
+  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
+  const [selectedIncident, setSelectedIncident] = useState(null);
 
   const fetchIncidents = useCallback(async () => {
     if (!tripId) return;
@@ -379,13 +217,39 @@ const IncidentsTab = ({ tripId, trip }) => {
     }
   }, [tripId, fetchIncidents]);
 
-  const handleSaveIncident = () => {
-    fetchIncidents();
+  const handleReportIncident = async (incidentData) => {
+    try {
+      const payload = {
+        ...incidentData,
+        tripId
+      };
+      
+      if (editingIncident) {
+        await tripService.updateIncident(tripId, editingIncident.id, payload);
+      } else {
+        await tripService.reportIncident(tripId, payload);
+      }
+      
+      setIncidentDialogOpen(false);
+      setEditingIncident(null);
+      fetchIncidents();
+    } catch (err) {
+      console.error('Error saving incident:', err);
+      setError(err.message || 'Failed to save incident');
+    }
   };
 
   const handleEdit = (incident) => {
     setEditingIncident(incident);
-    setFormOpen(true);
+    setEditingIncidentData({
+      incidentType: incident.incidentType || '',
+      severity: incident.severity || 'MEDIUM',
+      description: incident.description || '',
+      location: incident.location || '',
+      requiresAssistance: incident.requiresAssistance || false
+    });
+    setIncidentDialogOpen(true);
+    setActionMenuAnchor(null);
   };
 
   const handleDelete = async (incidentId) => {
@@ -398,6 +262,7 @@ const IncidentsTab = ({ tripId, trip }) => {
       console.error('Error deleting incident:', err);
       setError('Failed to delete incident');
     }
+    setActionMenuAnchor(null);
   };
 
   const filteredIncidents = useMemo(() => {
@@ -407,9 +272,9 @@ const IncidentsTab = ({ tripId, trip }) => {
 
   const stats = useMemo(() => {
     const total = incidents.length;
-    const open = incidents.filter(i => i.status === 'OPEN').length;
+    const open = incidents.filter(i => i.status === 'OPEN' || i.status === 'IN_PROGRESS').length;
     const inProgress = incidents.filter(i => i.status === 'IN_PROGRESS').length;
-    const resolved = incidents.filter(i => i.status === 'RESOLVED').length;
+    const resolved = incidents.filter(i => i.status === 'RESOLVED' || i.status === 'CLOSED').length;
     const critical = incidents.filter(i => i.severity === 'CRITICAL').length;
     return { total, open, inProgress, resolved, critical };
   }, [incidents]);
@@ -478,7 +343,11 @@ const IncidentsTab = ({ tripId, trip }) => {
           variant="contained"
           size="small"
           startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
-          onClick={() => { setEditingIncident(null); setFormOpen(true); }}
+          onClick={() => { 
+            setEditingIncident(null);
+            setEditingIncidentData(null);
+            setIncidentDialogOpen(true); 
+          }}
           sx={{ fontSize: '0.75rem' }}
         >
           Report Incident
@@ -519,7 +388,11 @@ const IncidentsTab = ({ tripId, trip }) => {
             variant="outlined"
             size="small"
             startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => { setEditingIncident(null); setFormOpen(true); }}
+            onClick={() => { 
+              setEditingIncident(null);
+              setEditingIncidentData(null);
+              setIncidentDialogOpen(true); 
+            }}
             sx={{ mt: 1, fontSize: '0.75rem' }}
           >
             Report First Incident
@@ -591,13 +464,18 @@ const IncidentsTab = ({ tripId, trip }) => {
         </TableContainer>
       )}
 
-      {/* Incident Form Dialog */}
-      <IncidentForm
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSave={handleSaveIncident}
-        tripId={tripId}
-        incident={editingIncident}
+      {/* Incident Dialog */}
+      <IncidentDialog
+        open={incidentDialogOpen}
+        onClose={() => {
+          setIncidentDialogOpen(false);
+          setEditingIncident(null);
+          setEditingIncidentData(null);
+        }}
+        onSubmit={handleReportIncident}
+        trip={trip}
+        initialData={editingIncidentData}
+        isEditing={!!editingIncident}
       />
     </Box>
   );
