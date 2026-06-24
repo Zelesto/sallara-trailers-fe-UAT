@@ -34,7 +34,7 @@ import {
   Numbers as NumbersIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
-import { vehicleService } from '../services/vehicleService';
+import { vehicleService } from '../../services/vehicleService';
 
 // Compact Info Item Component
 const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false }) => (
@@ -91,7 +91,7 @@ const AuditItem = ({ label, value, by }) => (
   </Box>
 );
 
-// Vehicle Status Chip Component - Updated to match VehicleStatus enum
+// Vehicle Status Chip Component
 const VehicleStatusChip = ({ status }) => {
   const statusMap = {
     AVAILABLE: { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} />, label: 'Available' },
@@ -160,7 +160,6 @@ const VehicleDetails = () => {
     }
   };
 
-  // Format currency
   const formatCurrency = (amount) => {
     if (!amount) return 'N/A';
     return new Intl.NumberFormat('en-ZA', {
@@ -171,7 +170,6 @@ const VehicleDetails = () => {
     }).format(amount);
   };
 
-  // Format date
   const formatDate = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-ZA', {
@@ -224,7 +222,7 @@ const VehicleDetails = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Button 
           startIcon={<ArrowBackIcon sx={{ fontSize: '0.9rem' }} />} 
@@ -257,7 +255,7 @@ const VehicleDetails = () => {
         </Stack>
       </Box>
 
-      {/* Summary Card - Compact */}
+      {/* Summary Card */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
@@ -305,7 +303,7 @@ const VehicleDetails = () => {
         </CardContent>
       </Card>
 
-      {/* Details Grid - Compact */}
+      {/* Details Grid */}
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
           Vehicle Information
