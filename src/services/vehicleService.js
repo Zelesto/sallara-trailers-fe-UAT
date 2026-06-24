@@ -1,6 +1,29 @@
 // src/services/vehicleService.js
 import api from './api';
 
+// Helper to validate enum values
+const validateEnumValue = (key, value) => {
+  // VehicleStatus enum values
+  const validStatuses = [
+    'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'REPAIR', 
+    'SOLD', 'DECOMMISSIONED', 'AVAILABLE', 'ASSIGNED', 
+    'IN_USE', 'OUT_OF_SERVICE', 'RETIRED'
+  ];
+  
+  // VehicleType enum values
+  const validTypes = ['TRUCK', 'TRAILER', 'VAN', 'CAR'];
+  
+  if (key === 'status') {
+    return validStatuses.includes(value) ? value : 'AVAILABLE';
+  }
+  
+  if (key === 'vehicleType' || key === 'vehicle_type') {
+    return validTypes.includes(value) ? value : 'TRUCK';
+  }
+  
+  return value;
+};
+
 // Helper to map frontend camelCase to backend snake_case for requests
 const toSnakeCase = (data) => {
   if (!data || typeof data !== 'object') return data;
@@ -12,16 +35,50 @@ const toSnakeCase = (data) => {
     avgConsumption: 'avg_consumption',
     currentOdometer: 'current_odometer',
     lastServiceDate: 'last_service_date',
+    lastServiceOdometer: 'last_service_odometer',
     serviceIntervalDays: 'service_interval_days',
     serviceIntervalKm: 'service_interval_km',
     fuelType: 'fuel_type',
     licensePlate: 'license_plate',
-    vehicleType: 'vehicle_type'
+    vehicleType: 'vehicle_type',
+    insurancePolicyNumber: 'insurance_policy_number',
+    insuranceExpiry: 'insurance_expiry',
+    roadworthyExpiry: 'roadworthy_expiry',
+    fleetNumber: 'fleet_number',
+    assignedDriverId: 'assigned_driver_id',
+    gpsTrackerId: 'gps_tracker_id',
+    maintenanceStatus: 'maintenance_status',
+    nextServiceDue: 'next_service_due',
+    nextServiceOdometer: 'next_service_odometer',
+    incidentsLogged: 'incidents_logged',
+    auditTrail: 'audit_trail',
+    purchaseDate: 'purchase_date',
+    purchasePrice: 'purchase_price',
+    currentValue: 'current_value',
+    category: 'category'
   };
   
   Object.keys(data).forEach(key => {
     const snakeKey = mappings[key] || key;
-    result[snakeKey] = data[key];
+    let value = data[key];
+    
+    // Validate enum values
+    if (key === 'status') {
+      value = validateEnumValue('status', value);
+    }
+    if (key === 'vehicleType') {
+      value = validateEnumValue('vehicleType', value);
+    }
+    
+    // Handle null/undefined
+    if (value === null || value === undefined || value === '') {
+      // Don't include empty strings for optional fields
+      if (!['registration_number', 'make', 'model', 'vehicle_type', 'status'].includes(snakeKey)) {
+        return; // Skip this key
+      }
+    }
+    
+    result[snakeKey] = value;
   });
   
   return result;
@@ -38,11 +95,26 @@ const toCamelCase = (data) => {
     avg_consumption: 'avgConsumption',
     current_odometer: 'currentOdometer',
     last_service_date: 'lastServiceDate',
+    last_service_odometer: 'lastServiceOdometer',
     service_interval_days: 'serviceIntervalDays',
     service_interval_km: 'serviceIntervalKm',
     fuel_type: 'fuelType',
     license_plate: 'licensePlate',
-    vehicle_type: 'vehicleType'
+    vehicle_type: 'vehicleType',
+    insurance_policy_number: 'insurancePolicyNumber',
+    insurance_expiry: 'insuranceExpiry',
+    roadworthy_expiry: 'roadworthyExpiry',
+    fleet_number: 'fleetNumber',
+    assigned_driver_id: 'assignedDriverId',
+    gps_tracker_id: 'gpsTrackerId',
+    maintenance_status: 'maintenanceStatus',
+    next_service_due: 'nextServiceDue',
+    next_service_odometer: 'nextServiceOdometer',
+    incidents_logged: 'incidentsLogged',
+    audit_trail: 'auditTrail',
+    purchase_date: 'purchaseDate',
+    purchase_price: 'purchasePrice',
+    current_value: 'currentValue'
   };
   
   Object.keys(data).forEach(key => {
@@ -124,10 +196,18 @@ export const vehicleService = {
     try {
       console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
       
-      // Convert to snake_case for backend
+      // Ensure required fields are present
+      const requiredFields = ['registrationNumber', 'make', 'model'];
+      for (const field of requiredFields) {
+        if (!vehicleData[field]) {
+          throw new Error(`${field} is required`);
+        }
+      }
+      
+      // Convert to snake_case for backend with enum validation
       const payload = toSnakeCase(vehicleData);
       
-      // Ensure required fields are present
+      // Ensure required fields are in payload
       if (!payload.registration_number) {
         throw new Error('Registration number is required');
       }
@@ -157,6 +237,11 @@ export const vehicleService = {
         throw new Error(`Validation errors: ${errorMessages}`);
       }
       
+      // If the error has a message from the server, use it
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      
       throw error;
     }
   },
@@ -169,7 +254,7 @@ export const vehicleService = {
    */
   updateVehicle: async (id, vehicleData) => {
     try {
-      // Convert to snake_case for backend
+      // Convert to snake_case for backend with enum validation
       const payload = toSnakeCase(vehicleData);
       
       const response = await api.put(`/vehicles/${id}`, payload);
@@ -189,7 +274,7 @@ export const vehicleService = {
    */
   patchVehicle: async (id, vehicleData) => {
     try {
-      // Convert to snake_case for backend
+      // Convert to snake_case for backend with enum validation
       const payload = toSnakeCase(vehicleData);
       
       const response = await api.patch(`/vehicles/${id}`, payload);
@@ -286,11 +371,22 @@ export const vehicleService = {
   /**
    * Update vehicle status
    * @param {number|string} id - Vehicle ID
-   * @param {string} status - New status
+   * @param {string} status - New status (must match VehicleStatus enum)
    * @returns {Promise<Object>} Updated vehicle
    */
   updateVehicleStatus: async (id, status) => {
     try {
+      // Validate status against enum
+      const validStatuses = [
+        'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'REPAIR', 
+        'SOLD', 'DECOMMISSIONED', 'AVAILABLE', 'ASSIGNED', 
+        'IN_USE', 'OUT_OF_SERVICE', 'RETIRED'
+      ];
+      
+      if (!validStatuses.includes(status)) {
+        throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+      }
+      
       const response = await api.patch(`/vehicles/${id}/status`, { status });
       const updated = response?.data || response;
       return toCamelCase(updated);
