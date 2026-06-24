@@ -192,46 +192,92 @@ export const vehicleService = {
     }
   },
 
-  createVehicle: async (vehicleData) => {
-    try {
-      console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
-      
-      // Convert to snake_case for backend
-      const payload = toSnakeCase(vehicleData);
-      
-      console.log('🚗 Sending payload (snake_case):', payload);
-      
-      const response = await api.post('/vehicles', payload);
-      const created = response?.data || response;
-      console.log('✅ Vehicle created successfully:', created);
-      
-      return toCamelCase(created);
-    } catch (error) {
-      console.error('❌ Error creating vehicle:', error);
-      console.error('❌ Error response:', error.response);
-      
-      if (error.response?.data) {
-        console.error('❌ Error data:', error.response.data);
-      }
-      
-      if (error.response?.data?.errors) {
-        const errorMessages = Object.entries(error.response.data.errors)
-          .map(([field, message]) => `${field}: ${message}`)
-          .join(', ');
-        throw new Error(`Validation errors: ${errorMessages}`);
-      }
-      
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      }
-      
-      if (error.response?.data?.detail) {
-        throw new Error(error.response.data.detail);
-      }
-      
-      throw new Error(`Failed to create vehicle: ${error.message}`);
+  // src/services/vehicleService.js
+
+createVehicle: async (vehicleData) => {
+  try {
+    console.log('🚗 Creating vehicle with data (camelCase):', vehicleData);
+    
+    // Start with only the required fields
+    const payload = {
+      registration_number: vehicleData.registrationNumber || '',
+      make: vehicleData.make || '',
+      model: vehicleData.model || '',
+      vehicle_type: validateEnumValue('vehicleType', vehicleData.vehicleType || 'TRUCK'),
+      status: validateEnumValue('status', vehicleData.status || 'AVAILABLE')
+    };
+    
+    // Add optional fields only if they have values
+    if (vehicleData.year) payload.year = vehicleData.year;
+    if (vehicleData.vin) payload.vin = vehicleData.vin;
+    if (vehicleData.fuelType) payload.fuel_type = vehicleData.fuelType;
+    if (vehicleData.currentMileage !== undefined && vehicleData.currentMileage !== null) {
+      payload.current_mileage = vehicleData.currentMileage;
     }
-  },
+    if (vehicleData.currentOdometer !== undefined && vehicleData.currentOdometer !== null) {
+      payload.current_odometer = vehicleData.currentOdometer;
+    }
+    if (vehicleData.avgConsumption !== undefined && vehicleData.avgConsumption !== null) {
+      payload.avg_consumption = vehicleData.avgConsumption;
+    }
+    if (vehicleData.lastServiceDate) payload.last_service_date = vehicleData.lastServiceDate;
+    if (vehicleData.lastServiceOdometer) payload.last_service_odometer = vehicleData.lastServiceOdometer;
+    if (vehicleData.serviceIntervalDays) payload.service_interval_days = vehicleData.serviceIntervalDays;
+    if (vehicleData.serviceIntervalKm) payload.service_interval_km = vehicleData.serviceIntervalKm;
+    if (vehicleData.insurancePolicyNumber) payload.insurance_policy_number = vehicleData.insurancePolicyNumber;
+    if (vehicleData.insuranceExpiry) payload.insurance_expiry = vehicleData.insuranceExpiry;
+    if (vehicleData.roadworthyExpiry) payload.roadworthy_expiry = vehicleData.roadworthyExpiry;
+    if (vehicleData.fleetNumber) payload.fleet_number = vehicleData.fleetNumber;
+    if (vehicleData.notes) payload.notes = vehicleData.notes;
+    if (vehicleData.category) payload.category = vehicleData.category;
+    if (vehicleData.purchaseDate) payload.purchase_date = vehicleData.purchaseDate;
+    if (vehicleData.purchasePrice !== undefined && vehicleData.purchasePrice !== null) {
+      payload.purchase_price = vehicleData.purchasePrice;
+    }
+    if (vehicleData.currentValue !== undefined && vehicleData.currentValue !== null) {
+      payload.current_value = vehicleData.currentValue;
+    }
+    
+    // Remove empty strings and null values
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === null || payload[key] === undefined || payload[key] === '') {
+        delete payload[key];
+      }
+    });
+    
+    console.log('🚗 Sending payload (snake_case):', payload);
+    
+    const response = await api.post('/vehicles', payload);
+    const created = response?.data || response;
+    console.log('✅ Vehicle created successfully:', created);
+    
+    return toCamelCase(created);
+  } catch (error) {
+    console.error('❌ Error creating vehicle:', error);
+    console.error('❌ Error response:', error.response);
+    
+    if (error.response?.data) {
+      console.error('❌ Error data:', error.response.data);
+    }
+    
+    if (error.response?.data?.errors) {
+      const errorMessages = Object.entries(error.response.data.errors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(', ');
+      throw new Error(`Validation errors: ${errorMessages}`);
+    }
+    
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    
+    if (error.response?.data?.detail) {
+      throw new Error(error.response.data.detail);
+    }
+    
+    throw new Error(`Failed to create vehicle: ${error.message}`);
+  }
+},
 
   updateVehicle: async (id, vehicleData) => {
     try {
