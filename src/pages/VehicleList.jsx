@@ -33,7 +33,7 @@ import {
   DirectionsCar as CarIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import { vehicleService } from '../services/vehicleService';
+import { vehicleService } from '../../services/vehicleService';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
@@ -78,7 +78,7 @@ const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
   </Card>
 );
 
-// Status Chip Component - Updated to match VehicleStatus enum
+// Status Chip Component - Updated to match database values
 const VehicleStatusChip = ({ status }) => {
   const statusMap = {
     AVAILABLE: { color: 'success', label: 'Available' },
@@ -110,6 +110,22 @@ const VehicleStatusChip = ({ status }) => {
   );
 };
 
+// Status filter options
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Status' },
+  { value: 'AVAILABLE', label: 'Available' },
+  { value: 'ASSIGNED', label: 'Assigned' },
+  { value: 'IN_USE', label: 'In Use' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+  { value: 'MAINTENANCE', label: 'Maintenance' },
+  { value: 'REPAIR', label: 'Repair' },
+  { value: 'OUT_OF_SERVICE', label: 'Out of Service' },
+  { value: 'SOLD', label: 'Sold' },
+  { value: 'DECOMMISSIONED', label: 'Decommissioned' },
+  { value: 'RETIRED', label: 'Retired' },
+];
+
 const VehicleList = () => {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
@@ -127,7 +143,6 @@ const VehicleList = () => {
     setLoading(true);
     try {
       const response = await vehicleService.getAllVehicles();
-      // The service already converts snake_case to camelCase
       setVehicles(response || []);
       setError(null);
     } catch (err) {
@@ -150,22 +165,6 @@ const VehicleList = () => {
       setTimeout(() => setError(null), 3000);
     }
   };
-
-  // Status options for filter - must match VehicleStatus enum
-  const STATUS_FILTER_OPTIONS = [
-    { value: 'ALL', label: 'All Status' },
-    { value: 'AVAILABLE', label: 'Available' },
-    { value: 'ASSIGNED', label: 'Assigned' },
-    { value: 'IN_USE', label: 'In Use' },
-    { value: 'ACTIVE', label: 'Active' },
-    { value: 'INACTIVE', label: 'Inactive' },
-    { value: 'MAINTENANCE', label: 'Maintenance' },
-    { value: 'REPAIR', label: 'Repair' },
-    { value: 'OUT_OF_SERVICE', label: 'Out of Service' },
-    { value: 'SOLD', label: 'Sold' },
-    { value: 'DECOMMISSIONED', label: 'Decommissioned' },
-    { value: 'RETIRED', label: 'Retired' },
-  ];
 
   const columns = [
     {
@@ -303,7 +302,6 @@ const VehicleList = () => {
     return searchMatch && statusMatch;
   });
 
-  // Calculate stats using correct enum values
   const stats = {
     total: vehicles.length,
     active: vehicles.filter(v => 
@@ -324,7 +322,7 @@ const VehicleList = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
@@ -353,7 +351,7 @@ const VehicleList = () => {
       {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>{error}</Alert>}
       {successMessage && <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
 
-      {/* Stats Cards - Compact */}
+      {/* Stats Cards */}
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
         <Grid item xs={6} sm={3}>
           <StatCard title="Total Vehicles" value={stats.total} color="primary" icon={CarIcon} />
@@ -369,7 +367,7 @@ const VehicleList = () => {
         </Grid>
       </Grid>
 
-      {/* Filters - Compact */}
+      {/* Filters */}
       <Paper sx={{ p: 1.5, mb: 2 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
           <TextField
@@ -427,7 +425,7 @@ const VehicleList = () => {
         </Stack>
       </Paper>
 
-      {/* Data Grid - Compact */}
+      {/* Data Grid */}
       <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -484,7 +482,7 @@ const VehicleList = () => {
         )}
       </Paper>
 
-      {/* Footer - Compact */}
+      {/* Footer */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
           Showing {filteredVehicles.length} of {vehicles.length} vehicles
