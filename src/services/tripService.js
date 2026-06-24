@@ -284,6 +284,28 @@ export const tripService = {
   },
 
   // ==========================
+  // Load Management
+  // ==========================
+
+// Alternative: Get all trips and filter on frontend
+getTripsWithoutLoad: async (params = {}) => {
+    try {
+        const response = await api.get('/trips', { params });
+        // Filter trips that don't have a load_id
+        const trips = response.data.content || response.data;
+        const tripsWithoutLoad = trips.filter(trip => !trip.loadId);
+        return {
+            ...response.data,
+            content: tripsWithoutLoad
+        };
+    } catch (error) {
+        console.error('Error fetching trips without load:', error);
+        throw error;
+    }
+}
+  
+
+  // ==========================
   // Trip Lifecycle Management
   // ==========================
 
