@@ -33,7 +33,7 @@ import {
   DirectionsCar as CarIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import { vehicleService } from '../../services/vehicleService';
+import { vehicleService } from '../services/vehicleService';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
