@@ -31,21 +31,19 @@ import {
   Description,
   Scale,
   Settings,
+  Receipt,
+  Event,
+  Numbers,
+  AttachMoney,
 } from '@mui/icons-material';
-import { vehicleService } from '../services/vehicleService';
+import { vehicleService } from '../../services/vehicleService';
 
-// Constants
+// Constants - Must match backend enums exactly
 const VEHICLE_TYPES = [
   'TRUCK',
   'TRAILER',
-  'TANKER',
-  'REFRIGERATED',
-  'FLATBED',
-  'CURTAINSIDER',
-  'CONTAINER',
-  'LOWBED',
-  'TIPPER',
-  'OTHER'
+  'VAN',
+  'CAR'
 ];
 
 const FUEL_TYPES = [
@@ -59,12 +57,19 @@ const FUEL_TYPES = [
   'Other'
 ];
 
+// Must match VehicleStatus enum exactly
 const STATUS_OPTIONS = [
+  { value: 'AVAILABLE', label: 'Available', color: 'success' },
+  { value: 'ASSIGNED', label: 'Assigned', color: 'info' },
+  { value: 'IN_USE', label: 'In Use', color: 'primary' },
   { value: 'ACTIVE', label: 'Active', color: 'success' },
-  { value: 'AVAILABLE', label: 'Available', color: 'info' },
-  { value: 'IN_MAINTENANCE', label: 'In Maintenance', color: 'warning' },
-  { value: 'OUT_OF_SERVICE', label: 'Out of Service', color: 'error' },
   { value: 'INACTIVE', label: 'Inactive', color: 'default' },
+  { value: 'MAINTENANCE', label: 'Maintenance', color: 'warning' },
+  { value: 'REPAIR', label: 'Repair', color: 'warning' },
+  { value: 'OUT_OF_SERVICE', label: 'Out of Service', color: 'error' },
+  { value: 'SOLD', label: 'Sold', color: 'default' },
+  { value: 'DECOMMISSIONED', label: 'Decommissioned', color: 'default' },
+  { value: 'RETIRED', label: 'Retired', color: 'default' },
 ];
 
 const VehicleForm = () => {
@@ -80,21 +85,29 @@ const VehicleForm = () => {
 
   const [formData, setFormData] = useState({
     registrationNumber: '',
+    vin: '',
     make: '',
     model: '',
-    year: '',
-    vehicleType: '',
-    capacityKg: '',
-    status: 'ACTIVE',
-    fuelType: '',
-    currentMileage: '',
-    engineSize: '',
-    fuelConsumption: '',
-    lastServiceDate: '',
-    nextServiceDate: '',
-    vinNumber: '',
-    color: '',
+    year: new Date().getFullYear(),
+    vehicleType: 'TRUCK',
+    fuelType: 'Diesel',
+    currentMileage: 0,
+    avgConsumption: 0,
+    currentOdometer: 0,
+    lastServiceDate: null,
+    lastServiceOdometer: null,
+    serviceIntervalDays: null,
+    serviceIntervalKm: null,
+    status: 'AVAILABLE',
+    insurancePolicyNumber: '',
+    insuranceExpiry: null,
+    roadworthyExpiry: null,
+    fleetNumber: '',
     notes: '',
+    category: '',
+    purchaseDate: null,
+    purchasePrice: null,
+    currentValue: null,
   });
 
   useEffect(() => {
@@ -109,21 +122,29 @@ const VehicleForm = () => {
       const vehicle = await vehicleService.getVehicleById(id);
       setFormData({
         registrationNumber: vehicle.registrationNumber || '',
+        vin: vehicle.vin || '',
         make: vehicle.make || '',
         model: vehicle.model || '',
-        year: vehicle.year || '',
-        vehicleType: vehicle.vehicleType || '',
-        capacityKg: vehicle.capacityKg || '',
-        status: vehicle.status || 'ACTIVE',
-        fuelType: vehicle.fuelType || '',
-        currentMileage: vehicle.currentMileage || '',
-        engineSize: vehicle.engineSize || '',
-        fuelConsumption: vehicle.fuelConsumption || '',
-        lastServiceDate: vehicle.lastServiceDate || '',
-        nextServiceDate: vehicle.nextServiceDate || '',
-        vinNumber: vehicle.vinNumber || '',
-        color: vehicle.color || '',
+        year: vehicle.year || new Date().getFullYear(),
+        vehicleType: vehicle.vehicleType || 'TRUCK',
+        fuelType: vehicle.fuelType || 'Diesel',
+        currentMileage: vehicle.currentMileage || 0,
+        avgConsumption: vehicle.avgConsumption || 0,
+        currentOdometer: vehicle.currentOdometer || 0,
+        lastServiceDate: vehicle.lastServiceDate || null,
+        lastServiceOdometer: vehicle.lastServiceOdometer || null,
+        serviceIntervalDays: vehicle.serviceIntervalDays || null,
+        serviceIntervalKm: vehicle.serviceIntervalKm || null,
+        status: vehicle.status || 'AVAILABLE',
+        insurancePolicyNumber: vehicle.insurancePolicyNumber || '',
+        insuranceExpiry: vehicle.insuranceExpiry || null,
+        roadworthyExpiry: vehicle.roadworthyExpiry || null,
+        fleetNumber: vehicle.fleetNumber || '',
         notes: vehicle.notes || '',
+        category: vehicle.category || '',
+        purchaseDate: vehicle.purchaseDate || null,
+        purchasePrice: vehicle.purchasePrice || null,
+        currentValue: vehicle.currentValue || null,
       });
       setError('');
     } catch (err) {
@@ -142,16 +163,24 @@ const VehicleForm = () => {
     }
   };
 
+  const handleDateChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value || null }));
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
   const validateForm = () => {
     const errors = {};
 
-    if (!formData.registrationNumber.trim()) {
+    if (!formData.registrationNumber?.trim()) {
       errors.registrationNumber = 'Registration Number is required';
     }
-    if (!formData.make.trim()) {
+    if (!formData.make?.trim()) {
       errors.make = 'Make is required';
     }
-    if (!formData.model.trim()) {
+    if (!formData.model?.trim()) {
       errors.model = 'Model is required';
     }
     if (!formData.vehicleType) {
@@ -163,14 +192,20 @@ const VehicleForm = () => {
     if (formData.year && (isNaN(formData.year) || formData.year < 1900 || formData.year > new Date().getFullYear() + 1)) {
       errors.year = 'Please enter a valid year';
     }
-    if (formData.capacityKg && isNaN(formData.capacityKg)) {
-      errors.capacityKg = 'Capacity must be a number';
-    }
     if (formData.currentMileage && isNaN(formData.currentMileage)) {
       errors.currentMileage = 'Mileage must be a number';
     }
-    if (formData.fuelConsumption && isNaN(formData.fuelConsumption)) {
-      errors.fuelConsumption = 'Fuel consumption must be a number';
+    if (formData.currentOdometer && isNaN(formData.currentOdometer)) {
+      errors.currentOdometer = 'Odometer must be a number';
+    }
+    if (formData.avgConsumption && isNaN(formData.avgConsumption)) {
+      errors.avgConsumption = 'Fuel consumption must be a number';
+    }
+    if (formData.purchasePrice && isNaN(formData.purchasePrice)) {
+      errors.purchasePrice = 'Purchase price must be a number';
+    }
+    if (formData.currentValue && isNaN(formData.currentValue)) {
+      errors.currentValue = 'Current value must be a number';
     }
 
     setFormErrors(errors);
@@ -194,11 +229,18 @@ const VehicleForm = () => {
 
     setSubmitting(true);
     try {
+      // Prepare data for API - all fields are already in camelCase
       const vehicleData = {
         ...formData,
-        capacityKg: formData.capacityKg ? parseFloat(formData.capacityKg) : null,
-        currentMileage: formData.currentMileage ? parseFloat(formData.currentMileage) : null,
         year: formData.year ? parseInt(formData.year, 10) : null,
+        currentMileage: formData.currentMileage ? parseFloat(formData.currentMileage) : 0,
+        avgConsumption: formData.avgConsumption ? parseFloat(formData.avgConsumption) : 0,
+        currentOdometer: formData.currentOdometer ? parseFloat(formData.currentOdometer) : 0,
+        lastServiceOdometer: formData.lastServiceOdometer ? parseFloat(formData.lastServiceOdometer) : null,
+        serviceIntervalDays: formData.serviceIntervalDays ? parseInt(formData.serviceIntervalDays, 10) : null,
+        serviceIntervalKm: formData.serviceIntervalKm ? parseFloat(formData.serviceIntervalKm) : null,
+        purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : null,
+        currentValue: formData.currentValue ? parseFloat(formData.currentValue) : null,
       };
 
       let result;
@@ -307,6 +349,32 @@ const VehicleForm = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
+                label="Fleet Number"
+                name="fleetNumber"
+                value={formData.fleetNumber}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., F-001"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="VIN Number"
+                name="vin"
+                value={formData.vin}
+                onChange={handleChange}
+                size="small"
+                placeholder="Vehicle Identification Number"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
                 label="Make *"
                 name="make"
                 value={formData.make}
@@ -363,7 +431,6 @@ const VehicleForm = () => {
                   required
                   sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Type</MenuItem>
                   {VEHICLE_TYPES.map(type => (
                     <MenuItem key={type} value={type} sx={{ fontSize: '0.8rem' }}>{type}</MenuItem>
                   ))}
@@ -402,6 +469,23 @@ const VehicleForm = () => {
               </FormControl>
             </Grid>
 
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Fuel Type</InputLabel>
+                <Select
+                  name="fuelType"
+                  value={formData.fuelType}
+                  label="Fuel Type"
+                  onChange={handleChange}
+                  sx={{ fontSize: '0.8rem' }}
+                >
+                  {FUEL_TYPES.map(type => (
+                    <MenuItem key={type} value={type} sx={{ fontSize: '0.8rem' }}>{type}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
             {/* Specifications Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
@@ -414,62 +498,18 @@ const VehicleForm = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label="VIN Number"
-                name="vinNumber"
-                value={formData.vinNumber}
-                onChange={handleChange}
-                size="small"
-                placeholder="Vehicle Identification Number"
-                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Color"
-                name="color"
-                value={formData.color}
-                onChange={handleChange}
-                size="small"
-                placeholder="e.g., White, Blue, Red"
-                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Fuel Type</InputLabel>
-                <Select
-                  name="fuelType"
-                  value={formData.fuelType}
-                  label="Fuel Type"
-                  onChange={handleChange}
-                  sx={{ fontSize: '0.8rem' }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Fuel Type</MenuItem>
-                  {FUEL_TYPES.map(type => (
-                    <MenuItem key={type} value={type} sx={{ fontSize: '0.8rem' }}>{type}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Capacity (kg)"
-                name="capacityKg"
+                label="Current Odometer (km)"
+                name="currentOdometer"
                 type="number"
-                value={formData.capacityKg}
+                value={formData.currentOdometer}
                 onChange={handleChange}
                 size="small"
-                error={!!formErrors.capacityKg}
-                helperText={formErrors.capacityKg || 'Maximum load capacity in kilograms'}
+                error={!!formErrors.currentOdometer}
+                helperText={formErrors.currentOdometer || 'Current odometer reading'}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
-                  endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>kg</InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><Speed sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                  endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>km</InputAdornment>,
                 }}
               />
             </Grid>
@@ -477,7 +517,7 @@ const VehicleForm = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label="Current Mileage"
+                label="Current Mileage (km)"
                 name="currentMileage"
                 type="number"
                 value={formData.currentMileage}
@@ -496,27 +536,14 @@ const VehicleForm = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label="Engine Size"
-                name="engineSize"
-                value={formData.engineSize}
-                onChange={handleChange}
-                size="small"
-                placeholder="e.g., 12.8L, 16L"
-                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Fuel Consumption (L/100km)"
-                name="fuelConsumption"
+                label="Avg Fuel Consumption (L/100km)"
+                name="avgConsumption"
                 type="number"
-                value={formData.fuelConsumption}
+                value={formData.avgConsumption}
                 onChange={handleChange}
                 size="small"
-                error={!!formErrors.fuelConsumption}
-                helperText={formErrors.fuelConsumption || 'Average fuel consumption'}
+                error={!!formErrors.avgConsumption}
+                helperText={formErrors.avgConsumption || 'Average fuel consumption'}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start"><LocalGasStation sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
@@ -534,14 +561,14 @@ const VehicleForm = () => {
               <Divider sx={{ mb: 2 }} />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 label="Last Service Date"
                 name="lastServiceDate"
                 type="date"
-                value={formData.lastServiceDate}
-                onChange={handleChange}
+                value={formData.lastServiceDate || ''}
+                onChange={handleDateChange}
                 size="small"
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
@@ -551,20 +578,140 @@ const VehicleForm = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label="Next Service Date"
-                name="nextServiceDate"
-                type="date"
-                value={formData.nextServiceDate}
+                label="Last Service Odometer"
+                name="lastServiceOdometer"
+                type="number"
+                value={formData.lastServiceOdometer || ''}
                 onChange={handleChange}
+                size="small"
+                placeholder="Odometer at last service"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Numbers sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                  endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>km</InputAdornment>,
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Category"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., Heavy, Medium, Light"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+
+            {/* Financial Information */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                <AttachMoney sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+                Financial Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Purchase Date"
+                name="purchaseDate"
+                type="date"
+                value={formData.purchaseDate || ''}
+                onChange={handleDateChange}
                 size="small"
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><CalendarToday sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><Event sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
                 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Purchase Price (ZAR)"
+                name="purchasePrice"
+                type="number"
+                value={formData.purchasePrice || ''}
+                onChange={handleChange}
+                size="small"
+                error={!!formErrors.purchasePrice}
+                helperText={formErrors.purchasePrice}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Current Value (ZAR)"
+                name="currentValue"
+                type="number"
+                value={formData.currentValue || ''}
+                onChange={handleChange}
+                size="small"
+                error={!!formErrors.currentValue}
+                helperText={formErrors.currentValue}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Insurance Policy Number"
+                name="insurancePolicyNumber"
+                value={formData.insurancePolicyNumber}
+                onChange={handleChange}
+                size="small"
+                placeholder="Policy number"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Receipt sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Insurance Expiry"
+                name="insuranceExpiry"
+                type="date"
+                value={formData.insuranceExpiry || ''}
+                onChange={handleDateChange}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Roadworthy Expiry"
+                name="roadworthyExpiry"
+                type="date"
+                value={formData.roadworthyExpiry || ''}
+                onChange={handleDateChange}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
