@@ -22,72 +22,77 @@ import driverService from "../services/driverService";
 import DriverList from "./DriverList";
 import { useNavigate } from "react-router-dom";
 
-// Compact User Item Component
-const UserItem = ({ user, onDelete }) => (
-  <Paper
-    sx={{
-      p: 1.5,
-      mb: 1,
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      border: '1px solid',
-      borderColor: 'divider',
-      borderRadius: 1,
-      '&:hover': {
-        bgcolor: 'action.hover',
-        borderColor: 'primary.main'
-      }
-    }}
-  >
-    <Stack direction="row" spacing={1.5} alignItems="center">
-      <Box
-        sx={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          bgcolor: 'primary.light',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'primary.main'
-        }}
-      >
-        <PersonIcon sx={{ fontSize: '1.1rem' }} />
-      </Box>
-      <Box>
-        <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-          {user.username}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-          {user.email}
-        </Typography>
-        {user.roles && user.roles.length > 0 && (
-          <Box sx={{ mt: 0.25 }}>
-            {user.roles.map((role, index) => (
-              <Chip
-                key={index}
-                label={role.name || role}
-                size="small"
-                sx={{ height: 16, fontSize: '0.5rem', mr: 0.25 }}
-              />
-            ))}
-          </Box>
-        )}
-      </Box>
-    </Stack>
-    <Tooltip title="Delete User">
-      <IconButton
-        color="error"
-        size="small"
-        onClick={() => onDelete(user.id)}
-        sx={{ p: 0.5 }}
-      >
-        <DeleteIcon sx={{ fontSize: '0.9rem' }} />
-      </IconButton>
-    </Tooltip>
-  </Paper>
-);
+// Compact User Item Component - FIXED
+const UserItem = ({ user, onDelete }) => {
+  // Safely get roles array
+  const roles = user?.roles || [];
+  
+  return (
+    <Paper
+      sx={{
+        p: 1.5,
+        mb: 1,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        '&:hover': {
+          bgcolor: 'action.hover',
+          borderColor: 'primary.main'
+        }
+      }}
+    >
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Box
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            bgcolor: 'primary.light',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'primary.main'
+          }}
+        >
+          <PersonIcon sx={{ fontSize: '1.1rem' }} />
+        </Box>
+        <Box>
+          <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+            {user?.username || user?.firstName || 'Unknown User'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+            {user?.email || 'No email'}
+          </Typography>
+          {roles.length > 0 && (
+            <Box sx={{ mt: 0.25 }}>
+              {roles.map((role, index) => (
+                <Chip
+                  key={index}
+                  label={typeof role === 'string' ? role : (role?.name || role?.role || 'Unknown')}
+                  size="small"
+                  sx={{ height: 16, fontSize: '0.5rem', mr: 0.25 }}
+                />
+              ))}
+            </Box>
+          )}
+        </Box>
+      </Stack>
+      <Tooltip title="Delete User">
+        <IconButton
+          color="error"
+          size="small"
+          onClick={() => onDelete(user?.id)}
+          sx={{ p: 0.5 }}
+        >
+          <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+        </IconButton>
+      </Tooltip>
+    </Paper>
+  );
+};
 
 // Compact Tab Panel Component
 const TabPanel = ({ children, value, index }) => (
@@ -113,6 +118,7 @@ const SettingsPage = ({ currentUser }) => {
   const [drivers, setDrivers] = useState([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [driverError, setDriverError] = useState(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -129,10 +135,18 @@ const SettingsPage = ({ currentUser }) => {
 
   const fetchUsers = async () => {
     try {
+      setLoadingUsers(true);
       const data = await userService.getAllUsers();
-      setUsers(data);
-    } catch {
+      // Ensure data is an array
+      const usersArray = Array.isArray(data) ? data : (data?.data || data?.content || []);
+      setUsers(usersArray);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching users:', err);
       setError("Failed to load users");
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -376,7 +390,11 @@ const SettingsPage = ({ currentUser }) => {
                 />
               </Stack>
 
-              {users.length === 0 ? (
+              {loadingUsers ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress size={30} />
+                </Box>
+              ) : users.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4, bgcolor: 'grey.50', borderRadius: 1 }}>
                   <PeopleIcon sx={{ fontSize: 32, color: 'text.disabled', mb: 1 }} />
                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
