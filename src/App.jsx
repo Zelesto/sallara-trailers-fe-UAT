@@ -23,6 +23,8 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 const UserList = lazy(() => import("./pages/UserList"));
 const UserDetails = lazy(() => import("./pages/UserDetails"));
+const UserForm = lazy(() => import("./pages/UserForm"));
+
 
 const DriverList = lazy(() => import("./pages/DriverList"));
 const DriverDetails = lazy(() => import("./pages/DriverDetails"));
@@ -197,6 +199,9 @@ function App() {
                     {/* Profile */}
                     <Route path="me" element={<MyProfileRoute />} />
                     <Route path="users/:id" element={<UserProfile isSelfView={false} />} />
+                    
+                    <Route path="/users/new" element={<UserForm mode="create" />} />
+                    <Route path="/users/:id/edit" element={<UserForm mode="edit" />} /> 
 
                     {/* Settings */}
                     <Route path="settings" element={<SettingsPage />} />
