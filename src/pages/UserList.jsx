@@ -6,7 +6,7 @@ import { Button, Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
 const fetchUsers = async () => {
-  const res = await axios.get("/api/users");
+  const res = await axios.get("/users");
   return res.data;
 };
 
