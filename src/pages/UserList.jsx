@@ -1,23 +1,16 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import { DataGrid } from "@mui/x-data-grid";
 import { Button, Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-
-const fetchUsers = async () => {
-  const res = await axios.get("/users");
-  return res.data;
-};
+import userService from "../services/user";
 
 export default function UserList() {
   const navigate = useNavigate();
   
-  // ✅ FIXED: Use object syntax for React Query v5
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ["users"],
-    queryFn: fetchUsers,
-    // Optional: Add these for better UX
+    queryFn: userService.getAllUsers,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });
@@ -31,7 +24,7 @@ export default function UserList() {
     { field: "email", headerName: "Email", flex: 1 },
     { 
       field: "enabled", 
-      headerName: "Enabled", 
+      headerName: "Status", 
       width: 120,
       renderCell: (params) => (
         <span style={{ color: params.value ? 'green' : 'red' }}>
