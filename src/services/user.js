@@ -36,7 +36,16 @@ const userService = {
   createUser: (user) => api.post("/users", user).then(res => res.data),
   updateUser: (id, user) => api.put(`/users/${id}`, user).then(res => res.data),
   deleteUser: (id) => api.delete(`/users/${id}`),
-  getUserById: (id) => api.get(`/users/${id}`).then(res => res.data),
+  getUserById: async (id) => {
+    try {
+      const result = await api.get(`/users/${id}`);
+      console.log(`📦 User ${id}:`, result);
+      return result;
+    } catch (error) {
+      console.error(`❌ Error fetching user ${id}:`, error);
+      throw error;
+    }
+  },
 };
 
 export default userService;
