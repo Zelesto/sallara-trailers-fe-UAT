@@ -30,7 +30,6 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import userService from '../services/user';
 
-// Stat Card Component
 const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
   <Card sx={{ 
     bgcolor: `${color}.main`, 
@@ -91,36 +90,18 @@ const UserList = () => {
     try {
       console.log("🔄 Loading users...");
       const response = await userService.getAllUsers();
-      console.log("📊 User service response:", response);
+      console.log("📊 Response from service:", response);
+      console.log("📊 Response type:", typeof response);
+      console.log("📊 Is array?", Array.isArray(response));
       
-      // Ensure we have an array
-      let userData = [];
+      // The response should already be an array from the service
       if (Array.isArray(response)) {
-        userData = response;
-      } else if (response && typeof response === 'object') {
-        // Try to find array properties
-        const possibleArrays = ['data', 'content', 'users', 'items', 'results'];
-        for (const key of possibleArrays) {
-          if (response[key] && Array.isArray(response[key])) {
-            userData = response[key];
-            console.log(`✅ Found users in response.${key}:`, userData.length);
-            break;
-          }
-        }
-        // If no array found, check if the response itself has numeric keys (like an array object)
-        if (userData.length === 0 && typeof response === 'object') {
-          const values = Object.values(response);
-          const arrayValues = values.filter(val => Array.isArray(val));
-          if (arrayValues.length > 0) {
-            userData = arrayValues[0];
-            console.log("✅ Found array in object values:", userData.length);
-          }
-        }
+        console.log(`✅ Found ${response.length} users`);
+        setUsers(response);
+      } else {
+        console.warn("⚠️ Response is not an array:", response);
+        setUsers([]);
       }
-      
-      console.log("✅ Processed user data:", userData);
-      console.log("✅ Number of users:", userData.length);
-      setUsers(userData || []);
     } catch (err) {
       console.error("❌ Error loading users:", err);
       setError('Failed to load users: ' + (err.message || 'Unknown error'));
@@ -140,23 +121,6 @@ const UserList = () => {
       setError('Failed to delete user');
       setTimeout(() => setError(null), 3000);
     }
-  };
-
-  // Check if a user has a role
-  const hasRole = (user, roleName) => {
-    if (!user.roles) return false;
-    if (Array.isArray(user.roles)) {
-      return user.roles.some(role => 
-        typeof role === 'string' ? role === roleName : role.name === roleName
-      );
-    }
-    return false;
-  };
-
-  // Get role display names
-  const getRoleDisplay = (roles) => {
-    if (!roles || !Array.isArray(roles)) return 'No roles';
-    return roles.map(role => typeof role === 'string' ? role : role.name).join(', ');
   };
 
   const columns = [
@@ -183,7 +147,7 @@ const UserList = () => {
               width: 28,
               height: 28,
               borderRadius: '50%',
-              bgcolor: params.value ? 'secondary.main' : 'grey.400',
+              bgcolor: 'secondary.main',
               color: 'white',
               display: 'flex',
               alignItems: 'center',
@@ -323,7 +287,6 @@ const UserList = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
@@ -360,7 +323,6 @@ const UserList = () => {
         </Alert>
       )}
 
-      {/* Stats Cards */}
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
         <Grid item xs={6} sm={4}>
           <StatCard title="Total Users" value={stats.total} color="primary" icon={PersonIcon} />
@@ -373,7 +335,6 @@ const UserList = () => {
         </Grid>
       </Grid>
 
-      {/* Filters */}
       <Paper sx={{ p: 1.5, mb: 2 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
           <TextField
@@ -407,7 +368,6 @@ const UserList = () => {
         </Stack>
       </Paper>
 
-      {/* Data Grid */}
       <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -459,7 +419,6 @@ const UserList = () => {
         )}
       </Paper>
 
-      {/* Footer */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
           Showing {filteredUsers.length} of {users.length} users
