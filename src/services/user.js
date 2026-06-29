@@ -6,18 +6,27 @@ const userService = {
     try {
       console.log("🔍 Fetching all users...");
       const response = await api.get("/users");
-      console.log("📦 Full response:", response);
-      console.log("📦 Response data:", response.data);
-      console.log("📦 Is array?", Array.isArray(response.data));
+      console.log("📦 Raw API response:", response);
       
-      // The API returns the array directly in response.data
-      if (Array.isArray(response.data)) {
-        console.log(`✅ Found ${response.data.length} users`);
-        return response.data; // Return the array directly
+      // The response is already the data (array of users)
+      if (Array.isArray(response)) {
+        console.log(`✅ Found ${response.length} users`);
+        return response;
       }
       
-      // Fallback: try to find array in response
-      console.warn("⚠️ Unexpected response format, trying to extract array...");
+      // If response has a data property that's an array
+      if (response && response.data && Array.isArray(response.data)) {
+        console.log(`✅ Found ${response.data.length} users in response.data`);
+        return response.data;
+      }
+      
+      // If response has a content property (Spring Data Page)
+      if (response && response.content && Array.isArray(response.content)) {
+        console.log(`✅ Found ${response.content.length} users in response.content`);
+        return response.content;
+      }
+      
+      console.warn("⚠️ Unexpected response format:", response);
       return [];
     } catch (error) {
       console.error("❌ Error in getAllUsers:", error);
