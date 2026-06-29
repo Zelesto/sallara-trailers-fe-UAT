@@ -30,7 +30,7 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import userService from '../services/user';
 
-// Compact Stat Card Component
+// Stat Card Component
 const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
   <Card sx={{ 
     bgcolor: `${color}.main`, 
@@ -87,34 +87,42 @@ const UserList = () => {
 
   const loadUsers = async () => {
     setLoading(true);
+    setError(null);
     try {
-      console.log('Loading users...');
+      console.log("🔄 Loading users...");
       const response = await userService.getAllUsers();
-      console.log('User response:', response);
+      console.log("📊 User service response:", response);
       
-      // Handle different response formats
+      // Ensure we have an array
       let userData = [];
       if (Array.isArray(response)) {
         userData = response;
-      } else if (response && response.data && Array.isArray(response.data)) {
-        userData = response.data;
-      } else if (response && response.content && Array.isArray(response.content)) {
-        userData = response.content;
-      } else if (response && response.users && Array.isArray(response.users)) {
-        userData = response.users;
       } else if (response && typeof response === 'object') {
-        // Try to find any array property
-        const arrayProp = Object.values(response).find(val => Array.isArray(val));
-        if (arrayProp) {
-          userData = arrayProp;
+        // Try to find array properties
+        const possibleArrays = ['data', 'content', 'users', 'items', 'results'];
+        for (const key of possibleArrays) {
+          if (response[key] && Array.isArray(response[key])) {
+            userData = response[key];
+            console.log(`✅ Found users in response.${key}:`, userData.length);
+            break;
+          }
+        }
+        // If no array found, check if the response itself has numeric keys (like an array object)
+        if (userData.length === 0 && typeof response === 'object') {
+          const values = Object.values(response);
+          const arrayValues = values.filter(val => Array.isArray(val));
+          if (arrayValues.length > 0) {
+            userData = arrayValues[0];
+            console.log("✅ Found array in object values:", userData.length);
+          }
         }
       }
       
-      console.log('Processed user data:', userData);
+      console.log("✅ Processed user data:", userData);
+      console.log("✅ Number of users:", userData.length);
       setUsers(userData || []);
-      setError(null);
     } catch (err) {
-      console.error('Error loading users:', err);
+      console.error("❌ Error loading users:", err);
       setError('Failed to load users: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
@@ -132,6 +140,23 @@ const UserList = () => {
       setError('Failed to delete user');
       setTimeout(() => setError(null), 3000);
     }
+  };
+
+  // Check if a user has a role
+  const hasRole = (user, roleName) => {
+    if (!user.roles) return false;
+    if (Array.isArray(user.roles)) {
+      return user.roles.some(role => 
+        typeof role === 'string' ? role === roleName : role.name === roleName
+      );
+    }
+    return false;
+  };
+
+  // Get role display names
+  const getRoleDisplay = (roles) => {
+    if (!roles || !Array.isArray(roles)) return 'No roles';
+    return roles.map(role => typeof role === 'string' ? role : role.name).join(', ');
   };
 
   const columns = [
@@ -158,7 +183,7 @@ const UserList = () => {
               width: 28,
               height: 28,
               borderRadius: '50%',
-              bgcolor: 'secondary.main',
+              bgcolor: params.value ? 'secondary.main' : 'grey.400',
               color: 'white',
               display: 'flex',
               alignItems: 'center',
@@ -212,12 +237,19 @@ const UserList = () => {
       minWidth: 120,
       renderCell: (params) => {
         const roles = params.value || [];
+        if (!Array.isArray(roles) || roles.length === 0) {
+          return (
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+              No roles
+            </Typography>
+          );
+        }
         return (
           <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
             {roles.map((role, index) => (
               <Chip
                 key={index}
-                label={role.name || role}
+                label={typeof role === 'string' ? role : role.name || 'Role'}
                 size="small"
                 variant="outlined"
                 sx={{ 
@@ -228,11 +260,6 @@ const UserList = () => {
                 }}
               />
             ))}
-            {roles.length === 0 && (
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                No roles
-              </Typography>
-            )}
           </Stack>
         );
       },
@@ -426,11 +453,6 @@ const UserList = () => {
                 fontSize: '0.65rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.3px',
-              },
-              '& .MuiDataGrid-virtualScroller': {
-                '& .MuiDataGrid-row': {
-                  minHeight: '36px !important',
-                },
               },
             }}
           />
