@@ -12,16 +12,33 @@ const fetchUsers = async () => {
 
 export default function UserList() {
   const navigate = useNavigate();
-  const { data: users = [], isLoading, error } = useQuery(["users"], fetchUsers);
+  
+  // ✅ FIXED: Use object syntax for React Query v5
+  const { data: users = [], isLoading, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+    // Optional: Add these for better UX
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
 
   if (isLoading) return <div>Loading users...</div>;
-  if (error) return <div>Error loading users</div>;
+  if (error) return <div>Error loading users: {error.message}</div>;
 
   const columns = [
     { field: "id", headerName: "ID", width: 90 },
     { field: "username", headerName: "Username", flex: 1 },
     { field: "email", headerName: "Email", flex: 1 },
-    { field: "enabled", headerName: "Enabled", width: 120 },
+    { 
+      field: "enabled", 
+      headerName: "Enabled", 
+      width: 120,
+      renderCell: (params) => (
+        <span style={{ color: params.value ? 'green' : 'red' }}>
+          {params.value ? '✅ Active' : '❌ Inactive'}
+        </span>
+      )
+    },
     {
       field: "actions",
       headerName: "Actions",
@@ -40,7 +57,13 @@ export default function UserList() {
 
   return (
     <Box sx={{ height: 500, width: "100%" }}>
-      <DataGrid rows={users} columns={columns} pageSize={10} />
+      <DataGrid 
+        rows={users} 
+        columns={columns} 
+        pageSize={10}
+        rowsPerPageOptions={[5, 10, 25]}
+        disableSelectionOnClick
+      />
     </Box>
   );
 }
