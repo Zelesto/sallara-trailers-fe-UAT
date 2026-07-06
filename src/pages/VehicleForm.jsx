@@ -192,73 +192,78 @@ const VehicleForm = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+  e.preventDefault();
+  setError('');
+  setSuccess('');
 
-    if (!validateForm()) {
-      const firstErrorField = Object.keys(formErrors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.focus();
-      }
-      return;
+  if (!validateForm()) {
+    const firstErrorField = Object.keys(formErrors)[0];
+    const element = document.querySelector(`[name="${firstErrorField}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.focus();
+    }
+    return;
+  }
+
+  setSubmitting(true);
+  try {
+    // Prepare data - only include fields that have values
+    const vehicleData = {
+      registrationNumber: formData.registrationNumber.trim(),
+      make: formData.make.trim(),
+      model: formData.model.trim(),
+      vehicleType: formData.vehicleType,
+      status: formData.status,
+    };
+
+    // Add optional fields if they have values
+    if (formData.vin?.trim()) vehicleData.vin = formData.vin.trim();
+    if (formData.year) vehicleData.year = parseInt(formData.year, 10);
+    if (formData.fuelType) vehicleData.fuelType = formData.fuelType;
+    if (formData.currentMileage) vehicleData.currentMileage = parseFloat(formData.currentMileage);
+    if (formData.avgConsumption) vehicleData.avgConsumption = parseFloat(formData.avgConsumption);
+    if (formData.currentOdometer) vehicleData.currentOdometer = parseFloat(formData.currentOdometer);
+    if (formData.lastServiceDate) vehicleData.lastServiceDate = formData.lastServiceDate;
+    if (formData.lastServiceOdometer) vehicleData.lastServiceOdometer = parseFloat(formData.lastServiceOdometer);
+    
+    // ✅ FIX: ADD THESE MISSING LINES
+    if (formData.serviceIntervalDays) vehicleData.serviceIntervalDays = parseInt(formData.serviceIntervalDays, 10);
+    if (formData.serviceIntervalKm) vehicleData.serviceIntervalKm = parseFloat(formData.serviceIntervalKm);
+    
+    if (formData.insurancePolicyNumber?.trim()) vehicleData.insurancePolicyNumber = formData.insurancePolicyNumber.trim();
+    if (formData.insuranceExpiry) vehicleData.insuranceExpiry = formData.insuranceExpiry;
+    if (formData.roadworthyExpiry) vehicleData.roadworthyExpiry = formData.roadworthyExpiry;
+    if (formData.fleetNumber?.trim()) vehicleData.fleetNumber = formData.fleetNumber.trim();
+    if (formData.notes?.trim()) vehicleData.notes = formData.notes.trim();
+    if (formData.category?.trim()) vehicleData.category = formData.category.trim();
+    if (formData.purchaseDate) vehicleData.purchaseDate = formData.purchaseDate;
+    if (formData.purchasePrice) vehicleData.purchasePrice = parseFloat(formData.purchasePrice);
+    if (formData.currentValue) vehicleData.currentValue = parseFloat(formData.currentValue);
+
+    console.log('📤 Sending vehicle data:', vehicleData);
+
+    let result;
+    if (isEditMode) {
+      result = await vehicleService.updateVehicle(id, vehicleData);
+      setSuccess('Vehicle updated successfully!');
+    } else {
+      result = await vehicleService.createVehicle(vehicleData);
+      setSuccess('Vehicle created successfully!');
     }
 
-    setSubmitting(true);
-    try {
-      // Prepare data - only include fields that have values
-      const vehicleData = {
-        registrationNumber: formData.registrationNumber.trim(),
-        make: formData.make.trim(),
-        model: formData.model.trim(),
-        vehicleType: formData.vehicleType,
-        status: formData.status,
-      };
+    console.log('✅ Vehicle saved:', result);
 
-      // Add optional fields if they have values
-      if (formData.vin?.trim()) vehicleData.vin = formData.vin.trim();
-      if (formData.year) vehicleData.year = parseInt(formData.year, 10);
-      if (formData.fuelType) vehicleData.fuelType = formData.fuelType;
-      if (formData.currentMileage) vehicleData.currentMileage = parseFloat(formData.currentMileage);
-      if (formData.avgConsumption) vehicleData.avgConsumption = parseFloat(formData.avgConsumption);
-      if (formData.currentOdometer) vehicleData.currentOdometer = parseFloat(formData.currentOdometer);
-      if (formData.lastServiceDate) vehicleData.lastServiceDate = formData.lastServiceDate;
-      if (formData.lastServiceOdometer) vehicleData.lastServiceOdometer = parseFloat(formData.lastServiceOdometer);
-      if (formData.serviceIntervalDays) vehicleData.serviceIntervalDays = parseInt(formData.serviceIntervalDays, 10);
-      if (formData.serviceIntervalKm) vehicleData.serviceIntervalKm = parseFloat(formData.serviceIntervalKm);
-      if (formData.insurancePolicyNumber?.trim()) vehicleData.insurancePolicyNumber = formData.insurancePolicyNumber.trim();
-      if (formData.insuranceExpiry) vehicleData.insuranceExpiry = formData.insuranceExpiry;
-      if (formData.roadworthyExpiry) vehicleData.roadworthyExpiry = formData.roadworthyExpiry;
-      if (formData.fleetNumber?.trim()) vehicleData.fleetNumber = formData.fleetNumber.trim();
-      if (formData.notes?.trim()) vehicleData.notes = formData.notes.trim();
-      if (formData.category?.trim()) vehicleData.category = formData.category.trim();
-      if (formData.purchaseDate) vehicleData.purchaseDate = formData.purchaseDate;
-      if (formData.purchasePrice) vehicleData.purchasePrice = parseFloat(formData.purchasePrice);
-      if (formData.currentValue) vehicleData.currentValue = parseFloat(formData.currentValue);
-
-      let result;
-      if (isEditMode) {
-        result = await vehicleService.updateVehicle(id, vehicleData);
-        setSuccess('Vehicle updated successfully!');
-      } else {
-        result = await vehicleService.createVehicle(vehicleData);
-        setSuccess('Vehicle created successfully!');
-      }
-
-      console.log('Vehicle saved:', result);
-
-      setTimeout(() => {
-        navigate('/vehicles');
-      }, 1500);
-    } catch (err) {
-      console.error('Error saving vehicle:', err);
-      setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} vehicle`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setTimeout(() => {
+      navigate('/vehicles');
+    }, 1500);
+  } catch (err) {
+    console.error('❌ Error saving vehicle:', err);
+    setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} vehicle`);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
