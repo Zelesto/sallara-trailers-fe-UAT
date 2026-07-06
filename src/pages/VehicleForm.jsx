@@ -227,9 +227,13 @@ const VehicleForm = () => {
     if (formData.lastServiceDate) vehicleData.lastServiceDate = formData.lastServiceDate;
     if (formData.lastServiceOdometer) vehicleData.lastServiceOdometer = parseFloat(formData.lastServiceOdometer);
     
-    // ✅ FIX: ADD THESE MISSING LINES
-    if (formData.serviceIntervalDays) vehicleData.serviceIntervalDays = parseInt(formData.serviceIntervalDays, 10);
-    if (formData.serviceIntervalKm) vehicleData.serviceIntervalKm = parseFloat(formData.serviceIntervalKm);
+    // ✅ ADD THESE MISSING LINES - Service Interval fields
+    if (formData.serviceIntervalDays) {
+      vehicleData.serviceIntervalDays = parseInt(formData.serviceIntervalDays, 10);
+    }
+    if (formData.serviceIntervalKm) {
+      vehicleData.serviceIntervalKm = parseFloat(formData.serviceIntervalKm);
+    }
     
     if (formData.insurancePolicyNumber?.trim()) vehicleData.insurancePolicyNumber = formData.insurancePolicyNumber.trim();
     if (formData.insuranceExpiry) vehicleData.insuranceExpiry = formData.insuranceExpiry;
