@@ -230,7 +230,7 @@ const VehicleForm = () => {
 
   setSubmitting(true);
   try {
-    // ✅ ALWAYS include all fields with defaults
+    // ✅ ALWAYS include all required fields with defaults
     const vehicleData = {
       registrationNumber: formData.registrationNumber?.trim() || '',
       make: formData.make?.trim() || '',
@@ -239,10 +239,10 @@ const VehicleForm = () => {
       status: formData.status || 'ACTIVE',            // ✅ Always send
     };
 
-    // Add optional fields if they have values (including 0)
+    // Add optional fields if they have values
     if (formData.vin?.trim()) vehicleData.vin = formData.vin.trim();
     if (formData.year) vehicleData.year = parseInt(formData.year, 10);
-    if (formData.fuelType) vehicleData.fuelType = formData.fuelType;  // ✅ Always send if present
+    if (formData.fuelType) vehicleData.fuelType = formData.fuelType;
     if (formData.currentMileage !== undefined && formData.currentMileage !== '') {
       vehicleData.currentMileage = parseFloat(formData.currentMileage) || 0;
     }
@@ -262,7 +262,9 @@ const VehicleForm = () => {
     if (formData.serviceIntervalKm !== undefined && formData.serviceIntervalKm !== '') {
       vehicleData.serviceIntervalKm = parseFloat(formData.serviceIntervalKm) || null;
     }
-    if (formData.insurancePolicyNumber?.trim()) vehicleData.insurancePolicyNumber = formData.insurancePolicyNumber.trim();
+    if (formData.insurancePolicyNumber?.trim()) {
+      vehicleData.insurancePolicyNumber = formData.insurancePolicyNumber.trim();
+    }
     if (formData.insuranceExpiry) vehicleData.insuranceExpiry = formData.insuranceExpiry;
     if (formData.roadworthyExpiry) vehicleData.roadworthyExpiry = formData.roadworthyExpiry;
     if (formData.fleetNumber?.trim()) vehicleData.fleetNumber = formData.fleetNumber.trim();
@@ -275,6 +277,16 @@ const VehicleForm = () => {
     if (formData.currentValue !== undefined && formData.currentValue !== '') {
       vehicleData.currentValue = parseFloat(formData.currentValue) || null;
     }
+    if (formData.maintenanceCost !== undefined && formData.maintenanceCost !== '') {
+      vehicleData.maintenanceCost = parseFloat(formData.maintenanceCost) || null;
+    }
+    if (formData.lastMaintenanceDate) vehicleData.lastMaintenanceDate = formData.lastMaintenanceDate;
+    if (formData.nextMaintenanceDue) vehicleData.nextMaintenanceDue = formData.nextMaintenanceDue;
+    if (formData.fuelEfficiency !== undefined && formData.fuelEfficiency !== '') {
+      vehicleData.fuelEfficiency = parseFloat(formData.fuelEfficiency) || null;
+    }
+    if (formData.insuranceProvider?.trim()) vehicleData.insuranceProvider = formData.insuranceProvider.trim();
+    if (formData.insuranceExpiryDate) vehicleData.insuranceExpiryDate = formData.insuranceExpiryDate;
 
     console.log('📤 Sending vehicle data:', vehicleData);
 
@@ -299,7 +311,6 @@ const VehicleForm = () => {
     setSubmitting(false);
   }
 };
-
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
     try {
