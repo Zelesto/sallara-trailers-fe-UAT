@@ -102,11 +102,11 @@ const TRIP_TYPE_OPTIONS = [
 ];
 
 const COMMODITY_OPTIONS = [
-  'General Freight', 'Refrigerated Goods', 'Dangerous Goods',
-  'Chemicals', 'Construction Materials', 'Agricultural Products',
-  'Livestock', 'Automotive', 'Electronics', 'Furniture',
-  'Textiles', 'Pharmaceuticals', 'Food Products', 'Beverages',
-  'Fuel', 'Waste Materials', 'Other'
+  'General Freight', 'Transformers', 'Dangerous Goods',
+  'Big Drums', 'Small Drums', 'Metre Boxes',
+  'Mixed Materials', 'Car Parts', 'Circuit Breakers', 'Pallets',
+  'Poles', 'CAT 426', 'CAT140', '996',
+  '226','CS11GC','Components','Other'
 ];
 
 const PROVINCES = [
