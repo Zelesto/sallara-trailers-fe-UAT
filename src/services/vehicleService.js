@@ -1,7 +1,6 @@
 // src/services/vehicleService.js
 import api from './api';
 
-// Helper to map frontend camelCase to backend snake_case for requests
 const toSnakeCase = (data) => {
   if (!data || typeof data !== 'object') return data;
   
@@ -47,16 +46,26 @@ const toSnakeCase = (data) => {
   
   Object.keys(data).forEach(key => {
     const snakeKey = mappings[key] || key;
-    // Skip undefined values
+    
+    // ✅ FIX: Only skip undefined values, NOT null
     if (data[key] === undefined) {
       return;
     }
-    // Include null values for fields that should be explicitly set to null
-    if (data[key] === undefined || data[key] === null) {
-  return;
-}
+    
+    // ✅ Include null values - they will be sent as null
     result[snakeKey] = data[key];
   });
+  
+  // ✅ Ensure required fields are always present
+  if (!result.vehicle_type && result.vehicle_type !== null) {
+    result.vehicle_type = 'TRUCK';
+  }
+  if (!result.fuel_type && result.fuel_type !== null) {
+    result.fuel_type = 'DIESEL';
+  }
+  if (!result.status && result.status !== null) {
+    result.status = 'ACTIVE';
+  }
   
   return result;
 };
