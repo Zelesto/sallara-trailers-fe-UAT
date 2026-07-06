@@ -7,6 +7,7 @@ const toSnakeCase = (data) => {
   
   const result = {};
   const mappings = {
+    // Basic fields
     registrationNumber: 'registration_number',
     currentMileage: 'current_mileage',
     avgConsumption: 'avg_consumption',
@@ -16,7 +17,6 @@ const toSnakeCase = (data) => {
     serviceIntervalDays: 'service_interval_days',
     serviceIntervalKm: 'service_interval_km',
     fuelType: 'fuel_type',
-    licensePlate: 'license_plate',
     vehicleType: 'vehicle_type',
     insurancePolicyNumber: 'insurance_policy_number',
     insuranceExpiry: 'insurance_expiry',
@@ -32,13 +32,28 @@ const toSnakeCase = (data) => {
     purchaseDate: 'purchase_date',
     purchasePrice: 'purchase_price',
     currentValue: 'current_value',
-    category: 'category'
+    category: 'category',
+    createdBy: 'created_by',
+    updatedBy: 'updated_by',
+    isActive: 'is_active',
+    version: 'version',
+    maintenanceCost: 'maintenance_cost',
+    lastMaintenanceDate: 'last_maintenance_date',
+    nextMaintenanceDue: 'next_maintenance_due',
+    fuelEfficiency: 'fuel_efficiency',
+    insuranceProvider: 'insurance_provider',
+    insuranceExpiryDate: 'insurance_expiry_date'
   };
   
   Object.keys(data).forEach(key => {
     const snakeKey = mappings[key] || key;
-    // Skip undefined or null values except for required fields
-    if (data[key] === undefined || data[key] === null) {
+    // Skip undefined values
+    if (data[key] === undefined) {
+      return;
+    }
+    // Include null values for fields that should be explicitly set to null
+    if (data[key] === null) {
+      result[snakeKey] = null;
       return;
     }
     result[snakeKey] = data[key];
@@ -62,7 +77,6 @@ const toCamelCase = (data) => {
     service_interval_days: 'serviceIntervalDays',
     service_interval_km: 'serviceIntervalKm',
     fuel_type: 'fuelType',
-    license_plate: 'licensePlate',
     vehicle_type: 'vehicleType',
     insurance_policy_number: 'insurancePolicyNumber',
     insurance_expiry: 'insuranceExpiry',
@@ -77,7 +91,18 @@ const toCamelCase = (data) => {
     audit_trail: 'auditTrail',
     purchase_date: 'purchaseDate',
     purchase_price: 'purchasePrice',
-    current_value: 'currentValue'
+    current_value: 'currentValue',
+    category: 'category',
+    created_by: 'createdBy',
+    updated_by: 'updatedBy',
+    is_active: 'isActive',
+    version: 'version',
+    maintenance_cost: 'maintenanceCost',
+    last_maintenance_date: 'lastMaintenanceDate',
+    next_maintenance_due: 'nextMaintenanceDue',
+    fuel_efficiency: 'fuelEfficiency',
+    insurance_provider: 'insuranceProvider',
+    insurance_expiry_date: 'insuranceExpiryDate'
   };
   
   Object.keys(data).forEach(key => {
