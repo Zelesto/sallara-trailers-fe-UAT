@@ -264,17 +264,25 @@ export const vehicleService = {
     }
   },
 
-  updateVehicle: async (id, vehicleData) => {
-    try {
-      const payload = toSnakeCase(vehicleData);
-      const response = await api.put(`/vehicles/${id}`, payload);
-      const updated = response?.data || response;
-      return toCamelCase(updated);
-    } catch (error) {
-      console.error(`Error updating vehicle ${id}:`, error);
-      throw error;
+  // In vehicleService.js - updateVehicle method
+updateVehicle: async (id, vehicleData) => {
+  try {
+    console.log('📤 Original vehicle data:', vehicleData);
+    const payload = toSnakeCase(vehicleData);
+    console.log('📤 Payload being sent:', JSON.stringify(payload, null, 2));
+    const response = await api.put(`/vehicles/${id}`, payload);
+    console.log('📥 Response:', response);
+    const updated = response?.data || response;
+    return toCamelCase(updated);
+  } catch (error) {
+    console.error(`❌ Error updating vehicle ${id}:`, error);
+    if (error.response) {
+      console.error('❌ Response status:', error.response.status);
+      console.error('❌ Response data:', error.response.data);
     }
-  },
+    throw error;
+  }
+},
 
   patchVehicle: async (id, vehicleData) => {
     try {
