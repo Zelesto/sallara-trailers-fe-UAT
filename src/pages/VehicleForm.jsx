@@ -78,31 +78,53 @@ const VehicleForm = () => {
   const [formErrors, setFormErrors] = useState({});
 
   const [formData, setFormData] = useState({
-    registrationNumber: '',
-    vin: '',
-    make: '',
-    model: '',
-    year: new Date().getFullYear(),
-    vehicleType: 'TRUCK',
-    fuelType: 'Diesel',
-    currentMileage: 0,
-    avgConsumption: 0,
-    currentOdometer: 0,
-    lastServiceDate: null,
-    lastServiceOdometer: null,
-    serviceIntervalDays: null,
-    serviceIntervalKm: null,
-    status: 'AVAILABLE',
-    insurancePolicyNumber: '',
-    insuranceExpiry: null,
-    roadworthyExpiry: null,
-    fleetNumber: '',
-    notes: '',
-    category: '',
-    purchaseDate: null,
-    purchasePrice: null,
-    currentValue: null,
-  });
+  // Basic fields
+  registrationNumber: '',
+  vin: '',
+  make: '',
+  model: '',
+  year: new Date().getFullYear(),
+  vehicleType: 'TRUCK',
+  fuelType: 'Diesel',
+  currentMileage: 0,
+  status: 'AVAILABLE',
+  
+  // Service fields
+  avgConsumption: 0,
+  currentOdometer: 0,
+  lastServiceDate: null,
+  lastServiceOdometer: null,
+  serviceIntervalDays: null,
+  serviceIntervalKm: null,
+  nextServiceDue: null,
+  nextServiceOdometer: null,
+  maintenanceStatus: '',
+  
+  // Insurance fields
+  insurancePolicyNumber: '',
+  insuranceExpiry: null,
+  roadworthyExpiry: null,
+  insuranceProvider: '',
+  insuranceExpiryDate: null,
+  
+  // Financial fields
+  purchaseDate: null,
+  purchasePrice: null,
+  currentValue: null,
+  maintenanceCost: null,
+  
+  // Other fields
+  fleetNumber: '',
+  gpsTrackerId: null,
+  incidentsLogged: 0,
+  notes: '',
+  category: '',
+  isActive: true,
+  version: 0,
+  lastMaintenanceDate: null,
+  nextMaintenanceDue: null,
+  fuelEfficiency: null,
+});
 
   useEffect(() => {
     if (isEditMode) {
