@@ -52,10 +52,9 @@ const toSnakeCase = (data) => {
       return;
     }
     // Include null values for fields that should be explicitly set to null
-    if (data[key] === null) {
-      result[snakeKey] = null;
-      return;
-    }
+    if (data[key] === undefined || data[key] === null) {
+  return;
+}
     result[snakeKey] = data[key];
   });
   
