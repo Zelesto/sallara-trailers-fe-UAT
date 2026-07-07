@@ -72,35 +72,35 @@ const DriverForm = () => {
   }, [id]);
 
   const loadDriver = async () => {
-    try {
-      setLoading(true);
-      const driver = await driverService.getDriverById(id);
-      setFormData({
-        firstName: driver.firstName || '',
-        lastName: driver.lastName || '',
-        email: driver.email || '',
-        phoneNumber: driver.phoneNumber || '',
-        licenseNumber: driver.licenseNumber || '',
-        licenseExpiry: driver.licenseExpiry || '',
-        licenseType: driver.licenseType || '',
-        status: driver.status || 'ACTIVE',
-        hireDate: driver.hireDate || '',
-        employmentType: driver.employmentType || '',
-        shiftPattern: driver.shiftPattern || '',
-        trainingCompleted: driver.trainingCompleted || false,
-        medicalClearanceDate: driver.medicalClearanceDate || '',
-        nextMedicalDue: driver.nextMedicalDue || '',
-        notes: driver.notes || '',
-        appUserId: driver.appUserId || '', // ⭐ LOAD appUserId
-        password: '',
-        confirmPassword: '',
-      });
-    } catch (err) {
-      setError('Failed to load driver data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const driver = await driverService.getDriverById(id);
+    setFormData({
+      firstName: driver.firstName || '',
+      lastName: driver.lastName || '',
+      email: driver.email || '',
+      phoneNumber: driver.phoneNumber || '',
+      licenseNumber: driver.licenseNumber || '',
+      licenseExpiry: driver.licenseExpiry || '',
+      licenseType: driver.licenseType || '',
+      status: driver.status || 'ACTIVE',
+      hireDate: driver.hireDate || '',
+      employmentType: driver.employmentType || '',
+      shiftPattern: driver.shiftPattern || '',
+      trainingCompleted: driver.trainingCompleted || false,
+      medicalClearanceDate: driver.medicalClearanceDate || '',
+      nextMedicalDue: driver.nextMedicalDue || '',
+      notes: driver.notes || '',
+      appUserId: driver.appUserId || '', // ⭐ CAPTURE THIS
+      password: '',
+      confirmPassword: '',
+    });
+  } catch (err) {
+    setError('Failed to load driver data');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -146,67 +146,82 @@ const DriverForm = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setPasswordError('');
+  e.preventDefault();
+  setError('');
+  setSuccess('');
+  setPasswordError('');
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    setSubmitting(true);
-    try {
-      // Build payload - only include non-null values for updates
-      const driverData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email?.trim() || null,
-        phoneNumber: formData.phoneNumber?.trim() || null,
-        licenseNumber: formData.licenseNumber.trim(),
-        licenseExpiry: formData.licenseExpiry || null,
-        licenseType: formData.licenseType?.trim() || null,
-        status: formData.status || 'ACTIVE',
-        hireDate: formData.hireDate || null,
-        employmentType: formData.employmentType?.trim() || null,
-        shiftPattern: formData.shiftPattern?.trim() || null,
-        trainingCompleted: formData.trainingCompleted || false,
-        medicalClearanceDate: formData.medicalClearanceDate || null,
-        nextMedicalDue: formData.nextMedicalDue || null,
-        notes: formData.notes?.trim() || null,
-      };
+  setSubmitting(true);
+  try {
+    // Build payload - only include non-null values for updates
+    const driverData = {
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      email: formData.email?.trim() || null,
+      phoneNumber: formData.phoneNumber?.trim() || null,
+      licenseNumber: formData.licenseNumber.trim(),
+      licenseExpiry: formData.licenseExpiry || null,
+      licenseType: formData.licenseType?.trim() || null,
+      status: formData.status || 'ACTIVE',
+      hireDate: formData.hireDate || null,
+      employmentType: formData.employmentType?.trim() || null,
+      shiftPattern: formData.shiftPattern?.trim() || null,
+      trainingCompleted: formData.trainingCompleted || false,
+      medicalClearanceDate: formData.medicalClearanceDate || null,
+      nextMedicalDue: formData.nextMedicalDue || null,
+      notes: formData.notes?.trim() || null,
+    };
 
-      // ⭐ For updates, include appUserId if present
-      if (isEditMode && formData.appUserId) {
+    // ⭐ CRITICAL: For updates, ALWAYS include appUserId
+    if (isEditMode) {
+      // Use the appUserId from the loaded data
+      if (formData.appUserId) {
         driverData.appUserId = parseInt(formData.appUserId);
-      }
-
-      // Add password for new drivers
-      if (!isEditMode) {
-        driverData.password = formData.password;
-      }
-
-      console.log('📤 Sending driver data:', driverData);
-
-      let result;
-      if (isEditMode) {
-        result = await driverService.updateDriver(id, driverData);
-        setSuccess('Driver updated successfully!');
+        console.log('✅ Using appUserId from form data:', driverData.appUserId);
       } else {
-        result = await driverService.createDriver(driverData);
-        setSuccess('Driver created successfully!');
+        // If no appUserId in form data, try to get it from the driver
+        try {
+          const existingDriver = await driverService.getDriverById(id);
+          if (existingDriver && existingDriver.appUserId) {
+            driverData.appUserId = parseInt(existingDriver.appUserId);
+            console.log('✅ Using appUserId from existing driver:', driverData.appUserId);
+          }
+        } catch (err) {
+          console.warn('Could not get appUserId from existing driver:', err);
+        }
       }
-
-      console.log('✅ Driver saved:', result);
-
-      setTimeout(() => {
-        navigate('/drivers');
-      }, 1500);
-    } catch (err) {
-      console.error('❌ Error saving driver:', err);
-      setError(err.response?.data?.message || err.message || `Failed to ${isEditMode ? 'update' : 'create'} driver`);
-    } finally {
-      setSubmitting(false);
     }
-  };
+
+    // Add password for new drivers
+    if (!isEditMode) {
+      driverData.password = formData.password;
+    }
+
+    console.log('📤 Sending driver data:', driverData);
+
+    let result;
+    if (isEditMode) {
+      result = await driverService.updateDriver(id, driverData);
+      setSuccess('Driver updated successfully!');
+    } else {
+      result = await driverService.createDriver(driverData);
+      setSuccess('Driver created successfully!');
+    }
+
+    console.log('✅ Driver saved:', result);
+
+    setTimeout(() => {
+      navigate('/drivers');
+    }, 1500);
+  } catch (err) {
+    console.error('❌ Error saving driver:', err);
+    setError(err.response?.data?.message || err.message || `Failed to ${isEditMode ? 'update' : 'create'} driver`);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (loading) {
     return (
