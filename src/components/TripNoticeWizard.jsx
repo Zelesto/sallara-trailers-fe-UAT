@@ -673,54 +673,61 @@ const TripNoticeWizard = ({
     onClose();
   };
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError('');
+  // In TripNoticeWizard.jsx - handleSubmit function
 
-    try {
-      const payload = {
-        incidentType: selectedType === NOTICE_TYPES.INCIDENT ? selectedSubtype : selectedSubtype,
-        severity: details.severity,
-        description: details.description,
-        location: details.location || undefined,
-        requiresAssistance: details.requiresAssistance || false,
-        reportedAt: new Date().toISOString(),
-      };
+const handleSubmit = async () => {
+  setSubmitting(true);
+  setError('');
 
-      // Add voucher-specific fields
-      if (selectedType === NOTICE_TYPES.VOUCHER) {
-        payload.voucherType = selectedSubtype;
-        payload.amount = details.amount;
-        payload.paymentMethod = details.paymentMethod;
-        payload.reference = details.reference;
-        payload.additionalNotes = details.notes;
-      }
-
-      // Add adverse event fields
-      if (selectedType === NOTICE_TYPES.ADVERSE_EVENT) {
-        payload.eventType = selectedSubtype;
-        payload.amount = details.amount;
-        payload.direction = details.direction;
-        payload.paymentMethod = details.paymentMethod;
-        payload.reference = details.reference;
-        payload.additionalNotes = details.notes;
-      }
-
-      await tripService.reportIncident(trip.id, payload);
+  try {
+    const payload = {
+      incidentType: selectedType === NOTICE_TYPES.INCIDENT ? selectedSubtype : 
+                    selectedType === NOTICE_TYPES.VOUCHER ? 'VOUCHER' : 
+                    'ADVERSE_EVENT',
+      severity: details.severity || 'MEDIUM',
+      description: details.description,
+      location: details.location || undefined,
+      requiresAssistance: details.requiresAssistance || false,
+      reportedAt: new Date().toISOString(),
       
-      setSuccess(true);
-      setActiveStep(4);
-      
-      if (onSuccess) {
-        onSuccess(payload);
-      }
-    } catch (err) {
-      console.error('Error submitting notice:', err);
-      setError(err.message || 'Failed to submit notice');
-    } finally {
-      setSubmitting(false);
+      // ⭐ Payment fields
+      amount: details.amount > 0 ? details.amount : null,
+      paymentMethod: details.paymentMethod || null,
+      referenceNumber: details.reference || null,
+      additionalNotes: details.notes || null,
+    };
+
+    // Add type-specific fields
+    if (selectedType === NOTICE_TYPES.VOUCHER) {
+      payload.voucherType = selectedSubtype;
+      payload.direction = 'OUT'; // Vouchers are typically payments OUT
     }
-  };
+    
+    if (selectedType === NOTICE_TYPES.ADVERSE_EVENT) {
+      payload.eventType = selectedSubtype;
+      payload.direction = details.direction || 'OUT';
+    }
+
+    // For incidents that require payment
+    if (selectedType === NOTICE_TYPES.INCIDENT && details.amount > 0) {
+      payload.direction = 'OUT'; // Incidents with payment are usually OUT
+    }
+
+    await tripService.reportIncident(trip.id, payload);
+    
+    setSuccess(true);
+    setActiveStep(4);
+    
+    if (onSuccess) {
+      onSuccess(payload);
+    }
+  } catch (err) {
+    console.error('Error submitting notice:', err);
+    setError(err.message || 'Failed to submit notice');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // Validation
   const canProceed = () => {
