@@ -227,38 +227,49 @@ export const tripService = {
    * @param {Object} incidentData - The incident data
    * @returns {Promise<Object>} - The created incident
    */
-  reportIncident: async (tripId, incidentData) => {
-    try {
-      const payload = {
-        incidentType: incidentData.incidentType,
-        severity: incidentData.severity || 'MEDIUM',
-        description: incidentData.description,
-        location: incidentData.location || null,
-        requiresAssistance: incidentData.requiresAssistance || false,
-        reportedAt: incidentData.reportedAt || new Date().toISOString(),
-        tripId,
-      };
+  // In tripService.js - reportIncident method
 
-      const response = await api.post(`/trips/${tripId}/incidents`, payload);
-      return unwrap(response);
+reportIncident: async (tripId, incidentData) => {
+  try {
+    const payload = {
+      incidentType: incidentData.incidentType,
+      severity: incidentData.severity || 'MEDIUM',
+      description: incidentData.description,
+      location: incidentData.location || null,
+      requiresAssistance: incidentData.requiresAssistance || false,
+      reportedAt: incidentData.reportedAt || new Date().toISOString(),
+      tripId,
+      
+      // ⭐ Include payment fields if present
+      amount: incidentData.amount || null,
+      paymentMethod: incidentData.paymentMethod || null,
+      referenceNumber: incidentData.referenceNumber || null,
+      additionalNotes: incidentData.additionalNotes || null,
+      voucherType: incidentData.voucherType || null,
+      eventType: incidentData.eventType || null,
+      direction: incidentData.direction || null,
+    };
 
-    } catch (error) {
-      console.error(`Error reporting incident for trip ${tripId}:`, error);
+    const response = await api.post(`/trips/${tripId}/incidents`, payload);
+    return unwrap(response);
 
-      if (error.response?.data?.errors) {
-        const errorMessages = Object.entries(error.response.data.errors)
-          .map(([field, message]) => `${field}: ${message}`)
-          .join(', ');
-        throw new Error(`Validation errors: ${errorMessages}`);
-      }
+  } catch (error) {
+    console.error(`Error reporting incident for trip ${tripId}:`, error);
 
-      if (error.response?.data?.detail) {
-        throw new Error(error.response.data.detail);
-      }
-
-      throw error;
+    if (error.response?.data?.errors) {
+      const errorMessages = Object.entries(error.response.data.errors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(', ');
+      throw new Error(`Validation errors: ${errorMessages}`);
     }
-  },
+
+    if (error.response?.data?.detail) {
+      throw new Error(error.response.data.detail);
+    }
+
+    throw error;
+  }
+},
 
   /**
    * Update an existing incident
