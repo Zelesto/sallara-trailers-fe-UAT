@@ -230,94 +230,95 @@ const TripMetricsForm = ({
     }));
   };
 
-  const calculateMetrics = async () => {
-    try {
-      setCalculating(true);
-      setError("");
+ const calculateMetrics = async () => {
+  try {
+    setCalculating(true);
+    setError("");
 
-      const origin = formData.originLocation?.trim();
-      const destination = formData.destinationLocation?.trim();
+    const origin = formData.originLocation?.trim();
+    const destination = formData.destinationLocation?.trim();
 
-      if (!origin || !destination) {
-        setError("Please enter both origin and destination locations.");
-        setCalculating(false);
-        return;
-      }
-
-      if (!tripId) {
-        setError("Trip must be saved before calculating metrics.");
-        setCalculating(false);
-        return;
-      }
-
-      console.log("Calculating metrics for:", {
-        tripId: tripId,
-        origin,
-        destination,
-        vehicleType
-      });
-
-      const result = await tripService.previewTripMetrics({
-        originLocation: origin,
-        destinationLocation: destination,
-        vehicleType: vehicleType
-      });
-
-      if (!result) {
-        setError("No data returned from calculation service.");
-        return;
-      }
-
-      console.log("Calculation result:", result);
-
-      const newFormData = {
-        ...formData,
-        totalDistance: result.totalDistanceKm?.toString() || result.totalDistance?.toString() || "",
-        estimatedDuration: result.totalDurationHours?.toString() || result.estimatedDuration?.toString() || "",
-        fuelConsumption: result.fuelUsedLiters?.toString() || result.fuelConsumption?.toString() || "",
-        estimatedCost: result.costAmount?.toString() || result.estimatedCost?.toString() || "",
-      };
-      
-      setFormData(newFormData);
-
-      setCalculatedMetrics({
-        totalDistanceKm: result.totalDistanceKm || result.totalDistance,
-        totalDurationHours: result.totalDurationHours || result.estimatedDuration,
-        fuelUsedLiters: result.fuelUsedLiters || result.fuelConsumption,
-        costAmount: result.costAmount || result.estimatedCost,
-        provider: result.provider,
-        confidenceScore: result.confidenceScore,
-        warning: result.warning
-      });
-      
-      if (result.warning) {
-        setError(`⚠️ Note: ${result.warning}`);
-        setTimeout(() => setError(""), 5000);
-      }
-      
-      setActiveTab(1);
-      
-    } catch (err) {
-      console.error("Auto calculation failed:", err);
-      
-      let errorMessage = "Auto calculation failed. ";
-      
-      if (err.response?.status === 500) {
-        errorMessage += "Server error. Please enter metrics manually.";
-      } else if (err.response?.status === 404) {
-        errorMessage += "Route not found. Please check your addresses.";
-      } else if (err.response?.status === 400) {
-        errorMessage += "Invalid request. Please check your input.";
-      } else {
-        errorMessage += err.message || "Please enter metrics manually.";
-      }
-      
-      setError(errorMessage);
-      setActiveTab(1);
-    } finally {
+    if (!origin || !destination) {
+      setError("Please enter both origin and destination locations.");
       setCalculating(false);
+      return;
     }
-  };
+
+    if (!tripId) {
+      setError("Trip must be saved before calculating metrics.");
+      setCalculating(false);
+      return;
+    }
+
+    console.log("Calculating metrics for:", {
+      tripId: tripId,
+      origin,
+      destination,
+      vehicleType
+    });
+
+    // ⭐ FIX: Use the correct method name
+    const result = await tripService.calculateTripMetricsPreview(
+      origin,
+      destination,
+      vehicleType
+    );
+
+    if (!result) {
+      setError("No data returned from calculation service.");
+      return;
+    }
+
+    console.log("Calculation result:", result);
+
+    const newFormData = {
+      ...formData,
+      totalDistance: result.totalDistanceKm?.toString() || result.totalDistance?.toString() || "",
+      estimatedDuration: result.totalDurationHours?.toString() || result.estimatedDuration?.toString() || "",
+      fuelConsumption: result.fuelUsedLiters?.toString() || result.fuelConsumption?.toString() || "",
+      estimatedCost: result.costAmount?.toString() || result.estimatedCost?.toString() || "",
+    };
+    
+    setFormData(newFormData);
+
+    setCalculatedMetrics({
+      totalDistanceKm: result.totalDistanceKm || result.totalDistance,
+      totalDurationHours: result.totalDurationHours || result.estimatedDuration,
+      fuelUsedLiters: result.fuelUsedLiters || result.fuelConsumption,
+      costAmount: result.costAmount || result.estimatedCost,
+      provider: result.provider,
+      confidenceScore: result.confidenceScore,
+      warning: result.warning
+    });
+    
+    if (result.warning) {
+      setError(`⚠️ Note: ${result.warning}`);
+      setTimeout(() => setError(""), 5000);
+    }
+    
+    setActiveTab(1);
+    
+  } catch (err) {
+    console.error("Auto calculation failed:", err);
+    
+    let errorMessage = "Auto calculation failed. ";
+    
+    if (err.response?.status === 500) {
+      errorMessage += "Server error. Please enter metrics manually.";
+    } else if (err.response?.status === 404) {
+      errorMessage += "Route not found. Please check your addresses.";
+    } else if (err.response?.status === 400) {
+      errorMessage += "Invalid request. Please check your input.";
+    } else {
+      errorMessage += err.message || "Please enter metrics manually.";
+    }
+    
+    setError(errorMessage);
+    setActiveTab(1);
+  } finally {
+    setCalculating(false);
+  }
+};
 
   const saveMetrics = async () => {
     if (!tripId) {
