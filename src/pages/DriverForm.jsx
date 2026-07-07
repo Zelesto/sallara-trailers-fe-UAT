@@ -54,7 +54,12 @@ const DriverForm = () => {
     licenseType: '',
     status: 'ACTIVE',
     hireDate: '',
-    address: '',
+    employmentType: '',
+    shiftPattern: '',
+    trainingCompleted: false,
+    medicalClearanceDate: '',
+    nextMedicalDue: '',
+    notes: '',
     password: '',
     confirmPassword: '',
   });
@@ -79,7 +84,12 @@ const DriverForm = () => {
         licenseType: driver.licenseType || '',
         status: driver.status || 'ACTIVE',
         hireDate: driver.hireDate || '',
-        address: driver.address || '',
+        employmentType: driver.employmentType || '',
+        shiftPattern: driver.shiftPattern || '',
+        trainingCompleted: driver.trainingCompleted || false,
+        medicalClearanceDate: driver.medicalClearanceDate || '',
+        nextMedicalDue: driver.nextMedicalDue || '',
+        notes: driver.notes || '',
         password: '',
         confirmPassword: '',
       });
@@ -91,8 +101,11 @@ const DriverForm = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : value 
+    }));
     if (name.includes('password')) {
       setPasswordError('');
     }
@@ -139,36 +152,49 @@ const DriverForm = () => {
 
     setSubmitting(true);
     try {
+      // Build payload with all fields
       const driverData = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
-        licenseNumber: formData.licenseNumber,
-        licenseExpiry: formData.licenseExpiry,
-        licenseType: formData.licenseType,
-        status: formData.status,
-        hireDate: formData.hireDate,
-        address: formData.address,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email?.trim() || null,
+        phoneNumber: formData.phoneNumber?.trim() || null,
+        licenseNumber: formData.licenseNumber.trim(),
+        licenseExpiry: formData.licenseExpiry || null,
+        licenseType: formData.licenseType?.trim() || null,
+        status: formData.status || 'ACTIVE',
+        hireDate: formData.hireDate || null,
+        employmentType: formData.employmentType?.trim() || null,
+        shiftPattern: formData.shiftPattern?.trim() || null,
+        trainingCompleted: formData.trainingCompleted || false,
+        medicalClearanceDate: formData.medicalClearanceDate || null,
+        nextMedicalDue: formData.nextMedicalDue || null,
+        notes: formData.notes?.trim() || null,
       };
 
+      // Add password for new drivers
       if (!isEditMode) {
         driverData.password = formData.password;
       }
 
+      console.log('📤 Sending driver data:', driverData);
+
+      let result;
       if (isEditMode) {
-        await driverService.updateDriver(id, driverData);
+        result = await driverService.updateDriver(id, driverData);
         setSuccess('Driver updated successfully!');
       } else {
-        await driverService.createDriver(driverData);
+        result = await driverService.createDriver(driverData);
         setSuccess('Driver created successfully!');
       }
+
+      console.log('✅ Driver saved:', result);
 
       setTimeout(() => {
         navigate('/drivers');
       }, 1500);
     } catch (err) {
-      setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} driver`);
+      console.error('❌ Error saving driver:', err);
+      setError(err.response?.data?.message || err.message || `Failed to ${isEditMode ? 'update' : 'create'} driver`);
     } finally {
       setSubmitting(false);
     }
@@ -316,7 +342,7 @@ const DriverForm = () => {
                 value={formData.licenseType}
                 onChange={handleChange}
                 size="small"
-                placeholder="e.g., EC, C1, etc."
+                placeholder="e.g., EC, C1, EB"
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
@@ -354,11 +380,72 @@ const DriverForm = () => {
               />
             </Grid>
 
-            {/* Status & Address Section */}
+            {/* Employment Information */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
+                <Person sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
+                Employment Details
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Employment Type"
+                name="employmentType"
+                value={formData.employmentType}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., Full-time, Part-time, Contractor"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Shift Pattern"
+                name="shiftPattern"
+                value={formData.shiftPattern}
+                onChange={handleChange}
+                size="small"
+                placeholder="e.g., Day Shift, Night Shift, Rotating"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Medical Clearance Date"
+                name="medicalClearanceDate"
+                type="date"
+                value={formData.medicalClearanceDate}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Next Medical Due"
+                name="nextMedicalDue"
+                type="date"
+                value={formData.nextMedicalDue}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+
+            {/* Status Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5, mt: 1 }}>
                 <LocationOn sx={{ mr: 0.5, fontSize: '1rem', verticalAlign: 'middle' }} />
-                Status & Address
+                Status & Notes
               </Typography>
               <Divider sx={{ mb: 2 }} />
             </Grid>
@@ -384,15 +471,31 @@ const DriverForm = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Address"
-                name="address"
-                value={formData.address}
+                label="Training Completed"
+                name="trainingCompleted"
+                select
+                value={formData.trainingCompleted}
                 onChange={handleChange}
                 size="small"
                 sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start"><LocationOn sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
-                }}
+              >
+                <MenuItem value={true}>Yes</MenuItem>
+                <MenuItem value={false}>No</MenuItem>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Notes"
+                name="notes"
+                multiline
+                rows={2}
+                value={formData.notes}
+                onChange={handleChange}
+                size="small"
+                placeholder="Additional notes about the driver..."
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Grid>
 
