@@ -60,6 +60,7 @@ const DriverForm = () => {
     medicalClearanceDate: '',
     nextMedicalDue: '',
     notes: '',
+    appUserId: '', // ⭐ ADD THIS
     password: '',
     confirmPassword: '',
   });
@@ -90,6 +91,7 @@ const DriverForm = () => {
         medicalClearanceDate: driver.medicalClearanceDate || '',
         nextMedicalDue: driver.nextMedicalDue || '',
         notes: driver.notes || '',
+        appUserId: driver.appUserId || '', // ⭐ LOAD appUserId
         password: '',
         confirmPassword: '',
       });
@@ -112,6 +114,7 @@ const DriverForm = () => {
   };
 
   const validateForm = () => {
+    // For updates, we don't need to validate appUserId if it exists
     if (!formData.firstName.trim()) {
       setError('First Name is required');
       return false;
@@ -152,7 +155,7 @@ const DriverForm = () => {
 
     setSubmitting(true);
     try {
-      // Build payload with all fields
+      // Build payload - only include non-null values for updates
       const driverData = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
@@ -170,6 +173,11 @@ const DriverForm = () => {
         nextMedicalDue: formData.nextMedicalDue || null,
         notes: formData.notes?.trim() || null,
       };
+
+      // ⭐ For updates, include appUserId if present
+      if (isEditMode && formData.appUserId) {
+        driverData.appUserId = parseInt(formData.appUserId);
+      }
 
       // Add password for new drivers
       if (!isEditMode) {
@@ -211,7 +219,6 @@ const DriverForm = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
@@ -231,7 +238,6 @@ const DriverForm = () => {
         </Button>
       </Box>
 
-      {/* Form */}
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <form onSubmit={handleSubmit}>
           {error && (
