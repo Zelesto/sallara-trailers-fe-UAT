@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
+import TripNoticeWizard from '../components/TripNoticeWizard';
 import TripForm from './TripForm';
 import TripMetricsForm from './TripMetricsForm';
 import TripDetails from './TripDetails';
@@ -101,6 +102,11 @@ export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
 // Status Chip Component - Smaller version
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
+
+  const [showNoticeWizard, setShowNoticeWizard] = useState(false);
+const [noticeType, setNoticeType] = useState(null);
+const [noticeSubtype, setNoticeSubtype] = useState(null);
+const [selectedTripForNotice, setSelectedTripForNotice] = useState(null);
   
   return (
     <Chip
@@ -362,34 +368,20 @@ function TripList() {
     }
   };
 
-  const handleReportIncident = (trip) => {
-    const incidentType = prompt('Enter incident type (ACCIDENT, BREAKDOWN, TRAFFIC, WEATHER, HEALTH, REST, FUEL_STOP, LOADING, DOCUMENT, OTHER):');
-    if (!incidentType) return;
+  const handleOpenNoticeWizard = (trip, type = null, subtype = null) => {
+  setSelectedTripForNotice(trip);
+  setNoticeType(type);
+  setNoticeSubtype(subtype);
+  setShowNoticeWizard(true);
+};
 
-    const description = prompt('Enter incident description:');
-    if (!description) return;
-
-    const severity = prompt('Enter severity (LOW, MEDIUM, HIGH, CRITICAL):', 'MEDIUM');
-    const location = prompt('Enter location (optional):');
-    const requiresAssistance = confirm('Does this require immediate assistance?');
-
-    tripService.reportIncident(trip.id, {
-      incidentType,
-      description,
-      severity,
-      location: location || undefined,
-      requiresAssistance
-    })
-      .then(() => {
-        showNotification('Incident reported successfully!', 'success');
-        fetchTrips({ page: pagination.page });
-      })
-      .catch(err => {
-        console.error('Error reporting incident:', err);
-        const errorMsg = err.message || 'Failed to report incident';
-        showNotification(errorMsg, 'error');
-      });
-  };
+const handleCloseNoticeWizard = () => {
+  setShowNoticeWizard(false);
+  setSelectedTripForNotice(null);
+  setNoticeType(null);
+  setNoticeSubtype(null);
+  fetchTrips({ page: pagination.page });
+};
 
   const handleViewTrip = (trip) => {
     setSelectedTrip(trip);
@@ -737,16 +729,16 @@ function TripList() {
 
                         {/* Report Incident Button */}
                         {canReportIncident && (
-                          <Tooltip title="Report Incident">
-                            <IconButton 
-                              size="small"
-                              color="warning"
-                              onClick={() => handleReportIncident(trip)}
-                              sx={{ p: 0.5 }}
-                            >
-                              <WarningIcon sx={{ fontSize: '0.9rem' }} />
-                            </IconButton>
-                          </Tooltip>
+                          <Tooltip title="Add Notice (Incident/Voucher/AE)">
+  <IconButton 
+    size="small"
+    color="warning"
+    onClick={() => handleOpenNoticeWizard(trip)}
+    sx={{ p: 0.5 }}
+  >
+    <WarningIcon sx={{ fontSize: '0.9rem' }} />
+  </IconButton>
+</Tooltip>
                         )}
 
                         {/* View Details */}
@@ -821,6 +813,20 @@ function TripList() {
         </Table>
       </TableContainer>
 
+      {/* Trip Notice Wizard */}
+{showNoticeWizard && selectedTripForNotice && (
+  <TripNoticeWizard
+    open={showNoticeWizard}
+    onClose={handleCloseNoticeWizard}
+    trip={selectedTripForNotice}
+    initialType={noticeType}
+    initialSubtype={noticeSubtype}
+    onSuccess={() => {
+      showNotification('Notice submitted successfully!', 'success');
+      handleCloseNoticeWizard();
+    }}
+  />
+)}
       {/* Pagination - Compact */}
       {trips.length > 0 && (
         <Paper sx={{ p: 0.5 }}>
