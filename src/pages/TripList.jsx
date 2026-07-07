@@ -102,11 +102,6 @@ export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
 // Status Chip Component - Smaller version
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
-
-  const [showNoticeWizard, setShowNoticeWizard] = useState(false);
-const [noticeType, setNoticeType] = useState(null);
-const [noticeSubtype, setNoticeSubtype] = useState(null);
-const [selectedTripForNotice, setSelectedTripForNotice] = useState(null);
   
   return (
     <Chip
@@ -247,6 +242,12 @@ function TripList() {
   const [showMetricsModal, setShowMetricsModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
+  // ⭐ Trip Notice Wizard State - MOVED TO MAIN COMPONENT
+  const [showNoticeWizard, setShowNoticeWizard] = useState(false);
+  const [noticeType, setNoticeType] = useState(null);
+  const [noticeSubtype, setNoticeSubtype] = useState(null);
+  const [selectedTripForNotice, setSelectedTripForNotice] = useState(null);
+
   const [pagination, setPagination] = useState({
     page: 0,
     pageSize: 10,
@@ -283,13 +284,12 @@ function TripList() {
         ...(status !== 'all' && { status }),
         ...(city && { city }),
         ...(customer && { customer }),
-        sortBy: 'tripNumber',
+        sortBy: 'id',
         sortOrder: 'DESC'
       });
 
-      const sortedContent = (response.content || []).sort((a, b) => 
-        new Date(b.createdAt) - new Date(a.createdAt)
-      );
+      // The backend should already sort by ID desc, but keep this as fallback
+      const sortedContent = (response.content || []).sort((a, b) => b.id - a.id);
 
       setTrips(sortedContent);
       setPagination({
@@ -368,20 +368,21 @@ function TripList() {
     }
   };
 
+  // ⭐ Trip Notice Wizard Handlers - MOVED TO MAIN COMPONENT
   const handleOpenNoticeWizard = (trip, type = null, subtype = null) => {
-  setSelectedTripForNotice(trip);
-  setNoticeType(type);
-  setNoticeSubtype(subtype);
-  setShowNoticeWizard(true);
-};
+    setSelectedTripForNotice(trip);
+    setNoticeType(type);
+    setNoticeSubtype(subtype);
+    setShowNoticeWizard(true);
+  };
 
-const handleCloseNoticeWizard = () => {
-  setShowNoticeWizard(false);
-  setSelectedTripForNotice(null);
-  setNoticeType(null);
-  setNoticeSubtype(null);
-  fetchTrips({ page: pagination.page });
-};
+  const handleCloseNoticeWizard = () => {
+    setShowNoticeWizard(false);
+    setSelectedTripForNotice(null);
+    setNoticeType(null);
+    setNoticeSubtype(null);
+    fetchTrips({ page: pagination.page });
+  };
 
   const handleViewTrip = (trip) => {
     setSelectedTrip(trip);
@@ -727,18 +728,18 @@ const handleCloseNoticeWizard = () => {
                           </Tooltip>
                         )}
 
-                        {/* Report Incident Button */}
+                        {/* Report Incident Button - Now opens TripNoticeWizard */}
                         {canReportIncident && (
                           <Tooltip title="Add Notice (Incident/Voucher/AE)">
-  <IconButton 
-    size="small"
-    color="warning"
-    onClick={() => handleOpenNoticeWizard(trip)}
-    sx={{ p: 0.5 }}
-  >
-    <WarningIcon sx={{ fontSize: '0.9rem' }} />
-  </IconButton>
-</Tooltip>
+                            <IconButton 
+                              size="small"
+                              color="warning"
+                              onClick={() => handleOpenNoticeWizard(trip)}
+                              sx={{ p: 0.5 }}
+                            >
+                              <WarningIcon sx={{ fontSize: '0.9rem' }} />
+                            </IconButton>
+                          </Tooltip>
                         )}
 
                         {/* View Details */}
@@ -813,20 +814,21 @@ const handleCloseNoticeWizard = () => {
         </Table>
       </TableContainer>
 
-      {/* Trip Notice Wizard */}
-{showNoticeWizard && selectedTripForNotice && (
-  <TripNoticeWizard
-    open={showNoticeWizard}
-    onClose={handleCloseNoticeWizard}
-    trip={selectedTripForNotice}
-    initialType={noticeType}
-    initialSubtype={noticeSubtype}
-    onSuccess={() => {
-      showNotification('Notice submitted successfully!', 'success');
-      handleCloseNoticeWizard();
-    }}
-  />
-)}
+      {/* ⭐ Trip Notice Wizard - MOVED HERE */}
+      {showNoticeWizard && selectedTripForNotice && (
+        <TripNoticeWizard
+          open={showNoticeWizard}
+          onClose={handleCloseNoticeWizard}
+          trip={selectedTripForNotice}
+          initialType={noticeType}
+          initialSubtype={noticeSubtype}
+          onSuccess={() => {
+            showNotification('Notice submitted successfully!', 'success');
+            handleCloseNoticeWizard();
+          }}
+        />
+      )}
+
       {/* Pagination - Compact */}
       {trips.length > 0 && (
         <Paper sx={{ p: 0.5 }}>
