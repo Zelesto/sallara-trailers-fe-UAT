@@ -1,7 +1,8 @@
 // src/services/driverService.js
 import api from './api';
 
-// Helper to convert camelCase to snake_case for backend
+// src/services/driverService.js - Update the toSnakeCase function
+
 const toSnakeCase = (data) => {
   if (!data || typeof data !== 'object') return data;
   
@@ -29,11 +30,12 @@ const toSnakeCase = (data) => {
     terminationDate: 'termination_date',
     terminationReason: 'termination_reason',
     isActive: 'is_active',
-    appUserId: 'app_user_id'
+    appUserId: 'app_user_id',  // ⭐ ADD THIS
   };
   
   Object.keys(data).forEach(key => {
     const snakeKey = mappings[key] || key;
+    // Skip undefined values, but include null values
     if (data[key] === undefined) {
       return;
     }
@@ -42,7 +44,6 @@ const toSnakeCase = (data) => {
   
   return result;
 };
-
 // Helper to convert snake_case to camelCase for frontend
 const toCamelCase = (data) => {
   if (!data || typeof data !== 'object') return data;
