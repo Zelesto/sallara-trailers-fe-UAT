@@ -214,103 +214,104 @@ const VehicleForm = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSuccess('');
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
-  if (!validateForm()) {
-    const firstErrorField = Object.keys(formErrors)[0];
-    const element = document.querySelector(`[name="${firstErrorField}"]`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.focus();
-    }
-    return;
-  }
-
-  setSubmitting(true);
-  try {
-    // ✅ ALWAYS include all required fields with defaults
-    const vehicleData = {
-      registrationNumber: formData.registrationNumber?.trim() || '',
-      make: formData.make?.trim() || '',
-      model: formData.model?.trim() || '',
-      vehicleType: formData.vehicleType || 'TRUCK',  // ✅ Always send
-      status: formData.status || 'ACTIVE',            // ✅ Always send
-    };
-
-    // Add optional fields if they have values
-    if (formData.vin?.trim()) vehicleData.vin = formData.vin.trim();
-    if (formData.year) vehicleData.year = parseInt(formData.year, 10);
-    if (formData.fuelType) vehicleData.fuelType = formData.fuelType;
-    if (formData.currentMileage !== undefined && formData.currentMileage !== '') {
-      vehicleData.currentMileage = parseFloat(formData.currentMileage) || 0;
-    }
-    if (formData.avgConsumption !== undefined && formData.avgConsumption !== '') {
-      vehicleData.avgConsumption = parseFloat(formData.avgConsumption) || 0;
-    }
-    if (formData.currentOdometer !== undefined && formData.currentOdometer !== '') {
-      vehicleData.currentOdometer = parseFloat(formData.currentOdometer) || 0;
-    }
-    if (formData.lastServiceDate) vehicleData.lastServiceDate = formData.lastServiceDate;
-    if (formData.lastServiceOdometer !== undefined && formData.lastServiceOdometer !== '') {
-      vehicleData.lastServiceOdometer = parseFloat(formData.lastServiceOdometer) || null;
-    }
-    if (formData.serviceIntervalDays !== undefined && formData.serviceIntervalDays !== '') {
-      vehicleData.serviceIntervalDays = parseInt(formData.serviceIntervalDays, 10) || null;
-    }
-    if (formData.serviceIntervalKm !== undefined && formData.serviceIntervalKm !== '') {
-      vehicleData.serviceIntervalKm = parseFloat(formData.serviceIntervalKm) || null;
-    }
-    if (formData.insurancePolicyNumber?.trim()) {
-      vehicleData.insurancePolicyNumber = formData.insurancePolicyNumber.trim();
-    }
-    if (formData.insuranceExpiry) vehicleData.insuranceExpiry = formData.insuranceExpiry;
-    if (formData.roadworthyExpiry) vehicleData.roadworthyExpiry = formData.roadworthyExpiry;
-    if (formData.fleetNumber?.trim()) vehicleData.fleetNumber = formData.fleetNumber.trim();
-    if (formData.notes?.trim()) vehicleData.notes = formData.notes.trim();
-    if (formData.category?.trim()) vehicleData.category = formData.category.trim();
-    if (formData.purchaseDate) vehicleData.purchaseDate = formData.purchaseDate;
-    if (formData.purchasePrice !== undefined && formData.purchasePrice !== '') {
-      vehicleData.purchasePrice = parseFloat(formData.purchasePrice) || null;
-    }
-    if (formData.currentValue !== undefined && formData.currentValue !== '') {
-      vehicleData.currentValue = parseFloat(formData.currentValue) || null;
-    }
-    if (formData.maintenanceCost !== undefined && formData.maintenanceCost !== '') {
-      vehicleData.maintenanceCost = parseFloat(formData.maintenanceCost) || null;
-    }
-    if (formData.lastMaintenanceDate) vehicleData.lastMaintenanceDate = formData.lastMaintenanceDate;
-    if (formData.nextMaintenanceDue) vehicleData.nextMaintenanceDue = formData.nextMaintenanceDue;
-    if (formData.fuelEfficiency !== undefined && formData.fuelEfficiency !== '') {
-      vehicleData.fuelEfficiency = parseFloat(formData.fuelEfficiency) || null;
-    }
-    if (formData.insuranceProvider?.trim()) vehicleData.insuranceProvider = formData.insuranceProvider.trim();
-    if (formData.insuranceExpiryDate) vehicleData.insuranceExpiryDate = formData.insuranceExpiryDate;
-
-    console.log('📤 Sending vehicle data:', vehicleData);
-
-    let result;
-    if (isEditMode) {
-      result = await vehicleService.updateVehicle(id, vehicleData);
-      setSuccess('Vehicle updated successfully!');
-    } else {
-      result = await vehicleService.createVehicle(vehicleData);
-      setSuccess('Vehicle created successfully!');
+    if (!validateForm()) {
+      const firstErrorField = Object.keys(formErrors)[0];
+      const element = document.querySelector(`[name="${firstErrorField}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.focus();
+      }
+      return;
     }
 
-    console.log('✅ Vehicle saved:', result);
+    setSubmitting(true);
+    try {
+      // ✅ Build complete vehicle data with ALL fields
+      const vehicleData = {
+        // Required fields - always send
+        registrationNumber: formData.registrationNumber?.trim() || '',
+        make: formData.make?.trim() || '',
+        model: formData.model?.trim() || '',
+        vehicleType: formData.vehicleType || 'TRUCK',
+        status: formData.status || 'ACTIVE',
+        
+        // Optional fields - send null if empty
+        vin: formData.vin?.trim() || null,
+        fuelType: formData.fuelType || 'DIESEL',
+        year: formData.year ? parseInt(formData.year, 10) : null,
+        currentMileage: formData.currentMileage !== undefined && formData.currentMileage !== '' 
+          ? parseFloat(formData.currentMileage) 
+          : null,
+        avgConsumption: formData.avgConsumption !== undefined && formData.avgConsumption !== '' 
+          ? parseFloat(formData.avgConsumption) 
+          : null,
+        currentOdometer: formData.currentOdometer !== undefined && formData.currentOdometer !== '' 
+          ? parseFloat(formData.currentOdometer) 
+          : null,
+        lastServiceDate: formData.lastServiceDate || null,
+        lastServiceOdometer: formData.lastServiceOdometer !== undefined && formData.lastServiceOdometer !== '' 
+          ? parseFloat(formData.lastServiceOdometer) 
+          : null,
+        serviceIntervalDays: formData.serviceIntervalDays !== undefined && formData.serviceIntervalDays !== '' 
+          ? parseInt(formData.serviceIntervalDays, 10) 
+          : null,
+        serviceIntervalKm: formData.serviceIntervalKm !== undefined && formData.serviceIntervalKm !== '' 
+          ? parseFloat(formData.serviceIntervalKm) 
+          : null,
+        insurancePolicyNumber: formData.insurancePolicyNumber?.trim() || null,
+        insuranceExpiry: formData.insuranceExpiry || null,
+        roadworthyExpiry: formData.roadworthyExpiry || null,
+        fleetNumber: formData.fleetNumber?.trim() || null,
+        notes: formData.notes?.trim() || null,
+        category: formData.category?.trim() || null,
+        purchaseDate: formData.purchaseDate || null,
+        purchasePrice: formData.purchasePrice !== undefined && formData.purchasePrice !== '' 
+          ? parseFloat(formData.purchasePrice) 
+          : null,
+        currentValue: formData.currentValue !== undefined && formData.currentValue !== '' 
+          ? parseFloat(formData.currentValue) 
+          : null,
+        maintenanceCost: formData.maintenanceCost !== undefined && formData.maintenanceCost !== '' 
+          ? parseFloat(formData.maintenanceCost) 
+          : null,
+        lastMaintenanceDate: formData.lastMaintenanceDate || null,
+        nextMaintenanceDue: formData.nextMaintenanceDue || null,
+        fuelEfficiency: formData.fuelEfficiency !== undefined && formData.fuelEfficiency !== '' 
+          ? parseFloat(formData.fuelEfficiency) 
+          : null,
+        insuranceProvider: formData.insuranceProvider?.trim() || null,
+        insuranceExpiryDate: formData.insuranceExpiryDate || null,
+        isActive: formData.isActive !== undefined ? formData.isActive : true,
+        version: formData.version !== undefined ? formData.version : 0,
+      };
 
-    setTimeout(() => {
-      navigate('/vehicles');
-    }, 1500);
-  } catch (err) {
-    console.error('❌ Error saving vehicle:', err);
-    setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} vehicle`);
-  } finally {
-    setSubmitting(false);
-  }
-};
+      console.log('📤 Sending vehicle data:', vehicleData);
+
+      let result;
+      if (isEditMode) {
+        result = await vehicleService.updateVehicle(id, vehicleData);
+        setSuccess('Vehicle updated successfully!');
+      } else {
+        result = await vehicleService.createVehicle(vehicleData);
+        setSuccess('Vehicle created successfully!');
+      }
+
+      console.log('✅ Vehicle saved:', result);
+
+      setTimeout(() => {
+        navigate('/vehicles');
+      }, 1500);
+    } catch (err) {
+      console.error('❌ Error saving vehicle:', err);
+      setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} vehicle`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
     try {
