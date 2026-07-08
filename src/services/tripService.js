@@ -227,49 +227,47 @@ export const tripService = {
    * @param {Object} incidentData - The incident data
    * @returns {Promise<Object>} - The created incident
    */
-  // In tripService.js - reportIncident method
+  reportIncident: async (tripId, incidentData) => {
+    try {
+      const payload = {
+        incidentType: incidentData.incidentType,
+        severity: incidentData.severity || 'MEDIUM',
+        description: incidentData.description,
+        location: incidentData.location || null,
+        requiresAssistance: incidentData.requiresAssistance || false,
+        reportedAt: incidentData.reportedAt || new Date().toISOString(),
+        tripId,
+        
+        // ⭐ Include payment fields if present
+        amount: incidentData.amount || null,
+        paymentMethod: incidentData.paymentMethod || null,
+        referenceNumber: incidentData.referenceNumber || null,
+        additionalNotes: incidentData.additionalNotes || null,
+        voucherType: incidentData.voucherType || null,
+        eventType: incidentData.eventType || null,
+        direction: incidentData.direction || null,
+      };
 
-reportIncident: async (tripId, incidentData) => {
-  try {
-    const payload = {
-      incidentType: incidentData.incidentType,
-      severity: incidentData.severity || 'MEDIUM',
-      description: incidentData.description,
-      location: incidentData.location || null,
-      requiresAssistance: incidentData.requiresAssistance || false,
-      reportedAt: incidentData.reportedAt || new Date().toISOString(),
-      tripId,
-      
-      // ⭐ Include payment fields if present
-      amount: incidentData.amount || null,
-      paymentMethod: incidentData.paymentMethod || null,
-      referenceNumber: incidentData.referenceNumber || null,
-      additionalNotes: incidentData.additionalNotes || null,
-      voucherType: incidentData.voucherType || null,
-      eventType: incidentData.eventType || null,
-      direction: incidentData.direction || null,
-    };
+      const response = await api.post(`/trips/${tripId}/incidents`, payload);
+      return unwrap(response);
 
-    const response = await api.post(`/trips/${tripId}/incidents`, payload);
-    return unwrap(response);
+    } catch (error) {
+      console.error(`Error reporting incident for trip ${tripId}:`, error);
 
-  } catch (error) {
-    console.error(`Error reporting incident for trip ${tripId}:`, error);
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.entries(error.response.data.errors)
+          .map(([field, message]) => `${field}: ${message}`)
+          .join(', ');
+        throw new Error(`Validation errors: ${errorMessages}`);
+      }
 
-    if (error.response?.data?.errors) {
-      const errorMessages = Object.entries(error.response.data.errors)
-        .map(([field, message]) => `${field}: ${message}`)
-        .join(', ');
-      throw new Error(`Validation errors: ${errorMessages}`);
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
+
+      throw error;
     }
-
-    if (error.response?.data?.detail) {
-      throw new Error(error.response.data.detail);
-    }
-
-    throw error;
-  }
-},
+  },
 
   /**
    * Update an existing incident
@@ -520,6 +518,36 @@ reportIncident: async (tripId, incidentData) => {
   // Metrics
   // ==========================
 
+  /**
+   * Preview trip metrics without saving
+   * @param {string} origin - Origin location
+   * @param {string} destination - Destination location
+   * @param {string} vehicleType - Type of vehicle (TRUCK, VAN, etc.)
+   * @returns {Promise<Object>} - Preview metrics
+   */
+  previewTripMetrics: async (origin, destination, vehicleType = 'TRUCK') => {
+    try {
+      const response = await api.post('/trip-metrics/preview', {
+        originLocation: origin,
+        destinationLocation: destination,
+        vehicleType,
+      });
+      return unwrap(response);
+    } catch (error) {
+      console.error('Error previewing trip metrics:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Calculate and save trip metrics
+   * @param {Object} params - Calculation parameters
+   * @param {number} params.tripId - Trip ID
+   * @param {string} params.origin - Origin location
+   * @param {string} params.destination - Destination location
+   * @param {string} params.vehicleType - Type of vehicle
+   * @returns {Promise<Object>} - Calculated metrics
+   */
   calculateTripMetrics: async ({
     tripId,
     origin,
@@ -554,22 +582,12 @@ reportIncident: async (tripId, incidentData) => {
     }
   },
 
-  calculateTripMetricsPreview: async (origin, destination, vehicleType = 'TRUCK') => {
-    try {
-      const response = await api.post('/trip-metrics/preview', {
-        originLocation: origin,
-        destinationLocation: destination,
-        vehicleType,
-      });
-
-      return unwrap(response);
-
-    } catch (error) {
-      console.error('Error calculating trip metrics preview:', error);
-      throw error;
-    }
-  },
-
+  /**
+   * Save trip metrics
+   * @param {number} tripId - Trip ID
+   * @param {Object} metrics - Metrics data to save
+   * @returns {Promise<Object>} - Saved metrics
+   */
   saveTripMetrics: async (tripId, metrics) => {
     try {
       const response = await api.put(`/trip-metrics/${tripId}`, metrics);
@@ -580,6 +598,11 @@ reportIncident: async (tripId, incidentData) => {
     }
   },
 
+  /**
+   * Get trip metrics
+   * @param {number} tripId - Trip ID
+   * @returns {Promise<Object|null>} - Trip metrics or null if not found
+   */
   getTripMetrics: async (tripId) => {
     try {
       const response = await api.get(`/trip-metrics/${tripId}`);
@@ -809,3 +832,53 @@ reportIncident: async (tripId, incidentData) => {
   },
 
 };
+
+// ==========================
+// Individual Exports (for direct import)
+// ==========================
+
+// Export individual methods for direct import
+export const {
+  getAllTrips,
+  getTripById,
+  createTrip,
+  createTripFromDto,
+  updateTrip,
+  updateTripFromDto,
+  deleteTrip,
+  finalizeTrip,
+  batchFinalizeTrips,
+  getTripIncidents,
+  getActiveIncidents,
+  reportIncident,
+  updateIncident,
+  deleteIncident,
+  getIncidentStats,
+  searchIncidents,
+  getIncidentById,
+  updateIncidentStatus,
+  getTripIncidentsPaginated,
+  getTripsWithoutLoad,
+  startTrip,
+  endTrip,
+  pauseTrip,
+  resumeTrip,
+  previewTripMetrics,
+  calculateTripMetrics,
+  saveTripMetrics,
+  getTripMetrics,
+  getTripFuelData,
+  calculateTripCost,
+  filterTrips,
+  getTripsByDriver,
+  getTripsByVehicle,
+  getTripStatistics,
+  getTripKPIs,
+  checkTripNumberExists,
+  getTripByTripNumber,
+  getTripStatusHistory,
+  updateTripStatus,
+  uploadTripDocument,
+  getTripDocuments,
+  deleteTripDocument,
+} = tripService;
