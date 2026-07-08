@@ -109,8 +109,8 @@ const UserItem = ({ user, onDelete }) => {
   );
 };
 
-// Enum Management Component
-const EnumManagement = ({ tenantId }) => {
+// Enum Management Component - WITHOUT tenantId
+const EnumManagement = () => {
   const [enums, setEnums] = useState([]);
   const [enumTypes, setEnumTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
@@ -142,7 +142,7 @@ const EnumManagement = ({ tenantId }) => {
 
   const loadEnumTypes = async () => {
     try {
-      const response = await enumService.getEnumTypes(tenantId);
+      const response = await enumService.getEnumTypes();
       // Handle different response formats
       let types = [];
       if (Array.isArray(response)) {
@@ -151,7 +151,7 @@ const EnumManagement = ({ tenantId }) => {
         types = response.data;
       } else if (response?.content && Array.isArray(response.content)) {
         types = response.content;
-      } else {
+      } else if (response && typeof response === 'object') {
         // If response is an object with keys, extract them
         types = Object.keys(response).filter(key => !key.startsWith('_'));
       }
@@ -172,15 +172,56 @@ const EnumManagement = ({ tenantId }) => {
     }
   };
 
+  const loadEnums = async () => {
+    if (!selectedType) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await enumService.getEnums(selectedType);
+      // Handle different response formats
+      let enumData = [];
+      if (Array.isArray(response)) {
+        enumData = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        enumData = response.data;
+      } else if (response?.content && Array.isArray(response.content)) {
+        enumData = response.content;
+      }
+      
+      setEnums(enumData);
+      setTotal(enumData.length);
+    } catch (err) {
+      console.error('Error loading enums:', err);
+      setError('Failed to load enums');
+      setEnums([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadEnumTypes();
-  }, [tenantId]);
+  }, []); // No dependency on tenantId
 
   useEffect(() => {
     if (selectedType) {
       loadEnums();
     }
   }, [selectedType]);
+
+  const getIconForEnumType = (type) => {
+    return enumTypeConfig[type]?.icon || <CategoryIcon />;
+  };
+
+  const getLabelForEnumType = (type) => {
+    return enumTypeConfig[type]?.label || type?.replace(/_/g, ' ') || '';
+  };
+
+  const getDescriptionForEnumType = (type) => {
+    return enumTypeConfig[type]?.description || '';
+  };
 
   const handleOpenDialog = (enumItem = null) => {
     if (enumItem) {
@@ -228,10 +269,10 @@ const EnumManagement = ({ tenantId }) => {
       setError(null);
       
       if (editingEnum) {
-        await enumService.updateCustomEnum(editingEnum.id, formData, tenantId);
+        await enumService.updateCustomEnum(editingEnum.id, formData);
         setSuccess('Enum updated successfully');
       } else {
-        await enumService.addCustomEnum(formData, tenantId);
+        await enumService.addCustomEnum(formData);
         setSuccess('Enum added successfully');
       }
       
@@ -249,7 +290,7 @@ const EnumManagement = ({ tenantId }) => {
     if (!window.confirm('Are you sure you want to delete this enum?')) return;
     
     try {
-      await enumService.deleteCustomEnum(id, selectedType, tenantId);
+      await enumService.deleteCustomEnum(id, selectedType);
       setSuccess('Enum deleted successfully');
       await loadEnums();
       setTimeout(() => setSuccess(null), 3000);
@@ -261,24 +302,12 @@ const EnumManagement = ({ tenantId }) => {
 
   const handleToggleStatus = async (id) => {
     try {
-      await enumService.toggleEnumStatus(id, selectedType, tenantId);
+      await enumService.toggleEnumStatus(id, selectedType);
       await loadEnums();
     } catch (err) {
       console.error('Error toggling enum status:', err);
       setError(err.response?.data?.message || 'Failed to toggle enum status');
     }
-  };
-
-  const getIconForEnumType = (type) => {
-    return enumTypeConfig[type]?.icon || <CategoryIcon />;
-  };
-
-  const getLabelForEnumType = (type) => {
-    return enumTypeConfig[type]?.label || type?.replace(/_/g, ' ') || '';
-  };
-
-  const getDescriptionForEnumType = (type) => {
-    return enumTypeConfig[type]?.description || '';
   };
 
   return (
@@ -306,14 +335,18 @@ const EnumManagement = ({ tenantId }) => {
                 label="Select Enum Type"
                 sx={{ fontSize: '0.75rem' }}
               >
-                {enumTypes.map((type) => (
-                  <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      {getIconForEnumType(type)}
-                      <span>{getLabelForEnumType(type)}</span>
-                    </Stack>
-                  </MenuItem>
-                ))}
+                {Array.isArray(enumTypes) && enumTypes.length > 0 ? (
+                  enumTypes.map((type) => (
+                    <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        {getIconForEnumType(type)}
+                        <span>{getLabelForEnumType(type)}</span>
+                      </Stack>
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem disabled>No enum types available</MenuItem>
+                )}
               </Select>
             </FormControl>
           </Grid>
@@ -997,7 +1030,7 @@ const SettingsPage = ({ currentUser }) => {
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mb: 2 }}>
                 Manage custom enumerations used throughout the system. System enums are locked and cannot be modified.
               </Typography>
-              <EnumManagement tenantId={1} />
+              <EnumManagement />
             </Box>
           </TabPanel>
         </CardContent>
