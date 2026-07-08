@@ -629,7 +629,7 @@ function TripList() {
                // Get customer name from customer object or direct field
                 const customerName = trip.customer?.name || trip.customerName || 'N/A';
                 // Get vehicle registration from vehicle object
-                const vehicleReg = trip.vehicle?.registrationNumber || trip.vehicleRegistrationNumber || 'N/A';
+                const vehicleReg = trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A';
                 // Get driver name from driver object
                 const driverName = trip.driver 
                   ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() 
