@@ -19,7 +19,7 @@ import {
   Search as SearchIcon, Dashboard, PlayArrow, Stop,
   Warning as WarningIcon, LocationCity, PinDrop, SwapHoriz,
   Person as PersonIcon, Business as BusinessIcon, LocalShipping,
-  Receipt, Assignment
+  Receipt, Assignment, DirectionsCar
 } from '@mui/icons-material';
 
 /* ================================
@@ -577,7 +577,7 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table - Compact with Customer, REF#, PO# Columns */}
+      {/* Table - Compact with Customer, REF#, PO#, Vehicle, Driver Columns */}
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
@@ -587,6 +587,7 @@ function TripList() {
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>REF#</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>PO#</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Vehicle</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Driver</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Origin</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Destination</TableCell>
@@ -599,7 +600,7 @@ function TripList() {
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={12} align="center" sx={{ py: 2 }}>
                   <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                     {searchText || statusFilter !== 'all' || cityFilter || customerFilter
                       ? 'No trips match your filters'
@@ -687,11 +688,49 @@ function TripList() {
 
                     {/* Vehicle Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.vehicle?.registrationNumber ? (
+                      {trip.vehicle ? (
+                        <Tooltip title={`Vehicle: ${trip.vehicle.registrationNumber || 'N/A'}`}>
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                              {trip.vehicle.registrationNumber || 'N/A'}
+                            </Typography>
+                          </Stack>
+                        </Tooltip>
+                      ) : trip.vehicleRegistrationNumber ? (
+                        // Fallback if vehicle object is not available but registration number is
+                        <Tooltip title="Vehicle Registration">
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                              {trip.vehicleRegistrationNumber}
+                            </Typography>
+                          </Stack>
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          N/A
+                        </Typography>
+                      )}
+                    </TableCell>
+
+                    {/* Driver Column */}
+                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                      {trip.driver ? (
+                        <Tooltip title={`Driver: ${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`}>
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <PersonIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                              {trip.driver.firstName || ''} {trip.driver.lastName || ''}
+                            </Typography>
+                          </Stack>
+                        </Tooltip>
+                      ) : trip.driverName ? (
+                        // Fallback if driver object is not available but name is
                         <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <LocalShipping sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                          <PersonIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                           <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                            {trip.vehicle.registrationNumber}
+                            {trip.driverName}
                           </Typography>
                         </Stack>
                       ) : (
