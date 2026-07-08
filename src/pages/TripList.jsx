@@ -261,7 +261,7 @@ function TripList() {
   }, [trips]);
 
   const uniqueCustomers = useMemo(() => {
-    return [...new Set(trips.map(trip => trip.customerName).filter(Boolean))];
+    return [...new Set(trips.map(trip => trip.customer?.name || trip.customerName).filter(Boolean))];
   }, [trips]);
 
   /* ================================
@@ -577,7 +577,7 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table - Compact with Customer, REF#, PO#, Vehicle, Driver Columns */}
+      {/* Table - Compact with All Columns */}
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
@@ -626,6 +626,15 @@ function TripList() {
                 const canEdit = !['CANCELLED', 'FINALIZED', 'CLOSED', 'COMPLETED'].includes(trip.status);
                 const canDelete = !['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
                 
+                // Get customer name from customer object or direct field
+                const customerName = trip.customer?.name || trip.customerName || 'N/A';
+                // Get vehicle registration from vehicle object
+                const vehicleReg = trip.vehicle?.registrationNumber || trip.vehicleRegistrationNumber || 'N/A';
+                // Get driver name from driver object
+                const driverName = trip.driver 
+                  ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() 
+                  : trip.driverName || 'N/A';
+                
                 return (
                   <TableRow key={trip.id} hover>
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -636,11 +645,11 @@ function TripList() {
 
                     {/* Customer Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.customerName ? (
+                      {customerName !== 'N/A' ? (
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <BusinessIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                           <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                            {trip.customerName}
+                            {customerName}
                           </Typography>
                         </Stack>
                       ) : (
@@ -650,7 +659,7 @@ function TripList() {
                       )}
                     </TableCell>
 
-                    {/* REF# Column */}
+                    {/* REF# Column - uses referenceNumber from entity */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
                       {trip.referenceNumber ? (
                         <Tooltip title="Reference Number">
@@ -668,14 +677,14 @@ function TripList() {
                       )}
                     </TableCell>
 
-                    {/* PO# Column */}
+                    {/* PO# Column - uses purchaseOrderNumber from entity */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.poNumber ? (
+                      {trip.purchaseOrderNumber ? (
                         <Tooltip title="Purchase Order Number">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <Assignment sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                             <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {trip.poNumber}
+                              {trip.purchaseOrderNumber}
                             </Typography>
                           </Stack>
                         </Tooltip>
@@ -688,22 +697,12 @@ function TripList() {
 
                     {/* Vehicle Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.vehicle ? (
-                        <Tooltip title={`Vehicle: ${trip.vehicle.registrationNumber || 'N/A'}`}>
-                          <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {trip.vehicle.registrationNumber || 'N/A'}
-                            </Typography>
-                          </Stack>
-                        </Tooltip>
-                      ) : trip.vehicleRegistrationNumber ? (
-                        // Fallback if vehicle object is not available but registration number is
+                      {vehicleReg !== 'N/A' ? (
                         <Tooltip title="Vehicle Registration">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                             <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {trip.vehicleRegistrationNumber}
+                              {vehicleReg}
                             </Typography>
                           </Stack>
                         </Tooltip>
@@ -716,23 +715,15 @@ function TripList() {
 
                     {/* Driver Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.driver ? (
-                        <Tooltip title={`Driver: ${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`}>
+                      {driverName !== 'N/A' ? (
+                        <Tooltip title="Driver Name">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <PersonIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                             <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {trip.driver.firstName || ''} {trip.driver.lastName || ''}
+                              {driverName}
                             </Typography>
                           </Stack>
                         </Tooltip>
-                      ) : trip.driverName ? (
-                        // Fallback if driver object is not available but name is
-                        <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <PersonIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                            {trip.driverName}
-                          </Typography>
-                        </Stack>
                       ) : (
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                           N/A
