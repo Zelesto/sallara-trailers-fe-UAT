@@ -476,7 +476,7 @@ const MainLayout = () => {
                 fontSize: '0.7rem',
               }}
             >
-              v1.02
+              v1.0.2
             </Typography>
           </BrandText>
         </LogoWrapper>
