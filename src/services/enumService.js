@@ -2,57 +2,49 @@
 import api from './api';
 
 export const enumService = {
-  // Get all enums for a type (system + custom)
-  getEnums: async (enumType, tenantId) => {
-    const response = await api.get(`/enums/${enumType}`, {
-      headers: tenantId ? { 'X-Tenant-Id': tenantId } : {}
-    });
+  getEnums: async (enumType) => {
+    const response = await api.get(`/enums/${enumType}`);
     return response.data;
   },
 
-  // Get paginated enums (admin)
   getEnumsPaginated: async (params = {}) => {
     const response = await api.get('/enums', { params });
     return response.data;
   },
 
-  // Get all enum types
-  getEnumTypes: async (tenantId) => {
-    const response = await api.get('/enums/types', {
-      headers: tenantId ? { 'X-Tenant-Id': tenantId } : {}
-    });
+  getEnumTypes: async () => {
+    try {
+      const response = await api.get('/enums/types');
+      const data = response.data;
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+      return ['VEHICLE_TYPE', 'VEHICLE_STATUS', 'DRIVER_STATUS', 'LOAD_STATUS'];
+    } catch (error) {
+      console.error('Error fetching enum types, using defaults:', error);
+      return ['VEHICLE_TYPE', 'VEHICLE_STATUS', 'DRIVER_STATUS', 'LOAD_STATUS'];
+    }
+  },
+
+  addCustomEnum: async (data) => {
+    const response = await api.post('/enums/custom', data);
     return response.data;
   },
 
-  // Add custom enum
-  addCustomEnum: async (data, tenantId) => {
-    const response = await api.post('/enums/custom', data, {
-      headers: tenantId ? { 'X-Tenant-Id': tenantId } : {}
-    });
+  updateCustomEnum: async (id, data) => {
+    const response = await api.put(`/enums/custom/${id}`, data);
     return response.data;
   },
 
-  // Update custom enum
-  updateCustomEnum: async (id, data, tenantId) => {
-    const response = await api.put(`/enums/custom/${id}`, data, {
-      headers: tenantId ? { 'X-Tenant-Id': tenantId } : {}
-    });
-    return response.data;
-  },
-
-  // Delete custom enum (soft delete)
-  deleteCustomEnum: async (id, enumType, tenantId) => {
+  deleteCustomEnum: async (id, enumType) => {
     await api.delete(`/enums/custom/${id}`, {
-      params: { enumType },
-      headers: tenantId ? { 'X-Tenant-Id': tenantId } : {}
+      params: { enumType }
     });
   },
 
-  // Toggle enum status
-  toggleEnumStatus: async (id, enumType, tenantId) => {
+  toggleEnumStatus: async (id, enumType) => {
     const response = await api.patch(`/enums/custom/${id}/toggle`, null, {
-      params: { enumType },
-      headers: tenantId ? { 'X-Tenant-Id': tenantId } : {}
+      params: { enumType }
     });
     return response.data;
   }
