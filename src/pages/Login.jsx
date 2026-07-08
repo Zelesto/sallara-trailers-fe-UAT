@@ -152,7 +152,7 @@ const Login = () => {
             fontSize: '0.6rem',
           }}
         >
-          v1.0.1
+          v1.0.2
         </Typography>
 
         <Divider sx={{ width: '100%', mb: 2 }} />
