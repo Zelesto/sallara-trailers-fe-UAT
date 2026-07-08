@@ -258,7 +258,7 @@ const TripMetricsForm = ({
     });
 
     // ⭐ FIX: Use the correct method name
-    const result = await tripService.calculateTripMetricsPreview(
+    const result = await tripService.previewTripMetrics (
       origin,
       destination,
       vehicleType
