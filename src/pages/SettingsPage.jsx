@@ -142,7 +142,20 @@ const EnumManagement = ({ tenantId }) => {
 
   const loadEnumTypes = async () => {
     try {
-      const types = await enumService.getEnumTypes(tenantId);
+      const response = await enumService.getEnumTypes(tenantId);
+      // Handle different response formats
+      let types = [];
+      if (Array.isArray(response)) {
+        types = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        types = response.data;
+      } else if (response?.content && Array.isArray(response.content)) {
+        types = response.content;
+      } else {
+        // If response is an object with keys, extract them
+        types = Object.keys(response).filter(key => !key.startsWith('_'));
+      }
+      
       setEnumTypes(types);
       if (types.length > 0 && !selectedType) {
         setSelectedType(types[0]);
@@ -150,24 +163,12 @@ const EnumManagement = ({ tenantId }) => {
     } catch (err) {
       console.error('Error loading enum types:', err);
       setError('Failed to load enum types');
-    }
-  };
-
-  const loadEnums = async () => {
-    if (!selectedType) return;
-    
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await enumService.getEnums(selectedType, tenantId);
-      setEnums(data || []);
-      setTotal(data?.length || 0);
-    } catch (err) {
-      console.error('Error loading enums:', err);
-      setError('Failed to load enums');
-      setEnums([]);
-    } finally {
-      setLoading(false);
+      // Set default types as fallback
+      const defaultTypes = ['VEHICLE_TYPE', 'VEHICLE_STATUS', 'DRIVER_STATUS', 'LOAD_STATUS'];
+      setEnumTypes(defaultTypes);
+      if (!selectedType) {
+        setSelectedType(defaultTypes[0]);
+      }
     }
   };
 
