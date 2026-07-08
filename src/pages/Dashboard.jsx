@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Typography,
   Box,
@@ -32,6 +32,8 @@ import {
   ListItemText,
   ListItemIcon,
   Badge,
+  Collapse,
+  Fade,
 } from '@mui/material';
 import {
   DirectionsCar,
@@ -53,9 +55,16 @@ import {
   Cancel as CancelIcon,
   Inventory as InventoryIcon,
   AddAlert as AddAlertIcon,
+  ExpandMore,
+  ExpandLess,
+  Parking,
+  Route,
+  Person,
+  CarRental,
 } from '@mui/icons-material';
 import { analyticsService } from '../services/analyticsService';
 import { inventoryNotificationService } from '../services/inventoryNotificationService';
+import { tripService } from '../services/tripService';
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
@@ -197,13 +206,62 @@ const StatCard = React.memo(({
   </Card>
 ));
 
-// Low Stock Alert Component
+// Low Stock Alert Component with Collapsible
 const LowStockAlert = ({ items }) => {
-  if (!items || items.length === 0) return null;
+  const [expanded, setExpanded] = useState(() => {
+    // Check localStorage for saved state
+    const saved = localStorage.getItem('lowStockExpanded');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  const [showIcon, setShowIcon] = useState(!expanded);
+
+  if (!items || items.length === 0) {
+    // Hide completely if no items
+    return null;
+  }
 
   const urgentItems = items.filter(item => item.quantity <= 0);
   const warningItems = items.filter(item => item.quantity > 0 && item.quantity <= item.minLevel);
 
+  const handleToggle = () => {
+    const newState = !expanded;
+    setExpanded(newState);
+    localStorage.setItem('lowStockExpanded', JSON.stringify(newState));
+    setShowIcon(newState ? false : true);
+  };
+
+  // Icon-only mode (minimized)
+  if (!expanded) {
+    return (
+      <Box sx={{ mb: 2 }}>
+        <Paper
+          sx={{
+            p: 0.5,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            cursor: 'pointer',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            '&:hover': { backgroundColor: 'action.hover' }
+          }}
+          onClick={handleToggle}
+        >
+          <Badge badgeContent={items.length} color="error">
+            <InventoryIcon color="warning" sx={{ fontSize: '1.2rem' }} />
+          </Badge>
+          <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+            {items.length} low stock items
+          </Typography>
+          <ExpandMore sx={{ fontSize: '0.9rem', color: 'text.secondary' }} />
+        </Paper>
+      </Box>
+    );
+  }
+
+  // Full expanded view
   return (
     <Paper sx={{ p: 1.5, mb: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
       <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
@@ -229,6 +287,9 @@ const LowStockAlert = ({ items }) => {
             sx={{ height: 20, fontSize: '0.6rem' }}
           />
         )}
+        <IconButton size="small" onClick={handleToggle} sx={{ ml: 'auto' }}>
+          <ExpandLess sx={{ fontSize: '1rem' }} />
+        </IconButton>
       </Stack>
 
       <Grid container spacing={1}>
@@ -288,88 +349,162 @@ const Dashboard = () => {
   const [period, setPeriod] = useState('30days');
   const [refreshing, setRefreshing] = useState(false);
   const [lowStockItems, setLowStockItems] = useState([]);
+  const [activeTrips, setActiveTrips] = useState([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-
-const fetchDashboardData = async (isRefresh = false) => {
-  try {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-
-    setError(null);
-
-    const endDate = new Date();
-    let startDate = new Date();
-
-    switch (period) {
-      case '7days':
-        startDate.setDate(endDate.getDate() - 7);
-        break;
-      case '90days':
-        startDate.setDate(endDate.getDate() - 90);
-        break;
-      case '365days':
-        startDate.setDate(endDate.getDate() - 365);
-        break;
-      case '30days':
-      default:
-        startDate.setDate(endDate.getDate() - 30);
-    }
-
-    const formatDate = (date) => date.toISOString().split('T')[0];
-    
-    // Fetch dashboard data and low stock items separately with error handling
-    const [response, lowStock] = await Promise.all([
-      analyticsService.getDashboardKPIs(formatDate(startDate), formatDate(endDate)),
-      // Use a try-catch for low stock items
-      (async () => {
-        try {
-          return await inventoryNotificationService.getLowStockItems();
-        } catch (error) {
-          console.warn('Low stock endpoint not available:', error);
-          return [];
-        }
-      })()
-    ]);
-
-    if (response && response.success !== false) {
-      setDashboardData(response);
-    } else {
-      throw new Error(response?.message || 'Invalid response structure');
-    }
-
-    // Set low stock items - ensure it's an array
-    setLowStockItems(Array.isArray(lowStock) ? lowStock : (lowStock?.content || []));
-
-  } catch (err) {
-    console.error('Error fetching dashboard data:', err);
-    setError(err.message || 'Failed to load dashboard data');
-    
-    if (!dashboardData) {
-      setDashboardData({
-        summary: { activeVehicles: 0, activeDrivers: 0, avgFuelEfficiency: 0 },
-        period: { startDate: new Date(), endDate: new Date() },
-        topDrivers: [],
-        topVehicles: [],
-        recentActivities: []
+  // Fetch active trips for driver/vehicle availability
+  const fetchActiveTrips = async () => {
+    try {
+      const response = await tripService.getAllTrips({
+        status: 'IN_PROGRESS,ACTIVE,PLANNED,ASSIGNED',
+        size: 100
       });
+      const trips = response.content || [];
+      setActiveTrips(trips);
+      return trips;
+    } catch (error) {
+      console.error('Error fetching active trips:', error);
+      return [];
     }
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
-  }
-};
+  };
+
+  // Calculate available drivers and vehicles
+  const calculateAvailability = (trips) => {
+    // Get all drivers and vehicles currently on active trips
+    const driversInTrips = new Set();
+    const vehiclesInTrips = new Set();
+
+    trips.forEach(trip => {
+      if (trip.driverId) driversInTrips.add(trip.driverId);
+      if (trip.vehicleId) vehiclesInTrips.add(trip.vehicleId);
+    });
+
+    const activeDrivers = driversInTrips.size;
+    const activeVehicles = vehiclesInTrips.size;
+    
+    // Assuming total drivers and vehicles from dashboard data
+    const totalDrivers = dashboardData?.summary?.totalDrivers || 0;
+    const totalVehicles = dashboardData?.summary?.totalVehicles || 0;
+
+    return {
+      activeDrivers,
+      activeVehicles,
+      availableDrivers: Math.max(0, totalDrivers - activeDrivers),
+      availableVehicles: Math.max(0, totalVehicles - activeVehicles),
+    };
+  };
+
+  const fetchDashboardData = async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      setError(null);
+
+      const endDate = new Date();
+      let startDate = new Date();
+
+      switch (period) {
+        case '7days':
+          startDate.setDate(endDate.getDate() - 7);
+          break;
+        case '90days':
+          startDate.setDate(endDate.getDate() - 90);
+          break;
+        case '365days':
+          startDate.setDate(endDate.getDate() - 365);
+          break;
+        case '30days':
+        default:
+          startDate.setDate(endDate.getDate() - 30);
+      }
+
+      const formatDate = (date) => date.toISOString().split('T')[0];
+      
+      // Fetch all data in parallel
+      const [response, lowStock, activeTripsData] = await Promise.all([
+        analyticsService.getDashboardKPIs(formatDate(startDate), formatDate(endDate)),
+        (async () => {
+          try {
+            return await inventoryNotificationService.getLowStockItems();
+          } catch (error) {
+            console.warn('Low stock endpoint not available:', error);
+            return [];
+          }
+        })(),
+        fetchActiveTrips()
+      ]);
+
+      if (response && response.success !== false) {
+        setDashboardData(response);
+      } else {
+        throw new Error(response?.message || 'Invalid response structure');
+      }
+
+      setLowStockItems(Array.isArray(lowStock) ? lowStock : (lowStock?.content || []));
+
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message || 'Failed to load dashboard data');
+      
+      if (!dashboardData) {
+        setDashboardData({
+          summary: { activeVehicles: 0, activeDrivers: 0, avgFuelEfficiency: 0 },
+          period: { startDate: new Date(), endDate: new Date() },
+          topDrivers: [],
+          topVehicles: [],
+          recentActivities: []
+        });
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();
   }, [period]);
 
-  // Top Drivers Table - Compact
+  // Calculate availability from active trips
+  const availability = useMemo(() => {
+    if (!activeTrips.length) {
+      return { activeDrivers: 0, activeVehicles: 0, availableDrivers: 0, availableVehicles: 0 };
+    }
+    return calculateAvailability(activeTrips);
+  }, [activeTrips, dashboardData]);
+
+  // Top Drivers Table with Cost/km and Rating
   const TopDriversTable = () => {
     const topDrivers = dashboardData?.topDrivers || dashboardData?.summary?.topDrivers || [];
     
-    if (!topDrivers.length) {
+    // Calculate rating based on multiple factors
+    const calculateDriverRating = (driver) => {
+      const efficiency = driver.efficiency || driver.kmPerLiter || 0;
+      const trips = driver.tripCount || driver.tripsCompleted || 0;
+      const costPerKm = driver.costPerKm || 0;
+      
+      // Rating out of 5 based on:
+      // - Efficiency: max 2.5 points (8+ km/L = 2.5)
+      // - Trip count: max 1.5 points (10+ trips = 1.5)
+      // - Cost per km: max 1 point (< R2/km = 1)
+      
+      let rating = 0;
+      rating += Math.min(efficiency / 3.2, 2.5); // 8 km/L = 2.5
+      rating += Math.min(trips / 6.67, 1.5); // 10 trips = 1.5
+      rating += costPerKm < 2 ? 1 : costPerKm < 3 ? 0.5 : 0; // Cost efficiency
+      
+      return Math.min(Math.round(rating * 10) / 10, 5); // Round to 1 decimal, max 5
+    };
+
+    const enhancedDrivers = topDrivers.map(driver => ({
+      ...driver,
+      calculatedRating: calculateDriverRating(driver),
+      costPerKm: driver.costPerKm || 0,
+    }));
+
+    if (!enhancedDrivers.length) {
       return (
         <Paper sx={{
           borderRadius: 1.5,
@@ -407,7 +542,7 @@ const fetchDashboardData = async (isRefresh = false) => {
                 Top Drivers
               </Typography>
               <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.65rem' }}>
-                Best performing drivers
+                Best performing drivers with ratings
               </Typography>
             </Box>
             <Select
@@ -441,11 +576,11 @@ const fetchDashboardData = async (isRefresh = false) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {topDrivers.slice(0, 5).map((driver, index) => {
+                {enhancedDrivers.slice(0, 5).map((driver, index) => {
                   const efficiency = driver.efficiency || driver.kmPerLiter || 0;
                   const tripCount = driver.tripCount || driver.tripsCompleted || 0;
                   const costPerKm = driver.costPerKm || 0;
-                  const rating = driver.rating || 0;
+                  const rating = driver.calculatedRating || 0;
                   
                   return (
                   <TableRow
@@ -463,9 +598,9 @@ const fetchDashboardData = async (isRefresh = false) => {
                             width: { xs: 24, sm: 28 },
                             height: { xs: 24, sm: 28 },
                             fontSize: '0.6rem',
-                            bgcolor: index === 0 ? '#FFAE1F' :
-                                     index === 1 ? '#5D87FF' :
-                                     index === 2 ? '#13DEB9' : '#6B7280'
+                            bgcolor: rating >= 4.5 ? '#13DEB9' :
+                                     rating >= 4 ? '#5D87FF' :
+                                     rating >= 3 ? '#FFAE1F' : '#FA896B'
                           }}
                         >
                           {driver.name?.charAt(0) || 'D'}
@@ -475,9 +610,9 @@ const fetchDashboardData = async (isRefresh = false) => {
                             {driver.name || driver.driverName || `Driver ${index + 1}`}
                           </Typography>
                           <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.55rem' }}>
-                            {index === 0 ? '🥇 Best' :
-                             index === 1 ? '🥈 2nd' :
-                             index === 2 ? '🥉 3rd' : ''}
+                            {rating >= 4.5 ? '⭐ Elite' :
+                             rating >= 4 ? '🌟 Excellent' :
+                             rating >= 3 ? '👍 Good' : '📈 Improving'}
                           </Typography>
                         </Box>
                       </Stack>
@@ -519,13 +654,18 @@ const fetchDashboardData = async (isRefresh = false) => {
                             <Box
                               key={star}
                               sx={{
-                                width: 6,
+                                width: star <= rating ? 6 : 6,
                                 height: 6,
                                 borderRadius: '50%',
-                                bgcolor: star <= rating ? '#FFAE1F' : '#E5E7EB'
+                                bgcolor: star <= Math.floor(rating) ? '#FFAE1F' : 
+                                        star - 1 < rating ? '#FFAE1F' : '#E5E7EB',
+                                opacity: star <= rating ? 1 : 0.3
                               }}
                             />
                           ))}
+                          <Typography variant="caption" sx={{ fontSize: '0.55rem', ml: 0.25, color: 'text.secondary' }}>
+                            {rating.toFixed(1)}
+                          </Typography>
                         </Box>
                       </TableCell>
                     )}
@@ -539,18 +679,19 @@ const fetchDashboardData = async (isRefresh = false) => {
     );
   };
 
-  // Recent Activity - Compact
+  // Recent Activity - Enhanced with real activities
   const RecentActivity = () => {
-    const activities = dashboardData?.recentActivities || 
-                     dashboardData?.summary?.recentActivities || [];
+    const activities = dashboardData?.recentActivities || [];
 
     const getActivityIcon = (type) => {
-      switch (type) {
+      switch (type?.toLowerCase()) {
         case 'fuel': return <LocalGasStation sx={{ fontSize: '0.8rem' }} />;
         case 'maintenance': return <Speed sx={{ fontSize: '0.8rem' }} />;
         case 'trip': return <Map sx={{ fontSize: '0.8rem' }} />;
         case 'driver': return <People sx={{ fontSize: '0.8rem' }} />;
         case 'inspection': return <Assessment sx={{ fontSize: '0.8rem' }} />;
+        case 'incident': return <WarningIcon sx={{ fontSize: '0.8rem' }} />;
+        case 'completion': return <CheckCircle sx={{ fontSize: '0.8rem' }} />;
         default: return <Notifications sx={{ fontSize: '0.8rem' }} />;
       }
     };
@@ -565,6 +706,12 @@ const fetchDashboardData = async (isRefresh = false) => {
       }
     };
 
+    // Generate real activities if none exist
+    const displayActivities = activities.length > 0 ? activities : [
+      { type: 'info', message: 'System is operational', status: 'success', time: 'Just now' },
+      { type: 'trip', message: 'No recent trips recorded', status: 'info', time: 'Recently' },
+    ];
+
     return (
       <Paper sx={{
         borderRadius: 1.5,
@@ -574,18 +721,30 @@ const fetchDashboardData = async (isRefresh = false) => {
         <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 1.5 }}>
             Recent Activity
+            {activities.length > 0 && (
+              <Chip
+                label={`${activities.length} events`}
+                size="small"
+                variant="outlined"
+                sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
+              />
+            )}
           </Typography>
           
-          {activities.length > 0 ? (
+          {displayActivities.length > 0 ? (
             <Stack spacing={1}>
-              {activities.slice(0, 5).map((activity, index) => (
+              {displayActivities.slice(0, 5).map((activity, index) => (
                 <Paper
                   key={index}
                   sx={{
                     p: { xs: 1, sm: 1.5 },
                     backgroundColor: '#f8fafc',
                     borderLeft: `3px solid ${getStatusColor(activity.status)}`,
-                    borderRadius: 0.5
+                    borderRadius: 0.5,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: '#f1f5f9'
+                    }
                   }}
                 >
                   <Stack direction="row" spacing={1} alignItems="flex-start">
@@ -599,11 +758,18 @@ const fetchDashboardData = async (isRefresh = false) => {
                       <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>
                         {activity.message}
                       </Typography>
-                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.6rem' }}>
-                        {activity.vehicle ? `Vehicle: ${activity.vehicle}` : 'System update'}
-                      </Typography>
+                      {activity.vehicle && (
+                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.55rem' }}>
+                          Vehicle: {activity.vehicle}
+                        </Typography>
+                      )}
+                      {activity.driver && (
+                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.55rem', ml: 1 }}>
+                          Driver: {activity.driver}
+                        </Typography>
+                      )}
                     </Box>
-                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.55rem' }}>
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.55rem', whiteSpace: 'nowrap' }}>
                       {activity.time || 'Recently'}
                     </Typography>
                   </Stack>
@@ -645,6 +811,12 @@ const fetchDashboardData = async (isRefresh = false) => {
   const summary = dashboardData?.summary || {};
   const vehicleKpis = dashboardData?.topVehicles || dashboardData?.vehicleKpis || [];
   const periodStats = dashboardData?.period || {};
+
+  // Use calculated availability
+  const displayActiveDrivers = availability.activeDrivers || summary.activeDrivers || 0;
+  const displayActiveVehicles = availability.activeVehicles || summary.activeVehicles || 0;
+  const availableDrivers = availability.availableDrivers || 0;
+  const availableVehicles = availability.availableVehicles || 0;
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
@@ -700,9 +872,35 @@ const fetchDashboardData = async (isRefresh = false) => {
         </Alert>
       )}
 
-      {/* Low Stock Alerts */}
-      {lowStockItems.length > 0 && (
-        <LowStockAlert items={lowStockItems} />
+      {/* Low Stock Alerts - Collapsible */}
+      <LowStockAlert items={lowStockItems} />
+
+      {/* Availability Info */}
+      {(availableDrivers > 0 || availableVehicles > 0) && (
+        <Paper sx={{ p: 1, mb: 2, backgroundColor: '#f0f7ff', borderRadius: 1.5 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }}>
+            {availableDrivers > 0 && (
+              <Chip
+                icon={<Person />}
+                label={`${availableDrivers} available drivers`}
+                color="success"
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.65rem' }}
+              />
+            )}
+            {availableVehicles > 0 && (
+              <Chip
+                icon={<CarRental />}
+                label={`${availableVehicles} available vehicles`}
+                color="success"
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.65rem' }}
+              />
+            )}
+          </Stack>
+        </Paper>
       )}
 
       {/* Time Period Selector - Compact */}
@@ -763,11 +961,11 @@ const fetchDashboardData = async (isRefresh = false) => {
         <Grid item xs={6} sm={6} md={3}>
           <StatCard
             title="Active Vehicles"
-            value={summary.activeVehicles || summary.totalVehicles || 0}
+            value={displayActiveVehicles}
             icon={DirectionsCar}
             color="primary"
             trend={periodStats.vehicleTrend}
-            subtitle="Total operational"
+            subtitle={`${availableVehicles} available`}
             loading={refreshing}
           />
         </Grid>
@@ -775,11 +973,11 @@ const fetchDashboardData = async (isRefresh = false) => {
         <Grid item xs={6} sm={6} md={3}>
           <StatCard
             title="Active Drivers"
-            value={summary.activeDrivers || summary.totalDrivers || 0}
+            value={displayActiveDrivers}
             icon={People}
             color="success"
             trend={periodStats.driverTrend}
-            subtitle="Currently assigned"
+            subtitle={`${availableDrivers} available`}
             loading={refreshing}
           />
         </Grid>
