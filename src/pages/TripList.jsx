@@ -626,7 +626,7 @@ function TripList() {
                 const canEdit = !['CANCELLED', 'FINALIZED', 'CLOSED', 'COMPLETED'].includes(trip.status);
                 const canDelete = !['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
                 
-                // Get customer name from customer object or direct field
+               // Get customer name from customer object or direct field
                 const customerName = trip.customer?.name || trip.customerName || 'N/A';
                 // Get vehicle registration from vehicle object
                 const vehicleReg = trip.vehicle?.registrationNumber || trip.vehicleRegistrationNumber || 'N/A';
