@@ -18,7 +18,8 @@ import {
   Add, Edit, Delete, Visibility, CheckCircle, Refresh,
   Search as SearchIcon, Dashboard, PlayArrow, Stop,
   Warning as WarningIcon, LocationCity, PinDrop, SwapHoriz,
-  Person as PersonIcon, Business as BusinessIcon
+  Person as PersonIcon, Business as BusinessIcon, LocalShipping,
+  Receipt, Assignment
 } from '@mui/icons-material';
 
 /* ================================
@@ -576,16 +577,16 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table - Compact with Customer Column */}
+      {/* Table - Compact with Customer, REF#, PO# Columns */}
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Trip Number</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Customer</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Vehicle</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>REF#</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>PO#</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Vehicle</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Origin</TableCell>
               <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Destination</TableCell>
@@ -598,7 +599,7 @@ function TripList() {
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 2 }}>
                   <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                     {searchText || statusFilter !== 'all' || cityFilter || customerFilter
                       ? 'No trips match your filters'
@@ -632,12 +633,65 @@ function TripList() {
                       </Typography>
                     </TableCell>
 
+                    {/* Customer Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
                       {trip.customerName ? (
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <BusinessIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                           <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
                             {trip.customerName}
+                          </Typography>
+                        </Stack>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          N/A
+                        </Typography>
+                      )}
+                    </TableCell>
+
+                    {/* REF# Column */}
+                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                      {trip.referenceNumber ? (
+                        <Tooltip title="Reference Number">
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <Receipt sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                              {trip.referenceNumber}
+                            </Typography>
+                          </Stack>
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+
+                    {/* PO# Column */}
+                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                      {trip.poNumber ? (
+                        <Tooltip title="Purchase Order Number">
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <Assignment sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                              {trip.poNumber}
+                            </Typography>
+                          </Stack>
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+
+                    {/* Vehicle Column */}
+                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                      {trip.vehicle?.registrationNumber ? (
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <LocalShipping sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                            {trip.vehicle.registrationNumber}
                           </Typography>
                         </Stack>
                       ) : (
