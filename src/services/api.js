@@ -38,12 +38,20 @@ api.interceptors.request.use(
       delete config.headers.Authorization;
     }
 
-    // Don't add timestamp to auth requests
-    if (config.method?.toLowerCase() === 'get' && !config.url?.includes('/auth/')) {
+    // Don't add timestamp to auth requests or download requests
+    const isAuthRequest = config.url?.includes('/auth/');
+    const isDownloadRequest = config.url?.includes('/download') || config.responseType === 'blob';
+    
+    if (config.method?.toLowerCase() === 'get' && !isAuthRequest && !isDownloadRequest) {
       config.params = {
         ...config.params,
         _t: Date.now(),
       };
+    }
+
+    // Mark download requests
+    if (isDownloadRequest) {
+      config.__isDownload = true;
     }
 
     return config;
@@ -59,6 +67,12 @@ api.interceptors.request.use(
 // ---------------------------
 api.interceptors.response.use(
   (response) => {
+    // Skip logging for blob responses (downloads)
+    if (response.config.responseType === 'blob') {
+      console.log(`✅ Download ${response.config.url}`);
+      return response;
+    }
+    
     console.log(
       `✅ ${response.config.method?.toUpperCase()} ${response.config.url}`
     );
@@ -75,6 +89,33 @@ api.interceptors.response.use(
 
     const status = error.response?.status || 500;
     const url = error.config?.url || '';
+    const isDownloadRequest = error.config?.__isDownload || false;
+
+    // For download errors, return a user-friendly error without session expiry
+    if (isDownloadRequest) {
+      let errorMessage = 'Failed to download document. Please try again.';
+      
+      // Try to get error from response
+      if (error.response && error.response.data) {
+        try {
+          if (typeof error.response.data === 'string') {
+            const parsed = JSON.parse(error.response.data);
+            errorMessage = parsed.message || parsed.error || errorMessage;
+          } else if (error.response.data.message) {
+            errorMessage = error.response.data.message;
+          }
+        } catch (e) {
+          // If can't parse, use default message
+        }
+      }
+      
+      return Promise.reject({
+        status: status,
+        message: errorMessage,
+        isDownloadError: true,
+        originalError: error,
+      });
+    }
 
     let message =
       error.response?.data?.message ||
@@ -86,34 +127,27 @@ api.interceptors.response.use(
     // Session Expiry Handling (401)
     // ---------------------------
     if (status === 401) {
-      // Skip for auth endpoints
       const isAuthRequest = 
         url.includes('/auth/login') ||
         url.includes('/auth/refresh') ||
         url.includes('/auth/verify');
 
-      // Skip if already on login page
       const isAuthPage = window.location.pathname.includes('/login');
 
-      // Only handle 401 for non-auth requests and non-auth pages
       if (!isAuthRequest && !isAuthPage && !isRedirecting) {
         isRedirecting = true;
 
-        // Clear auth data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         
-        // Dispatch session expiry event
         window.dispatchEvent(new CustomEvent('sessionExpired', {
           detail: { message: 'Your session has expired. Please log in again.' }
         }));
 
-        // Reset redirect flag after delay
         setTimeout(() => {
           isRedirecting = false;
         }, 1000);
 
-        // Return a specific error for session expiry
         return Promise.reject({
           status: 401,
           message: 'Session expired',
@@ -123,7 +157,6 @@ api.interceptors.response.use(
         });
       }
 
-      // For auth requests, just reject normally
       if (isAuthRequest) {
         return Promise.reject({
           status: 401,
