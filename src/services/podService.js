@@ -3,21 +3,35 @@ import api from './api';
 
 export const podService = {
   /**
-   * Create a new POD
+   * Create a new POD with file upload
    * @param {Object} podData - POD data
+   * @param {File} file - Document file (optional)
    * @returns {Promise<Object>} Created POD
    */
-  createPod: async (podData) => {
+  createPod: async (podData, file = null) => {
     try {
-      const response = await api.post('/pods', podData);
+      let response;
+      
+      if (file) {
+        // Use FormData for file upload
+        const formData = new FormData();
+        formData.append('podData', JSON.stringify(podData));
+        formData.append('file', file);
+        
+        response = await api.post('/pods/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        response = await api.post('/pods', podData);
+      }
+      
       console.log('✅ POD created successfully:', response);
       return response;
     } catch (error) {
       console.error('❌ Error creating POD:', error);
       
-      // Handle specific error cases
       if (error.status === 409) {
-        const errorMessage = error.data?.detail || 'The selected Trip does not exist or has already been finalized. Please select a valid trip.';
+        const errorMessage = error.data?.detail || 'The selected Trip does not exist or has already been finalized.';
         throw {
           ...error,
           message: errorMessage,
@@ -25,6 +39,51 @@ export const podService = {
         };
       }
       
+      throw error;
+    }
+  },
+
+  /**
+   * Scan POD from driver
+   * @param {Object} scanData - Scan data including trip info and file
+   * @param {File} file - Scanned document file
+   * @returns {Promise<Object>} Created POD
+   */
+  scanPOD: async (scanData, file) => {
+    try {
+      const formData = new FormData();
+      formData.append('tripId', scanData.tripId);
+      formData.append('driverName', scanData.driverName || '');
+      formData.append('deliveryDate', scanData.deliveryDate || new Date().toISOString().split('T')[0]);
+      formData.append('customerName', scanData.customerName || '');
+      formData.append('notes', scanData.notes || 'Scanned from driver');
+      formData.append('file', file);
+      
+      const response = await api.post('/pods/scan', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      
+      console.log('✅ POD scanned successfully:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error scanning POD:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Debrief POD - process and update status
+   * @param {number|string} id - POD ID
+   * @param {Object} debriefData - Debrief data
+   * @returns {Promise<Object>} Updated POD
+   */
+  debriefPOD: async (id, debriefData) => {
+    try {
+      const response = await api.post(`/pods/${id}/debrief`, debriefData);
+      console.log(`✅ POD ${id} debriefed:`, response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error debriefing POD ${id}:`, error);
       throw error;
     }
   },
@@ -65,11 +124,25 @@ export const podService = {
    * Update a POD
    * @param {number|string} id - POD ID
    * @param {Object} podData - Updated POD data
+   * @param {File} file - New document file (optional)
    * @returns {Promise<Object>} Updated POD
    */
-  updatePod: async (id, podData) => {
+  updatePod: async (id, podData, file = null) => {
     try {
-      const response = await api.put(`/pods/${id}`, podData);
+      let response;
+      
+      if (file) {
+        const formData = new FormData();
+        formData.append('podData', JSON.stringify(podData));
+        formData.append('file', file);
+        
+        response = await api.put(`/pods/${id}/upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        response = await api.put(`/pods/${id}`, podData);
+      }
+      
       console.log(`✅ POD ${id} updated:`, response);
       return response;
     } catch (error) {
@@ -115,7 +188,6 @@ export const podService = {
       const response = await api.get('/pods', { params });
       console.log('✅ getAllPods response:', response);
       
-      // Handle different response structures
       if (response?.content !== undefined) {
         return response;
       }
@@ -138,7 +210,6 @@ export const podService = {
     } catch (error) {
       console.error('❌ Error fetching PODs:', error);
       
-      // If endpoint doesn't exist yet, return empty data
       if (error.status === 404) {
         console.warn('⚠️ POD endpoint not found, returning empty data');
         return {
@@ -250,11 +321,14 @@ export const podService = {
 
   /**
    * Get POD statistics
+   * @param {string} dateRange - Date range filter
    * @returns {Promise<Object>} POD statistics
    */
-  getPodStatistics: async () => {
+  getPodStatistics: async (dateRange = 'today') => {
     try {
-      const response = await api.get('/pods/statistics');
+      const response = await api.get('/pods/statistics', {
+        params: { dateRange }
+      });
       console.log('✅ POD statistics:', response);
       return response;
     } catch (error) {
@@ -266,7 +340,8 @@ export const podService = {
           pending: 0,
           delivered: 0,
           verified: 0,
-          rejected: 0
+          rejected: 0,
+          scannedToday: 0
         };
       }
       
@@ -343,6 +418,49 @@ export const podService = {
     } catch (error) {
       console.error(`❌ Error fetching status history for POD ${id}:`, error);
       return [];
+    }
+  },
+
+  /**
+   * Bulk scan PODs
+   * @param {Array} scanDataList - List of scan data
+   * @returns {Promise<Array>} Created PODs
+   */
+  bulkScanPODs: async (scanDataList) => {
+    try {
+      const response = await api.post('/pods/bulk-scan', scanDataList);
+      console.log('✅ Bulk PODs scanned:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error bulk scanning PODs:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get scanned PODs for debriefing
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} Scanned PODs
+   */
+  getScannedPODsForDebrief: async (params = {}) => {
+    try {
+      const response = await api.get('/pods/scanned-for-debrief', { params });
+      console.log('✅ Scanned PODs for debrief:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching scanned PODs for debrief:', error);
+      
+      if (error.status === 404) {
+        return {
+          content: [],
+          totalElements: 0,
+          totalPages: 1,
+          number: 0,
+          size: 0,
+        };
+      }
+      
+      throw error;
     }
   }
 };
