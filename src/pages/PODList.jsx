@@ -381,6 +381,22 @@ const PODList = () => {
     return searchMatch && statusMatch && typeMatch;
   });
 
+
+  const handleExport = async () => {
+  try {
+    // Get the export URL with timestamp to prevent caching
+    const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
+    const timestamp = new Date().getTime();
+    const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
+    
+    // Open in new window
+    window.open(exportUrl, '_blank');
+  } catch (error) {
+    console.error('Error exporting PODs:', error);
+    setError('Failed to export PODs. Please try again.');
+  }
+};
+  
   const stats = {
     total: pods.length,
     scanned: pods.filter(p => p.source === 'SCANNED').length,
@@ -532,6 +548,7 @@ const PODList = () => {
             <Button 
               variant="outlined" 
               startIcon={<ExportIcon sx={{ fontSize: '0.9rem' }} />}
+              onClick={handleExport}
               size="small"
               sx={{ fontSize: '0.75rem', py: 0.5 }}
             >
