@@ -58,6 +58,8 @@ import {
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { podService } from '../services/podService';
+import DownloadHandler from '../components/DownloadHandler';
+
 
 const PODDetails = () => {
   const { id } = useParams();
@@ -87,6 +89,10 @@ const PODDetails = () => {
     }
   };
 
+  const handleDownload = useCallback(() => {
+  // This will be called on success or error from DownloadHandler
+    }, []);
+  
   const loadStatusHistory = async () => {
   setLoadingHistory(true);
   try {
@@ -342,15 +348,24 @@ const PODDetails = () => {
               </Stack>
             </Box>
 
-            <Button
-              variant="contained"
-              startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
-              onClick={handleDownload}
-              size="small"
-              sx={{ fontSize: '0.75rem', py: 0.5, flexShrink: 0 }}
-            >
-              Download
-            </Button>
+            <DownloadHandler
+  url={podService.getPodDocumentUrl(id, true)}
+  filename={`${pod.podNumber || 'pod'}.${pod.documentType?.toLowerCase() || 'pdf'}`}
+  buttonText="Download"
+  variant="contained"
+  size="small"
+  color="primary"
+  startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
+  sx={{ fontSize: '0.75rem', py: 0.5, flexShrink: 0 }}
+  onError={(err) => {
+    console.error('Download failed:', err);
+    // Optionally set a local error state
+  }}
+  onSuccess={() => {
+    console.log('Download successful');
+  }}
+  showSuccessSnackbar={true}
+/>
           </Stack>
         </CardContent>
       </Card>
@@ -618,16 +633,19 @@ const PODDetails = () => {
                   Scan New POD
                 </Button>
               )}
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
-                onClick={handleDownload}
-                size="small"
-                sx={{ fontSize: '0.75rem', py: 0.75 }}
-              >
-                Download Document
-              </Button>
+              <DownloadHandler
+  url={podService.getPodDocumentUrl(id, true)}
+  filename={`${pod.podNumber || 'pod'}.${pod.documentType?.toLowerCase() || 'pdf'}`}
+  buttonText="Download Document"
+  variant="outlined"
+  size="small"
+  color="primary"
+  fullWidth
+  sx={{ fontSize: '0.75rem', py: 0.75 }}
+  onError={(err) => {
+    console.error('Download failed:', err);
+  }}
+/>
             </Stack>
           </Paper>
         </Grid>
