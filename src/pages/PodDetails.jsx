@@ -88,16 +88,18 @@ const PODDetails = () => {
   };
 
   const loadStatusHistory = async () => {
-    setLoadingHistory(true);
-    try {
-      const history = await podService.getPodStatusHistory(id);
-      setStatusHistory(history || []);
-    } catch (err) {
-      console.error('Error loading status history:', err);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
+  setLoadingHistory(true);
+  try {
+    const history = await podService.getPodStatusHistory(id);
+    setStatusHistory(history || []);
+  } catch (err) {
+    console.error('Error loading status history:', err);
+    // Don't show error to user, just set empty history
+    setStatusHistory([]);
+  } finally {
+    setLoadingHistory(false);
+  }
+};
 
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this POD?')) return;
