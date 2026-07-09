@@ -345,7 +345,7 @@ const PODDetails = () => {
             <Button
               variant="contained"
               startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
-              onClick={() => window.open(pod.fileUrl, '_blank')}
+              onClick={handleDownload}
               size="small"
               sx={{ fontSize: '0.75rem', py: 0.5, flexShrink: 0 }}
             >
@@ -622,7 +622,7 @@ const PODDetails = () => {
                 fullWidth
                 variant="outlined"
                 startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
-                onClick={() => window.open(pod.fileUrl, '_blank')}
+                onClick={handleDownload}
                 size="small"
                 sx={{ fontSize: '0.75rem', py: 0.75 }}
               >
@@ -653,6 +653,30 @@ const InfoItem = ({ label, value, isChip = false, isCustom = false }) => (
     )}
   </Box>
 );
+
+const handleDownload = async () => {
+  try {
+    // Get the download URL
+    const downloadUrl = podService.getPodDocumentUrl(id, true);
+    
+    // Open in new tab/window with proper handling
+    const newWindow = window.open(downloadUrl, '_blank');
+    
+    // If the window was blocked, fallback to direct download
+    if (!newWindow) {
+      // Use a hidden anchor tag
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${pod.podNumber || 'pod'}.${pod.documentType?.toLowerCase() || 'pdf'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  } catch (error) {
+    console.error('Error downloading POD:', error);
+    setError('Failed to download document. Please try again.');
+  }
+};
 
 // Compact Audit Item Component
 const AuditItem = ({ label, value, by }) => (
