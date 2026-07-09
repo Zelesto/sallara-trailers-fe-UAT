@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
+import DownloadHandler from '../components/DownloadHandler';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, color = 'primary', icon: Icon, badge = null }) => (
