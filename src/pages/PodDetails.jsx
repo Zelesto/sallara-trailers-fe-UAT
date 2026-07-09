@@ -16,6 +16,18 @@ import {
   CardContent,
   IconButton,
   Tooltip,
+  LinearProgress,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+  TimelineOppositeContent,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -32,6 +44,16 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Pending as PendingIcon,
+  QrCodeScanner as ScanIcon,
+  Assignment as AssignmentIcon,
+  Verified as VerifiedIcon,
+  Person as PersonIcon,
+  CalendarToday as CalendarIcon,
+  Comment as CommentIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+  Warning as WarningIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { podService } from '../services/podService';
 
@@ -41,9 +63,12 @@ const PODDetails = () => {
   const [pod, setPod] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [statusHistory, setStatusHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     loadPod();
+    loadStatusHistory();
   }, [id]);
 
   const loadPod = async () => {
@@ -60,6 +85,18 @@ const PODDetails = () => {
     }
   };
 
+  const loadStatusHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const history = await podService.getPodStatusHistory(id);
+      setStatusHistory(history || []);
+    } catch (err) {
+      console.error('Error loading status history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this POD?')) return;
     try {
@@ -70,11 +107,20 @@ const PODDetails = () => {
     }
   };
 
+  const handleDebrief = () => {
+    navigate(`/pods/${id}/debrief`);
+  };
+
+  const handleScanNew = () => {
+    navigate('/pods/scan');
+  };
+
   const getStatusChip = (status) => {
     const statusMap = {
+      SCANNED: { color: 'info', icon: <ScanIcon sx={{ fontSize: '0.9rem' }} />, label: 'Scanned' },
       PENDING: { color: 'warning', icon: <PendingIcon sx={{ fontSize: '0.9rem' }} />, label: 'Pending' },
       DELIVERED: { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.9rem' }} />, label: 'Delivered' },
-      VERIFIED: { color: 'info', icon: <CheckCircleIcon sx={{ fontSize: '0.9rem' }} />, label: 'Verified' },
+      VERIFIED: { color: 'info', icon: <VerifiedIcon sx={{ fontSize: '0.9rem' }} />, label: 'Verified' },
       REJECTED: { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.9rem' }} />, label: 'Rejected' },
       CANCELLED: { color: 'default', icon: <CancelIcon sx={{ fontSize: '0.9rem' }} />, label: 'Cancelled' },
     };
@@ -119,6 +165,30 @@ const PODDetails = () => {
     return colors[type] || '#6c757d';
   };
 
+  const getTimelineIcon = (status) => {
+    const icons = {
+      SCANNED: <ScanIcon sx={{ fontSize: '0.8rem' }} />,
+      PENDING: <PendingIcon sx={{ fontSize: '0.8rem' }} />,
+      DELIVERED: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} />,
+      VERIFIED: <VerifiedIcon sx={{ fontSize: '0.8rem' }} />,
+      REJECTED: <CancelIcon sx={{ fontSize: '0.8rem' }} />,
+      CANCELLED: <CancelIcon sx={{ fontSize: '0.8rem' }} />,
+    };
+    return icons[status] || <HistoryIcon sx={{ fontSize: '0.8rem' }} />;
+  };
+
+  const getTimelineColor = (status) => {
+    const colors = {
+      SCANNED: 'info',
+      PENDING: 'warning',
+      DELIVERED: 'success',
+      VERIFIED: 'info',
+      REJECTED: 'error',
+      CANCELLED: 'grey',
+    };
+    return colors[status] || 'grey';
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -144,6 +214,8 @@ const PODDetails = () => {
     );
   }
 
+  const needsDebrief = pod.status === 'PENDING' || pod.status === 'SCANNED';
+
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
       {/* Header - Compact */}
@@ -157,6 +229,29 @@ const PODDetails = () => {
           Back to PODs
         </Button>
         <Stack direction="row" spacing={0.75}>
+          {pod.source === 'SCANNED' && (
+            <Tooltip title="This POD was scanned from driver">
+              <Chip
+                size="small"
+                icon={<ScanIcon sx={{ fontSize: '0.8rem' }} />}
+                label="Scanned"
+                color="info"
+                sx={{ fontSize: '0.65rem', height: 24 }}
+              />
+            </Tooltip>
+          )}
+          {needsDebrief && (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<AssignmentIcon sx={{ fontSize: '0.9rem' }} />}
+              onClick={handleDebrief}
+              size="small"
+              sx={{ fontSize: '0.75rem', py: 0.5 }}
+            >
+              Debrief
+            </Button>
+          )}
           <Tooltip title="Print">
             <IconButton size="small" color="primary" onClick={() => window.print()} sx={{ p: 0.5 }}>
               <PrintIcon sx={{ fontSize: '0.9rem' }} />
@@ -215,6 +310,15 @@ const PODDetails = () => {
                   {pod.podNumber}
                 </Typography>
                 {getStatusChip(pod.status)}
+                {pod.source === 'SCANNED' && (
+                  <Chip
+                    size="small"
+                    icon={<ScanIcon sx={{ fontSize: '0.7rem' }} />}
+                    label="📸 Scanned"
+                    variant="outlined"
+                    sx={{ fontSize: '0.55rem', height: 18, borderColor: '#1976d2', color: '#1976d2' }}
+                  />
+                )}
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 0.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
@@ -226,6 +330,11 @@ const PODDetails = () => {
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                   <strong>Delivery:</strong> {pod.deliveryDate ? new Date(pod.deliveryDate).toLocaleDateString() : 'N/A'}
                 </Typography>
+                {pod.debriefedAt && (
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    <strong>Debriefed:</strong> {new Date(pod.debriefedAt).toLocaleDateString()}
+                  </Typography>
+                )}
               </Stack>
             </Box>
 
@@ -242,86 +351,283 @@ const PODDetails = () => {
         </CardContent>
       </Card>
 
-      {/* Details Section - Compact */}
-      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
-        <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
-          POD Information
-        </Typography>
-        
-        <Grid container spacing={1.5}>
-          <Grid item xs={12} md={6}>
-            <Stack spacing={1.5}>
-              <InfoItem label="POD Number" value={pod.podNumber} />
-              <InfoItem label="Trip ID" value={`#${pod.tripId || 'N/A'}`} />
-              <InfoItem label="Customer Name" value={pod.customerName || 'N/A'} />
-              <InfoItem label="Delivery Date" value={pod.deliveryDate ? new Date(pod.deliveryDate).toLocaleDateString() : 'N/A'} />
-            </Stack>
-          </Grid>
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={8}>
+          {/* Details Section - Compact */}
+          <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
+              POD Information
+            </Typography>
+            
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} md={6}>
+                <Stack spacing={1.5}>
+                  <InfoItem label="POD Number" value={pod.podNumber} />
+                  <InfoItem label="Trip ID" value={`#${pod.tripId || 'N/A'}`} />
+                  <InfoItem label="Customer Name" value={pod.customerName || 'N/A'} />
+                  <InfoItem label="Delivery Date" value={pod.deliveryDate ? new Date(pod.deliveryDate).toLocaleDateString() : 'N/A'} />
+                  {pod.driverName && (
+                    <InfoItem label="Driver Name" value={pod.driverName} />
+                  )}
+                </Stack>
+              </Grid>
 
-          <Grid item xs={12} md={6}>
-            <Stack spacing={1.5}>
-              <InfoItem label="Status" value={getStatusChip(pod.status)} isChip />
-              <InfoItem 
-                label="Document Type" 
-                value={
-                  <Stack direction="row" alignItems="center" spacing={0.5}>
-                    {getDocumentIcon(pod.documentType)}
+              <Grid item xs={12} md={6}>
+                <Stack spacing={1.5}>
+                  <InfoItem label="Status" value={getStatusChip(pod.status)} isChip />
+                  {pod.source && (
+                    <InfoItem 
+                      label="Source" 
+                      value={
+                        <Chip
+                          size="small"
+                          icon={pod.source === 'SCANNED' ? <ScanIcon sx={{ fontSize: '0.7rem' }} /> : <ReceiptIcon sx={{ fontSize: '0.7rem' }} />}
+                          label={pod.source === 'SCANNED' ? 'Scanned from Driver' : 'Manual Upload'}
+                          color={pod.source === 'SCANNED' ? 'info' : 'default'}
+                          sx={{ fontSize: '0.65rem', height: 22 }}
+                        />
+                      }
+                      isCustom
+                    />
+                  )}
+                  <InfoItem 
+                    label="Document Type" 
+                    value={
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        {getDocumentIcon(pod.documentType)}
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                          {pod.documentType || 'N/A'}
+                        </Typography>
+                      </Stack>
+                    }
+                    isCustom
+                  />
+                  <InfoItem label="File Size" value={pod.fileSize || 'N/A'} />
+                  <InfoItem 
+                    label="Uploaded By" 
+                    value={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                          {pod.uploadedBy || 'N/A'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                          {pod.uploadedAt ? new Date(pod.uploadedAt).toLocaleString() : 'N/A'}
+                        </Typography>
+                      </Box>
+                    }
+                    isCustom
+                  />
+                </Stack>
+              </Grid>
+
+              {pod.notes && (
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1.5 }} />
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
+                    Notes
+                  </Typography>
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
                     <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                      {pod.documentType || 'N/A'}
+                      {pod.notes}
                     </Typography>
+                  </Paper>
+                </Grid>
+              )}
+
+              {/* Debrief Information */}
+              {pod.debriefedAt && (
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1.5 }} />
+                  <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
+                    <AssignmentIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
+                    Debrief Information
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={6}>
+                      <InfoItem label="Debriefed By" value={pod.debriefedBy || 'N/A'} />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <InfoItem label="Debriefed At" value={new Date(pod.debriefedAt).toLocaleString()} />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <InfoItem label="Received By" value={pod.receivedBy || 'N/A'} />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <InfoItem label="Delivery Condition" value={pod.deliveryCondition || 'N/A'} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <InfoItem 
+                        label="Quality Rating" 
+                        value={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {pod.qualityRating ? (
+                              <>
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  star <= pod.qualityRating ? 
+                                    <StarIcon key={star} sx={{ fontSize: '1rem', color: '#faaf00' }} /> :
+                                    <StarBorderIcon key={star} sx={{ fontSize: '1rem', color: '#faaf00' }} />
+                                ))}
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem', ml: 1 }}>
+                                  ({pod.qualityRating}/5)
+                                </Typography>
+                              </>
+                            ) : 'N/A'}
+                          </Box>
+                        }
+                        isCustom
+                      />
+                    </Grid>
+                    {pod.issuesFound && pod.issuesFound.length > 0 && (
+                      <Grid item xs={12}>
+                        <InfoItem 
+                          label="Issues Found" 
+                          value={
+                            <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                              {pod.issuesFound.map((issue, index) => (
+                                <Chip
+                                  key={index}
+                                  label={issue}
+                                  size="small"
+                                  color="warning"
+                                  icon={<WarningIcon sx={{ fontSize: '0.7rem' }} />}
+                                  sx={{ fontSize: '0.6rem', height: 20 }}
+                                />
+                              ))}
+                            </Stack>
+                          }
+                          isCustom
+                        />
+                      </Grid>
+                    )}
+                    <Grid item xs={12}>
+                      <InfoItem label="Debrief Notes" value={pod.debriefNotes || 'N/A'} />
+                    </Grid>
+                    {pod.additionalInfo && (
+                      <Grid item xs={12}>
+                        <InfoItem label="Additional Information" value={pod.additionalInfo} />
+                      </Grid>
+                    )}
+                  </Grid>
+                </Grid>
+              )}
+
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1.5 }} />
+                <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1.5 }}>
+                  <HistoryIcon sx={{ fontSize: '0.9rem', color: 'action.active' }} />
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                    Audit Trail
+                  </Typography>
+                </Stack>
+                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+                  <Stack spacing={0.5}>
+                    <AuditItem label="Created" value={pod.createdAt ? new Date(pod.createdAt).toLocaleString() : 'N/A'} by={pod.createdBy} />
+                    <AuditItem label="Last Updated" value={pod.updatedAt ? new Date(pod.updatedAt).toLocaleString() : 'N/A'} by={pod.updatedBy} />
+                    {pod.debriefedAt && (
+                      <AuditItem label="Debriefed" value={new Date(pod.debriefedAt).toLocaleString()} by={pod.debriefedBy} />
+                    )}
                   </Stack>
-                }
-                isCustom
-              />
-              <InfoItem label="File Size" value={pod.fileSize || 'N/A'} />
-              <InfoItem 
-                label="Uploaded By" 
-                value={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                      {pod.uploadedBy || 'N/A'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                      {pod.uploadedAt ? new Date(pod.uploadedAt).toLocaleString() : 'N/A'}
-                    </Typography>
-                  </Box>
-                }
-                isCustom
-              />
-            </Stack>
-          </Grid>
-
-          {pod.notes && (
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1.5 }} />
-              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
-                Notes
-              </Typography>
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {pod.notes}
-                </Typography>
-              </Paper>
+                </Paper>
+              </Grid>
             </Grid>
-          )}
-
-          <Grid item xs={12}>
-            <Divider sx={{ my: 1.5 }} />
-            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1.5 }}>
-              <HistoryIcon sx={{ fontSize: '0.9rem', color: 'action.active' }} />
-              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                Audit Trail
-              </Typography>
-            </Stack>
-            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
-              <Stack spacing={0.5}>
-                <AuditItem label="Created" value={pod.createdAt ? new Date(pod.createdAt).toLocaleString() : 'N/A'} by={pod.createdBy} />
-                <AuditItem label="Last Updated" value={pod.updatedAt ? new Date(pod.updatedAt).toLocaleString() : 'N/A'} by={pod.updatedBy} />
-              </Stack>
-            </Paper>
-          </Grid>
+          </Paper>
         </Grid>
-      </Paper>
+
+        <Grid item xs={12} md={4}>
+          {/* Status Timeline */}
+          <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 2 }}>
+              <ScheduleIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
+              Status Timeline
+            </Typography>
+            {loadingHistory ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : statusHistory.length > 0 ? (
+              <Timeline position="right" sx={{ p: 0 }}>
+                {statusHistory.map((event, index) => (
+                  <TimelineItem key={index} sx={{ minHeight: 50 }}>
+                    <TimelineOppositeContent sx={{ flex: 0.2, py: 0 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.55rem', color: 'text.secondary' }}>
+                        {new Date(event.timestamp).toLocaleTimeString()}
+                      </Typography>
+                    </TimelineOppositeContent>
+                    <TimelineSeparator>
+                      <TimelineDot color={getTimelineColor(event.status)} sx={{ p: 0.5 }}>
+                        {getTimelineIcon(event.status)}
+                      </TimelineDot>
+                      {index < statusHistory.length - 1 && <TimelineConnector />}
+                    </TimelineSeparator>
+                    <TimelineContent sx={{ py: 0 }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                        {event.status}
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary' }}>
+                        {event.notes || `Status updated to ${event.status}`}
+                      </Typography>
+                      {event.updatedBy && (
+                        <Typography variant="caption" sx={{ fontSize: '0.55rem', color: 'text.secondary', display: 'block' }}>
+                          by {event.updatedBy}
+                        </Typography>
+                      )}
+                    </TimelineContent>
+                  </TimelineItem>
+                ))}
+              </Timeline>
+            ) : (
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                No status history available
+              </Typography>
+            )}
+          </Paper>
+
+          {/* Quick Actions */}
+          <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 2 }}>
+              Quick Actions
+            </Typography>
+            <Stack spacing={1}>
+              {needsDebrief && (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="success"
+                  startIcon={<AssignmentIcon sx={{ fontSize: '0.9rem' }} />}
+                  onClick={handleDebrief}
+                  size="small"
+                  sx={{ fontSize: '0.75rem', py: 0.75 }}
+                >
+                  Debrief POD
+                </Button>
+              )}
+              {pod.source !== 'SCANNED' && (
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="info"
+                  startIcon={<ScanIcon sx={{ fontSize: '0.9rem' }} />}
+                  onClick={handleScanNew}
+                  size="small"
+                  sx={{ fontSize: '0.75rem', py: 0.75 }}
+                >
+                  Scan New POD
+                </Button>
+              )}
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
+                onClick={() => window.open(pod.fileUrl, '_blank')}
+                size="small"
+                sx={{ fontSize: '0.75rem', py: 0.75 }}
+              >
+                Download Document
+              </Button>
+            </Stack>
+          </Paper>
+        </Grid>
+      </Grid>
     </Box>
   );
 };
