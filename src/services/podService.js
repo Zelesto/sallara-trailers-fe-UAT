@@ -406,20 +406,21 @@ export const podService = {
   },
 
   /**
-   * Get POD status history
-   * @param {number|string} id - POD ID
-   * @returns {Promise<Array>} Status history
-   */
-  getPodStatusHistory: async (id) => {
-    try {
-      const response = await api.get(`/pods/${id}/status-history`);
-      console.log(`✅ POD ${id} status history:`, response);
-      return Array.isArray(response) ? response : (response?.data || []);
-    } catch (error) {
-      console.error(`❌ Error fetching status history for POD ${id}:`, error);
-      return [];
-    }
-  },
+ * Get POD status history
+ * @param {number|string} id - POD ID
+ * @returns {Promise<Array>} Status history
+ */
+getPodStatusHistory: async (id) => {
+  try {
+    const response = await api.get(`/pods/${id}/status-history`);
+    console.log(`✅ POD ${id} status history:`, response);
+    return Array.isArray(response) ? response : (response?.data || []);
+  } catch (error) {
+    console.error(`❌ Error fetching status history for POD ${id}:`, error);
+    // Return empty array instead of throwing to prevent UI errors
+    return [];
+  }
+},
 
   /**
    * Bulk scan PODs
