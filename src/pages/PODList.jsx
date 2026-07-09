@@ -21,6 +21,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Badge,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -34,12 +35,18 @@ import {
   PictureAsPdf as PdfIcon,
   Image as ImageIcon,
   Description as DescriptionIcon,
+  QrCodeScanner as ScanIcon,
+  Assignment as AssignmentIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Pending as PendingIcon,
+  Verified as VerifiedIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
 
 // Compact Stat Card Component
-const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
+const StatCard = ({ title, value, color = 'primary', icon: Icon, badge = null }) => (
   <Card sx={{ 
     bgcolor: `${color}.main`, 
     color: 'white',
@@ -67,14 +74,16 @@ const StatCard = ({ title, value, color = 'primary', icon: Icon }) => (
           </Typography>
         </Box>
         {Icon && (
-          <Box sx={{ 
-            bgcolor: 'rgba(255,255,255,0.15)', 
-            borderRadius: 1,
-            p: 0.5,
-            display: 'flex'
-          }}>
-            <Icon sx={{ fontSize: '1.1rem' }} />
-          </Box>
+          <Badge badgeContent={badge} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}>
+            <Box sx={{ 
+              bgcolor: 'rgba(255,255,255,0.15)', 
+              borderRadius: 1,
+              p: 0.5,
+              display: 'flex'
+            }}>
+              <Icon sx={{ fontSize: '1.1rem' }} />
+            </Box>
+          </Badge>
         )}
       </Stack>
     </CardContent>
@@ -88,10 +97,16 @@ const PODList = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterType, setFilterType] = useState('ALL');
   const [successMessage, setSuccessMessage] = useState('');
+  const [scanningStats, setScanningStats] = useState({
+    scannedToday: 0,
+    pendingDebrief: 0,
+  });
 
   useEffect(() => {
     loadPods();
+    loadScanningStats();
   }, []);
 
   const loadPods = async () => {
@@ -103,12 +118,12 @@ const PODList = () => {
       // Transform data to handle both tripId and tripNumber
       const transformedData = data.map(pod => ({
         ...pod,
-        // If tripNumber doesn't exist, try to get it from trip object or use tripId as fallback
         tripNumber: pod.tripNumber || pod.trip?.tripNumber || pod.tripId || 'N/A',
-        // Keep tripId for reference
         tripId: pod.tripId || pod.trip?.id || null,
-        // Ensure customerName exists
         customerName: pod.customerName || pod.customer?.name || 'N/A',
+        // Add debrief status flag
+        needsDebrief: pod.status === 'PENDING' || pod.status === 'SCANNED',
+        isScanned: pod.source === 'SCANNED' || pod.status === 'SCANNED',
       }));
       
       setPods(transformedData);
@@ -118,6 +133,18 @@ const PODList = () => {
       console.error('Error loading PODs:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadScanningStats = async () => {
+    try {
+      const stats = await podService.getPodStatistics('today');
+      setScanningStats({
+        scannedToday: stats.scannedToday || 0,
+        pendingDebrief: stats.pendingDebrief || 0,
+      });
+    } catch (err) {
+      console.error('Error loading scanning stats:', err);
     }
   };
 
@@ -136,23 +163,26 @@ const PODList = () => {
 
   const getStatusChip = (status) => {
     const statusMap = {
-      PENDING: { color: 'warning', label: 'Pending' },
-      DELIVERED: { color: 'success', label: 'Delivered' },
-      VERIFIED: { color: 'info', label: 'Verified' },
-      REJECTED: { color: 'error', label: 'Rejected' },
-      CANCELLED: { color: 'default', label: 'Cancelled' },
+      SCANNED: { color: 'info', label: 'Scanned', icon: <ScanIcon sx={{ fontSize: '0.7rem' }} /> },
+      PENDING: { color: 'warning', label: 'Pending', icon: <PendingIcon sx={{ fontSize: '0.7rem' }} /> },
+      DELIVERED: { color: 'success', label: 'Delivered', icon: <CheckCircleIcon sx={{ fontSize: '0.7rem' }} /> },
+      VERIFIED: { color: 'info', label: 'Verified', icon: <VerifiedIcon sx={{ fontSize: '0.7rem' }} /> },
+      REJECTED: { color: 'error', label: 'Rejected', icon: <CancelIcon sx={{ fontSize: '0.7rem' }} /> },
+      CANCELLED: { color: 'default', label: 'Cancelled', icon: <CancelIcon sx={{ fontSize: '0.7rem' }} /> },
     };
-    const info = statusMap[status] || { color: 'default', label: status || 'Unknown' };
+    const info = statusMap[status] || { color: 'default', label: status || 'Unknown', icon: null };
     return (
       <Chip
         size="small"
         label={info.label}
         color={info.color}
+        icon={info.icon}
         sx={{ 
           fontWeight: 500,
           fontSize: '0.65rem',
           height: 20,
-          '& .MuiChip-label': { px: 1, py: 0.25 }
+          '& .MuiChip-label': { px: 1, py: 0.25 },
+          '& .MuiChip-icon': { fontSize: '0.7rem', ml: 0.5 }
         }}
       />
     );
@@ -225,9 +255,28 @@ const PODList = () => {
     {
       field: 'status',
       headerName: 'Status',
-      width: 110,
+      width: 120,
       headerClassName: 'pod-header',
       renderCell: (params) => getStatusChip(params.value),
+    },
+    {
+      field: 'source',
+      headerName: 'Source',
+      width: 90,
+      headerClassName: 'pod-header',
+      renderCell: (params) => (
+        <Chip
+          size="small"
+          label={params.value === 'SCANNED' ? '📸 Scan' : '📤 Upload'}
+          variant="outlined"
+          sx={{ 
+            fontSize: '0.55rem', 
+            height: 18,
+            borderColor: params.value === 'SCANNED' ? '#1976d2' : '#2e7d32',
+            color: params.value === 'SCANNED' ? '#1976d2' : '#2e7d32',
+          }}
+        />
+      ),
     },
     {
       field: 'documentType',
@@ -263,7 +312,7 @@ const PODList = () => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 120,
+      width: 160,
       sortable: false,
       filterable: false,
       headerClassName: 'pod-header',
@@ -279,6 +328,18 @@ const PODList = () => {
               <ViewIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
+          {params.row.needsDebrief && (
+            <Tooltip title="Debrief">
+              <IconButton
+                size="small"
+                color="success"
+                onClick={() => navigate(`/pods/${params.row.id}/debrief`)}
+                sx={{ p: 0.5 }}
+              >
+                <AssignmentIcon sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Edit">
             <IconButton
               size="small"
@@ -310,13 +371,20 @@ const PODList = () => {
       (pod.podNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (pod.customerName || pod.customer?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (pod.tripNumber || pod.trip?.tripNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
     const statusMatch = filterStatus === 'ALL' || pod.status === filterStatus;
-    return searchMatch && statusMatch;
+    
+    const typeMatch = filterType === 'ALL' || 
+      (filterType === 'SCANNED' && pod.source === 'SCANNED') ||
+      (filterType === 'UPLOADED' && pod.source !== 'SCANNED');
+    
+    return searchMatch && statusMatch && typeMatch;
   });
 
   const stats = {
     total: pods.length,
-    pending: pods.filter(p => p.status === 'PENDING').length,
+    scanned: pods.filter(p => p.source === 'SCANNED').length,
+    pending: pods.filter(p => p.status === 'PENDING' || p.status === 'SCANNED').length,
     delivered: pods.filter(p => p.status === 'DELIVERED').length,
     verified: pods.filter(p => p.status === 'VERIFIED').length,
     rejected: pods.filter(p => p.status === 'REJECTED').length,
@@ -325,29 +393,47 @@ const PODList = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
       {/* Header - Compact */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
             Proof of Delivery (POD)
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-            Manage proof of delivery documents
+            Manage proof of delivery documents from drivers and debrief
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
-          onClick={() => navigate('/pods/new')}
-          size="small"
-          sx={{ 
-            borderRadius: 1.5,
-            fontSize: '0.75rem',
-            py: 0.5,
-            px: 1.5
-          }}
-        >
-          Upload POD
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            startIcon={<ScanIcon sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => navigate('/pods/scan')}
+            size="small"
+            sx={{ 
+              borderRadius: 1.5,
+              fontSize: '0.75rem',
+              py: 0.5,
+              px: 1.5,
+              bgcolor: '#1976d2',
+              '&:hover': { bgcolor: '#1565c0' }
+            }}
+          >
+            Scan POD
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => navigate('/pods/new')}
+            size="small"
+            sx={{ 
+              borderRadius: 1.5,
+              fontSize: '0.75rem',
+              py: 0.5,
+              px: 1.5
+            }}
+          >
+            Upload POD
+          </Button>
+        </Stack>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>{error}</Alert>}
@@ -359,16 +445,31 @@ const PODList = () => {
           <StatCard title="Total" value={stats.total} color="primary" icon={ReceiptIcon} />
         </Grid>
         <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Pending" value={stats.pending} color="warning" icon={ReceiptIcon} />
+          <StatCard 
+            title="Scanned" 
+            value={stats.scanned} 
+            color="info" 
+            icon={ScanIcon}
+            badge={scanningStats.scannedToday > 0 ? scanningStats.scannedToday : null}
+          />
         </Grid>
         <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Delivered" value={stats.delivered} color="success" icon={ReceiptIcon} />
+          <StatCard 
+            title="Pending" 
+            value={stats.pending} 
+            color="warning" 
+            icon={PendingIcon}
+            badge={scanningStats.pendingDebrief > 0 ? scanningStats.pendingDebrief : null}
+          />
         </Grid>
         <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Verified" value={stats.verified} color="info" icon={ReceiptIcon} />
+          <StatCard title="Delivered" value={stats.delivered} color="success" icon={CheckCircleIcon} />
         </Grid>
         <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Rejected" value={stats.rejected} color="error" icon={ReceiptIcon} />
+          <StatCard title="Verified" value={stats.verified} color="info" icon={VerifiedIcon} />
+        </Grid>
+        <Grid item xs={6} sm={4} md={2.4}>
+          <StatCard title="Rejected" value={stats.rejected} color="error" icon={CancelIcon} />
         </Grid>
       </Grid>
 
@@ -398,10 +499,24 @@ const PODList = () => {
               sx={{ fontSize: '0.75rem' }}
             >
               <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
+              <MenuItem value="SCANNED" sx={{ fontSize: '0.75rem' }}>Scanned</MenuItem>
               <MenuItem value="PENDING" sx={{ fontSize: '0.75rem' }}>Pending</MenuItem>
               <MenuItem value="DELIVERED" sx={{ fontSize: '0.75rem' }}>Delivered</MenuItem>
               <MenuItem value="VERIFIED" sx={{ fontSize: '0.75rem' }}>Verified</MenuItem>
               <MenuItem value="REJECTED" sx={{ fontSize: '0.75rem' }}>Rejected</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel sx={{ fontSize: '0.75rem' }}>Type</InputLabel>
+            <Select
+              value={filterType}
+              label="Type"
+              onChange={(e) => setFilterType(e.target.value)}
+              sx={{ fontSize: '0.75rem' }}
+            >
+              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Types</MenuItem>
+              <MenuItem value="SCANNED" sx={{ fontSize: '0.75rem' }}>📸 Scanned</MenuItem>
+              <MenuItem value="UPLOADED" sx={{ fontSize: '0.75rem' }}>📤 Uploaded</MenuItem>
             </Select>
           </FormControl>
           <Stack direction="row" spacing={0.75}>
@@ -493,6 +608,22 @@ const PODList = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
           Showing {filteredPods.length} of {pods.length} PODs
+          {scanningStats.scannedToday > 0 && (
+            <Chip 
+              size="small" 
+              label={`📸 ${scanningStats.scannedToday} scanned today`}
+              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
+              color="info"
+            />
+          )}
+          {scanningStats.pendingDebrief > 0 && (
+            <Chip 
+              size="small" 
+              label={`⏳ ${scanningStats.pendingDebrief} pending debrief`}
+              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
+              color="warning"
+            />
+          )}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
           Last updated: {new Date().toLocaleString()}
