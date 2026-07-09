@@ -17,6 +17,9 @@ const DownloadHandler = ({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
 
+  const downloadUrl = podService.getPodDocumentUrl(id, true);
+const filename = `${pod.podNumber || 'pod'}.${pod.documentType?.toLowerCase() || 'pdf'}`;
+
   const handleDownload = async () => {
     setLoading(true);
     setError(null);
@@ -44,16 +47,16 @@ const DownloadHandler = ({
   };
 
   return (
-    <Button
-      variant={variant}
-      size={size}
-      startIcon={loading ? <CircularProgress size={18} /> : startIcon}
-      onClick={handleDownload}
-      disabled={loading}
-      sx={sx}
-    >
-      {loading ? 'Downloading...' : buttonText}
-    </Button>
+   <DownloadHandler
+  url={downloadUrl}
+  filename={filename}
+  buttonText="Download"
+  variant="contained"
+  size="small"
+  startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
+  sx={{ fontSize: '0.75rem', py: 0.5, flexShrink: 0 }}
+  onError={(err) => setError('Failed to download document')}
+/>
   );
 };
 
