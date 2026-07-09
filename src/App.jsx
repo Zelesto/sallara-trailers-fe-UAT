@@ -59,6 +59,8 @@ const PayablesPage = lazy(() => import("./pages/finance/PayablePage"));
 const PODList = lazy(() => import("./pages/PODList"));
 const PodForm = lazy(() => import("./pages/PodForm"));
 const PodDetails = lazy(() => import("./pages/PodDetails"));
+const ScanPOD  = lazy(() => import("./pages/ScanPOD"));
+const DebriefPOD  = lazy(() => import("./pages/DebriefPOD"));
 
 const TripReports = lazy(() => import("./pages/TripReports"));
 const TripAnalytics = lazy(() => import("./pages/TripAnalytics"));
@@ -251,6 +253,8 @@ function App() {
                     <Route path="pods/new" element={<PodForm />} />
                     <Route path="pods/:id" element={<PodDetails />} />
                     <Route path="pods/trip/:tripId" element={<PODList />} />
+                    <Route path="/pods/scan" element={<ScanPOD />} />
+                    <Route path="/pods/:id/debrief" element={<DebriefPOD />} />
 
                     {/* Finance */}
                     <Route path="finance" element={<FinanceDashboard />} />
