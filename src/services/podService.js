@@ -349,23 +349,56 @@ export const podService = {
     }
   },
 
-  /**
-   * Download POD document
-   * @param {number|string} id - POD ID
-   * @returns {Promise<Blob>} Document blob
-   */
-  downloadPod: async (id) => {
-    try {
-      const response = await api.get(`/pods/${id}/download`, {
-        responseType: 'blob',
-      });
-      console.log(`✅ POD ${id} downloaded`);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error downloading POD ${id}:`, error);
-      throw error;
+  // src/services/podService.js
+
+/**
+ * Download POD document
+ * @param {number|string} id - POD ID
+ * @returns {Promise<Blob>} Document blob
+ */
+downloadPod: async (id) => {
+  try {
+    // Add a cache-busting parameter to prevent caching issues
+    const timestamp = new Date().getTime();
+    const response = await api.get(`/pods/${id}/download`, {
+      responseType: 'blob',
+      params: { _t: timestamp },
+      // Don't use the default error handling that might cause session expiry
+      validateStatus: (status) => status === 200,
+    });
+    
+    console.log(`✅ POD ${id} downloaded successfully`);
+    return response;
+  } catch (error) {
+    console.error(`❌ Error downloading POD ${id}:`, error);
+    // Check if the error is a blob response with error message
+    if (error.response && error.response.data instanceof Blob) {
+      // Try to read the error message from the blob
+      try {
+        const text = await error.response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || 'Failed to download document');
+      } catch (e) {
+        // If we can't parse the blob, throw a generic error
+        throw new Error('Failed to download document. Please try again.');
+      }
     }
-  },
+    throw error;
+  }
+},
+
+/**
+ * Get POD document URL for viewing/downloading
+ * @param {number|string} id - POD ID
+ * @param {boolean} download - Whether to download or view
+ * @returns {string} URL for the document
+ */
+getPodDocumentUrl: (id, download = false) => {
+  const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
+  const action = download ? 'download' : 'view';
+  const timestamp = new Date().getTime();
+  return `${baseUrl}/pods/${id}/${action}?_t=${timestamp}`;
+},
 
   /**
    * Upload POD document
