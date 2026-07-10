@@ -13,15 +13,16 @@ export const podService = {
       let response;
       
       if (file) {
-        // Use FormData for file upload
+        // Use FormData for file upload - send to /pods
         const formData = new FormData();
         formData.append('podData', JSON.stringify(podData));
         formData.append('file', file);
         
-        response = await api.post('/pods/upload', formData, {
+        response = await api.post('/pods', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
+        // Send as JSON to /pods
         response = await api.post('/pods', podData);
       }
       
@@ -136,7 +137,7 @@ export const podService = {
         formData.append('podData', JSON.stringify(podData));
         formData.append('file', file);
         
-        response = await api.put(`/pods/${id}/upload`, formData, {
+        response = await api.put(`/pods/${id}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
@@ -349,56 +350,49 @@ export const podService = {
     }
   },
 
-  // src/services/podService.js
-
-/**
- * Download POD document
- * @param {number|string} id - POD ID
- * @returns {Promise<Blob>} Document blob
- */
-downloadPod: async (id) => {
-  try {
-    // Add a cache-busting parameter to prevent caching issues
-    const timestamp = new Date().getTime();
-    const response = await api.get(`/pods/${id}/download`, {
-      responseType: 'blob',
-      params: { _t: timestamp },
-      // Don't use the default error handling that might cause session expiry
-      validateStatus: (status) => status === 200,
-    });
-    
-    console.log(`✅ POD ${id} downloaded successfully`);
-    return response;
-  } catch (error) {
-    console.error(`❌ Error downloading POD ${id}:`, error);
-    // Check if the error is a blob response with error message
-    if (error.response && error.response.data instanceof Blob) {
-      // Try to read the error message from the blob
-      try {
-        const text = await error.response.data.text();
-        const errorData = JSON.parse(text);
-        throw new Error(errorData.message || 'Failed to download document');
-      } catch (e) {
-        // If we can't parse the blob, throw a generic error
-        throw new Error('Failed to download document. Please try again.');
+  /**
+   * Download POD document
+   * @param {number|string} id - POD ID
+   * @returns {Promise<Blob>} Document blob
+   */
+  downloadPod: async (id) => {
+    try {
+      const timestamp = new Date().getTime();
+      const response = await api.get(`/pods/${id}/download`, {
+        responseType: 'blob',
+        params: { _t: timestamp },
+        validateStatus: (status) => status === 200,
+      });
+      
+      console.log(`✅ POD ${id} downloaded successfully`);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error downloading POD ${id}:`, error);
+      if (error.response && error.response.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.message || 'Failed to download document');
+        } catch (e) {
+          throw new Error('Failed to download document. Please try again.');
+        }
       }
+      throw error;
     }
-    throw error;
-  }
-},
+  },
 
-/**
- * Get POD document URL for viewing/downloading
- * @param {number|string} id - POD ID
- * @param {boolean} download - Whether to download or view
- * @returns {string} URL for the document
- */
-getPodDocumentUrl: (id, download = false) => {
-  const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
-  const action = download ? 'download' : 'view';
-  const timestamp = new Date().getTime();
-  return `${baseUrl}/pods/${id}/${action}?_t=${timestamp}`;
-},
+  /**
+   * Get POD document URL for viewing/downloading
+   * @param {number|string} id - POD ID
+   * @param {boolean} download - Whether to download or view
+   * @returns {string} URL for the document
+   */
+  getPodDocumentUrl: (id, download = false) => {
+    const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
+    const action = download ? 'download' : 'view';
+    const timestamp = new Date().getTime();
+    return `${baseUrl}/pods/${id}/${action}?_t=${timestamp}`;
+  },
 
   /**
    * Upload POD document
@@ -439,21 +433,20 @@ getPodDocumentUrl: (id, download = false) => {
   },
 
   /**
- * Get POD status history
- * @param {number|string} id - POD ID
- * @returns {Promise<Array>} Status history
- */
-getPodStatusHistory: async (id) => {
-  try {
-    const response = await api.get(`/pods/${id}/status-history`);
-    console.log(`✅ POD ${id} status history:`, response);
-    return Array.isArray(response) ? response : (response?.data || []);
-  } catch (error) {
-    console.error(`❌ Error fetching status history for POD ${id}:`, error);
-    // Return empty array instead of throwing to prevent UI errors
-    return [];
-  }
-},
+   * Get POD status history
+   * @param {number|string} id - POD ID
+   * @returns {Promise<Array>} Status history
+   */
+  getPodStatusHistory: async (id) => {
+    try {
+      const response = await api.get(`/pods/${id}/status-history`);
+      console.log(`✅ POD ${id} status history:`, response);
+      return Array.isArray(response) ? response : (response?.data || []);
+    } catch (error) {
+      console.error(`❌ Error fetching status history for POD ${id}:`, error);
+      return [];
+    }
+  },
 
   /**
    * Bulk scan PODs
