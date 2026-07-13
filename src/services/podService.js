@@ -350,36 +350,70 @@ export const podService = {
     }
   },
 
-  /**
-   * Download POD document
-   * @param {number|string} id - POD ID
-   * @returns {Promise<Blob>} Document blob
-   */
-  downloadPod: async (id) => {
-    try {
-      const timestamp = new Date().getTime();
-      const response = await api.get(`/pods/${id}/download`, {
-        responseType: 'blob',
-        params: { _t: timestamp },
-        validateStatus: (status) => status === 200,
-      });
-      
-      console.log(`✅ POD ${id} downloaded successfully`);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error downloading POD ${id}:`, error);
-      if (error.response && error.response.data instanceof Blob) {
-        try {
-          const text = await error.response.data.text();
-          const errorData = JSON.parse(text);
-          throw new Error(errorData.message || 'Failed to download document');
-        } catch (e) {
-          throw new Error('Failed to download document. Please try again.');
+  // In podService.js - update the download method
+
+/**
+ * Download POD document
+ * @param {number|string} id - POD ID
+ * @param {Function} onProgress - Progress callback
+ * @returns {Promise<Blob>} Document blob
+ */
+downloadPod: async (id, onProgress = null) => {
+  try {
+    const timestamp = new Date().getTime();
+    const token = localStorage.getItem('token');
+    
+    const response = await axios({
+      method: 'GET',
+      url: `${api.defaults.baseURL}/pods/${id}/download`,
+      params: { _t: timestamp },
+      responseType: 'blob',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      onDownloadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      },
+    });
+    
+    console.log(`✅ POD ${id} downloaded successfully`);
+    return response;
+  } catch (error) {
+    console.error(`❌ Error downloading POD ${id}:`, error);
+    
+    // Enhanced error handling
+    if (error.response) {
+      // Try to get error message from response
+      try {
+        const text = await error.response.data.text();
+        if (text) {
+          try {
+            const errorData = JSON.parse(text);
+            throw new Error(errorData.message || 'Failed to download document');
+          } catch (e) {
+            throw new Error(text || 'Failed to download document');
+          }
+        }
+      } catch (e) {
+        // If we can't parse the response
+        if (error.response.status === 404) {
+          throw new Error('Document not found. The file may have been deleted.');
+        } else if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else {
+          throw new Error(`Download failed: ${error.response.status} ${error.response.statusText}`);
         }
       }
+    } else if (error.request) {
+      throw new Error('Network error. Please check your connection.');
+    } else {
       throw error;
     }
-  },
+  }
+},
 
   /**
    * Get POD document URL for viewing/downloading
