@@ -417,6 +417,86 @@ export const podService = {
   },
 
   /**
+   * Re-upload file for an existing POD
+   * @param {number|string} id - POD ID
+   * @param {FormData} formData - FormData with the file
+   * @param {Function} onUploadProgress - Progress callback
+   * @returns {Promise<Object>} Updated POD
+   */
+  reuploadPodFile: async (id, formData, onUploadProgress) => {
+    try {
+      console.log(`📤 Re-uploading file for POD ${id}`);
+      
+      // Log form data contents for debugging
+      const fileEntry = formData.get('file');
+      if (fileEntry instanceof File) {
+        console.log(`   File: ${fileEntry.name}, Size: ${fileEntry.size} bytes, Type: ${fileEntry.type}`);
+      } else {
+        console.warn('⚠️ No file found in form data');
+      }
+      
+      const response = await api.post(`/pods/${id}/reupload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (onUploadProgress && typeof onUploadProgress === 'function') {
+            onUploadProgress(progressEvent);
+          }
+          // Log progress if not handled by caller
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`📊 Upload progress: ${percentCompleted}%`);
+          }
+        },
+      });
+      
+      console.log(`✅ File re-uploaded successfully for POD ${id}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error re-uploading file for POD ${id}:`, error);
+      
+      // Enhanced error handling
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error('   Status:', error.response.status);
+        console.error('   Data:', error.response.data);
+        
+        // Try to extract user-friendly message
+        let errorMessage = error.response.data?.message || error.response.data || 'Failed to upload file';
+        
+        if (error.response.status === 413) {
+          errorMessage = 'File too large. Maximum size is 10MB.';
+        } else if (error.response.status === 400) {
+          errorMessage = error.response.data || 'Invalid file format. Please upload a supported document type.';
+        } else if (error.response.status === 404) {
+          errorMessage = 'POD not found. Please refresh and try again.';
+        } else if (error.response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        }
+        
+        throw {
+          ...error,
+          userMessage: errorMessage,
+          status: error.response.status
+        };
+      } else if (error.request) {
+        // The request was made but no response was received
+        throw {
+          ...error,
+          userMessage: 'Network error. Please check your connection and try again.'
+        };
+      } else {
+        // Something happened in setting up the request
+        throw {
+          ...error,
+          userMessage: 'An unexpected error occurred. Please try again.'
+        };
+      }
+    }
+  },
+
+  /**
    * Get POD by POD number
    * @param {string} podNumber - POD number
    * @returns {Promise<Object>} POD object
