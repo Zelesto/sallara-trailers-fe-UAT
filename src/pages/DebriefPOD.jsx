@@ -192,78 +192,69 @@ const DebriefPOD = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
+  e.preventDefault();
+  setSubmitting(true);
+  setError('');
+  setSuccess('');
+  setDebriefProgress(0);
+
+  if (!validateForm()) {
+    setSubmitting(false);
+    showSnackbar('Please fix the validation errors', 'error');
+    return;
+  }
+
+  try {
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setDebriefProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 300);
+
+    // Build the payload - let the service handle sanitization
+    const payload = {
+      status: debriefData.status || 'DELIVERED',
+      notes: debriefData.notes || '',
+      receivedBy: debriefData.receivedBy || getCurrentUser(),
+      signature: debriefData.signature || '',
+      qualityRating: parseInt(debriefData.qualityRating) || 3,
+      issuesFound: debriefData.issuesFound || '', // Send as is, service will sanitize
+      additionalInfo: debriefData.additionalInfo || 'N/A',
+      deliveryCondition: debriefData.deliveryCondition || 'Good',
+      debriefNotes: debriefData.debriefNotes || 'No Endorsements',
+      debriefedBy: debriefData.debriefedBy || getCurrentUser()
+    };
+
+    console.log('📤 Sending debrief payload:', payload);
+
+    const response = await podService.debriefPOD(id, payload);
+    
+    clearInterval(progressInterval);
+    setDebriefProgress(100);
+    
+    console.log('✅ POD debriefed:', response);
+    setSuccess('POD debriefed successfully!');
+    showSnackbar('POD debriefed successfully!', 'success');
+    
+    setTimeout(() => {
+      navigate(`/pods/${id}`);
+    }, 1500);
+    
+  } catch (err) {
+    console.error('❌ Error debriefing POD:', err);
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to debrief POD';
+    setError(errorMessage);
+    showSnackbar(errorMessage, 'error');
+  } finally {
+    setSubmitting(false);
     setDebriefProgress(0);
-
-    if (!validateForm()) {
-      setSubmitting(false);
-      showSnackbar('Please fix the validation errors', 'error');
-      return;
-    }
-
-    try {
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setDebriefProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 300);
-
-      // Ensure issuesFound is a string
-      let issuesString = debriefData.issuesFound;
-      if (Array.isArray(issuesString)) {
-        issuesString = issuesString.filter(Boolean).join(', ');
-      }
-      if (!issuesString || issuesString.trim() === '') {
-        issuesString = 'None';
-      }
-
-      // Build the debrief payload with all fields as strings
-      const payload = {
-        status: debriefData.status || 'DELIVERED',
-        notes: debriefData.notes || '',
-        receivedBy: debriefData.receivedBy || getCurrentUser(),
-        signature: debriefData.signature || '',
-        qualityRating: parseInt(debriefData.qualityRating) || 3,
-        issuesFound: issuesString, // Send as string
-        additionalInfo: debriefData.additionalInfo || 'N/A',
-        deliveryCondition: debriefData.deliveryCondition || 'Good',
-        debriefNotes: debriefData.debriefNotes || 'No Endorsements',
-        debriefedBy: debriefData.debriefedBy || getCurrentUser()
-      };
-
-      console.log('📤 Debriefing POD with data:', payload);
-
-      const response = await podService.debriefPOD(id, payload);
-      
-      clearInterval(progressInterval);
-      setDebriefProgress(100);
-      
-      console.log('✅ POD debriefed:', response);
-      setSuccess('POD debriefed successfully!');
-      showSnackbar('POD debriefed successfully!', 'success');
-      
-      setTimeout(() => {
-        navigate(`/pods/${id}`);
-      }, 1500);
-      
-    } catch (err) {
-      console.error('❌ Error debriefing POD:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to debrief POD';
-      setError(errorMessage);
-      showSnackbar(errorMessage, 'error');
-    } finally {
-      setSubmitting(false);
-      setDebriefProgress(0);
-    }
-  };
+  }
+};
 
   const getStatusInfo = (status) => {
     const map = {
