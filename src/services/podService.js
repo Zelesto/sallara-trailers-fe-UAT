@@ -113,22 +113,57 @@ export const podService = {
     }
   },
 
-  /**
-   * Debrief POD - process and update status
-   * @param {number|string} id - POD ID
-   * @param {Object} debriefData - Debrief data
-   * @returns {Promise<Object>} Updated POD
-   */
-  debriefPOD: async (id, debriefData) => {
-    try {
-      const response = await api.post(`/pods/${id}/debrief`, debriefData);
-      console.log(`✅ POD ${id} debriefed:`, response);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error debriefing POD ${id}:`, error);
-      throw error;
+ **
+ * Debrief POD - process and update status
+ * @param {number|string} id - POD ID
+ * @param {Object} debriefData - Debrief data
+ * @returns {Promise<Object>} Updated POD
+ */
+debriefPOD: async (id, debriefData) => {
+  try {
+    // CRITICAL: Sanitize the data before sending
+    const sanitizedData = { ...debriefData };
+    
+    // Ensure issuesFound is always a string
+    if (sanitizedData.issuesFound !== undefined && sanitizedData.issuesFound !== null) {
+      if (Array.isArray(sanitizedData.issuesFound)) {
+        // If it's an array, join with comma
+        const filtered = sanitizedData.issuesFound.filter(item => item && item.trim());
+        sanitizedData.issuesFound = filtered.length > 0 ? filtered.join(', ') : 'None';
+      } else if (typeof sanitizedData.issuesFound === 'string') {
+        // If it's a string, trim and set default if empty
+        const trimmed = sanitizedData.issuesFound.trim();
+        sanitizedData.issuesFound = trimmed || 'None';
+      } else {
+        // If it's anything else, convert to string
+        sanitizedData.issuesFound = String(sanitizedData.issuesFound) || 'None';
+      }
+    } else {
+      // If undefined or null, set default
+      sanitizedData.issuesFound = 'None';
     }
-  },
+    
+    // Ensure other fields have defaults
+    if (!sanitizedData.status) sanitizedData.status = 'DELIVERED';
+    if (!sanitizedData.receivedBy) sanitizedData.receivedBy = 'System';
+    if (!sanitizedData.qualityRating) sanitizedData.qualityRating = 3;
+    if (!sanitizedData.deliveryCondition) sanitizedData.deliveryCondition = 'Good';
+    if (!sanitizedData.debriefNotes) sanitizedData.debriefNotes = 'No Endorsements';
+    if (!sanitizedData.additionalInfo) sanitizedData.additionalInfo = 'N/A';
+    if (!sanitizedData.debriefedBy) sanitizedData.debriefedBy = 'System';
+    
+    // Log the sanitized data for debugging
+    console.log('📤 Sanitized debrief data:', JSON.stringify(sanitizedData, null, 2));
+    
+    const response = await api.post(`/pods/${id}/debrief`, sanitizedData);
+    console.log(`✅ POD ${id} debriefed:`, response);
+    return response;
+  } catch (error) {
+    console.error(`❌ Error debriefing POD ${id}:`, error);
+    console.error('❌ Error response:', error.response?.data);
+    throw error;
+  }
+},
 
   /**
    * Get PODs by Trip ID
