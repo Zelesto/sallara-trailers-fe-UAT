@@ -1,5 +1,5 @@
 // src/pages/TripList.jsx
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
 import TripNoticeWizard from '../components/TripNoticeWizard';
@@ -17,90 +17,46 @@ import {
 import {
   Add, Edit, Delete, Visibility, CheckCircle, Refresh,
   Search as SearchIcon, Dashboard, PlayArrow, Stop,
-  Warning as WarningIcon, LocationCity, PinDrop, SwapHoriz,
-  Person as PersonIcon, Business as BusinessIcon, LocalShipping,
+  Warning as WarningIcon, LocationCity,
+  Person as PersonIcon, Business as BusinessIcon,
   Receipt, Assignment, DirectionsCar
 } from '@mui/icons-material';
 
-/* ================================
-   Status Configuration
-================================ */
+/* ============================================================
+   CONSTANTS & CONFIGURATIONS
+   ============================================================ */
+
 export const STATUS_CONFIG = {
-  DRAFT: {
-    color: '#9e9e9e',
-    bgColor: '#f5f5f5',
-    label: 'Draft',
-    icon: '✏️',
-    description: 'Trip is in draft stage'
-  },
-  PLANNED: {
-    color: '#0288d1',
-    bgColor: '#e3f2fd',
-    label: 'Planned',
-    icon: '📅',
-    description: 'Trip is scheduled'
-  },
-  ASSIGNED: {
-    color: '#7b1fa2',
-    bgColor: '#f3e5f5',
-    label: 'Assigned',
-    icon: '👤',
-    description: 'Driver assigned to trip'
-  },
-  IN_PROGRESS: {
-    color: '#ed6c02',
-    bgColor: '#fff3e0',
-    label: 'In Progress',
-    icon: '🚚',
-    description: 'Trip is currently active'
-  },
-  ACTIVE: {
-    color: '#2e7d32',
-    bgColor: '#e8f5e8',
-    label: 'Active',
-    icon: '✅',
-    description: 'Trip is active and ongoing'
-  },
-  PENDING: {
-    color: '#ff9800',
-    bgColor: '#fff3e0',
-    label: 'Pending',
-    icon: '⏳',
-    description: 'Awaiting confirmation'
-  },
-  COMPLETED: {
-    color: '#0097a7',
-    bgColor: '#e0f7fa',
-    label: 'Completed',
-    icon: '🏁',
-    description: 'Trip finished successfully'
-  },
-  CANCELLED: {
-    color: '#d32f2f',
-    bgColor: '#ffebee',
-    label: 'Cancelled',
-    icon: '❌',
-    description: 'Trip was cancelled'
-  },
-  CLOSED: {
-    color: '#5d4037',
-    bgColor: '#efebe9',
-    label: 'Closed',
-    icon: '🔒',
-    description: 'Trip is closed'
-  },
-  FINALIZED: {
-    color: '#388e3c',
-    bgColor: '#e8f5e8',
-    label: 'Finalized',
-    icon: '📊',
-    description: 'Trip is finalized and invoiced'
-  }
+  DRAFT: { color: '#9e9e9e', bgColor: '#f5f5f5', label: 'Draft', icon: '✏️', description: 'Draft stage' },
+  PLANNED: { color: '#0288d1', bgColor: '#e3f2fd', label: 'Planned', icon: '📅', description: 'Scheduled' },
+  ASSIGNED: { color: '#7b1fa2', bgColor: '#f3e5f5', label: 'Assigned', icon: '👤', description: 'Driver assigned' },
+  IN_PROGRESS: { color: '#ed6c02', bgColor: '#fff3e0', label: 'In Progress', icon: '🚚', description: 'Currently active' },
+  ACTIVE: { color: '#2e7d32', bgColor: '#e8f5e8', label: 'Active', icon: '✅', description: 'Active and ongoing' },
+  PENDING: { color: '#ff9800', bgColor: '#fff3e0', label: 'Pending', icon: '⏳', description: 'Awaiting confirmation' },
+  COMPLETED: { color: '#0097a7', bgColor: '#e0f7fa', label: 'Completed', icon: '🏁', description: 'Finished successfully' },
+  CANCELLED: { color: '#d32f2f', bgColor: '#ffebee', label: 'Cancelled', icon: '❌', description: 'Cancelled' },
+  CLOSED: { color: '#5d4037', bgColor: '#efebe9', label: 'Closed', icon: '🔒', description: 'Closed' },
+  FINALIZED: { color: '#388e3c', bgColor: '#e8f5e8', label: 'Finalized', icon: '📊', description: 'Finalized and invoiced' }
 };
 
 export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
 
-// Status Chip Component - Smaller version
+const STATUS_KEYS = {
+  CAN_START: ['PLANNED', 'ASSIGNED', 'DRAFT'],
+  CAN_END: ['IN_PROGRESS', 'ACTIVE'],
+  CAN_REPORT_INCIDENT: ['IN_PROGRESS', 'ACTIVE'],
+  CAN_FINALIZE: ['COMPLETED'],
+  CAN_EDIT: ['DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 'ACTIVE', 'PENDING'],
+  CAN_DELETE: ['DRAFT', 'PLANNED', 'ASSIGNED', 'PENDING']
+};
+
+/* ============================================================
+   UI COMPONENTS
+   ============================================================ */
+
+/**
+ * Status Chip Component
+ */
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
   
@@ -123,23 +79,19 @@ const StatusChip = ({ status }) => {
   );
 };
 
-// Location Display Component with Popover - Smaller version
+/**
+ * Location Display with Popover
+ */
 const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
   const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
   
   const displayCity = city || 
     (fullAddress ? fullAddress.split(',')[0] : null) || 
     'No location provided';
   
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-  
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-  
-  const open = Boolean(anchorEl);
+  const handleClick = (event) => setAnchorEl(event.currentTarget);
+  const handleClose = () => setAnchorEl(null);
   
   return (
     <>
@@ -147,17 +99,12 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
         onClick={handleClick}
         sx={{ 
           cursor: 'pointer',
-          '&:hover': { 
-            textDecoration: 'underline',
-            color: 'primary.main'
-          }
+          '&:hover': { textDecoration: 'underline', color: 'primary.main' }
         }}
       >
         <Stack direction="row" alignItems="center" spacing={0.25}>
-          <LocationCity fontSize="small" sx={{ fontSize: 12, color: 'text.secondary' }} />
-          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-            {displayCity}
-          </Typography>
+          <LocationCity sx={{ fontSize: 12, color: 'text.secondary' }} />
+          <Typography sx={{ fontSize: '0.75rem' }}>{displayCity}</Typography>
           {zipCode && (
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
               ({zipCode})
@@ -170,14 +117,8 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
         open={open}
         anchorEl={anchorEl}
         onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
         <Box sx={{ p: 1.5, maxWidth: 280 }}>
           <Typography variant="subtitle2" sx={{ fontSize: '0.8rem' }} gutterBottom>
@@ -185,30 +126,10 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
           </Typography>
           <Divider sx={{ my: 0.75 }} />
           <Stack spacing={0.75}>
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>City</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{displayCity}</Typography>
-            </Box>
-            {zipCode && (
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Postal Code</Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{zipCode}</Typography>
-              </Box>
-            )}
-            {province && (
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Province</Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{province}</Typography>
-              </Box>
-            )}
-            {fullAddress && (
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Full Address</Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.75rem', wordBreak: 'break-word' }}>
-                  {fullAddress}
-                </Typography>
-              </Box>
-            )}
+            <InfoRow label="City" value={displayCity} />
+            {zipCode && <InfoRow label="Postal Code" value={zipCode} />}
+            {province && <InfoRow label="Province" value={province} />}
+            {fullAddress && <InfoRow label="Full Address" value={fullAddress} />}
           </Stack>
         </Box>
       </Popover>
@@ -216,57 +137,75 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
   );
 };
 
-// Simple notification state
+/**
+ * Info Row helper
+ */
+const InfoRow = ({ label, value }) => (
+  <Box>
+    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ fontSize: '0.75rem', wordBreak: 'break-word' }}>
+      {value}
+    </Typography>
+  </Box>
+);
+
+/**
+ * Custom hook for notifications
+ */
 const useSimpleNotification = () => {
   const [notification, setNotification] = useState(null);
 
-  const showNotification = (message, type = 'info') => {
+  const showNotification = useCallback((message, type = 'info') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
+    const timer = setTimeout(() => setNotification(null), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   return { notification, showNotification };
 };
 
+/* ============================================================
+   MAIN COMPONENT
+   ============================================================ */
+
 function TripList() {
   const { notification, showNotification } = useSimpleNotification();
+  
+  // State
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('');
   const [customerFilter, setCustomerFilter] = useState('');
-
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMetricsModal, setShowMetricsModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-
-  // ⭐ Trip Notice Wizard State - MOVED TO MAIN COMPONENT
   const [showNoticeWizard, setShowNoticeWizard] = useState(false);
-  const [noticeType, setNoticeType] = useState(null);
-  const [noticeSubtype, setNoticeSubtype] = useState(null);
   const [selectedTripForNotice, setSelectedTripForNotice] = useState(null);
+  const [pagination, setPagination] = useState({ page: 0, pageSize: 10, total: 0 });
+  
+  const fetchTimerRef = useRef(null);
 
-  const [pagination, setPagination] = useState({
-    page: 0,
-    pageSize: 10,
-    total: 0,
-  });
+  // Memoized unique values for filters
+  const uniqueCities = useMemo(
+    () => [...new Set(trips.map(t => t.originCity).filter(Boolean))],
+    [trips]
+  );
 
-  // Get unique cities and customers for filter dropdowns
-  const uniqueCities = useMemo(() => {
-    return [...new Set(trips.map(trip => trip.originCity).filter(Boolean))];
-  }, [trips]);
+  const uniqueCustomers = useMemo(
+    () => [...new Set(trips.map(t => t.customer?.name || t.customerName).filter(Boolean))],
+    [trips]
+  );
 
-  const uniqueCustomers = useMemo(() => {
-    return [...new Set(trips.map(trip => trip.customer?.name || trip.customerName).filter(Boolean))];
-  }, [trips]);
+  /* ============================================================
+     FETCH TRIPS
+  ============================================================ */
 
-  /* ================================
-     Fetch Trips - NEWEST FIRST
-  ================================= */
   const fetchTrips = useCallback(async ({
     page = 0,
     size = pagination.pageSize,
@@ -289,8 +228,7 @@ function TripList() {
         sortOrder: 'DESC'
       });
 
-      // The backend should already sort by ID desc, but keep this as fallback
-      const sortedContent = (response.content || []).sort((a, b) => b.id - a.id);
+      const sortedContent = (response.content || []).sort((a, b) => (b.id || 0) - (a.id || 0));
 
       setTrips(sortedContent);
       setPagination({
@@ -298,7 +236,6 @@ function TripList() {
         pageSize: response.size ?? size,
         total: response.totalElements ?? 0
       });
-
     } catch (err) {
       console.error('Error fetching trips:', err);
       showNotification('Failed to load trips', 'error');
@@ -306,82 +243,75 @@ function TripList() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter]);
+  }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
 
-  /* ================================
-     Initial Load
-  ================================= */
+  /* ============================================================
+     EFFECTS
+  ============================================================ */
+
+  // Initial load
   useEffect(() => {
     fetchTrips({ page: 0 });
   }, []);
 
-  /* ================================
-     Debounced Filters
-  ================================= */
+  // Debounced filters
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchTrips({ page: 0 });
-    }, 400);
-
-    return () => clearTimeout(timer);
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+    fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
+    return () => clearTimeout(fetchTimerRef.current);
   }, [searchText, statusFilter, cityFilter, customerFilter]);
 
-  /* ================================
-     Trip Actions
-  ================================= */
+  /* ============================================================
+     ACTION HANDLERS
+  ============================================================ */
+
   const handleStartTrip = (trip) => {
-    if (window.confirm(`Start trip #${trip.tripNumber}?`)) {
-      const startOdometer = prompt('Enter starting odometer reading (km):');
-      if (startOdometer) {
-        tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
-          .then(() => {
-            showNotification('Trip started successfully!', 'success');
-            fetchTrips({ page: pagination.page });
-          })
-          .catch(err => {
-            console.error('Error starting trip:', err);
-            const errorMsg = err.message || 'Failed to start trip';
-            showNotification(errorMsg, 'error');
-          });
-      }
-    }
+    if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
+    
+    const startOdometer = prompt('Enter starting odometer reading (km):');
+    if (!startOdometer) return;
+
+    tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
+      .then(() => {
+        showNotification('Trip started successfully!', 'success');
+        fetchTrips({ page: pagination.page });
+      })
+      .catch(err => {
+        console.error('Error starting trip:', err);
+        showNotification(err.message || 'Failed to start trip', 'error');
+      });
   };
 
   const handleEndTrip = (trip) => {
-    if (window.confirm(`End trip #${trip.tripNumber}?`)) {
-      const endOdometer = prompt('Enter ending odometer reading (km):');
-      if (endOdometer) {
-        const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
-        tripService.endTrip(trip.id, { 
-          actualEndOdometer: parseFloat(endOdometer),
-          endReason: endReason || 'COMPLETED'
-        })
-          .then(() => {
-            showNotification('Trip ended successfully!', 'success');
-            fetchTrips({ page: pagination.page });
-          })
-          .catch(err => {
-            console.error('Error ending trip:', err);
-            const errorMsg = err.message || 'Failed to end trip';
-            showNotification(errorMsg, 'error');
-          });
-      }
-    }
+    if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
+    
+    const endOdometer = prompt('Enter ending odometer reading (km):');
+    if (!endOdometer) return;
+
+    const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
+    
+    tripService.endTrip(trip.id, {
+      actualEndOdometer: parseFloat(endOdometer),
+      endReason: endReason || 'COMPLETED'
+    })
+      .then(() => {
+        showNotification('Trip ended successfully!', 'success');
+        fetchTrips({ page: pagination.page });
+      })
+      .catch(err => {
+        console.error('Error ending trip:', err);
+        showNotification(err.message || 'Failed to end trip', 'error');
+      });
   };
 
-  // ⭐ Trip Notice Wizard Handlers - MOVED TO MAIN COMPONENT
-  const handleOpenNoticeWizard = (trip, type = null, subtype = null) => {
+  const handleOpenNoticeWizard = (trip) => {
     setSelectedTripForNotice(trip);
-    setNoticeType(type);
-    setNoticeSubtype(subtype);
     setShowNoticeWizard(true);
   };
 
   const handleCloseNoticeWizard = () => {
     setShowNoticeWizard(false);
     setSelectedTripForNotice(null);
-    setNoticeType(null);
-    setNoticeSubtype(null);
     fetchTrips({ page: pagination.page });
   };
 
@@ -433,9 +363,33 @@ function TripList() {
     setCustomerFilter('');
   };
 
-  /* ================================
-     Loading Screen
-  ================================= */
+  const handleModalClose = (callback) => () => {
+    callback();
+    fetchTrips({ page: pagination.page });
+  };
+
+  /* ============================================================
+     RENDER HELPERS
+  ============================================================ */
+
+  const getTripDisplay = (trip) => ({
+    customerName: trip.customer?.name || trip.customerName || 'N/A',
+    vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A',
+    driverName: trip.driver 
+      ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() 
+      : trip.driverName || 'N/A',
+    canStart: STATUS_KEYS.CAN_START.includes(trip.status),
+    canEnd: STATUS_KEYS.CAN_END.includes(trip.status),
+    canReport: STATUS_KEYS.CAN_REPORT_INCIDENT.includes(trip.status),
+    canFinalize: STATUS_KEYS.CAN_FINALIZE.includes(trip.status),
+    canEdit: STATUS_KEYS.CAN_EDIT.includes(trip.status),
+    canDelete: STATUS_KEYS.CAN_DELETE.includes(trip.status)
+  });
+
+  /* ============================================================
+     LOADING SCREEN
+  ============================================================ */
+
   if (loading && trips.length === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -444,12 +398,13 @@ function TripList() {
     );
   }
 
-  /* ================================
-     UI - Smaller and Compact
-  ================================= */
+  /* ============================================================
+     MAIN RENDER
+  ============================================================ */
+
   return (
     <Box sx={{ p: 1.5 }}>
-      {/* Notification Alert */}
+      {/* Notification */}
       {notification && (
         <Alert 
           severity={notification.type} 
@@ -460,7 +415,7 @@ function TripList() {
         </Alert>
       )}
 
-      {/* Header - Smaller */}
+      {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
           <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
@@ -481,7 +436,6 @@ function TripList() {
           >
             Refresh
           </Button>
-
           <Button
             startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
             onClick={() => setShowCreateModal(true)}
@@ -494,7 +448,7 @@ function TripList() {
         </Box>
       </Box>
 
-      {/* Filters - Compact with Customer Filter */}
+      {/* Filters */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -505,10 +459,7 @@ function TripList() {
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               InputProps={{
-                startAdornment: (
-                  <SearchIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
-                ),
-                sx: { fontSize: '0.75rem' }
+                startAdornment: <SearchIcon sx={{ mr: 0.5, fontSize: '0.9rem', color: 'text.secondary' }} />
               }}
               sx={{ minWidth: 200, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
             />
@@ -532,11 +483,11 @@ function TripList() {
 
             {uniqueCities.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Filter by City</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>City</InputLabel>
                 <Select
                   value={cityFilter}
                   onChange={(e) => setCityFilter(e.target.value)}
-                  label="Filter by City"
+                  label="City"
                   sx={{ fontSize: '0.75rem' }}
                 >
                   <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Cities</MenuItem>
@@ -577,23 +528,19 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table - Compact with All Columns */}
+      {/* Table */}
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Trip Number</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Customer</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>REF#</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>PO#</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Vehicle</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Driver</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Origin</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Destination</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Distance</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Planned Start</TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Actions</TableCell>
+              {[
+                'Trip Number', 'Customer', 'REF#', 'PO#', 'Vehicle', 'Driver',
+                'Status', 'Origin', 'Destination', 'Distance', 'Planned Start', 'Actions'
+              ].map(label => (
+                <TableCell key={label} sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>
+                  {label}
+                </TableCell>
+              ))}
             </TableRow>
           </TableHead>
 
@@ -607,11 +554,7 @@ function TripList() {
                       : 'No trips found'}
                   </Typography>
                   {(searchText || statusFilter !== 'all' || cityFilter || customerFilter) && (
-                    <Button 
-                      onClick={handleClearFilters}
-                      sx={{ mt: 1, fontSize: '0.7rem' }}
-                      size="small"
-                    >
+                    <Button onClick={handleClearFilters} sx={{ mt: 1, fontSize: '0.7rem' }} size="small">
                       Clear Filters
                     </Button>
                   )}
@@ -619,21 +562,7 @@ function TripList() {
               </TableRow>
             ) : (
               trips.map(trip => {
-                const canStart = ['PLANNED', 'ASSIGNED', 'DRAFT'].includes(trip.status);
-                const canEnd = ['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
-                const canReportIncident = ['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
-                const canFinalize = trip.status === 'COMPLETED';
-                const canEdit = !['CANCELLED', 'FINALIZED', 'CLOSED', 'COMPLETED'].includes(trip.status);
-                const canDelete = !['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
-                
-               // Get customer name from customer object or direct field
-                const customerName = trip.customer?.name || trip.customerName || 'N/A';
-                // Get vehicle registration from vehicle object
-                const vehicleReg = trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A';
-                // Get driver name from driver object
-                const driverName = trip.driver 
-                  ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() 
-                  : trip.driverName || 'N/A';
+                const display = getTripDisplay(trip);
                 
                 return (
                   <TableRow key={trip.id} hover>
@@ -643,91 +572,66 @@ function TripList() {
                       </Typography>
                     </TableCell>
 
-                    {/* Customer Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {customerName !== 'N/A' ? (
+                      {display.customerName !== 'N/A' ? (
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <BusinessIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                            {customerName}
-                          </Typography>
+                          <Typography sx={{ fontSize: '0.75rem' }}>{display.customerName}</Typography>
                         </Stack>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          N/A
-                        </Typography>
+                        <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
                       )}
                     </TableCell>
 
-                    {/* REF# Column - uses referenceNumber from entity */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
                       {trip.referenceNumber ? (
                         <Tooltip title="Reference Number">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <Receipt sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {trip.referenceNumber}
-                            </Typography>
+                            <Typography sx={{ fontSize: '0.75rem' }}>{trip.referenceNumber}</Typography>
                           </Stack>
                         </Tooltip>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          —
-                        </Typography>
+                        <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>—</Typography>
                       )}
                     </TableCell>
 
-                    {/* PO# Column - uses purchaseOrderNumber from entity */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
                       {trip.purchaseOrderNumber ? (
                         <Tooltip title="Purchase Order Number">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <Assignment sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {trip.purchaseOrderNumber}
-                            </Typography>
+                            <Typography sx={{ fontSize: '0.75rem' }}>{trip.purchaseOrderNumber}</Typography>
                           </Stack>
                         </Tooltip>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          —
-                        </Typography>
+                        <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>—</Typography>
                       )}
                     </TableCell>
 
-                    {/* Vehicle Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {vehicleReg !== 'N/A' ? (
+                      {display.vehicleReg !== 'N/A' ? (
                         <Tooltip title="Vehicle Registration">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {vehicleReg}
-                            </Typography>
+                            <Typography sx={{ fontSize: '0.75rem' }}>{display.vehicleReg}</Typography>
                           </Stack>
                         </Tooltip>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          N/A
-                        </Typography>
+                        <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
                       )}
                     </TableCell>
 
-                    {/* Driver Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {driverName !== 'N/A' ? (
+                      {display.driverName !== 'N/A' ? (
                         <Tooltip title="Driver Name">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <PersonIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {driverName}
-                            </Typography>
+                            <Typography sx={{ fontSize: '0.75rem' }}>{display.driverName}</Typography>
                           </Stack>
                         </Tooltip>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          N/A
-                        </Typography>
+                        <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
                       )}
                     </TableCell>
 
@@ -757,136 +661,85 @@ function TripList() {
 
                     <TableCell sx={{ py: 0.75 }}>
                       {trip.metrics?.totalDistanceKm ? (
-                        <Tooltip title="Distance traveled">
-                          <Chip
-                            size="small"
-                            label={`${trip.metrics.totalDistanceKm} km`}
-                            variant="outlined"
-                            sx={{ fontSize: '0.65rem', height: 20 }}
-                          />
-                        </Tooltip>
+                        <Chip
+                          size="small"
+                          label={`${trip.metrics.totalDistanceKm} km`}
+                          variant="outlined"
+                          sx={{ fontSize: '0.65rem', height: 20 }}
+                        />
                       ) : trip.plannedDistanceKm ? (
-                        <Tooltip title="Planned distance">
-                          <Chip
-                            size="small"
-                            label={`${trip.plannedDistanceKm} km`}
-                            variant="outlined"
-                            sx={{ fontSize: '0.65rem', height: 20, opacity: 0.7 }}
-                          />
-                        </Tooltip>
+                        <Chip
+                          size="small"
+                          label={`${trip.plannedDistanceKm} km`}
+                          variant="outlined"
+                          sx={{ fontSize: '0.65rem', height: 20, opacity: 0.7 }}
+                        />
                       ) : (
                         <Typography sx={{ fontSize: '0.7rem' }}>-</Typography>
                       )}
                     </TableCell>
 
                     <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                      {trip.plannedStartDate
-                        ? dayjs(trip.plannedStartDate).format('MMM DD, HH:mm')
-                        : '-'}
+                      {trip.plannedStartDate ? dayjs(trip.plannedStartDate).format('MMM DD, HH:mm') : '-'}
                     </TableCell>
 
                     <TableCell sx={{ py: 0.75 }}>
                       <Box display="flex" gap={0.25} flexWrap="wrap">
-                        {/* Start Trip Button */}
-                        {canStart && (
+                        {display.canStart && (
                           <Tooltip title="Start Trip">
-                            <IconButton 
-                              size="small"
-                              color="success"
-                              onClick={() => handleStartTrip(trip)}
-                              sx={{ p: 0.5 }}
-                            >
+                            <IconButton size="small" color="success" onClick={() => handleStartTrip(trip)} sx={{ p: 0.5 }}>
                               <PlayArrow sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
 
-                        {/* End Trip Button */}
-                        {canEnd && (
+                        {display.canEnd && (
                           <Tooltip title="End Trip">
-                            <IconButton 
-                              size="small"
-                              color="error"
-                              onClick={() => handleEndTrip(trip)}
-                              sx={{ p: 0.5 }}
-                            >
+                            <IconButton size="small" color="error" onClick={() => handleEndTrip(trip)} sx={{ p: 0.5 }}>
                               <Stop sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
 
-                        {/* Report Incident Button - Now opens TripNoticeWizard */}
-                        {canReportIncident && (
-                          <Tooltip title="Add Notice (Incident/Voucher/AE)">
-                            <IconButton 
-                              size="small"
-                              color="warning"
-                              onClick={() => handleOpenNoticeWizard(trip)}
-                              sx={{ p: 0.5 }}
-                            >
+                        {display.canReport && (
+                          <Tooltip title="Add Notice">
+                            <IconButton size="small" color="warning" onClick={() => handleOpenNoticeWizard(trip)} sx={{ p: 0.5 }}>
                               <WarningIcon sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
 
-                        {/* View Details */}
                         <Tooltip title="View Details">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleViewTrip(trip)}
-                            sx={{ p: 0.5 }}
-                          >
+                          <IconButton size="small" onClick={() => handleViewTrip(trip)} sx={{ p: 0.5 }}>
                             <Visibility sx={{ fontSize: '0.9rem' }} />
                           </IconButton>
                         </Tooltip>
 
-                        {/* Edit Trip */}
-                        {canEdit && (
+                        {display.canEdit && (
                           <Tooltip title="Edit Trip">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleEditTrip(trip)}
-                              sx={{ p: 0.5 }}
-                            >
+                            <IconButton size="small" onClick={() => handleEditTrip(trip)} sx={{ p: 0.5 }}>
                               <Edit sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
 
-                        {/* Trip Metrics */}
                         <Tooltip title="Trip Metrics">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleOpenMetrics(trip)}
-                            sx={{ p: 0.5 }}
-                          >
+                          <IconButton size="small" onClick={() => handleOpenMetrics(trip)} sx={{ p: 0.5 }}>
                             <Dashboard sx={{ fontSize: '0.9rem' }} />
                           </IconButton>
                         </Tooltip>
 
-                        {/* Finalize Trip */}
-                        {canFinalize && (
+                        {display.canFinalize && (
                           <Tooltip title="Finalize Trip">
-                            <IconButton
-                              size="small"
-                              color="success"
-                              onClick={() => handleFinalizeTrip(trip)}
-                              sx={{ p: 0.5 }}
-                            >
+                            <IconButton size="small" color="success" onClick={() => handleFinalizeTrip(trip)} sx={{ p: 0.5 }}>
                               <CheckCircle sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
                         )}
 
-                        {/* Delete Trip */}
-                        {canDelete && (
+                        {display.canDelete && (
                           <Tooltip title="Delete Trip">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteTrip(trip)}
-                              sx={{ p: 0.5 }}
-                            >
+                            <IconButton size="small" color="error" onClick={() => handleDeleteTrip(trip)} sx={{ p: 0.5 }}>
                               <Delete sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
@@ -901,22 +754,7 @@ function TripList() {
         </Table>
       </TableContainer>
 
-      {/* ⭐ Trip Notice Wizard - MOVED HERE */}
-      {showNoticeWizard && selectedTripForNotice && (
-        <TripNoticeWizard
-          open={showNoticeWizard}
-          onClose={handleCloseNoticeWizard}
-          trip={selectedTripForNotice}
-          initialType={noticeType}
-          initialSubtype={noticeSubtype}
-          onSuccess={() => {
-            showNotification('Notice submitted successfully!', 'success');
-            handleCloseNoticeWizard();
-          }}
-        />
-      )}
-
-      {/* Pagination - Compact */}
+      {/* Pagination */}
       {trips.length > 0 && (
         <Paper sx={{ p: 0.5 }}>
           <TablePagination
@@ -947,10 +785,7 @@ function TripList() {
           open={showCreateModal}
           mode="create"
           onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false);
-            fetchTrips({ page: 0 });
-          }}
+          onSuccess={handleModalClose(() => setShowCreateModal(false))}
         />
       )}
 
@@ -960,10 +795,7 @@ function TripList() {
           mode="edit"
           initialData={selectedTrip}
           onClose={() => setShowEditModal(false)}
-          onSuccess={() => {
-            setShowEditModal(false);
-            fetchTrips({ page: pagination.page });
-          }}
+          onSuccess={handleModalClose(() => setShowEditModal(false))}
         />
       )}
 
@@ -973,10 +805,7 @@ function TripList() {
           tripId={selectedTrip.id}
           tripData={selectedTrip}
           onClose={() => setShowMetricsModal(false)}
-          onSuccess={() => {
-            setShowMetricsModal(false);
-            fetchTrips({ page: pagination.page });
-          }}
+          onSuccess={handleModalClose(() => setShowMetricsModal(false))}
         />
       )}
 
@@ -986,6 +815,18 @@ function TripList() {
           tripId={selectedTrip.id}
           onClose={() => setShowDetailsModal(false)}
           onUpdate={() => fetchTrips({ page: pagination.page })}
+        />
+      )}
+
+      {showNoticeWizard && selectedTripForNotice && (
+        <TripNoticeWizard
+          open={showNoticeWizard}
+          onClose={handleCloseNoticeWizard}
+          trip={selectedTripForNotice}
+          onSuccess={() => {
+            showNotification('Notice submitted successfully!', 'success');
+            handleCloseNoticeWizard();
+          }}
         />
       )}
     </Box>
