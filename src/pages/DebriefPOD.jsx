@@ -21,6 +21,7 @@ import {
   CardContent,
   Rating,
   LinearProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -40,6 +41,19 @@ const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'Pending', color: 'warning' },
 ];
 
+const ISSUES_OPTIONS = [
+  'Missing Signature',
+  'Illegible',
+  'Incomplete',
+  'Wrong Customer',
+  'Damaged',
+  'Late Delivery',
+  'Missing Items',
+  'Incorrect Items',
+  'Quality Issues',
+  'Other'
+];
+
 const DebriefPOD = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -50,6 +64,7 @@ const DebriefPOD = () => {
   const [success, setSuccess] = useState('');
   const [formErrors, setFormErrors] = useState({});
   const [debriefProgress, setDebriefProgress] = useState(0);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const [debriefData, setDebriefData] = useState({
     status: 'DELIVERED',
@@ -57,10 +72,11 @@ const DebriefPOD = () => {
     receivedBy: '',
     signature: '',
     qualityRating: 4,
-    issuesFound: [],
+    issuesFound: '', // Changed from array to string
     additionalInfo: '',
     deliveryCondition: 'Good',
     debriefNotes: '',
+    debriefedBy: '',
   });
 
   useEffect(() => {
@@ -79,6 +95,7 @@ const DebriefPOD = () => {
         status: data.status === 'PENDING' ? 'DELIVERED' : data.status,
         notes: data.notes || '',
         receivedBy: data.receivedBy || data.uploadedBy || '',
+        debriefedBy: data.uploadedBy || '',
       }));
       
       setError('');
@@ -102,15 +119,49 @@ const DebriefPOD = () => {
     setDebriefData(prev => ({ ...prev, qualityRating: newValue }));
   };
 
-  const toggleIssue = (issue) => {
+  const handleIssueToggle = (issue) => {
     setDebriefData(prev => {
-      const issues = prev.issuesFound || [];
-      if (issues.includes(issue)) {
-        return { ...prev, issuesFound: issues.filter(i => i !== issue) };
+      // Get current issues as array
+      const currentIssues = prev.issuesFound 
+        ? prev.issuesFound.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      
+      // Toggle the issue
+      const index = currentIssues.indexOf(issue);
+      if (index > -1) {
+        currentIssues.splice(index, 1);
       } else {
-        return { ...prev, issuesFound: [...issues, issue] };
+        currentIssues.push(issue);
       }
+      
+      // Convert back to string
+      return { 
+        ...prev, 
+        issuesFound: currentIssues.length > 0 ? currentIssues.join(', ') : ''
+      };
     });
+  };
+
+  const handleIssuesChange = (e) => {
+    const value = e.target.value;
+    setDebriefData(prev => ({ ...prev, issuesFound: value }));
+    if (formErrors.issuesFound) {
+      setFormErrors(prev => ({ ...prev, issuesFound: '' }));
+    }
+  };
+
+  const getCurrentUser = () => {
+    // Get from localStorage or context
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        return userData.email || userData.username || 'System';
+      } catch (e) {
+        return 'System';
+      }
+    }
+    return 'System';
   };
 
   const validateForm = () => {
@@ -121,60 +172,98 @@ const DebriefPOD = () => {
     if (debriefData.status === 'REJECTED' && !debriefData.debriefNotes) {
       errors.debriefNotes = 'Please provide reason for rejection';
     }
-    if (!debriefData.receivedBy.trim()) {
+    if (!debriefData.receivedBy || !debriefData.receivedBy.trim()) {
       errors.receivedBy = 'Received by name is required';
+    }
+    if (!debriefData.debriefNotes || !debriefData.debriefNotes.trim()) {
+      errors.debriefNotes = 'Debrief notes are required';
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    setError(null);
-    
-    try {
-        // Convert issuesFound to string if it's an array
-        let issuesString = formData.issuesFound;
-        if (Array.isArray(issuesString)) {
-            // If it's an array, join with comma
-            issuesString = issuesString.filter(Boolean).join(', ');
-        }
-        // If it's null/undefined/empty, set to "None"
-        if (!issuesString || issuesString.trim() === '') {
-            issuesString = 'None';
-        }
-        
-        // Build the debrief payload with all fields as strings
-        const debriefData = {
-            status: formData.status || 'DELIVERED',
-            notes: formData.notes || '',
-            receivedBy: formData.receivedBy || getCurrentUser(),
-            signature: formData.signature || '',
-            qualityRating: formData.qualityRating || 3,
-            issuesFound: issuesString, // Send as string
-            additionalInfo: formData.additionalInfo || 'N/A',
-            deliveryCondition: formData.deliveryCondition || 'Good',
-            debriefNotes: formData.debriefNotes || 'No Endorsements',
-            debriefedBy: formData.debriefedBy || getCurrentUser()
-        };
-        
-        console.log('📤 Debriefing POD with data:', debriefData);
-        
-        const response = await podService.debriefPOD(podId, debriefData);
-        console.log('✅ POD debriefed:', response);
-        
-        toast.success('POD debriefed successfully!');
-        navigate(`/pods/${podId}`);
-    } catch (error) {
-        console.error('❌ Error debriefing POD:', error);
-        setError(error.message || 'Failed to debrief POD');
-        toast.error(error.message || 'Failed to debrief POD');
-    } finally {
-        setSubmitting(false);
+    setError('');
+    setSuccess('');
+    setDebriefProgress(0);
+
+    if (!validateForm()) {
+      setSubmitting(false);
+      showSnackbar('Please fix the validation errors', 'error');
+      return;
     }
-};
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setDebriefProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
+      // Ensure issuesFound is a string
+      let issuesString = debriefData.issuesFound;
+      if (Array.isArray(issuesString)) {
+        issuesString = issuesString.filter(Boolean).join(', ');
+      }
+      if (!issuesString || issuesString.trim() === '') {
+        issuesString = 'None';
+      }
+
+      // Build the debrief payload with all fields as strings
+      const payload = {
+        status: debriefData.status || 'DELIVERED',
+        notes: debriefData.notes || '',
+        receivedBy: debriefData.receivedBy || getCurrentUser(),
+        signature: debriefData.signature || '',
+        qualityRating: parseInt(debriefData.qualityRating) || 3,
+        issuesFound: issuesString, // Send as string
+        additionalInfo: debriefData.additionalInfo || 'N/A',
+        deliveryCondition: debriefData.deliveryCondition || 'Good',
+        debriefNotes: debriefData.debriefNotes || 'No Endorsements',
+        debriefedBy: debriefData.debriefedBy || getCurrentUser()
+      };
+
+      console.log('📤 Debriefing POD with data:', payload);
+
+      const response = await podService.debriefPOD(id, payload);
+      
+      clearInterval(progressInterval);
+      setDebriefProgress(100);
+      
+      console.log('✅ POD debriefed:', response);
+      setSuccess('POD debriefed successfully!');
+      showSnackbar('POD debriefed successfully!', 'success');
+      
+      setTimeout(() => {
+        navigate(`/pods/${id}`);
+      }, 1500);
+      
+    } catch (err) {
+      console.error('❌ Error debriefing POD:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to debrief POD';
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      setSubmitting(false);
+      setDebriefProgress(0);
+    }
+  };
 
   const getStatusInfo = (status) => {
     const map = {
@@ -186,6 +275,12 @@ const DebriefPOD = () => {
     return map[status] || map.PENDING;
   };
 
+  // Get selected issues as array for display
+  const getSelectedIssues = () => {
+    if (!debriefData.issuesFound) return [];
+    return debriefData.issuesFound.split(',').map(s => s.trim()).filter(Boolean);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -195,7 +290,7 @@ const DebriefPOD = () => {
     );
   }
 
-  if (error) {
+  if (error && !pod) {
     return (
       <Box sx={{ p: 2 }}>
         <Alert severity="error" sx={{ fontSize: '0.8rem' }}>{error}</Alert>
@@ -212,6 +307,7 @@ const DebriefPOD = () => {
   }
 
   const statusInfo = getStatusInfo(pod.status);
+  const selectedIssues = getSelectedIssues();
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
@@ -235,7 +331,8 @@ const DebriefPOD = () => {
         </Button>
       </Box>
 
-      {(submitting) && (
+      {/* Progress Bar */}
+      {submitting && (
         <Box sx={{ mb: 2 }}>
           <LinearProgress 
             variant="determinate" 
@@ -322,7 +419,7 @@ const DebriefPOD = () => {
 
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small">
+                  <FormControl fullWidth size="small" error={!!formErrors.status}>
                     <InputLabel sx={{ fontSize: '0.75rem' }}>Outcome Status *</InputLabel>
                     <Select
                       name="status"
@@ -330,7 +427,6 @@ const DebriefPOD = () => {
                       label="Outcome Status *"
                       onChange={handleChange}
                       sx={{ fontSize: '0.8rem' }}
-                      error={!!formErrors.status}
                     >
                       {STATUS_OPTIONS.map(option => (
                         <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
@@ -397,7 +493,7 @@ const DebriefPOD = () => {
                     </Typography>
                     <Rating
                       name="qualityRating"
-                      value={debriefData.qualityRating}
+                      value={parseInt(debriefData.qualityRating) || 3}
                       onChange={handleRatingChange}
                       size="small"
                     />
@@ -410,23 +506,31 @@ const DebriefPOD = () => {
                       Issues Found
                     </Typography>
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                      {['Missing Signature', 'Illegible', 'Incomplete', 'Wrong Customer', 'Damaged', 'Late Delivery'].map(issue => (
-                        <Chip
-                          key={issue}
-                          label={issue}
-                          size="small"
-                          onClick={() => toggleIssue(issue)}
-                          color={debriefData.issuesFound?.includes(issue) ? 'error' : 'default'}
-                          variant={debriefData.issuesFound?.includes(issue) ? 'filled' : 'outlined'}
-                          sx={{ 
-                            fontSize: '0.6rem', 
-                            height: 22,
-                            mb: 0.5,
-                            cursor: 'pointer'
-                          }}
-                        />
-                      ))}
+                      {ISSUES_OPTIONS.map(issue => {
+                        const isSelected = selectedIssues.includes(issue);
+                        return (
+                          <Chip
+                            key={issue}
+                            label={issue}
+                            size="small"
+                            onClick={() => handleIssueToggle(issue)}
+                            color={isSelected ? 'error' : 'default'}
+                            variant={isSelected ? 'filled' : 'outlined'}
+                            sx={{ 
+                              fontSize: '0.6rem', 
+                              height: 22,
+                              mb: 0.5,
+                              cursor: 'pointer'
+                            }}
+                          />
+                        );
+                      })}
                     </Stack>
+                    {selectedIssues.length > 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mt: 1 }}>
+                        Selected: {selectedIssues.join(', ')}
+                      </Typography>
+                    )}
                   </Box>
                 </Grid>
 
@@ -441,7 +545,7 @@ const DebriefPOD = () => {
                     onChange={handleChange}
                     size="small"
                     placeholder="Add debrief notes, observations, and conclusion..."
-                    required={debriefData.status === 'REJECTED'}
+                    required
                     error={!!formErrors.debriefNotes}
                     helperText={formErrors.debriefNotes || 'Provide detailed notes for the debrief'}
                     sx={{
@@ -470,6 +574,22 @@ const DebriefPOD = () => {
                 </Grid>
 
                 <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Signature (Optional)"
+                    name="signature"
+                    value={debriefData.signature}
+                    onChange={handleChange}
+                    size="small"
+                    placeholder="Digital signature or name"
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
                   <Divider sx={{ my: 1.5 }} />
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 1 }}>
                     <Button
@@ -489,7 +609,7 @@ const DebriefPOD = () => {
                     <Button
                       variant="outlined"
                       size="medium"
-                      onClick={() => navigate('/pods')}
+                      onClick={() => navigate(`/pods/${id}`)}
                       disabled={submitting}
                       sx={{ 
                         fontSize: '0.8rem',
@@ -568,11 +688,19 @@ const DebriefPOD = () => {
                     sx={{ fontSize: '0.6rem', height: 20 }}
                   />
                 )}
-                {debriefData.issuesFound?.length > 0 && (
+                {selectedIssues.length > 0 && (
                   <Chip 
-                    label={`⚠ ${debriefData.issuesFound.length} issues found`} 
+                    label={`⚠ ${selectedIssues.length} issues found`} 
                     size="small" 
                     color="warning"
+                    sx={{ fontSize: '0.6rem', height: 20 }}
+                  />
+                )}
+                {debriefData.debriefNotes && (
+                  <Chip 
+                    label="📝 Notes added" 
+                    size="small" 
+                    color="info"
                     sx={{ fontSize: '0.6rem', height: 20 }}
                   />
                 )}
@@ -581,6 +709,18 @@ const DebriefPOD = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
