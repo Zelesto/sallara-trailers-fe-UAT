@@ -119,17 +119,24 @@ const PODForm = () => {
   };
 
   const handleTripSelect = (event, value) => {
-    if (value) {
-      setFormData(prev => ({ 
-        ...prev, 
-        tripId: value.id,
-        customerName: value.customerName || prev.customerName,
-      }));
-      if (formErrors.tripId) {
-        setFormErrors(prev => ({ ...prev, tripId: '' }));
-      }
+  if (value) {
+    const tripId = value.id;
+    console.log('🔄 Selected trip:', tripId);
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      tripId: tripId,  // Store the ID directly
+      customerName: value.customerName || prev.customerName,
+    }));
+    
+    if (formErrors.tripId) {
+      setFormErrors(prev => ({ ...prev, tripId: '' }));
     }
-  };
+  } else {
+    // Clear selection
+    setFormData(prev => ({ ...prev, tripId: '' }));
+  }
+};
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
