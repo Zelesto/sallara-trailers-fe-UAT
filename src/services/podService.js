@@ -9,40 +9,56 @@ export const podService = {
    * @returns {Promise<Object>} Created POD
    */
   createPod: async (podData, file = null) => {
-    try {
-      let response;
+  try {
+    let response;
+    
+    if (file) {
+      // Use FormData for file upload - send to /pods
+      const formData = new FormData();
       
-      if (file) {
-        // Use FormData for file upload - send to /pods
-        const formData = new FormData();
-        formData.append('podData', JSON.stringify(podData));
-        formData.append('file', file);
-        
-        response = await api.post('/pods', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-      } else {
-        // Send as JSON to /pods
-        response = await api.post('/pods', podData);
-      }
+      // CRITICAL FIX: Ensure tripId is included and properly formatted
+      const podDataToSend = {
+        tripId: podData.tripId ? parseInt(podData.tripId, 10) : null,
+        customerName: podData.customerName || 'Adhoc Customer',
+        deliveryDate: podData.deliveryDate || new Date().toISOString().split('T')[0],
+        status: podData.status || 'PENDING',
+        notes: podData.notes || '',
+        documentType: podData.documentType || 'PDF',
+      };
       
-      console.log('✅ POD created successfully:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Error creating POD:', error);
+      // Log the data being sent for debugging
+      console.log('📤 Sending podData:', JSON.stringify(podDataToSend));
+      console.log('📤 Sending file:', file ? file.name : 'No file');
       
-      if (error.status === 409) {
-        const errorMessage = error.data?.detail || 'The selected Trip does not exist or has already been finalized.';
-        throw {
-          ...error,
-          message: errorMessage,
-          userMessage: errorMessage
-        };
-      }
+      // Convert to JSON string and append
+      formData.append('podData', JSON.stringify(podDataToSend));
+      formData.append('file', file);
       
-      throw error;
+      response = await api.post('/pods', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    } else {
+      // Send as JSON to /pods
+      response = await api.post('/pods', podData);
     }
-  },
+    
+    console.log('✅ POD created successfully:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ Error creating POD:', error);
+    
+    if (error.status === 409) {
+      const errorMessage = error.data?.detail || 'The selected Trip does not exist or has already been finalized.';
+      throw {
+        ...error,
+        message: errorMessage,
+        userMessage: errorMessage
+      };
+    }
+    
+    throw error;
+  }
+},
 
   /**
    * Scan POD from driver
