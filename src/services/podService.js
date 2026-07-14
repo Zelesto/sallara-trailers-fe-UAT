@@ -13,25 +13,27 @@ export const podService = {
     let response;
     
     if (file) {
-      // Use FormData for file upload - send to /pods
+      // Use FormData with individual fields
       const formData = new FormData();
       
-      // CRITICAL FIX: Ensure tripId is included and properly formatted
-      const podDataToSend = {
-        tripId: podData.tripId ? parseInt(podData.tripId, 10) : null,
+      // CRITICAL: Send each field individually, not as JSON
+      const tripIdValue = podData.tripId ? parseInt(podData.tripId, 10) : null;
+      
+      // Log the data being sent for debugging
+      console.log('📤 Sending podData fields:', {
+        tripId: tripIdValue,
         customerName: podData.customerName || 'Adhoc Customer',
         deliveryDate: podData.deliveryDate || new Date().toISOString().split('T')[0],
         status: podData.status || 'PENDING',
         notes: podData.notes || '',
-        documentType: podData.documentType || 'PDF',
-      };
+      });
       
-      // Log the data being sent for debugging
-      console.log('📤 Sending podData:', JSON.stringify(podDataToSend));
-      console.log('📤 Sending file:', file ? file.name : 'No file');
-      
-      // Convert to JSON string and append
-      formData.append('podData', JSON.stringify(podDataToSend));
+      // Append individual fields
+      formData.append('tripId', tripIdValue);
+      formData.append('customerName', podData.customerName || 'Adhoc Customer');
+      formData.append('deliveryDate', podData.deliveryDate || new Date().toISOString().split('T')[0]);
+      formData.append('status', podData.status || 'PENDING');
+      formData.append('notes', podData.notes || '');
       formData.append('file', file);
       
       response = await api.post('/pods', formData, {
@@ -46,16 +48,6 @@ export const podService = {
     return response;
   } catch (error) {
     console.error('❌ Error creating POD:', error);
-    
-    if (error.status === 409) {
-      const errorMessage = error.data?.detail || 'The selected Trip does not exist or has already been finalized.';
-      throw {
-        ...error,
-        message: errorMessage,
-        userMessage: errorMessage
-      };
-    }
-    
     throw error;
   }
 },
