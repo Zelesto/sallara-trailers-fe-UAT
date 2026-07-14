@@ -24,7 +24,9 @@ import {
   Divider,
   Autocomplete,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 
 import {
@@ -35,15 +37,15 @@ import {
   Description,
   LocationOn,
   SwapHoriz,
-  CheckCircle,
   Scale,
   AttachMoney,
   Comment,
   Assignment,
   Toll,
   Receipt,
-  Person as PersonIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  Warehouse as WarehouseIcon,
+  Route as RouteIcon
 } from '@mui/icons-material';
 
 import {
@@ -57,15 +59,14 @@ import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
 import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
+import { depotService } from '../services/depotService';
 
 /* ===================== Helpers ===================== */
 const formatDateForAPI = (date) => {
   if (!date) return null;
-  // If it's a dayjs object, use it directly
   if (dayjs.isDayjs(date)) {
     return date.format('YYYY-MM-DDTHH:mm:ss');
   }
-  // If it's a string or Date, convert to dayjs first
   return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
 };
 
@@ -114,7 +115,13 @@ const PROVINCES = [
   'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
 ];
 
-/* ===================== Address Component - Compact ===================== */
+const DEPARTURE_OPTIONS = [
+  { value: 'DEPOT', label: 'Depot' },
+  { value: 'LAST_DROP', label: 'Last Drop Off Location' },
+  { value: 'FREEHAND', label: 'Freehand / Custom Location' }
+];
+
+/* ===================== Address Component ===================== */
 function AddressSection({ label, address, onChange, errors = {}, disabled = false }) {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [loadingCity, setLoadingCity] = useState(false);
@@ -292,7 +299,110 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
   );
 }
 
-/* ===================== Main Component - Compact ===================== */
+/* ===================== Depot Selection Component ===================== */
+function DepotSection({ depots, selectedDepot, onDepotSelect, departureType, onDepartureTypeChange, onLocationChange, departureLocation }) {
+  return (
+    <Card variant="outlined" sx={{ mb: 1.5 }}>
+      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+          <WarehouseIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+          <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+            Depot & Departure
+          </Typography>
+        </Stack>
+
+        <Grid container spacing={1.5}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Departed From</InputLabel>
+              <Select
+                value={departureType}
+                label="Departed From"
+                onChange={(e) => onDepartureTypeChange(e.target.value)}
+                sx={{ fontSize: '0.75rem' }}
+              >
+                {DEPARTURE_OPTIONS.map(option => (
+                  <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {departureType === 'DEPOT' && (
+            <>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Select Depot</InputLabel>
+                  <Select
+                    value={selectedDepot?.id || ''}
+                    label="Select Depot"
+                    onChange={(e) => {
+                      const depot = depots.find(d => d.id === e.target.value);
+                      onDepotSelect(depot);
+                    }}
+                    sx={{ fontSize: '0.75rem' }}
+                  >
+                    <MenuItem value="" sx={{ fontSize: '0.75rem' }}>
+                      <em>Select depot</em>
+                    </MenuItem>
+                    {depots.map(depot => (
+                      <MenuItem key={depot.id} value={depot.id} sx={{ fontSize: '0.75rem' }}>
+                        {depot.name} ({depot.depotCode})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {selectedDepot && (
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Depot Address"
+                    value={selectedDepot.fullAddress || ''}
+                    size="small"
+                    disabled
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.75rem' }
+                    }}
+                  />
+                </Grid>
+              )}
+            </>
+          )}
+
+          {departureType === 'FREEHAND' && (
+            <Grid item xs={12} md={8}>
+              <TextField
+                fullWidth
+                label="Departure Location (Freehand)"
+                value={departureLocation || ''}
+                onChange={(e) => onLocationChange(e.target.value)}
+                size="small"
+                placeholder="Enter custom departure location..."
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
+            </Grid>
+          )}
+
+          {departureType === 'LAST_DROP' && (
+            <Grid item xs={12} md={8}>
+              <Alert severity="info" sx={{ fontSize: '0.75rem' }}>
+                Vehicle departs from the last drop-off location of the previous trip.
+                Distance will be calculated based on the previous trip's destination.
+              </Alert>
+            </Grid>
+          )}
+        </Grid>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ===================== Main Component ===================== */
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -300,9 +410,19 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [drivers, setDrivers] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [depots, setDepots] = useState([]);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [formErrors, setFormErrors] = useState({});
+
+  // Depot tracking state
+  const [departureType, setDepartureType] = useState('DEPOT');
+  const [selectedDepot, setSelectedDepot] = useState(null);
+  const [departureLocation, setDepartureLocation] = useState('');
+  const [fromDepotKm, setFromDepotKm] = useState('');
+  const [toDepotKm, setToDepotKm] = useState('');
+  const [isFromDepot, setIsFromDepot] = useState(false);
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
 
   const [origin, setOrigin] = useState({
     street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
@@ -349,15 +469,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setError(null);
 
     try {
-      const [vRes, dRes, cRes] = await Promise.all([
+      const [vRes, dRes, cRes, depotRes] = await Promise.all([
         vehicleService.getAllVehicles().catch(() => []),
         driverService.getAllDrivers().catch(() => []),
-        customerService.getActiveCustomers().catch(() => [])
+        customerService.getActiveCustomers().catch(() => []),
+        depotService.getAllDepots().catch(() => [])
       ]);
 
       setVehicles(filterActiveVehicles(vRes));
       setDrivers(filterAvailableDrivers(dRes));
       setCustomers(Array.isArray(cRes) ? cRes : (cRes?.content || []));
+      setDepots(Array.isArray(depotRes) ? depotRes : (depotRes?.content || []));
 
       try {
         const usersResponse = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN');
@@ -378,12 +500,80 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, []);
 
+  // Calculate distance from depot to origin
+  const calculateDistanceFromDepot = useCallback(async () => {
+    if (!selectedDepot || !origin.city) {
+      setFromDepotKm('');
+      return;
+    }
+
+    if (selectedDepot.latitude && selectedDepot.longitude) {
+      const originAddress = [origin.street, origin.city, origin.province].filter(Boolean).join(', ');
+      try {
+        setCalculatingDistance(true);
+        const result = await routingService.calculateDistance(
+          `${selectedDepot.latitude},${selectedDepot.longitude}`,
+          originAddress
+        );
+        if (result && result.distance) {
+          setFromDepotKm(result.distance.toFixed(1));
+        }
+      } catch (error) {
+        console.error('Failed to calculate depot distance:', error);
+        setFromDepotKm('');
+      } finally {
+        setCalculatingDistance(false);
+      }
+    }
+  }, [selectedDepot, origin]);
+
+  // Calculate distance from destination to depot
+  const calculateDistanceToDepot = useCallback(async () => {
+    if (!selectedDepot || !destination.city) {
+      setToDepotKm('');
+      return;
+    }
+
+    if (selectedDepot.latitude && selectedDepot.longitude) {
+      const destAddress = [destination.street, destination.city, destination.province].filter(Boolean).join(', ');
+      try {
+        setCalculatingDistance(true);
+        const result = await routingService.calculateDistance(
+          destAddress,
+          `${selectedDepot.latitude},${selectedDepot.longitude}`
+        );
+        if (result && result.distance) {
+          setToDepotKm(result.distance.toFixed(1));
+        }
+      } catch (error) {
+        console.error('Failed to calculate depot distance:', error);
+        setToDepotKm('');
+      } finally {
+        setCalculatingDistance(false);
+      }
+    }
+  }, [selectedDepot, destination]);
+
+  // Recalculate distances when origin/destination changes
+  useEffect(() => {
+    if (departureType === 'DEPOT' && selectedDepot) {
+      calculateDistanceFromDepot();
+      calculateDistanceToDepot();
+    }
+  }, [origin, destination, selectedDepot, departureType, calculateDistanceFromDepot, calculateDistanceToDepot]);
+
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       const timer = setTimeout(() => {
         setOrigin({ street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null });
         setDestination({ street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null });
+        setDepartureType('DEPOT');
+        setSelectedDepot(null);
+        setDepartureLocation('');
+        setFromDepotKm('');
+        setToDepotKm('');
+        setIsFromDepot(false);
         setForm({
           tripType: 'FREIGHT',
           status: 'PLANNED',
@@ -438,7 +628,26 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         driverId: initialData.driverId || '',
         supervisorId: initialData.supervisorId || '',
         customerId: initialData.customerId || '',
+        referenceNumber: initialData.referenceNumber || '',
       }));
+
+      // Populate depot data if available
+      if (initialData.departedFrom) {
+        setDepartureType(initialData.departedFrom);
+      }
+      if (initialData.departureLocation) {
+        setDepartureLocation(initialData.departureLocation);
+      }
+      if (initialData.fromDepotKm) {
+        setFromDepotKm(initialData.fromDepotKm);
+      }
+      if (initialData.toDepotKm) {
+        setToDepotKm(initialData.toDepotKm);
+      }
+      if (initialData.isFromDepot !== undefined) {
+        setIsFromDepot(initialData.isFromDepot);
+      }
+
       if (initialData.originLocation) {
         setOrigin(prev => ({
           ...prev,
@@ -501,18 +710,35 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   };
 
- const handleDateTimeChange = (field, value) => {
-  // value is a dayjs object from the DateTimePicker
-  setForm(prev => ({ ...prev, [field]: value }));
-  if (formErrors[field]) {
-    setFormErrors(prev => ({ ...prev, [field]: '' }));
-  }
-};
+  const handleDateTimeChange = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
 
   const handleSwapLocations = () => {
     const temp = origin;
     setOrigin(destination);
     setDestination(temp);
+  };
+
+  const handleDepartureTypeChange = (value) => {
+    setDepartureType(value);
+    if (value !== 'DEPOT') {
+      setSelectedDepot(null);
+      setFromDepotKm('');
+      setToDepotKm('');
+    }
+  };
+
+  const handleDepotSelect = (depot) => {
+    setSelectedDepot(depot);
+    if (depot) {
+      // Reset distances to trigger recalculation
+      setFromDepotKm('');
+      setToDepotKm('');
+    }
   };
 
   // Submit
@@ -576,6 +802,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         destinationLongitude: destination.longitude || null,
         destinationLocation: destAddress || null,
 
+        // Depot tracking fields
+        fromDepotKm: fromDepotKm ? parseFloat(fromDepotKm) : null,
+        toDepotKm: toDepotKm ? parseFloat(toDepotKm) : null,
+        departedFrom: departureType,
+        departureLocation: departureType === 'FREEHAND' ? departureLocation : null,
+        isFromDepot: isFromDepot,
+
         notes: form.notes || null,
         specialInstructions: form.specialInstructions || null,
         driverNotes: form.driverNotes || null,
@@ -585,7 +818,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       };
 
       Object.keys(payload).forEach(key => {
-        if (payload[key] === undefined || payload[key] === null) {
+        if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
           delete payload[key];
         }
       });
@@ -626,7 +859,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     } finally {
       setSubmitting(false);
     }
-  }, [form, origin, destination, validateForm, onSuccess, onClose, fetchTrips, submitting, mode, initialData]);
+  }, [form, origin, destination, fromDepotKm, toDepotKm, departureType, departureLocation, isFromDepot, validateForm, onSuccess, onClose, fetchTrips, submitting, mode, initialData]);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -668,7 +901,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
           {!loading && (
             <Stack spacing={2}>
-              {/* Trip Type & Priority - Compact */}
+              {/* Trip Type & Priority */}
               <Grid container spacing={1.5}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small">
@@ -709,7 +942,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Grid>
               </Grid>
 
-              {/* Customer Selection - NEW */}
+              {/* Customer Selection */}
               <Card variant="outlined">
                 <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
@@ -769,7 +1002,90 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 />
               </Box>
 
-              {/* Schedule - Compact */}
+              {/* Depot & Departure */}
+              <DepotSection
+                depots={depots}
+                selectedDepot={selectedDepot}
+                onDepotSelect={handleDepotSelect}
+                departureType={departureType}
+                onDepartureTypeChange={handleDepartureTypeChange}
+                departureLocation={departureLocation}
+                onLocationChange={setDepartureLocation}
+              />
+
+              {/* Depot Distance Fields */}
+              <Card variant="outlined">
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+                    <RouteIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                      Depot Distances
+                    </Typography>
+                    {calculatingDistance && <CircularProgress size={16} />}
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="From Depot (km)"
+                        type="number"
+                        value={fromDepotKm}
+                        onChange={(e) => setFromDepotKm(e.target.value)}
+                        size="small"
+                        disabled={departureType === 'DEPOT'}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>
+                              km
+                            </InputAdornment>
+                          )
+                        }}
+                        helperText={departureType === 'DEPOT' && selectedDepot ? 'Auto-calculated from depot to pickup' : 'Manual entry'}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="To Depot (km)"
+                        type="number"
+                        value={toDepotKm}
+                        onChange={(e) => setToDepotKm(e.target.value)}
+                        size="small"
+                        disabled={departureType === 'DEPOT'}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>
+                              km
+                            </InputAdornment>
+                          )
+                        }}
+                        helperText={departureType === 'DEPOT' && selectedDepot ? 'Auto-calculated from drop-off to depot' : 'Manual entry'}
+                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={isFromDepot}
+                            onChange={(e) => setIsFromDepot(e.target.checked)}
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                            Vehicle left from depot to pickup point
+                          </Typography>
+                        }
+                      />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+
+              {/* Schedule */}
               <Card variant="outlined">
                 <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Stack direction="row" spacing={0.75} mb={1.5}>
@@ -782,36 +1098,36 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   <Grid container spacing={1.5}>
                     <Grid item xs={12} md={6}>
                       <DateTimePicker
-  label="Planned Start Date & Time *"
-  value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
-  onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
-  slotProps={{
-    textField: {
-      fullWidth: true,
-      size: 'small',
-      required: true,
-      error: !!formErrors.plannedStartDate,
-      helperText: formErrors.plannedStartDate,
-      sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
-    }
-  }}
-/>
+                        label="Planned Start Date & Time *"
+                        value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
+                        onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: 'small',
+                            required: true,
+                            error: !!formErrors.plannedStartDate,
+                            helperText: formErrors.plannedStartDate,
+                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                          }
+                        }}
+                      />
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <DateTimePicker
-  label="Planned End Date & Time"
-  value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
-  onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
-  slotProps={{
-    textField: {
-      fullWidth: true,
-      size: 'small',
-      error: !!formErrors.plannedEndDate,
-      helperText: formErrors.plannedEndDate,
-      sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
-    }
-  }}
-/>
+                        label="Planned End Date & Time"
+                        value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
+                        onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: 'small',
+                            error: !!formErrors.plannedEndDate,
+                            helperText: formErrors.plannedEndDate,
+                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                          }
+                        }}
+                      />
                     </Grid>
                     <Grid item xs={12} md={4}>
                       <TextField
@@ -859,7 +1175,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </CardContent>
               </Card>
 
-              {/* Assignment - Compact */}
+              {/* Assignment */}
               <Card variant="outlined">
                 <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Stack direction="row" spacing={0.75} mb={1.5}>
@@ -930,7 +1246,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </CardContent>
               </Card>
 
-              {/* Commodity & Cargo - Compact */}
+              {/* Commodity & Cargo */}
               <Card variant="outlined">
                 <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Stack direction="row" spacing={0.75} mb={1.5}>
@@ -1015,7 +1331,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </CardContent>
               </Card>
 
-              {/* Financial Estimates - Compact */}
+              {/* Financial Estimates */}
               <Card variant="outlined">
                 <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Stack direction="row" spacing={0.75} mb={1.5}>
@@ -1058,7 +1374,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </CardContent>
               </Card>
 
-              {/* Notes - Compact */}
+              {/* Notes */}
               <Card variant="outlined">
                 <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Stack direction="row" spacing={0.75} mb={1.5}>
@@ -1117,7 +1433,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </CardContent>
               </Card>
 
-              {/* Status - Compact */}
+              {/* Status */}
               <Card variant="outlined">
                 <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Stack direction="row" spacing={0.75} mb={1.5}>
