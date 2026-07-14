@@ -66,13 +66,14 @@ const DebriefPOD = () => {
   const [debriefProgress, setDebriefProgress] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // CRITICAL: issuesFound must be a string, NOT an array
   const [debriefData, setDebriefData] = useState({
     status: 'DELIVERED',
     notes: '',
     receivedBy: '',
     signature: '',
     qualityRating: 4,
-    issuesFound: '', // Changed from array to string
+    issuesFound: 'No Issues', // Default to "No Issues"
     additionalInfo: '',
     deliveryCondition: 'Good',
     debriefNotes: '',
@@ -96,6 +97,8 @@ const DebriefPOD = () => {
         notes: data.notes || '',
         receivedBy: data.receivedBy || data.uploadedBy || '',
         debriefedBy: data.uploadedBy || '',
+        // Keep issuesFound as "No Issues" by default
+        issuesFound: prev.issuesFound || 'No Issues',
       }));
       
       setError('');
@@ -121,10 +124,16 @@ const DebriefPOD = () => {
 
   const handleIssueToggle = (issue) => {
     setDebriefData(prev => {
-      // Get current issues as array
-      const currentIssues = prev.issuesFound 
-        ? prev.issuesFound.split(',').map(s => s.trim()).filter(Boolean)
-        : [];
+      // Get current issues as array from the string
+      let currentIssues = [];
+      if (prev.issuesFound && typeof prev.issuesFound === 'string') {
+        // If it's "No Issues", start with empty array
+        if (prev.issuesFound === 'No Issues') {
+          currentIssues = [];
+        } else {
+          currentIssues = prev.issuesFound.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
       
       // Toggle the issue
       const index = currentIssues.indexOf(issue);
@@ -134,20 +143,21 @@ const DebriefPOD = () => {
         currentIssues.push(issue);
       }
       
-      // Convert back to string
+      // Convert back to comma-separated string or "No Issues"
+      let newIssuesString;
+      if (currentIssues.length === 0) {
+        newIssuesString = 'No Issues';
+      } else {
+        newIssuesString = currentIssues.join(', ');
+      }
+      
+      console.log('📤 Updated issues string:', newIssuesString);
+      
       return { 
         ...prev, 
-        issuesFound: currentIssues.length > 0 ? currentIssues.join(', ') : ''
+        issuesFound: newIssuesString
       };
     });
-  };
-
-  const handleIssuesChange = (e) => {
-    const value = e.target.value;
-    setDebriefData(prev => ({ ...prev, issuesFound: value }));
-    if (formErrors.issuesFound) {
-      setFormErrors(prev => ({ ...prev, issuesFound: '' }));
-    }
   };
 
   const getCurrentUser = () => {
@@ -192,69 +202,88 @@ const DebriefPOD = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setSubmitting(true);
-  setError('');
-  setSuccess('');
-  setDebriefProgress(0);
-
-  if (!validateForm()) {
-    setSubmitting(false);
-    showSnackbar('Please fix the validation errors', 'error');
-    return;
-  }
-
-  try {
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setDebriefProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(progressInterval);
-          return 90;
-        }
-        return prev + 10;
-      });
-    }, 300);
-
-    // Build the payload - let the service handle sanitization
-    const payload = {
-      status: debriefData.status || 'DELIVERED',
-      notes: debriefData.notes || '',
-      receivedBy: debriefData.receivedBy || getCurrentUser(),
-      signature: debriefData.signature || '',
-      qualityRating: parseInt(debriefData.qualityRating) || 3,
-      issuesFound: debriefData.issuesFound || '', // Send as is, service will sanitize
-      additionalInfo: debriefData.additionalInfo || 'N/A',
-      deliveryCondition: debriefData.deliveryCondition || 'Good',
-      debriefNotes: debriefData.debriefNotes || 'No Endorsements',
-      debriefedBy: debriefData.debriefedBy || getCurrentUser()
-    };
-
-    console.log('📤 Sending debrief payload:', payload);
-
-    const response = await podService.debriefPOD(id, payload);
-    
-    clearInterval(progressInterval);
-    setDebriefProgress(100);
-    
-    console.log('✅ POD debriefed:', response);
-    setSuccess('POD debriefed successfully!');
-    showSnackbar('POD debriefed successfully!', 'success');
-    
-    setTimeout(() => {
-      navigate(`/pods/${id}`);
-    }, 1500);
-    
-  } catch (err) {
-    console.error('❌ Error debriefing POD:', err);
-    const errorMessage = err.response?.data?.message || err.message || 'Failed to debrief POD';
-    setError(errorMessage);
-    showSnackbar(errorMessage, 'error');
-  } finally {
-    setSubmitting(false);
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
     setDebriefProgress(0);
-  }
-};
+
+    if (!validateForm()) {
+      setSubmitting(false);
+      showSnackbar('Please fix the validation errors', 'error');
+      return;
+    }
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setDebriefProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
+      // CRITICAL: Ensure issuesFound is a string with default "No Issues"
+      let issuesString = debriefData.issuesFound;
+      
+      // If it's an array (just in case), join it
+      if (Array.isArray(issuesString)) {
+        issuesString = issuesString.filter(Boolean).join(', ');
+      }
+      
+      // If it's null/undefined/empty/whitespace, set to "No Issues"
+      if (!issuesString || typeof issuesString !== 'string' || !issuesString.trim()) {
+        issuesString = 'No Issues';
+      }
+      
+      // Trim the string
+      issuesString = issuesString.trim();
+
+      // Build the payload with issuesFound as a string
+      const payload = {
+        status: debriefData.status || 'DELIVERED',
+        notes: debriefData.notes || '',
+        receivedBy: debriefData.receivedBy || getCurrentUser(),
+        signature: debriefData.signature || '',
+        qualityRating: parseInt(debriefData.qualityRating) || 3,
+        issuesFound: issuesString, // THIS MUST BE A STRING - defaults to "No Issues"
+        additionalInfo: debriefData.additionalInfo || 'N/A',
+        deliveryCondition: debriefData.deliveryCondition || 'Good',
+        debriefNotes: debriefData.debriefNotes || 'No Endorsements',
+        debriefedBy: debriefData.debriefedBy || getCurrentUser()
+      };
+
+      console.log('📤 Debrief payload being sent:', JSON.stringify(payload, null, 2));
+      console.log('📤 issuesFound type:', typeof payload.issuesFound);
+      console.log('📤 issuesFound value:', payload.issuesFound);
+
+      const response = await podService.debriefPOD(id, payload);
+      
+      clearInterval(progressInterval);
+      setDebriefProgress(100);
+      
+      console.log('✅ POD debriefed:', response);
+      setSuccess('POD debriefed successfully!');
+      showSnackbar('POD debriefed successfully!', 'success');
+      
+      setTimeout(() => {
+        navigate(`/pods/${id}`);
+      }, 1500);
+      
+    } catch (err) {
+      console.error('❌ Error debriefing POD:', err);
+      console.error('❌ Error response:', err.response?.data);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to debrief POD';
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      setSubmitting(false);
+      setDebriefProgress(0);
+    }
+  };
 
   const getStatusInfo = (status) => {
     const map = {
@@ -268,7 +297,9 @@ const DebriefPOD = () => {
 
   // Get selected issues as array for display
   const getSelectedIssues = () => {
-    if (!debriefData.issuesFound) return [];
+    if (!debriefData.issuesFound || debriefData.issuesFound === 'No Issues') {
+      return [];
+    }
     return debriefData.issuesFound.split(',').map(s => s.trim()).filter(Boolean);
   };
 
@@ -494,7 +525,7 @@ const DebriefPOD = () => {
                 <Grid item xs={12}>
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                      Issues Found
+                      Issues Found (Default: "No Issues")
                     </Typography>
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
                       {ISSUES_OPTIONS.map(issue => {
@@ -517,9 +548,9 @@ const DebriefPOD = () => {
                         );
                       })}
                     </Stack>
-                    {selectedIssues.length > 0 && (
+                    {debriefData.issuesFound && (
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mt: 1 }}>
-                        Selected: {selectedIssues.join(', ')}
+                        Selected: {debriefData.issuesFound}
                       </Typography>
                     )}
                   </Box>
@@ -687,7 +718,7 @@ const DebriefPOD = () => {
                     sx={{ fontSize: '0.6rem', height: 20 }}
                   />
                 )}
-                {debriefData.debriefNotes && (
+                {debriefData.debriefNotes && debriefData.debriefNotes !== 'No Endorsements' && (
                   <Chip 
                     label="📝 Notes added" 
                     size="small" 
