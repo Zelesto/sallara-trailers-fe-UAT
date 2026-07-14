@@ -196,7 +196,7 @@ const PODForm = () => {
 
   setSubmitting(true);
   try {
-    // CRITICAL FIX: Ensure tripId is sent as a number
+    // CRITICAL: Ensure tripId is sent as a number
     const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
     
     // Validate tripId is not null
@@ -207,23 +207,22 @@ const PODForm = () => {
     }
 
     const podData = {
-      tripId: tripIdValue,  // Send as number, not string
+      tripId: tripIdValue,
       customerName: formData.customerName || 'Adhoc Customer',
       deliveryDate: formData.deliveryDate || new Date().toISOString().split('T')[0],
       status: formData.status || 'PENDING',
       notes: formData.notes || '',
-      documentType: formData.documentType || 'PDF',
     };
 
-    console.log('📤 Submitting POD data:', podData);
+    console.log('📤 Submitting POD data with tripId:', podData.tripId);
 
     let result;
     if (isEditMode) {
       result = await podService.updatePod(id, podData);
       setSuccess('POD updated successfully!');
     } else {
-      // Pass file as second parameter
-      result = await podService.createPod(podData, file);
+      // Use the updated createPod method with individual fields
+      result = await podService.createPodWithFields(podData, file);
       setSuccess('POD created successfully!');
     }
 
@@ -234,17 +233,7 @@ const PODForm = () => {
     }, 1500);
   } catch (err) {
     console.error('Error saving POD:', err);
-    
-    let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
-    if (err.status === 409) {
-      errorMessage = 'The selected Trip does not exist or has already been finalized. Please select a valid trip.';
-    } else if (err.data?.detail) {
-      errorMessage = err.data.detail;
-    } else if (err.response?.data?.message) {
-      errorMessage = err.response.data.message;
-    }
-    
-    setError(errorMessage);
+    setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`);
   } finally {
     setSubmitting(false);
   }
