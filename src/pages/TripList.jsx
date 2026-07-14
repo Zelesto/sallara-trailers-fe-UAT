@@ -203,7 +203,7 @@ function TripList() {
   );
 
   /* ============================================================
-     FETCH TRIPS
+     FETCH TRIPS - SORT BY CREATED DATE DESC (NEWEST FIRST)
   ============================================================ */
 
   const fetchTrips = useCallback(async ({
@@ -224,11 +224,17 @@ function TripList() {
         ...(status !== 'all' && { status }),
         ...(city && { city }),
         ...(customer && { customer }),
-        sortBy: 'id',
+        sortBy: 'createdAt',
         sortOrder: 'DESC'
       });
 
-      const sortedContent = (response.content || []).sort((a, b) => (b.id || 0) - (a.id || 0));
+      // Fallback sort by createdAt descending (newest first)
+      const sortedContent = (response.content || [])
+        .sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.id);
+          const dateB = new Date(b.createdAt || b.id);
+          return dateB - dateA;
+        });
 
       setTrips(sortedContent);
       setPagination({
@@ -252,14 +258,14 @@ function TripList() {
   // Initial load
   useEffect(() => {
     fetchTrips({ page: 0 });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced filters
   useEffect(() => {
     if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
     return () => clearTimeout(fetchTimerRef.current);
-  }, [searchText, statusFilter, cityFilter, customerFilter]);
+  }, [searchText, statusFilter, cityFilter, customerFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ============================================================
      ACTION HANDLERS
@@ -528,26 +534,31 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Table - Added Created Column */}
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              {[
-                'Trip Number', 'Customer', 'REF#', 'PO#', 'Vehicle', 'Driver',
-                'Status', 'Origin', 'Destination', 'Distance', 'Planned Start', 'Actions'
-              ].map(label => (
-                <TableCell key={label} sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>
-                  {label}
-                </TableCell>
-              ))}
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Trip Number</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Customer</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>REF#</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>PO#</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Vehicle</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Driver</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Origin</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Destination</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Distance</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Planned Start</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Created</TableCell>
+              <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
             {trips.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={13} align="center" sx={{ py: 2 }}>
                   <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                     {searchText || statusFilter !== 'all' || cityFilter || customerFilter
                       ? 'No trips match your filters'
@@ -679,10 +690,21 @@ function TripList() {
                       )}
                     </TableCell>
 
+                    {/* Planned Start - Date only */}
                     <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                      {trip.plannedStartDate ? dayjs(trip.plannedStartDate).format('MMM DD, HH:mm') : '-'}
+                      {trip.plannedStartDate 
+                        ? dayjs(trip.plannedStartDate).format('DD MMM YYYY')
+                        : '-'}
                     </TableCell>
 
+                    {/* Created - Date only */}
+                    <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                      {trip.createdAt 
+                        ? dayjs(trip.createdAt).format('DD MMM YYYY')
+                        : '-'}
+                    </TableCell>
+
+                    {/* Actions */}
                     <TableCell sx={{ py: 0.75 }}>
                       <Box display="flex" gap={0.25} flexWrap="wrap">
                         {display.canStart && (
