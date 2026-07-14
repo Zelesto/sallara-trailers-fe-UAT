@@ -131,49 +131,50 @@ const DebriefPOD = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!validateForm()) {
-      const firstErrorField = Object.keys(formErrors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.focus();
-      }
-      return;
-    }
-
     setSubmitting(true);
+    setError(null);
+    
     try {
-      // Simulate debrief processing
-      setDebriefProgress(20);
-      
-      const debriefPayload = {
-        ...debriefData,
-        debriefedAt: new Date().toISOString(),
-        debriefedBy: 'Current User',
-        podId: id,
-        previousStatus: pod?.status,
-      };
-
-      const result = await podService.debriefPOD(id, debriefPayload);
-      
-      setDebriefProgress(100);
-      setSuccess('POD debrief completed successfully!');
-      
-      console.log('POD debriefed:', result);
-
-      setTimeout(() => {
-        navigate('/pods');
-      }, 2000);
-    } catch (err) {
-      console.error('Error debriefing POD:', err);
-      setError(err.message || 'Failed to debrief POD');
+        // Convert issuesFound to string if it's an array
+        let issuesString = formData.issuesFound;
+        if (Array.isArray(issuesString)) {
+            // If it's an array, join with comma
+            issuesString = issuesString.filter(Boolean).join(', ');
+        }
+        // If it's null/undefined/empty, set to "None"
+        if (!issuesString || issuesString.trim() === '') {
+            issuesString = 'None';
+        }
+        
+        // Build the debrief payload with all fields as strings
+        const debriefData = {
+            status: formData.status || 'DELIVERED',
+            notes: formData.notes || '',
+            receivedBy: formData.receivedBy || getCurrentUser(),
+            signature: formData.signature || '',
+            qualityRating: formData.qualityRating || 3,
+            issuesFound: issuesString, // Send as string
+            additionalInfo: formData.additionalInfo || 'N/A',
+            deliveryCondition: formData.deliveryCondition || 'Good',
+            debriefNotes: formData.debriefNotes || 'No Endorsements',
+            debriefedBy: formData.debriefedBy || getCurrentUser()
+        };
+        
+        console.log('📤 Debriefing POD with data:', debriefData);
+        
+        const response = await podService.debriefPOD(podId, debriefData);
+        console.log('✅ POD debriefed:', response);
+        
+        toast.success('POD debriefed successfully!');
+        navigate(`/pods/${podId}`);
+    } catch (error) {
+        console.error('❌ Error debriefing POD:', error);
+        setError(error.message || 'Failed to debrief POD');
+        toast.error(error.message || 'Failed to debrief POD');
     } finally {
-      setSubmitting(false);
+        setSubmitting(false);
     }
-  };
+};
 
   const getStatusInfo = (status) => {
     const map = {
