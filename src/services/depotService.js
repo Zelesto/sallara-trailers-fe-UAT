@@ -5,9 +5,31 @@ export const depotService = {
   getAllDepots: async () => {
     try {
       const response = await api.get('/depots');
-      return response;
+      console.log('📦 Depot response:', response);
+      
+      // Handle different response formats
+      if (Array.isArray(response)) {
+        return response;
+      }
+      if (response?.content) {
+        return response.content;
+      }
+      if (response?.data) {
+        return Array.isArray(response.data) ? response.data : [];
+      }
+      return [];
     } catch (error) {
       console.error('Error fetching depots:', error);
+      return [];
+    }
+  },
+
+  getActiveDepots: async () => {
+    try {
+      const response = await api.get('/depots/active');
+      return Array.isArray(response) ? response : (response?.content || []);
+    } catch (error) {
+      console.error('Error fetching active depots:', error);
       return [];
     }
   },
@@ -18,6 +40,16 @@ export const depotService = {
       return response;
     } catch (error) {
       console.error('Error fetching depot:', error);
+      throw error;
+    }
+  },
+
+  getDepotByCode: async (depotCode) => {
+    try {
+      const response = await api.get(`/depots/code/${depotCode}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching depot by code:', error);
       throw error;
     }
   },
@@ -38,6 +70,16 @@ export const depotService = {
       return response;
     } catch (error) {
       console.error('Error updating depot:', error);
+      throw error;
+    }
+  },
+
+  toggleDepotStatus: async (id) => {
+    try {
+      const response = await api.patch(`/depots/${id}/toggle`);
+      return response;
+    } catch (error) {
+      console.error('Error toggling depot status:', error);
       throw error;
     }
   },
