@@ -169,61 +169,75 @@ const PODForm = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+  e.preventDefault();
+  setError('');
+  setSuccess('');
 
-    if (!validateForm()) {
-      const firstErrorField = Object.keys(formErrors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.focus();
-      }
+  if (!validateForm()) {
+    const firstErrorField = Object.keys(formErrors)[0];
+    const element = document.querySelector(`[name="${firstErrorField}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.focus();
+    }
+    return;
+  }
+
+  setSubmitting(true);
+  try {
+    // CRITICAL FIX: Ensure tripId is sent as a number
+    const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
+    
+    // Validate tripId is not null
+    if (!tripIdValue) {
+      setError('Please select a valid trip.');
+      setSubmitting(false);
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const podData = {
-        tripId: parseInt(formData.tripId, 10),
-        customerName: formData.customerName,
-        deliveryDate: formData.deliveryDate,
-        status: formData.status,
-        notes: formData.notes,
-        documentType: formData.documentType,
-        fileSize: formData.fileSize,
-      };
+    const podData = {
+      tripId: tripIdValue,  // Send as number, not string
+      customerName: formData.customerName || 'Adhoc Customer',
+      deliveryDate: formData.deliveryDate || new Date().toISOString().split('T')[0],
+      status: formData.status || 'PENDING',
+      notes: formData.notes || '',
+      documentType: formData.documentType || 'PDF',
+    };
 
-      let result;
-      if (isEditMode) {
-        result = await podService.updatePod(id, podData);
-        setSuccess('POD updated successfully!');
-      } else {
-        result = await podService.createPod(podData);
-        setSuccess('POD created successfully!');
-      }
+    console.log('📤 Submitting POD data:', podData);
 
-      console.log('POD saved:', result);
-
-      setTimeout(() => {
-        navigate('/pods');
-      }, 1500);
-    } catch (err) {
-      console.error('Error saving POD:', err);
-      
-      let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
-      if (err.status === 409) {
-        errorMessage = 'The selected Trip does not exist or has already been finalized. Please select a valid trip.';
-      } else if (err.data?.detail) {
-        errorMessage = err.data.detail;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setSubmitting(false);
+    let result;
+    if (isEditMode) {
+      result = await podService.updatePod(id, podData);
+      setSuccess('POD updated successfully!');
+    } else {
+      // Pass file as second parameter
+      result = await podService.createPod(podData, file);
+      setSuccess('POD created successfully!');
     }
-  };
+
+    console.log('POD saved:', result);
+
+    setTimeout(() => {
+      navigate('/pods');
+    }, 1500);
+  } catch (err) {
+    console.error('Error saving POD:', err);
+    
+    let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
+    if (err.status === 409) {
+      errorMessage = 'The selected Trip does not exist or has already been finalized. Please select a valid trip.';
+    } else if (err.data?.detail) {
+      errorMessage = err.data.detail;
+    } else if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    }
+    
+    setError(errorMessage);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // Filter trips for autocomplete
   const filteredTrips = trips.filter(trip => {
