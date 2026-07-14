@@ -639,6 +639,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   // Populate form with initial data when editing
   useEffect(() => {
     if (initialData && open) {
+      // Log initial data for debugging
+      console.log('🔍 Populating form with initial data:', initialData);
+      
       setForm(prev => ({
         ...prev,
         ...initialData,
@@ -755,7 +758,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   };
 
   /* ============================================================
-     FORM SUBMISSION
+     FORM SUBMISSION - FIXED FOR UPDATES
    ============================================================ */
 
   const handleSubmit = useCallback(async () => {
@@ -775,6 +778,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       const originAddress = buildAddress(origin);
       const destAddress = buildAddress(destination);
 
+      // Build payload - include all fields
       const payload = {
         tripType: form.tripType,
         status: form.status,
@@ -839,20 +843,33 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         }
       });
 
-      console.log('📤 Creating trip:', payload);
+      // Log what we're sending
+      console.log(`📤 ${mode === 'edit' ? 'Updating' : 'Creating'} trip:`, payload);
+      console.log(`📤 Mode: ${mode}, InitialData ID: ${initialData?.id}`);
 
       let result;
       if (mode === 'edit' && initialData?.id) {
+        // Use the update endpoint with the correct ID
+        console.log(`📤 Sending update to trip ID: ${initialData.id}`);
         result = await tripService.updateTrip(initialData.id, payload);
+        console.log('✅ Trip updated successfully:', result);
         setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
       } else {
         result = await tripService.createTrip(payload);
+        console.log('✅ Trip created successfully:', result);
         setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
       }
 
-      if (fetchTrips) await fetchTrips();
-      if (onSuccess) onSuccess(result);
+      // Refresh parent data
+      if (fetchTrips) {
+        console.log('🔄 Refreshing trip list...');
+        await fetchTrips();
+      }
+      if (onSuccess) {
+        onSuccess(result);
+      }
 
+      // Close after delay
       setTimeout(() => {
         if (onClose) onClose();
       }, 1500);
@@ -867,8 +884,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
       } else if (err.response?.status === 429) {
         errorMessage = 'Rate limit exceeded. Trip saved, coordinates will update later.';
-      } else {
-        errorMessage = err.response?.data?.message || err.message || errorMessage;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
 
       setError(errorMessage);
