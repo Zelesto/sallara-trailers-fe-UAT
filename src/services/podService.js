@@ -113,7 +113,7 @@ export const podService = {
     }
   },
 
- **
+ /**
  * Debrief POD - process and update status
  * @param {number|string} id - POD ID
  * @param {Object} debriefData - Debrief data
@@ -121,36 +121,53 @@ export const podService = {
  */
 debriefPOD: async (id, debriefData) => {
   try {
-    // CRITICAL: Sanitize the data before sending
-    const sanitizedData = { ...debriefData };
+    // Create a deep copy to avoid mutating the original
+    const sanitizedData = JSON.parse(JSON.stringify(debriefData));
     
-    // Ensure issuesFound is always a string
-    if (sanitizedData.issuesFound !== undefined && sanitizedData.issuesFound !== null) {
-      if (Array.isArray(sanitizedData.issuesFound)) {
-        // If it's an array, join with comma
-        const filtered = sanitizedData.issuesFound.filter(item => item && item.trim());
-        sanitizedData.issuesFound = filtered.length > 0 ? filtered.join(', ') : 'None';
-      } else if (typeof sanitizedData.issuesFound === 'string') {
+    // CRITICAL: Ensure issuesFound is always a string
+    const issues = sanitizedData.issuesFound;
+    
+    if (issues !== undefined && issues !== null) {
+      if (Array.isArray(issues)) {
+        // If it's an array, filter empty values and join with comma
+        const filtered = issues.filter(item => item && String(item).trim());
+        sanitizedData.issuesFound = filtered.length > 0 ? filtered.map(String).join(', ') : 'None';
+      } else if (typeof issues === 'string') {
         // If it's a string, trim and set default if empty
-        const trimmed = sanitizedData.issuesFound.trim();
+        const trimmed = issues.trim();
         sanitizedData.issuesFound = trimmed || 'None';
       } else {
-        // If it's anything else, convert to string
-        sanitizedData.issuesFound = String(sanitizedData.issuesFound) || 'None';
+        // If it's anything else (number, boolean, etc.), convert to string
+        sanitizedData.issuesFound = String(issues) || 'None';
       }
     } else {
       // If undefined or null, set default
       sanitizedData.issuesFound = 'None';
     }
     
-    // Ensure other fields have defaults
-    if (!sanitizedData.status) sanitizedData.status = 'DELIVERED';
-    if (!sanitizedData.receivedBy) sanitizedData.receivedBy = 'System';
-    if (!sanitizedData.qualityRating) sanitizedData.qualityRating = 3;
-    if (!sanitizedData.deliveryCondition) sanitizedData.deliveryCondition = 'Good';
-    if (!sanitizedData.debriefNotes) sanitizedData.debriefNotes = 'No Endorsements';
-    if (!sanitizedData.additionalInfo) sanitizedData.additionalInfo = 'N/A';
-    if (!sanitizedData.debriefedBy) sanitizedData.debriefedBy = 'System';
+    // Ensure all required fields have defaults
+    const defaults = {
+      status: 'DELIVERED',
+      receivedBy: 'System',
+      qualityRating: 3,
+      deliveryCondition: 'Good',
+      debriefNotes: 'No Endorsements',
+      additionalInfo: 'N/A',
+      debriefedBy: 'System',
+      notes: '',
+      signature: ''
+    };
+    
+    for (const [key, defaultValue] of Object.entries(defaults)) {
+      if (!sanitizedData[key] || (typeof sanitizedData[key] === 'string' && !sanitizedData[key].trim())) {
+        sanitizedData[key] = defaultValue;
+      }
+    }
+    
+    // Ensure qualityRating is a number
+    if (sanitizedData.qualityRating) {
+      sanitizedData.qualityRating = parseInt(sanitizedData.qualityRating) || 3;
+    }
     
     // Log the sanitized data for debugging
     console.log('📤 Sanitized debrief data:', JSON.stringify(sanitizedData, null, 2));
@@ -160,7 +177,13 @@ debriefPOD: async (id, debriefData) => {
     return response;
   } catch (error) {
     console.error(`❌ Error debriefing POD ${id}:`, error);
-    console.error('❌ Error response:', error.response?.data);
+    
+    // Log detailed error information
+    if (error.response) {
+      console.error('❌ Status:', error.response.status);
+      console.error('❌ Data:', error.response.data);
+    }
+    
     throw error;
   }
 },
