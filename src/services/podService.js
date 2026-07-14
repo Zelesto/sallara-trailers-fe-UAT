@@ -52,6 +52,39 @@ export const podService = {
   }
 },
 
+  createPodWithFields: async (podData, file) => {
+  try {
+    const formData = new FormData();
+    
+    // CRITICAL: Send each field individually
+    const tripIdValue = podData.tripId ? parseInt(podData.tripId, 10) : null;
+    
+    console.log('📤 Creating POD with fields:', {
+      tripId: tripIdValue,
+      customerName: podData.customerName,
+      deliveryDate: podData.deliveryDate,
+      file: file ? file.name : null
+    });
+    
+    formData.append('tripId', tripIdValue);
+    formData.append('customerName', podData.customerName || 'Adhoc Customer');
+    formData.append('deliveryDate', podData.deliveryDate || new Date().toISOString().split('T')[0]);
+    formData.append('status', podData.status || 'PENDING');
+    formData.append('notes', podData.notes || '');
+    formData.append('file', file);
+    
+    const response = await api.post('/pods', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    
+    console.log('✅ POD created successfully:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ Error creating POD:', error);
+    throw error;
+  }
+},
+
   /**
    * Scan POD from driver
    * @param {Object} scanData - Scan data including trip info and file
