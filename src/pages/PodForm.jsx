@@ -150,23 +150,27 @@ const PODForm = () => {
   };
 
   const validateForm = () => {
-    const errors = {};
-    if (!formData.tripId) {
-      errors.tripId = 'Please select a Trip';
-    }
-    if (!formData.customerName.trim()) {
-      errors.customerName = 'Customer Name is required';
-    }
-    if (!formData.deliveryDate) {
-      errors.deliveryDate = 'Delivery Date is required';
-    }
-    if (!isEditMode && !file) {
-      errors.file = 'Please upload a document';
-    }
+  const errors = {};
+  
+  // Validate tripId - must be a valid number
+  const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
+  if (!tripIdValue || tripIdValue <= 0) {
+    errors.tripId = 'Please select a valid Trip';
+  }
+  
+  if (!formData.customerName.trim()) {
+    errors.customerName = 'Customer Name is required';
+  }
+  if (!formData.deliveryDate) {
+    errors.deliveryDate = 'Delivery Date is required';
+  }
+  if (!isEditMode && !file) {
+    errors.file = 'Please upload a document';
+  }
 
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  setFormErrors(errors);
+  return Object.keys(errors).length === 0;
+};
 
   const handleSubmit = async (e) => {
   e.preventDefault();
