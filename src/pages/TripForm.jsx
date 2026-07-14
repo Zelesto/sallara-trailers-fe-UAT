@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+// src/pages/TripForm.jsx
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dayjs from 'dayjs';
 import {
   Dialog,
@@ -61,26 +62,9 @@ import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
 import { depotService } from '../services/depotService';
 
-/* ===================== Helpers ===================== */
-const formatDateForAPI = (date) => {
-  if (!date) return null;
-  if (dayjs.isDayjs(date)) {
-    return date.format('YYYY-MM-DDTHH:mm:ss');
-  }
-  return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
-};
-
-const filterActiveVehicles = (vehicles) =>
-  (vehicles || []).filter(v =>
-    ['ACTIVE', 'OPERATIONAL', 'AVAILABLE'].includes(v.status?.toUpperCase()) ||
-    v.available === true
-  );
-
-const filterAvailableDrivers = (drivers) =>
-  (drivers || []).filter(d =>
-    ['ACTIVE', 'AVAILABLE'].includes(d.status?.toUpperCase()) &&
-    d.licenseValid !== false
-  );
+/* ============================================================
+   CONSTANTS & CONFIGURATIONS
+   ============================================================ */
 
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Low', color: 'success' },
@@ -98,9 +82,7 @@ const APPROVAL_STATUS_OPTIONS = [
   'PENDING', 'APPROVED', 'REJECTED', 'UNDER_REVIEW'
 ];
 
-const TRIP_TYPE_OPTIONS = [
-  'FREIGHT', 'RETURN', 'EMPTY', 'MAINTENANCE'
-];
+const TRIP_TYPE_OPTIONS = ['FREIGHT', 'RETURN', 'EMPTY', 'MAINTENANCE'];
 
 const COMMODITY_OPTIONS = [
   'General Freight', 'Refrigerated Goods', 'Dangerous Goods',
@@ -121,7 +103,80 @@ const DEPARTURE_OPTIONS = [
   { value: 'FREEHAND', label: 'Freehand / Custom Location' }
 ];
 
-/* ===================== Address Component ===================== */
+const DEPOT_DISTANCE_HELPERS = {
+  DEPOT: 'Auto-calculated from depot to pickup',
+  LAST_DROP: 'Calculated from previous trip\'s destination',
+  FREEHAND: 'Manual entry'
+};
+
+/* ============================================================
+   HELPER FUNCTIONS
+   ============================================================ */
+
+const formatDateForAPI = (date) => {
+  if (!date) return null;
+  if (dayjs.isDayjs(date)) return date.format('YYYY-MM-DDTHH:mm:ss');
+  return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
+};
+
+const filterActiveVehicles = (vehicles) =>
+  (vehicles || []).filter(v =>
+    ['ACTIVE', 'OPERATIONAL', 'AVAILABLE'].includes(v.status?.toUpperCase()) ||
+    v.available === true
+  );
+
+const filterAvailableDrivers = (drivers) =>
+  (drivers || []).filter(d =>
+    ['ACTIVE', 'AVAILABLE'].includes(d.status?.toUpperCase()) &&
+    d.licenseValid !== false
+  );
+
+const buildAddress = (address) => {
+  const parts = [address.street, address.city, address.zipCode, address.province]
+    .filter(Boolean);
+  return parts.join(', ');
+};
+
+const getDefaultFormState = () => ({
+  tripType: 'FREIGHT',
+  status: 'PLANNED',
+  approvalStatus: 'PENDING',
+  priority: 'MEDIUM',
+  commodityType: '',
+  cargoDescription: '',
+  cargoWeight: '',
+  cargoValue: '',
+  palletCount: '',
+  containerNumber: '',
+  plannedStartDate: null,
+  plannedEndDate: null,
+  estimatedDuration: '',
+  plannedDistanceKm: '',
+  plannedDurationHours: '',
+  vehicleId: '',
+  driverId: '',
+  supervisorId: '',
+  customerId: '',
+  loadId: '',
+  notes: '',
+  specialInstructions: '',
+  driverNotes: '',
+  referenceNumber: '',
+  purchaseOrderNumber: '',
+  estimatedTollCost: '',
+  estimatedOtherExpenses: '',
+  cancellationReason: '',
+  departureLocation: '',
+});
+
+const getDefaultAddress = () => ({
+  street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
+});
+
+/* ============================================================
+   COMPONENT: AddressSection
+   ============================================================ */
+
 function AddressSection({ label, address, onChange, errors = {}, disabled = false }) {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [loadingCity, setLoadingCity] = useState(false);
@@ -219,7 +274,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
               renderOption={(props, option) => (
                 <li {...props}>
                   <Box>
-                    <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{option.city}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>{option.city}</Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                       {option.province}
                       {option.zipCode && ` • ${option.zipCode}`}
@@ -299,8 +354,19 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
   );
 }
 
-/* ===================== Depot Selection Component ===================== */
-function DepotSection({ depots, selectedDepot, onDepotSelect, departureType, onDepartureTypeChange, onLocationChange, departureLocation }) {
+/* ============================================================
+   COMPONENT: DepotSection
+   ============================================================ */
+
+function DepotSection({ 
+  depots, 
+  selectedDepot, 
+  onDepotSelect, 
+  departureType, 
+  onDepartureTypeChange, 
+  departureLocation,
+  onLocationChange 
+}) {
   return (
     <Card variant="outlined" sx={{ mb: 1.5 }}>
       <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -402,68 +468,45 @@ function DepotSection({ depots, selectedDepot, onDepotSelect, departureType, onD
   );
 }
 
-/* ===================== Main Component ===================== */
+/* ============================================================
+   MAIN COMPONENT: TripForm
+   ============================================================ */
+
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
+  // Loading States
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  // Data States
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [depots, setDepots] = useState([]);
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-  const [formErrors, setFormErrors] = useState({});
 
-  // Depot tracking state
+  // Address States
+  const [origin, setOrigin] = useState(getDefaultAddress);
+  const [destination, setDestination] = useState(getDefaultAddress);
+
+  // Depot Tracking States
   const [departureType, setDepartureType] = useState('DEPOT');
   const [selectedDepot, setSelectedDepot] = useState(null);
   const [departureLocation, setDepartureLocation] = useState('');
   const [fromDepotKm, setFromDepotKm] = useState('');
   const [toDepotKm, setToDepotKm] = useState('');
   const [isFromDepot, setIsFromDepot] = useState(false);
-  const [calculatingDistance, setCalculatingDistance] = useState(false);
 
-  const [origin, setOrigin] = useState({
-    street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
-  });
+  // Form State
+  const [form, setForm] = useState(getDefaultFormState);
 
-  const [destination, setDestination] = useState({
-    street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
-  });
+  /* ============================================================
+     DATA LOADING
+   ============================================================ */
 
-  const [form, setForm] = useState({
-    tripType: 'FREIGHT',
-    status: 'PLANNED',
-    approvalStatus: 'PENDING',
-    priority: 'MEDIUM',
-    commodityType: '',
-    cargoDescription: '',
-    cargoWeight: '',
-    cargoValue: '',
-    palletCount: '',
-    containerNumber: '',
-    plannedStartDate: null,
-    plannedEndDate: null,
-    estimatedDuration: '',
-    plannedDistanceKm: '',
-    plannedDurationHours: '',
-    vehicleId: '',
-    driverId: '',
-    supervisorId: '',
-    customerId: '',
-    loadId: '',
-    notes: '',
-    specialInstructions: '',
-    driverNotes: '',
-    referenceNumber: '',
-    purchaseOrderNumber: '',
-    estimatedTollCost: '',
-    estimatedOtherExpenses: '',
-    cancellationReason: ''
-  });
-
-  // Load data
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -486,8 +529,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           setSupervisors(Array.isArray(usersData) ? usersData : (usersData.content || usersData.data || []));
-        } else {
-          setSupervisors([]);
         }
       } catch {
         setSupervisors([]);
@@ -500,7 +541,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, []);
 
-  // Calculate distance from depot to origin
+  /* ============================================================
+     DISTANCE CALCULATION
+   ============================================================ */
+
   const calculateDistanceFromDepot = useCallback(async () => {
     if (!selectedDepot || !origin.city) {
       setFromDepotKm('');
@@ -508,14 +552,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
 
     if (selectedDepot.latitude && selectedDepot.longitude) {
-      const originAddress = [origin.street, origin.city, origin.province].filter(Boolean).join(', ');
+      const originAddress = buildAddress(origin);
       try {
         setCalculatingDistance(true);
         const result = await routingService.calculateDistance(
           `${selectedDepot.latitude},${selectedDepot.longitude}`,
           originAddress
         );
-        if (result && result.distance) {
+        if (result?.distance) {
           setFromDepotKm(result.distance.toFixed(1));
         }
       } catch (error) {
@@ -527,7 +571,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, [selectedDepot, origin]);
 
-  // Calculate distance from destination to depot
   const calculateDistanceToDepot = useCallback(async () => {
     if (!selectedDepot || !destination.city) {
       setToDepotKm('');
@@ -535,14 +578,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
 
     if (selectedDepot.latitude && selectedDepot.longitude) {
-      const destAddress = [destination.street, destination.city, destination.province].filter(Boolean).join(', ');
+      const destAddress = buildAddress(destination);
       try {
         setCalculatingDistance(true);
         const result = await routingService.calculateDistance(
           destAddress,
           `${selectedDepot.latitude},${selectedDepot.longitude}`
         );
-        if (result && result.distance) {
+        if (result?.distance) {
           setToDepotKm(result.distance.toFixed(1));
         }
       } catch (error) {
@@ -562,48 +605,23 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, [origin, destination, selectedDepot, departureType, calculateDistanceFromDepot, calculateDistanceToDepot]);
 
+  /* ============================================================
+     FORM RESET & POPULATION
+   ============================================================ */
+
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       const timer = setTimeout(() => {
-        setOrigin({ street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null });
-        setDestination({ street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null });
+        setOrigin(getDefaultAddress);
+        setDestination(getDefaultAddress);
         setDepartureType('DEPOT');
         setSelectedDepot(null);
         setDepartureLocation('');
         setFromDepotKm('');
         setToDepotKm('');
         setIsFromDepot(false);
-        setForm({
-          tripType: 'FREIGHT',
-          status: 'PLANNED',
-          approvalStatus: 'PENDING',
-          priority: 'MEDIUM',
-          commodityType: '',
-          cargoDescription: '',
-          cargoWeight: '',
-          cargoValue: '',
-          palletCount: '',
-          containerNumber: '',
-          plannedStartDate: null,
-          plannedEndDate: null,
-          estimatedDuration: '',
-          plannedDistanceKm: '',
-          plannedDurationHours: '',
-          vehicleId: '',
-          driverId: '',
-          supervisorId: '',
-          customerId: '',
-          loadId: '',
-          notes: '',
-          specialInstructions: '',
-          driverNotes: '',
-          referenceNumber: '',
-          purchaseOrderNumber: '',
-          estimatedTollCost: '',
-          estimatedOtherExpenses: '',
-          cancellationReason: ''
-        });
+        setForm(getDefaultFormState);
         setFormErrors({});
         setError(null);
         setSuccessMessage(null);
@@ -631,49 +649,41 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         referenceNumber: initialData.referenceNumber || '',
       }));
 
-      // Populate depot data if available
-      if (initialData.departedFrom) {
-        setDepartureType(initialData.departedFrom);
-      }
-      if (initialData.departureLocation) {
-        setDepartureLocation(initialData.departureLocation);
-      }
-      if (initialData.fromDepotKm) {
-        setFromDepotKm(initialData.fromDepotKm);
-      }
-      if (initialData.toDepotKm) {
-        setToDepotKm(initialData.toDepotKm);
-      }
-      if (initialData.isFromDepot !== undefined) {
-        setIsFromDepot(initialData.isFromDepot);
-      }
+      // Populate depot data
+      if (initialData.departedFrom) setDepartureType(initialData.departedFrom);
+      if (initialData.departureLocation) setDepartureLocation(initialData.departureLocation);
+      if (initialData.fromDepotKm) setFromDepotKm(initialData.fromDepotKm);
+      if (initialData.toDepotKm) setToDepotKm(initialData.toDepotKm);
+      if (initialData.isFromDepot !== undefined) setIsFromDepot(initialData.isFromDepot);
 
+      // Populate addresses
       if (initialData.originLocation) {
-        setOrigin(prev => ({
-          ...prev,
+        setOrigin({
           street: initialData.originStreetAddress || '',
           city: initialData.originCity || '',
           zipCode: initialData.originZipCode || '',
           province: initialData.originProvince || '',
           latitude: initialData.originLatitude || null,
           longitude: initialData.originLongitude || null,
-        }));
+        });
       }
       if (initialData.destinationLocation) {
-        setDestination(prev => ({
-          ...prev,
+        setDestination({
           street: initialData.destinationStreetAddress || '',
           city: initialData.destinationCity || '',
           zipCode: initialData.destinationZipCode || '',
           province: initialData.destinationProvince || '',
           latitude: initialData.destinationLatitude || null,
           longitude: initialData.destinationLongitude || null,
-        }));
+        });
       }
     }
   }, [initialData, open]);
 
-  // Validate form
+  /* ============================================================
+     FORM VALIDATION
+   ============================================================ */
+
   const validateForm = useCallback(() => {
     const errors = {};
 
@@ -702,6 +712,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
     return errors;
   }, [origin, destination, form]);
+
+  /* ============================================================
+     EVENT HANDLERS
+   ============================================================ */
 
   const handleFieldChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -735,13 +749,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const handleDepotSelect = (depot) => {
     setSelectedDepot(depot);
     if (depot) {
-      // Reset distances to trigger recalculation
       setFromDepotKm('');
       setToDepotKm('');
     }
   };
 
-  // Submit
+  /* ============================================================
+     FORM SUBMISSION
+   ============================================================ */
+
   const handleSubmit = useCallback(async () => {
     if (submitting) return;
 
@@ -756,8 +772,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setSuccessMessage(null);
 
     try {
-      const originAddress = [origin.street, origin.city, origin.zipCode, origin.province].filter(Boolean).join(', ');
-      const destAddress = [destination.street, destination.city, destination.zipCode, destination.province].filter(Boolean).join(', ');
+      const originAddress = buildAddress(origin);
+      const destAddress = buildAddress(destination);
 
       const payload = {
         tripType: form.tripType,
@@ -802,7 +818,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         destinationLongitude: destination.longitude || null,
         destinationLocation: destAddress || null,
 
-        // Depot tracking fields
         fromDepotKm: fromDepotKm ? parseFloat(fromDepotKm) : null,
         toDepotKm: toDepotKm ? parseFloat(toDepotKm) : null,
         departedFrom: departureType,
@@ -817,6 +832,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         cancellationReason: form.cancellationReason || null
       };
 
+      // Remove empty values
       Object.keys(payload).forEach(key => {
         if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
           delete payload[key];
@@ -861,6 +877,32 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     }
   }, [form, origin, destination, fromDepotKm, toDepotKm, departureType, departureLocation, isFromDepot, validateForm, onSuccess, onClose, fetchTrips, submitting, mode, initialData]);
 
+  /* ============================================================
+     RENDER HELPERS
+   ============================================================ */
+
+  const renderLoading = () => (
+    <Box display="flex" justifyContent="center" p={3}>
+      <CircularProgress size={30} />
+    </Box>
+  );
+
+  const renderError = () => error && (
+    <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
+      {error}
+    </Alert>
+  );
+
+  const renderSuccess = () => successMessage && (
+    <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage(null)}>
+      {successMessage}
+    </Alert>
+  );
+
+  /* ============================================================
+     MAIN RENDER
+   ============================================================ */
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Dialog 
@@ -868,11 +910,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         onClose={onClose} 
         maxWidth="lg" 
         fullWidth
-        PaperProps={{
-          sx: {
-            maxHeight: '90vh',
-          }
-        }}
+        PaperProps={{ sx: { maxHeight: '90vh' } }}
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', py: 1.5, px: 2 }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
@@ -881,603 +919,594 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         </DialogTitle>
 
         <DialogContent dividers sx={{ overflowY: 'auto', p: 2 }}>
-          {loading && (
-            <Box display="flex" justifyContent="center" p={3}>
-              <CircularProgress size={30} />
-            </Box>
-          )}
+          {loading ? renderLoading() : (
+            <>
+              {renderError()}
+              {renderSuccess()}
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-
-          {successMessage && (
-            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage(null)}>
-              {successMessage}
-            </Alert>
-          )}
-
-          {!loading && (
-            <Stack spacing={2}>
-              {/* Trip Type & Priority */}
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel sx={{ fontSize: '0.75rem' }}>Trip Type</InputLabel>
-                    <Select
-                      value={form.tripType}
-                      label="Trip Type"
-                      onChange={(e) => handleFieldChange('tripType', e.target.value)}
-                      sx={{ fontSize: '0.75rem' }}
-                    >
-                      {TRIP_TYPE_OPTIONS.map(type => (
-                        <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>{type}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+              <Stack spacing={2}>
+                {/* Trip Type & Priority */}
+                <Grid container spacing={1.5}>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel sx={{ fontSize: '0.75rem' }}>Trip Type</InputLabel>
+                      <Select
+                        value={form.tripType}
+                        label="Trip Type"
+                        onChange={(e) => handleFieldChange('tripType', e.target.value)}
+                        sx={{ fontSize: '0.75rem' }}
+                      >
+                        {TRIP_TYPE_OPTIONS.map(type => (
+                          <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>{type}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel sx={{ fontSize: '0.75rem' }}>Priority</InputLabel>
+                      <Select
+                        value={form.priority}
+                        label="Priority"
+                        onChange={(e) => handleFieldChange('priority', e.target.value)}
+                        sx={{ fontSize: '0.75rem' }}
+                      >
+                        {PRIORITY_OPTIONS.map(p => (
+                          <MenuItem key={p.value} value={p.value} sx={{ fontSize: '0.75rem' }}>
+                            <Chip 
+                              label={p.label} 
+                              size="small" 
+                              color={p.color} 
+                              sx={{ height: 20, fontSize: '0.6rem' }}
+                            />
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel sx={{ fontSize: '0.75rem' }}>Priority</InputLabel>
-                    <Select
-                      value={form.priority}
-                      label="Priority"
-                      onChange={(e) => handleFieldChange('priority', e.target.value)}
-                      sx={{ fontSize: '0.75rem' }}
+
+                {/* Customer Selection */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+                      <BusinessIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Customer
+                      </Typography>
+                    </Stack>
+                    <FormControl fullWidth size="small">
+                      <InputLabel sx={{ fontSize: '0.75rem' }}>Select Customer</InputLabel>
+                      <Select
+                        value={form.customerId}
+                        label="Select Customer"
+                        onChange={(e) => handleFieldChange('customerId', e.target.value)}
+                        sx={{ fontSize: '0.75rem' }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: '0.75rem' }}>No Customer</MenuItem>
+                        {customers.map(customer => (
+                          <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: '0.75rem' }}>
+                            {customer.name} ({customer.customerCode})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </CardContent>
+                </Card>
+
+                {/* Origin & Destination */}
+                <Box sx={{ position: 'relative' }}>
+                  <AddressSection
+                    label="Origin"
+                    address={origin}
+                    onChange={setOrigin}
+                    errors={{ city: formErrors.originCity, province: formErrors.originProvince }}
+                  />
+
+                  <Box display="flex" justifyContent="center" my={-0.5} position="relative" zIndex={1}>
+                    <IconButton 
+                      onClick={handleSwapLocations} 
+                      sx={{ 
+                        bgcolor: 'background.paper', 
+                        boxShadow: 1,
+                        width: 28,
+                        height: 28,
+                        '& .MuiSvgIcon-root': { fontSize: '1rem' }
+                      }}
                     >
-                      {PRIORITY_OPTIONS.map(p => (
-                        <MenuItem key={p.value} value={p.value} sx={{ fontSize: '0.75rem' }}>
-                          <Chip 
-                            label={p.label} 
-                            size="small" 
-                            color={p.color} 
-                            sx={{ height: 20, fontSize: '0.6rem' }}
-                          />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
+                      <SwapHoriz />
+                    </IconButton>
+                  </Box>
 
-              {/* Customer Selection */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-                    <BusinessIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Customer
-                    </Typography>
-                  </Stack>
-                  <FormControl fullWidth size="small">
-                    <InputLabel sx={{ fontSize: '0.75rem' }}>Select Customer</InputLabel>
-                    <Select
-                      value={form.customerId}
-                      label="Select Customer"
-                      onChange={(e) => handleFieldChange('customerId', e.target.value)}
-                      sx={{ fontSize: '0.75rem' }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: '0.75rem' }}>No Customer</MenuItem>
-                      {customers.map(customer => (
-                        <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: '0.75rem' }}>
-                          {customer.name} ({customer.customerCode})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </CardContent>
-              </Card>
-
-              {/* Origin & Destination */}
-              <Box sx={{ position: 'relative' }}>
-                <AddressSection
-                  label="Origin"
-                  address={origin}
-                  onChange={setOrigin}
-                  errors={{ city: formErrors.originCity, province: formErrors.originProvince }}
-                />
-
-                <Box display="flex" justifyContent="center" my={-0.5} position="relative" zIndex={1}>
-                  <IconButton 
-                    onClick={handleSwapLocations} 
-                    sx={{ 
-                      bgcolor: 'background.paper', 
-                      boxShadow: 1,
-                      width: 28,
-                      height: 28,
-                      '& .MuiSvgIcon-root': { fontSize: '1rem' }
-                    }}
-                  >
-                    <SwapHoriz />
-                  </IconButton>
+                  <AddressSection
+                    label="Destination"
+                    address={destination}
+                    onChange={setDestination}
+                    errors={{ city: formErrors.destinationCity, province: formErrors.destinationProvince }}
+                  />
                 </Box>
 
-                <AddressSection
-                  label="Destination"
-                  address={destination}
-                  onChange={setDestination}
-                  errors={{ city: formErrors.destinationCity, province: formErrors.destinationProvince }}
+                {/* Depot & Departure */}
+                <DepotSection
+                  depots={depots}
+                  selectedDepot={selectedDepot}
+                  onDepotSelect={handleDepotSelect}
+                  departureType={departureType}
+                  onDepartureTypeChange={handleDepartureTypeChange}
+                  departureLocation={departureLocation}
+                  onLocationChange={setDepartureLocation}
                 />
-              </Box>
 
-              {/* Depot & Departure */}
-              <DepotSection
-                depots={depots}
-                selectedDepot={selectedDepot}
-                onDepotSelect={handleDepotSelect}
-                departureType={departureType}
-                onDepartureTypeChange={handleDepartureTypeChange}
-                departureLocation={departureLocation}
-                onLocationChange={setDepartureLocation}
-              />
+                {/* Depot Distance Fields */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+                      <RouteIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Depot Distances
+                      </Typography>
+                      {calculatingDistance && <CircularProgress size={16} />}
+                    </Stack>
 
-              {/* Depot Distance Fields */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-                    <RouteIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Depot Distances
-                    </Typography>
-                    {calculatingDistance && <CircularProgress size={16} />}
-                  </Stack>
-
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="From Depot (km)"
-                        type="number"
-                        value={fromDepotKm}
-                        onChange={(e) => setFromDepotKm(e.target.value)}
-                        size="small"
-                        disabled={departureType === 'DEPOT'}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>
-                              km
-                            </InputAdornment>
-                          )
-                        }}
-                        helperText={departureType === 'DEPOT' && selectedDepot ? 'Auto-calculated from depot to pickup' : 'Manual entry'}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="To Depot (km)"
-                        type="number"
-                        value={toDepotKm}
-                        onChange={(e) => setToDepotKm(e.target.value)}
-                        size="small"
-                        disabled={departureType === 'DEPOT'}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>
-                              km
-                            </InputAdornment>
-                          )
-                        }}
-                        helperText={departureType === 'DEPOT' && selectedDepot ? 'Auto-calculated from drop-off to depot' : 'Manual entry'}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={isFromDepot}
-                            onChange={(e) => setIsFromDepot(e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label={
-                          <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                            Vehicle left from depot to pickup point
-                          </Typography>
-                        }
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-
-              {/* Schedule */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <ScheduleIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Schedule
-                    </Typography>
-                  </Stack>
-
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={6}>
-                      <DateTimePicker
-                        label="Planned Start Date & Time *"
-                        value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
-                        onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            required: true,
-                            error: !!formErrors.plannedStartDate,
-                            helperText: formErrors.plannedStartDate,
-                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="From Depot (km)"
+                          type="number"
+                          value={fromDepotKm}
+                          onChange={(e) => setFromDepotKm(e.target.value)}
+                          size="small"
+                          disabled={departureType === 'DEPOT'}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>
+                                km
+                              </InputAdornment>
+                            )
+                          }}
+                          helperText={DEPARTURE_OPTIONS.find(o => o.value === departureType)?.label === 'Depot' && selectedDepot 
+                            ? 'Auto-calculated from depot to pickup' 
+                            : 'Manual entry'}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="To Depot (km)"
+                          type="number"
+                          value={toDepotKm}
+                          onChange={(e) => setToDepotKm(e.target.value)}
+                          size="small"
+                          disabled={departureType === 'DEPOT'}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>
+                                km
+                              </InputAdornment>
+                            )
+                          }}
+                          helperText={DEPARTURE_OPTIONS.find(o => o.value === departureType)?.label === 'Depot' && selectedDepot 
+                            ? 'Auto-calculated from drop-off to depot' 
+                            : 'Manual entry'}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isFromDepot}
+                              onChange={(e) => setIsFromDepot(e.target.checked)}
+                              size="small"
+                            />
                           }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <DateTimePicker
-                        label="Planned End Date & Time"
-                        value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
-                        onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            error: !!formErrors.plannedEndDate,
-                            helperText: formErrors.plannedEndDate,
-                            sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                          label={
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                              Vehicle left from depot to pickup point
+                            </Typography>
                           }
-                        }}
-                      />
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Est. Duration (hours)"
-                        type="number"
-                        value={form.estimatedDuration}
-                        onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>hrs</InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Planned Distance (km)"
-                        type="number"
-                        value={form.plannedDistanceKm}
-                        onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>km</InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Planned Duration (hours)"
-                        type="number"
-                        value={form.plannedDurationHours}
-                        onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>hrs</InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Assignment */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <DirectionsCar fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Assignment
-                    </Typography>
-                  </Stack>
+                {/* Schedule */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" spacing={0.75} mb={1.5}>
+                      <ScheduleIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Schedule
+                      </Typography>
+                    </Stack>
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={4}>
-                      <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
-                        <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
-                        <Select
-                          value={form.vehicleId}
-                          label="Vehicle *"
-                          onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
-                          sx={{ fontSize: '0.75rem' }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select vehicle</em></MenuItem>
-                          {vehicles.map(v => (
-                            <MenuItem key={v.id} value={v.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                              {v.registrationNumber} - {v.make} {v.model}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {formErrors.vehicleId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.vehicleId}</FormHelperText>}
-                      </FormControl>
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} md={6}>
+                        <DateTimePicker
+                          label="Planned Start Date & Time *"
+                          value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
+                          onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              size: 'small',
+                              required: true,
+                              error: !!formErrors.plannedStartDate,
+                              helperText: formErrors.plannedStartDate,
+                              sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                            }
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <DateTimePicker
+                          label="Planned End Date & Time"
+                          value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
+                          onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              size: 'small',
+                              error: !!formErrors.plannedEndDate,
+                              helperText: formErrors.plannedEndDate,
+                              sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
+                            }
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Est. Duration (hours)"
+                          type="number"
+                          value={form.estimatedDuration}
+                          onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
+                          size="small"
+                          InputProps={{ 
+                            endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>hrs</InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Planned Distance (km)"
+                          type="number"
+                          value={form.plannedDistanceKm}
+                          onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
+                          size="small"
+                          InputProps={{ 
+                            endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>km</InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Planned Duration (hours)"
+                          type="number"
+                          value={form.plannedDurationHours}
+                          onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
+                          size="small"
+                          InputProps={{ 
+                            endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>hrs</InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
-                        <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
-                        <Select
-                          value={form.driverId}
-                          label="Driver *"
-                          onChange={(e) => handleFieldChange('driverId', e.target.value)}
-                          sx={{ fontSize: '0.75rem' }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select driver</em></MenuItem>
-                          {drivers.map(d => (
-                            <MenuItem key={d.id} value={d.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                              {d.firstName} {d.lastName}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {formErrors.driverId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.driverId}</FormHelperText>}
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: '0.75rem' }}>Supervisor</InputLabel>
-                        <Select
-                          value={form.supervisorId}
-                          label="Supervisor"
-                          onChange={(e) => handleFieldChange('supervisorId', e.target.value)}
-                          sx={{ fontSize: '0.75rem' }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select supervisor</em></MenuItem>
-                          {supervisors.map(s => (
-                            <MenuItem key={s.id} value={s.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                              {s.firstName} {s.lastName}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Commodity & Cargo */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <Description fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Commodity & Cargo
-                    </Typography>
-                  </Stack>
+                {/* Assignment */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" spacing={0.75} mb={1.5}>
+                      <DirectionsCar fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Assignment
+                      </Typography>
+                    </Stack>
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small" required error={!!formErrors.commodityType}>
-                        <InputLabel sx={{ fontSize: '0.75rem' }}>Commodity Type *</InputLabel>
-                        <Select
-                          value={form.commodityType}
-                          label="Commodity Type *"
-                          onChange={(e) => handleFieldChange('commodityType', e.target.value)}
-                          sx={{ fontSize: '0.75rem' }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select commodity</em></MenuItem>
-                          {COMMODITY_OPTIONS.map(c => (
-                            <MenuItem key={c} value={c} sx={{ fontSize: '0.75rem' }}>{c}</MenuItem>
-                          ))}
-                        </Select>
-                        {formErrors.commodityType && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.commodityType}</FormHelperText>}
-                      </FormControl>
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} md={4}>
+                        <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
+                          <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
+                          <Select
+                            value={form.vehicleId}
+                            label="Vehicle *"
+                            onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select vehicle</em></MenuItem>
+                            {vehicles.map(v => (
+                              <MenuItem key={v.id} value={v.id.toString()} sx={{ fontSize: '0.75rem' }}>
+                                {v.registrationNumber} - {v.make} {v.model}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {formErrors.vehicleId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.vehicleId}</FormHelperText>}
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
+                          <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
+                          <Select
+                            value={form.driverId}
+                            label="Driver *"
+                            onChange={(e) => handleFieldChange('driverId', e.target.value)}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select driver</em></MenuItem>
+                            {drivers.map(d => (
+                              <MenuItem key={d.id} value={d.id.toString()} sx={{ fontSize: '0.75rem' }}>
+                                {d.firstName} {d.lastName}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {formErrors.driverId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.driverId}</FormHelperText>}
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel sx={{ fontSize: '0.75rem' }}>Supervisor</InputLabel>
+                          <Select
+                            value={form.supervisorId}
+                            label="Supervisor"
+                            onChange={(e) => handleFieldChange('supervisorId', e.target.value)}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select supervisor</em></MenuItem>
+                            {supervisors.map(s => (
+                              <MenuItem key={s.id} value={s.id.toString()} sx={{ fontSize: '0.75rem' }}>
+                                {s.firstName} {s.lastName}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Cargo Description"
-                        value={form.cargoDescription}
-                        onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
-                        size="small"
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Weight (kg)"
-                        type="number"
-                        value={form.cargoWeight}
-                        onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>kg</InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Value (ZAR)"
-                        type="number"
-                        value={form.cargoValue}
-                        onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Pallet Count"
-                        type="number"
-                        value={form.palletCount}
-                        onChange={(e) => handleFieldChange('palletCount', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>pallets</InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Financial Estimates */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <Receipt fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Financial Estimates
-                    </Typography>
-                  </Stack>
+                {/* Commodity & Cargo */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" spacing={0.75} mb={1.5}>
+                      <Description fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Commodity & Cargo
+                      </Typography>
+                    </Stack>
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Est. Toll Cost (ZAR)"
-                        type="number"
-                        value={form.estimatedTollCost}
-                        onChange={(e) => handleFieldChange('estimatedTollCost', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><Toll sx={{ fontSize: '0.9rem' }} /></InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small" required error={!!formErrors.commodityType}>
+                          <InputLabel sx={{ fontSize: '0.75rem' }}>Commodity Type *</InputLabel>
+                          <Select
+                            value={form.commodityType}
+                            label="Commodity Type *"
+                            onChange={(e) => handleFieldChange('commodityType', e.target.value)}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select commodity</em></MenuItem>
+                            {COMMODITY_OPTIONS.map(c => (
+                              <MenuItem key={c} value={c} sx={{ fontSize: '0.75rem' }}>{c}</MenuItem>
+                            ))}
+                          </Select>
+                          {formErrors.commodityType && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.commodityType}</FormHelperText>}
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Cargo Description"
+                          value={form.cargoDescription}
+                          onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
+                          size="small"
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Weight (kg)"
+                          type="number"
+                          value={form.cargoWeight}
+                          onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
+                          size="small"
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                            endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>kg</InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Value (ZAR)"
+                          type="number"
+                          value={form.cargoValue}
+                          onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
+                          size="small"
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Pallet Count"
+                          type="number"
+                          value={form.palletCount}
+                          onChange={(e) => handleFieldChange('palletCount', e.target.value)}
+                          size="small"
+                          InputProps={{ 
+                            endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>pallets</InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Est. Other Expenses (ZAR)"
-                        type="number"
-                        value={form.estimatedOtherExpenses}
-                        onChange={(e) => handleFieldChange('estimatedOtherExpenses', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>
-                        }}
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Notes */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <Comment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Notes
-                    </Typography>
-                  </Stack>
+                {/* Financial Estimates */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" spacing={0.75} mb={1.5}>
+                      <Receipt fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Financial Estimates
+                      </Typography>
+                    </Stack>
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Reference Number"
-                        value={form.referenceNumber}
-                        onChange={(e) => handleFieldChange('referenceNumber', e.target.value)}
-                        size="small"
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Est. Toll Cost (ZAR)"
+                          type="number"
+                          value={form.estimatedTollCost}
+                          onChange={(e) => handleFieldChange('estimatedTollCost', e.target.value)}
+                          size="small"
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start"><Toll sx={{ fontSize: '0.9rem' }} /></InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Est. Other Expenses (ZAR)"
+                          type="number"
+                          value={form.estimatedOtherExpenses}
+                          onChange={(e) => handleFieldChange('estimatedOtherExpenses', e.target.value)}
+                          size="small"
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: '0.9rem' }} /></InputAdornment>
+                          }}
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Purchase Order Number"
-                        value={form.purchaseOrderNumber}
-                        onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
-                        size="small"
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Special Instructions"
-                        value={form.specialInstructions}
-                        onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
-                        size="small"
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Driver Notes"
-                        value={form.driverNotes}
-                        onChange={(e) => handleFieldChange('driverNotes', e.target.value)}
-                        size="small"
-                        sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Status */}
-              <Card variant="outlined">
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <Assignment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
-                      Status
-                    </Typography>
-                  </Stack>
+                {/* Notes */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" spacing={0.75} mb={1.5}>
+                      <Comment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Notes
+                      </Typography>
+                    </Stack>
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
-                        <Select
-                          value={form.status}
-                          label="Status"
-                          onChange={(e) => handleFieldChange('status', e.target.value)}
-                          sx={{ fontSize: '0.75rem' }}
-                        >
-                          {STATUS_OPTIONS.map(s => (
-                            <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Reference Number"
+                          value={form.referenceNumber}
+                          onChange={(e) => handleFieldChange('referenceNumber', e.target.value)}
+                          size="small"
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Purchase Order Number"
+                          value={form.purchaseOrderNumber}
+                          onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
+                          size="small"
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label="Special Instructions"
+                          value={form.specialInstructions}
+                          onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
+                          size="small"
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label="Driver Notes"
+                          value={form.driverNotes}
+                          onChange={(e) => handleFieldChange('driverNotes', e.target.value)}
+                          size="small"
+                          sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
-                        <Select
-                          value={form.approvalStatus}
-                          label="Approval Status"
-                          onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
-                          sx={{ fontSize: '0.75rem' }}
-                        >
-                          {APPROVAL_STATUS_OPTIONS.map(s => (
-                            <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                  </CardContent>
+                </Card>
+
+                {/* Status */}
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" spacing={0.75} mb={1.5}>
+                      <Assignment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
+                        Status
+                      </Typography>
+                    </Stack>
+
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+                          <Select
+                            value={form.status}
+                            label="Status"
+                            onChange={(e) => handleFieldChange('status', e.target.value)}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            {STATUS_OPTIONS.map(s => (
+                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
+                          <Select
+                            value={form.approvalStatus}
+                            label="Approval Status"
+                            onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            {APPROVAL_STATUS_OPTIONS.map(s => (
+                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
                     </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Stack>
+                  </CardContent>
+                </Card>
+              </Stack>
+            </>
           )}
         </DialogContent>
 
