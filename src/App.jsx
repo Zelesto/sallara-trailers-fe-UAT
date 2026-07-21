@@ -11,7 +11,7 @@ import { CircularProgress, Box } from "@mui/material";
 import Layout from "./components/Layout/Layout";
 import PrivateRoute from "./components/Layout/PrivateRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-
+import api from "./services/api";
 
 /* -------------------------------------------------------------------------- */
 /* Lazy-loaded Pages (code splitting)                                          */
@@ -25,7 +25,6 @@ const UserList = lazy(() => import("./pages/UserList"));
 const UserDetails = lazy(() => import("./pages/UserDetails"));
 const UserForm = lazy(() => import("./pages/UserForm"));
 
-
 const DriverList = lazy(() => import("./pages/DriverList"));
 const DriverDetails = lazy(() => import("./pages/DriverDetails"));
 const DriverForm = lazy(() => import("./pages/DriverForm"));
@@ -34,10 +33,10 @@ const VehicleList = lazy(() => import("./pages/VehicleList"));
 const VehicleDetails = lazy(() => import("./pages/VehicleDetails"));
 const VehicleForm = lazy(() => import("./pages/VehicleForm"));
 
+// Fuel Slip Pages
 const FuelSlips = lazy(() => import("./pages/FuelSlips"));
-const AddFuelSlip = lazy(() => import("./pages/AddFuelSlip"));
-const FuelSlipDetails = lazy(() => import("./pages/FuelSlipDetails"));
-const FuelSlipForm = lazy(() => import("./pages/FuelSlipForm"));    
+const FuelSlipDetails = lazy(() => import("./pages/FuelSlipDetails"));  // ← ADD THIS
+const FuelSlipForm = lazy(() => import("./pages/FuelSlipForm"));        // ← ADD THIS
 
 const TripList = lazy(() => import("./pages/TripList"));
 const TripDetails = lazy(() => import("./pages/TripDetails"));
@@ -61,8 +60,8 @@ const PayablesPage = lazy(() => import("./pages/finance/PayablePage"));
 const PODList = lazy(() => import("./pages/PODList"));
 const PodForm = lazy(() => import("./pages/PodForm"));
 const PodDetails = lazy(() => import("./pages/PodDetails"));
-const ScanPOD  = lazy(() => import("./pages/ScanPOD"));
-const DebriefPOD  = lazy(() => import("./pages/DebriefPOD"));
+const ScanPOD = lazy(() => import("./pages/ScanPOD"));
+const DebriefPOD = lazy(() => import("./pages/DebriefPOD"));
 
 const TripReports = lazy(() => import("./pages/TripReports"));
 const TripAnalytics = lazy(() => import("./pages/TripAnalytics"));
@@ -78,11 +77,11 @@ const Reports = lazy(() => import("./pages/Reports"));
 /* Loading Fallback                                                            */
 /* -------------------------------------------------------------------------- */
 const LoadingFallback = () => (
-  <Box sx={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    height: '100vh' 
+  <Box sx={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh'
   }}>
     <CircularProgress />
   </Box>
@@ -140,20 +139,16 @@ const SessionExpiryHandler = () => {
   useEffect(() => {
     const handleSessionExpired = (event) => {
       console.log('Session expired event received:', event);
-      // Clear auth data
       api.clearToken();
       logout();
-      
-      // Only redirect if not already on login page
+
       if (location.pathname !== '/login') {
         navigate('/login?session=expired', { replace: true });
       }
     };
 
-    // Listen for session expiry events
     window.addEventListener('sessionExpired', handleSessionExpired);
 
-    // Clean up
     return () => {
       window.removeEventListener('sessionExpired', handleSessionExpired);
     };
@@ -203,9 +198,9 @@ function App() {
                     {/* Profile */}
                     <Route path="me" element={<MyProfileRoute />} />
                     <Route path="users/:id" element={<UserProfile isSelfView={false} />} />
-                    
+
                     <Route path="/users/new" element={<UserForm mode="create" />} />
-                    <Route path="/users/:id/edit" element={<UserForm mode="edit" />} /> 
+                    <Route path="/users/:id/edit" element={<UserForm mode="edit" />} />
 
                     {/* Settings */}
                     <Route path="settings" element={<SettingsPage />} />
@@ -231,7 +226,7 @@ function App() {
                     <Route path="trips/:id" element={<TripDetails />} />
                     <Route path="trips/:id/finalize" element={<TripDetails />} />
 
-                     {/* Loads */}
+                    {/* Loads */}
                     <Route path="loads" element={<LoadList />} />
                     <Route path="loads/new" element={<LoadForm />} />
                     <Route path="loads/:loadNumber" element={<LoadDetails />} />
@@ -242,10 +237,12 @@ function App() {
                     <Route path="customers/new" element={<CustomerForm />} />
                     <Route path="customers/:id" element={<CustomerDetails />} />
                     <Route path="customers/:id/edit" element={<CustomerForm />} />
-                    
-                    {/* Fuel */}
+
+                    {/* ============================================================ */}
+                    {/* FUEL SLIP ROUTES - FIXED */}
+                    {/* ============================================================ */}
                     <Route path="fuel/slips" element={<FuelSlips />} />
-                    <Route path="fuel/slips/add" element={<AddFuelSlip />} />
+                    <Route path="fuel/slips/add" element={<FuelSlipForm />} />
                     <Route path="fuel/slips/:id" element={<FuelSlipDetails />} />
                     <Route path="fuel/slips/:id/edit" element={<FuelSlipForm />} />
                     <Route path="fuel/slips/driver/:id" element={<FuelSlips />} />
