@@ -1,15 +1,49 @@
 // src/pages/FuelSlipForm.jsx
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Paper, Typography, TextField, Button, Grid, Card, CardContent,
-  MenuItem, Select, InputLabel, FormControl, Alert, Stepper, Step, StepLabel,
-  IconButton, Autocomplete, InputAdornment, Radio, RadioGroup, FormControlLabel,
-  FormLabel, CircularProgress, Chip, Divider, Stack, Checkbox
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Grid,
+  Card,
+  CardContent,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+  Alert,
+  Stepper,
+  Step,
+  StepLabel,
+  IconButton,
+  Autocomplete,
+  InputAdornment,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormLabel,
+  CircularProgress,
+  Chip,
+  Divider,
+  Stack,
+  Checkbox
 } from '@mui/material';
 import {
-  LocalGasStation, DirectionsCar, Person, LocationOn, ArrowBack,
-  MyLocation, LocalOffer, Link as LinkIcon, CheckCircle, Clear as ClearIcon,
-  Save as SaveIcon, Edit as EditIcon, Delete as DeleteIcon
+  LocalGasStation,
+  DirectionsCar,
+  Person,
+  LocationOn,
+  ArrowBack,
+  MyLocation,
+  LocalOffer,
+  Link as LinkIcon,
+  CheckCircle,
+  Clear as ClearIcon,
+  Save as SaveIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fuelService } from '../services/fuelService';
@@ -138,14 +172,12 @@ const FuelSlipForm = () => {
       const data = await fuelService.getFuelSlipById(id);
       console.log('Loading fuel slip for edit:', data);
 
-      // Determine entry mode
       if (data.tripId) {
         setEntryMode('trip');
       } else {
         setEntryMode('manual');
       }
 
-      // Set form data
       setFormData({
         slipNumber: data.slipNumber || '',
         transactionDate: data.transactionDate ? new Date(data.transactionDate).toISOString().slice(0, 16) : '',
@@ -201,9 +233,27 @@ const FuelSlipForm = () => {
         return [];
       };
 
-      setVehicles(extractData(vehiclesData));
-      setDrivers(extractData(driversData));
-      setTrips(extractData(tripsData));
+      let vehiclesList = extractData(vehiclesData);
+      let driversList = extractData(driversData);
+      let tripsList = extractData(tripsData);
+
+      // Filter trips: Exclude FINALIZED and COMPLETED, and sort by date (latest first)
+      tripsList = tripsList
+        .filter(t => {
+          const status = t.status?.toUpperCase() || '';
+          return status !== 'FINALIZED' && status !== 'COMPLETED';
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+          const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+          return dateB - dateA;
+        });
+
+      setVehicles(vehiclesList);
+      setDrivers(driversList);
+      setTrips(tripsList);
+
+      console.log('Filtered trips (excluding finalized/completed):', tripsList.length);
 
     } catch (err) {
       console.error('Error loading data:', err);
@@ -524,10 +574,17 @@ const FuelSlipForm = () => {
     }
   };
 
-  // Available trips filter (active and in progress)
-  const availableTrips = trips.filter(t =>
-    t.status === 'ACTIVE' || t.status === 'IN_PROGRESS' || t.status === 'PLANNED'
-  );
+  // Available trips filter (exclude FINALIZED and COMPLETED, show latest first)
+  const availableTrips = trips
+    .filter(t => {
+      const status = t.status?.toUpperCase() || '';
+      return status !== 'FINALIZED' && status !== 'COMPLETED';
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+      const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+      return dateB - dateA;
+    });
 
   // Get selected trip details
   const getSelectedTrip = () => {
@@ -569,14 +626,24 @@ const FuelSlipForm = () => {
                   renderValue={(selected) => {
                     const trip = availableTrips.find(t => t.id && t.id.toString() === selected.toString());
                     return trip
-                      ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.vehicleRegistration || 'No vehicle'}`
+                      ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'} (${trip.status})`
                       : '-- Select a Trip --';
                   }}
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8rem' }}>-- Select a Trip --</MenuItem>
                   {availableTrips.map(trip => (
                     <MenuItem key={trip.id} value={trip.id} sx={{ fontSize: '0.8rem' }}>
-                      {`${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'}`}
+                      <Box>
+                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                          {trip.tripNumber || `Trip #${trip.id}`}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                          {trip.originLocation || 'Origin'} → {trip.destinationLocation || 'Destination'} | 
+                          {trip.vehicleRegistration || 'No vehicle'} | 
+                          Status: {trip.status}
+                          {trip.plannedStartDate && ` | ${new Date(trip.plannedStartDate).toLocaleDateString()}`}
+                        </Typography>
+                      </Box>
                     </MenuItem>
                   ))}
                 </Select>
