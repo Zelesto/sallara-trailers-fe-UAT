@@ -862,8 +862,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         onSuccess(result);
       }
 
+      await new Promise(resolve => setTimeout(resolve, 300));
       // Refresh parent data
       if (fetchTrips) {
+        await new Promise(resolve => setTimeout(resolve, 500));
         console.log('🔄 Refreshing trip list...');
         try {
           await fetchTrips();
