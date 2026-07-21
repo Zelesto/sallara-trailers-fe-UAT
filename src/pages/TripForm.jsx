@@ -1502,7 +1502,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 <Card variant="outlined">
                   <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                     <Stack direction="row" spacing={0.75} mb={1.5}>
-                      <Assignment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                      <AssignmentIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Status
                       </Typography>
