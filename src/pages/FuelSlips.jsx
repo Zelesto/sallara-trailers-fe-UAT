@@ -30,7 +30,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   DialogContentText,
 } from '@mui/material';
 import {
@@ -209,18 +208,28 @@ function FuelSlips() {
     setVehicleFilter('');
   };
 
+  // ============================================================
+  // FIX: Added console logs for debugging navigation
+  // ============================================================
+  
   // Handle view slip details
   const handleViewSlip = (id) => {
+    console.log('🔍 Viewing fuel slip with ID:', id);
+    console.log('📤 Current path:', window.location.pathname);
+    console.log('📤 Navigating to: /fuel/slips/' + id);
     navigate(`/fuel/slips/${id}`);
   };
 
   // Handle edit slip
   const handleEditSlip = (id) => {
+    console.log('✏️ Editing fuel slip with ID:', id);
+    console.log('📤 Navigating to: /fuel/slips/' + id + '/edit');
     navigate(`/fuel/slips/${id}/edit`);
   };
 
   // Handle delete dialog
   const handleDeleteClick = (id) => {
+    console.log('🗑️ Deleting fuel slip with ID:', id);
     setDeleteId(id);
     setDeleteDialogOpen(true);
   };
@@ -550,7 +559,10 @@ function FuelSlips() {
                     <Tooltip title="View Details">
                       <IconButton
                         size="small"
-                        onClick={() => handleViewSlip(slip.id)}
+                        onClick={() => {
+                          console.log('🖱️ View button clicked for slip ID:', slip.id);
+                          handleViewSlip(slip.id);
+                        }}
                         color="primary"
                         sx={{ p: 0.5 }}
                       >
@@ -560,7 +572,10 @@ function FuelSlips() {
                     <Tooltip title="Edit">
                       <IconButton
                         size="small"
-                        onClick={() => handleEditSlip(slip.id)}
+                        onClick={() => {
+                          console.log('🖱️ Edit button clicked for slip ID:', slip.id);
+                          handleEditSlip(slip.id);
+                        }}
                         color="info"
                         sx={{ p: 0.5 }}
                       >
@@ -570,7 +585,10 @@ function FuelSlips() {
                     <Tooltip title="Delete">
                       <IconButton
                         size="small"
-                        onClick={() => handleDeleteClick(slip.id)}
+                        onClick={() => {
+                          console.log('🖱️ Delete button clicked for slip ID:', slip.id);
+                          handleDeleteClick(slip.id);
+                        }}
                         color="error"
                         sx={{ p: 0.5 }}
                       >
