@@ -1,3 +1,4 @@
+// src/pages/FuelSlips.jsx
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { fuelService } from '../services/fuelService';
@@ -25,6 +26,12 @@ import {
   CardContent,
   Stack,
   Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  DialogContentText,
 } from '@mui/material';
 import {
   FilterList,
@@ -38,6 +45,9 @@ import {
   Event,
   AttachMoney,
   Refresh as RefreshIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 // Currency formatter for South African Rand (ZAR)
@@ -105,37 +115,42 @@ function FuelSlips() {
   const [error, setError] = useState(null);
   const [driverFilter, setDriverFilter] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('');
+  
+  // Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch slips
-  useEffect(() => {
-    async function fetchSlips() {
-      setLoading(true);
-      setError(null);
+  const fetchSlips = async () => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const filters = {};
+    try {
+      const filters = {};
 
-        if (driverFilter) {
-          filters.driverId = driverFilter;
-        } else if (params.id) {
-          filters.driverId = params.id;
-        }
-
-        if (vehicleFilter) {
-          filters.vehicleId = vehicleFilter;
-        }
-
-        const data = await fuelService.getFuelSlips(filters);
-        setSlips(data || []);
-      } catch (err) {
-        console.error('Failed to fetch fuel slips:', err);
-        setError(err.message || 'Failed to load fuel slips');
-        setSlips([]);
-      } finally {
-        setLoading(false);
+      if (driverFilter) {
+        filters.driverId = driverFilter;
+      } else if (params.id) {
+        filters.driverId = params.id;
       }
-    }
 
+      if (vehicleFilter) {
+        filters.vehicleId = vehicleFilter;
+      }
+
+      const data = await fuelService.getFuelSlips(filters);
+      setSlips(data || []);
+    } catch (err) {
+      console.error('Failed to fetch fuel slips:', err);
+      setError(err.message || 'Failed to load fuel slips');
+      setSlips([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchSlips();
   }, [params.id, driverFilter, vehicleFilter]);
 
@@ -196,26 +211,44 @@ function FuelSlips() {
 
   // Handle view slip details
   const handleViewSlip = (id) => {
-    console.log('View slip:', id);
+    navigate(`/fuel/slips/${id}`);
+  };
+
+  // Handle edit slip
+  const handleEditSlip = (id) => {
+    navigate(`/fuel/slips/${id}/edit`);
+  };
+
+  // Handle delete dialog
+  const handleDeleteClick = (id) => {
+    setDeleteId(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await fuelService.deleteFuelSlip(deleteId);
+      setDeleteDialogOpen(false);
+      setDeleteId(null);
+      await fetchSlips();
+    } catch (err) {
+      console.error('Failed to delete fuel slip:', err);
+      setError(err.message || 'Failed to delete fuel slip');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setDeleteId(null);
   };
 
   // Handle refresh
   const handleRefresh = async () => {
-    setLoading(true);
-    try {
-      const filters = {};
-      if (driverFilter) filters.driverId = driverFilter;
-      if (vehicleFilter) filters.vehicleId = vehicleFilter;
-      if (params.id) filters.driverId = params.id;
-      
-      const data = await fuelService.getFuelSlips(filters);
-      setSlips(data || []);
-    } catch (err) {
-      console.error('Failed to refresh fuel slips:', err);
-      setError(err.message || 'Failed to refresh');
-    } finally {
-      setLoading(false);
-    }
+    await fetchSlips();
   };
 
   if (loading) {
@@ -240,36 +273,11 @@ function FuelSlips() {
         <Button
           variant="contained"
           size="small"
-          onClick={() => window.location.reload()}
+          onClick={handleRefresh}
           sx={{ fontSize: '0.8rem' }}
         >
           Retry
         </Button>
-      </Box>
-    );
-  }
-
-  if (!slips.length) {
-    return (
-      <Box m={2}>
-        <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600 }}>
-          <LocalGasStation sx={{ verticalAlign: 'middle', mr: 0.5, fontSize: '1.2rem' }} />
-          Fuel Slips
-        </Typography>
-        <Alert severity="info" sx={{ mt: 2, fontSize: '0.8rem' }}>
-          No fuel slips found.
-          {driverFilter || vehicleFilter ? ' Try clearing your filters.' : ''}
-        </Alert>
-        {(driverFilter || vehicleFilter) && (
-          <Button
-            startIcon={<Clear sx={{ fontSize: '0.9rem' }} />}
-            onClick={handleClearFilters}
-            size="small"
-            sx={{ mt: 2, fontSize: '0.8rem' }}
-          >
-            Clear Filters
-          </Button>
-        )}
       </Box>
     );
   }
@@ -295,7 +303,7 @@ function FuelSlips() {
           </Tooltip>
           <Button
             variant="contained"
-            startIcon={<LocalGasStation sx={{ fontSize: '0.9rem' }} />}
+            startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
             onClick={() => navigate('/fuel/slips/add')}
             size="small"
             sx={{ fontSize: '0.75rem', py: 0.5 }}
@@ -538,22 +546,77 @@ function FuelSlips() {
                   />
                 </TableCell>
                 <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Tooltip title="View Details">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleViewSlip(slip.id)}
-                      color="primary"
-                      sx={{ p: 0.5 }}
-                    >
-                      <Visibility sx={{ fontSize: '0.9rem' }} />
-                    </IconButton>
-                  </Tooltip>
+                  <Stack direction="row" spacing={0.5}>
+                    <Tooltip title="View Details">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleViewSlip(slip.id)}
+                        color="primary"
+                        sx={{ p: 0.5 }}
+                      >
+                        <Visibility sx={{ fontSize: '0.9rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditSlip(slip.id)}
+                        color="info"
+                        sx={{ p: 0.5 }}
+                      >
+                        <EditIcon sx={{ fontSize: '0.9rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteClick(slip.id)}
+                        color="error"
+                        sx={{ p: 0.5 }}
+                      >
+                        <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '1rem' }}>
+          <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
+          Delete Fuel Slip
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontSize: '0.9rem' }}>
+            Are you sure you want to delete this fuel slip? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleDeleteCancel} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleting}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
+          >
+            {deleting ? <CircularProgress size={18} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Footer summary - Compact */}
       {summary && (
