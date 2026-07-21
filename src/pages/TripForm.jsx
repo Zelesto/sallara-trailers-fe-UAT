@@ -938,6 +938,23 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     </Alert>
   );
 
+  const fetchTripWithRetry = async (id, maxRetries = 3) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const trip = await tripService.getTripById(id);
+      return trip;
+    } catch (error) {
+      if (error.response?.status === 404 && attempt < maxRetries) {
+        console.log(`⏳ Trip ${id} not found, retrying (${attempt}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error(`Failed to fetch trip ${id} after ${maxRetries} attempts`);
+};
+
   /* ============================================================
      MAIN RENDER
    ============================================================ */
