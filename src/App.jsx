@@ -36,6 +36,8 @@ const VehicleForm = lazy(() => import("./pages/VehicleForm"));
 
 const FuelSlips = lazy(() => import("./pages/FuelSlips"));
 const AddFuelSlip = lazy(() => import("./pages/AddFuelSlip"));
+const FuelSlipDetails = lazy(() => import("./pages/FuelSlipDetails"));
+const FuelSlipForm = lazy(() => import("./pages/FuelSlipForm"));    
 
 const TripList = lazy(() => import("./pages/TripList"));
 const TripDetails = lazy(() => import("./pages/TripDetails"));
@@ -244,6 +246,8 @@ function App() {
                     {/* Fuel */}
                     <Route path="fuel/slips" element={<FuelSlips />} />
                     <Route path="fuel/slips/add" element={<AddFuelSlip />} />
+                    <Route path="fuel/slips/:id" element={<FuelSlipDetails />} />
+                    <Route path="fuel/slips/:id/edit" element={<FuelSlipForm />} />
                     <Route path="fuel/slips/driver/:id" element={<FuelSlips />} />
                     <Route path="fuel/slips/vehicle/:id" element={<FuelSlips />} />
                     <Route path="fuel/slips/trip/:id" element={<FuelSlips />} />
