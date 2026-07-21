@@ -1,666 +1,509 @@
-// src/pages/FuelSlips.jsx
-import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState, useMemo } from 'react';
-import { fuelService } from '../services/fuelService';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Typography,
-  CircularProgress,
-  Box,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Chip,
-  IconButton,
-  Tooltip,
-  Alert,
-  Button,
-  Card,
-  CardContent,
-  Stack,
-  Grid,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  DialogContentText,
-} from '@mui/material';
-import {
-  FilterList,
-  Clear,
-  Visibility,
-  CheckCircle,
-  Cancel,
-  LocalGasStation,
-  Person,
-  DirectionsCar,
-  Event,
-  AttachMoney,
-  Refresh as RefreshIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+// src/services/fuelService.js
+import api from './api';
+import dayjs from 'dayjs';
 
-// Currency formatter for South African Rand (ZAR)
-const formatCurrency = (amount) => {
-  if (amount === null || amount === undefined) return 'R 0.00';
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numAmount);
+/* ============================================================
+   UTILITY FUNCTIONS
+   ============================================================ */
+
+/**
+ * Format date for backend API
+ */
+const formatDateForBackend = (date) => {
+  if (!date) return null;
+  return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
 };
 
-// Format number with commas (for quantity)
-const formatNumber = (num) => {
-  if (num === null || num === undefined) return '0.00';
-  const number = typeof num === 'string' ? parseFloat(num) : num;
-  return new Intl.NumberFormat('en-ZA', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(number);
+/**
+ * Sanitize field values
+ */
+const sanitizeField = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  return value;
 };
 
-// Compact Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-      <Stack direction="row" alignItems="center" spacing={1.5}>
-        <Box
-          sx={{
-            bgcolor: `${color}.light`,
-            borderRadius: 1,
-            p: 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon sx={{ fontSize: '1.2rem', color: `${color}.main` }} />
-        </Box>
-        <Box>
-          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
-            {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
-              {subtitle}
-            </Typography>
-          )}
-        </Box>
-      </Stack>
-    </CardContent>
-  </Card>
-);
+/**
+ * Unwrap response data
+ */
+const unwrap = (response) => {
+  if (!response) return null;
+  return response?.data !== undefined ? response.data : response;
+};
 
-function FuelSlips() {
-  const params = useParams();
-  const navigate = useNavigate();
-  const [slips, setSlips] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [driverFilter, setDriverFilter] = useState('');
-  const [vehicleFilter, setVehicleFilter] = useState('');
+/**
+ * Handle API errors consistently
+ */
+const handleApiError = (error, context = '') => {
+  console.error(`❌ ${context}:`, error);
   
-  // Delete Dialog State
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  // Extract user-friendly error message
+  let message = error.message || 'An unexpected error occurred';
+  
+  if (error.response?.data?.errors) {
+    const errorMessages = Object.entries(error.response.data.errors)
+      .map(([field, msg]) => `${field}: ${msg}`)
+      .join(', ');
+    message = `Validation errors: ${errorMessages}`;
+  } else if (error.response?.data?.detail) {
+    message = error.response.data.detail;
+  } else if (error.response?.data?.message) {
+    message = error.response.data.message;
+  } else if (error.response?.status === 404) {
+    message = 'Fuel slip not found';
+  } else if (error.response?.status === 401) {
+    message = 'Unauthorized - Please log in again';
+  } else if (error.response?.status === 403) {
+    message = 'Forbidden - You do not have permission';
+  } else if (error.response?.status === 500) {
+    message = 'Server error - Please try again later';
+  }
+  
+  // Enhance error object with user-friendly message
+  error.userMessage = message;
+  return error;
+};
 
-  // Fetch slips
-  const fetchSlips = async () => {
-    setLoading(true);
-    setError(null);
+/**
+ * Build fuel slip payload with common fields
+ */
+const buildFuelSlipPayload = (data) => ({
+  slipNumber: sanitizeField(data.slipNumber),
+  transactionDate: formatDateForBackend(data.transactionDate),
+  vehicleId: data.vehicleId ? parseInt(data.vehicleId, 10) : null,
+  vehicleRegistration: sanitizeField(data.vehicleRegistration),
+  driverId: data.driverId ? parseInt(data.driverId, 10) : null,
+  driverName: sanitizeField(data.driverName),
+  quantity: data.quantity ? parseFloat(data.quantity) : null,
+  unitPrice: data.unitPrice ? parseFloat(data.unitPrice) : null,
+  stationName: sanitizeField(data.stationName),
+  location: sanitizeField(data.location),
+  pumpNumber: sanitizeField(data.pumpNumber),
+  notes: sanitizeField(data.notes),
+  fuelType: sanitizeField(data.fuelType),
+  paymentMethod: sanitizeField(data.paymentMethod),
+  receiptNumber: sanitizeField(data.receiptNumber),
+  odometerReading: data.odometerReading ? parseFloat(data.odometerReading) : null,
+  tripId: data.tripId ? parseInt(data.tripId, 10) : null,
+  loadId: data.loadId ? parseInt(data.loadId, 10) : null,
+  fuelSourceId: data.fuelSourceId ? parseInt(data.fuelSourceId, 10) : null,
+  finalized: data.finalized ?? false,
+});
 
-    try {
-      const filters = {};
+/* ============================================================
+   FUEL SERVICE - MAIN EXPORT
+   ============================================================ */
 
-      if (driverFilter) {
-        filters.driverId = driverFilter;
-      } else if (params.id) {
-        filters.driverId = params.id;
-      }
-
-      if (vehicleFilter) {
-        filters.vehicleId = vehicleFilter;
-      }
-
-      const data = await fuelService.getFuelSlips(filters);
-      setSlips(data || []);
-    } catch (err) {
-      console.error('Failed to fetch fuel slips:', err);
-      setError(err.message || 'Failed to load fuel slips');
-      setSlips([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSlips();
-  }, [params.id, driverFilter, vehicleFilter]);
-
-  // Get unique drivers and vehicles for filters
-  const { drivers, vehicles } = useMemo(() => {
-    const uniqueDrivers = [];
-    const uniqueVehicles = [];
-    const driverMap = new Map();
-    const vehicleMap = new Map();
-
-    slips.forEach(slip => {
-      if (slip.driverId && slip.driverName && !driverMap.has(slip.driverId)) {
-        driverMap.set(slip.driverId, slip.driverName);
-        uniqueDrivers.push({ id: slip.driverId, name: slip.driverName });
-      }
-
-      if (slip.vehicleId && slip.vehicleRegNumber && !vehicleMap.has(slip.vehicleId)) {
-        vehicleMap.set(slip.vehicleId, slip.vehicleRegNumber);
-        uniqueVehicles.push({ id: slip.vehicleId, regNumber: slip.vehicleRegNumber });
-      }
-    });
-
-    return { drivers: uniqueDrivers, vehicles: uniqueVehicles };
-  }, [slips]);
-
-  // Calculate summary stats
-  const summary = useMemo(() => {
-    if (!slips.length) return null;
-
-    const totalAmount = slips.reduce((sum, slip) =>
-      sum + (parseFloat(slip.totalAmount) || 0), 0
-    );
-
-    const totalQuantity = slips.reduce((sum, slip) =>
-      sum + (parseFloat(slip.quantity) || 0), 0
-    );
-
-    const averagePrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0;
-
-    const finalizedCount = slips.filter(slip => slip.finalized).length;
-    const pendingCount = slips.length - finalizedCount;
-
-    return {
-      totalAmount,
-      totalQuantity,
-      averagePrice,
-      finalizedCount,
-      pendingCount,
-      slipCount: slips.length,
-    };
-  }, [slips]);
-
-  // Handle clear filters
-  const handleClearFilters = () => {
-    setDriverFilter('');
-    setVehicleFilter('');
-  };
+export const fuelService = {
 
   // ============================================================
-  // FIX: Added console logs for debugging navigation
+  // CRUD OPERATIONS
   // ============================================================
-  
-  // Handle view slip details
-  const handleViewSlip = (id) => {
-    console.log('🔍 Viewing fuel slip with ID:', id);
-    console.log('📤 Current path:', window.location.pathname);
-    console.log('📤 Navigating to: /fuel/slips/' + id);
-    navigate(`/fuel/slips/${id}`);
-  };
 
-  // Handle edit slip
-  const handleEditSlip = (id) => {
-    console.log('✏️ Editing fuel slip with ID:', id);
-    console.log('📤 Navigating to: /fuel/slips/' + id + '/edit');
-    navigate(`/fuel/slips/${id}/edit`);
-  };
-
-  // Handle delete dialog
-  const handleDeleteClick = (id) => {
-    console.log('🗑️ Deleting fuel slip with ID:', id);
-    setDeleteId(id);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
+  /**
+   * Get all fuel slips with optional filters
+   * @param {Object} filters - Filter parameters
+   * @param {number} filters.driverId - Filter by driver ID
+   * @param {number} filters.vehicleId - Filter by vehicle ID
+   * @param {number} filters.tripId - Filter by trip ID
+   * @param {number} filters.loadId - Filter by load ID
+   * @param {string} filters.fuelType - Filter by fuel type
+   * @param {string} filters.paymentMethod - Filter by payment method
+   * @param {boolean} filters.finalized - Filter by finalized status
+   */
+  getFuelSlips: async (filters = {}) => {
     try {
-      await fuelService.deleteFuelSlip(deleteId);
-      setDeleteDialogOpen(false);
-      setDeleteId(null);
-      await fetchSlips();
-    } catch (err) {
-      console.error('Failed to delete fuel slip:', err);
-      setError(err.message || 'Failed to delete fuel slip');
-    } finally {
-      setDeleting(false);
+      console.log('🔧 fuelService.getFuelSlips called with filters:', filters);
+      
+      // Build query params
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value);
+        }
+      });
+
+      const url = `/fuel/slips${params.toString() ? `?${params.toString()}` : ''}`;
+      console.log('🌐 Making API call to:', url);
+      
+      const response = await api.get(url);
+      const data = unwrap(response);
+      
+      // Handle different response formats
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data?.content && Array.isArray(data.content)) {
+        return data.content;
+      }
+      if (data?.data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      
+      return data || [];
+    } catch (error) {
+      throw handleApiError(error, 'Fetching fuel slips');
     }
-  };
+  },
 
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-    setDeleteId(null);
-  };
+  /**
+   * Get a single fuel slip by ID
+   * @param {number|string} id - Fuel slip ID
+   */
+  getFuelSlipById: async (id) => {
+    try {
+      console.log(`📤 Fetching fuel slip with ID: ${id}`);
+      const response = await api.get(`/fuel/slips/${id}`);
+      const data = unwrap(response);
+      console.log('✅ Fuel slip fetched:', data);
+      return data;
+    } catch (error) {
+      throw handleApiError(error, `Fetching fuel slip ${id}`);
+    }
+  },
 
-  // Handle refresh
-  const handleRefresh = async () => {
-    await fetchSlips();
-  };
+  /**
+   * Create a new fuel slip
+   * @param {Object} data - Fuel slip data
+   */
+  createFuelSlip: async (data) => {
+    try {
+      const payload = buildFuelSlipPayload(data);
+      console.log('📤 Creating fuel slip with payload:', payload);
+      const response = await api.post('/fuel/slips', payload);
+      const result = unwrap(response);
+      console.log('✅ Fuel slip created:', result);
+      return result;
+    } catch (error) {
+      throw handleApiError(error, 'Creating fuel slip');
+    }
+  },
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <Box textAlign="center">
-          <CircularProgress size={40} />
-          <Typography variant="body1" mt={1} sx={{ fontSize: '0.9rem' }}>
-            Loading fuel slips...
-          </Typography>
-        </Box>
-      </Box>
-    );
-  }
+  /**
+   * Update an existing fuel slip
+   * @param {number|string} id - Fuel slip ID
+   * @param {Object} data - Updated fuel slip data
+   */
+  updateFuelSlip: async (id, data) => {
+    try {
+      const payload = buildFuelSlipPayload(data);
+      console.log(`📤 Updating fuel slip ${id} with payload:`, payload);
+      const response = await api.put(`/fuel/slips/${id}`, payload);
+      const result = unwrap(response);
+      console.log('✅ Fuel slip updated:', result);
+      return result;
+    } catch (error) {
+      throw handleApiError(error, `Updating fuel slip ${id}`);
+    }
+  },
 
-  if (error) {
-    return (
-      <Box m={2}>
-        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }}>
-          {error}
-        </Alert>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={handleRefresh}
-          sx={{ fontSize: '0.8rem' }}
-        >
-          Retry
-        </Button>
-      </Box>
-    );
-  }
+  /**
+   * Delete a fuel slip
+   * @param {number|string} id - Fuel slip ID
+   */
+  deleteFuelSlip: async (id) => {
+    try {
+      console.log(`🗑️ Deleting fuel slip with ID: ${id}`);
+      const response = await api.delete(`/fuel/slips/${id}`);
+      console.log('✅ Fuel slip deleted');
+      return unwrap(response);
+    } catch (error) {
+      throw handleApiError(error, `Deleting fuel slip ${id}`);
+    }
+  },
 
-  return (
-    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-        <Box>
-          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
-            <LocalGasStation sx={{ verticalAlign: 'middle', mr: 0.5, fontSize: '1.2rem' }} />
-            Fuel Slips
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-            Manage fuel transactions in ZAR
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={0.75}>
-          <Tooltip title="Refresh">
-            <IconButton size="small" onClick={handleRefresh} sx={{ p: 0.5 }}>
-              <RefreshIcon sx={{ fontSize: '0.9rem' }} />
-            </IconButton>
-          </Tooltip>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => navigate('/fuel/slips/add')}
-            size="small"
-            sx={{ fontSize: '0.75rem', py: 0.5 }}
-          >
-            New Slip
-          </Button>
-        </Stack>
-      </Box>
+  // ============================================================
+  // FUEL SLIP OPERATIONS
+  // ============================================================
 
-      {/* Summary Cards - Compact */}
-      {summary && (
-        <Grid container spacing={1.5} sx={{ mb: 2 }}>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Total Cost"
-              value={formatCurrency(summary.totalAmount)}
-              icon={AttachMoney}
-              color="primary"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Total Fuel"
-              value={`${formatNumber(summary.totalQuantity)} L`}
-              icon={LocalGasStation}
-              color="secondary"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Avg Price"
-              value={`${formatCurrency(summary.averagePrice)}/L`}
-              icon={AttachMoney}
-              color="success"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Status"
-              value={`${summary.finalizedCount}/${summary.slipCount}`}
-              icon={summary.pendingCount > 0 ? Cancel : CheckCircle}
-              color={summary.pendingCount > 0 ? 'warning' : 'success'}
-              subtitle={`${summary.pendingCount} pending`}
-            />
-          </Grid>
-        </Grid>
-      )}
+  /**
+   * Finalize a fuel slip
+   * @param {number|string} id - Fuel slip ID
+   */
+  finalizeFuelSlip: async (id) => {
+    try {
+      console.log(`📤 Finalizing fuel slip: ${id}`);
+      const response = await api.post(`/fuel/slips/${id}/finalize`);
+      const result = unwrap(response);
+      console.log('✅ Fuel slip finalized:', result);
+      return result;
+    } catch (error) {
+      throw handleApiError(error, `Finalizing fuel slip ${id}`);
+    }
+  },
 
-      {/* Filters - Compact */}
-      <Paper sx={{ p: 1.5, mb: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-          <Stack direction="row" alignItems="center" spacing={0.5}>
-            <FilterList sx={{ fontSize: '0.9rem', color: 'action.active' }} />
-            <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
-              Filters
-            </Typography>
-          </Stack>
-          {(driverFilter || vehicleFilter) && (
-            <Button
-              size="small"
-              startIcon={<Clear sx={{ fontSize: '0.8rem' }} />}
-              onClick={handleClearFilters}
-              sx={{ fontSize: '0.65rem' }}
-            >
-              Clear
-            </Button>
-          )}
-        </Stack>
+  /**
+   * Verify a fuel slip
+   * @param {number|string} id - Fuel slip ID
+   * @param {string} verifiedBy - Person verifying the slip
+   */
+  verifyFuelSlip: async (id, verifiedBy) => {
+    try {
+      console.log(`📤 Verifying fuel slip: ${id}`);
+      const response = await api.post(`/fuel/slips/${id}/verify`, { verifiedBy });
+      const result = unwrap(response);
+      console.log('✅ Fuel slip verified:', result);
+      return result;
+    } catch (error) {
+      throw handleApiError(error, `Verifying fuel slip ${id}`);
+    }
+  },
 
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
-            <InputLabel sx={{ fontSize: '0.75rem' }}>
-              <Person sx={{ fontSize: '0.8rem', mr: 0.5 }} />
-              Driver
-            </InputLabel>
-            <Select
-              value={driverFilter}
-              onChange={(e) => setDriverFilter(e.target.value)}
-              label="Driver"
-              sx={{ fontSize: '0.75rem' }}
-            >
-              <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Drivers</MenuItem>
-              {drivers.map(driver => (
-                <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: '0.75rem' }}>
-                  {driver.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+  // ============================================================
+  // QUERY OPERATIONS
+  // ============================================================
 
-          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
-            <InputLabel sx={{ fontSize: '0.75rem' }}>
-              <DirectionsCar sx={{ fontSize: '0.8rem', mr: 0.5 }} />
-              Vehicle
-            </InputLabel>
-            <Select
-              value={vehicleFilter}
-              onChange={(e) => setVehicleFilter(e.target.value)}
-              label="Vehicle"
-              sx={{ fontSize: '0.75rem' }}
-            >
-              <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Vehicles</MenuItem>
-              {vehicles.map(vehicle => (
-                <MenuItem key={vehicle.id} value={vehicle.id} sx={{ fontSize: '0.75rem' }}>
-                  {vehicle.regNumber}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Stack>
-      </Paper>
+  /**
+   * Get fuel slips for a specific trip
+   * @param {number|string} tripId - Trip ID
+   */
+  getFuelSlipsByTrip: async (tripId) => {
+    try {
+      console.log(`📤 Fetching fuel slips for trip: ${tripId}`);
+      const response = await api.get(`/fuel/slips/trip/${tripId}`);
+      const data = unwrap(response);
+      
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data?.content && Array.isArray(data.content)) {
+        return data.content;
+      }
+      if (data?.data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      
+      return data || [];
+    } catch (error) {
+      throw handleApiError(error, `Fetching fuel slips for trip ${tripId}`);
+    }
+  },
 
-      {/* Results count - Compact */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-          {slips.length} slip{slips.length !== 1 ? 's' : ''}
-          {summary && ` • ${formatCurrency(summary.totalAmount)}`}
-        </Typography>
-        <Button
-          size="small"
-          startIcon={<Clear sx={{ fontSize: '0.8rem' }} />}
-          onClick={handleClearFilters}
-          disabled={!driverFilter && !vehicleFilter}
-          sx={{ fontSize: '0.65rem' }}
-        >
-          Clear Filters
-        </Button>
-      </Box>
+  /**
+   * Get fuel slips for a specific driver
+   * @param {number|string} driverId - Driver ID
+   */
+  getFuelSlipsByDriver: async (driverId) => {
+    try {
+      console.log(`📤 Fetching fuel slips for driver: ${driverId}`);
+      const response = await api.get(`/fuel/slips/driver/${driverId}`);
+      const data = unwrap(response);
+      return Array.isArray(data) ? data : (data?.data || []);
+    } catch (error) {
+      throw handleApiError(error, `Fetching fuel slips for driver ${driverId}`);
+    }
+  },
 
-      {/* Table - Compact with Auto-Width */}
-      <TableContainer component={Paper} sx={{ borderRadius: 1, mb: 2 }}>
-        <Table size="small">
-          <TableHead sx={{ bgcolor: 'action.hover' }}>
-            <TableRow>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
-                <Event sx={{ fontSize: '0.8rem', mr: 0.5 }} />Date
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
-                <Person sx={{ fontSize: '0.8rem', mr: 0.5 }} />Driver
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
-                <DirectionsCar sx={{ fontSize: '0.8rem', mr: 0.5 }} />Vehicle
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
-                <LocalGasStation sx={{ fontSize: '0.8rem', mr: 0.5 }} />Fuel
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>
-                <AttachMoney sx={{ fontSize: '0.8rem', mr: 0.5 }} />Amount (ZAR)
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Station</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Status</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {slips.map(slip => (
-              <TableRow
-                key={slip.id}
-                hover
-                sx={{
-                  '&:last-child td, &:last-child th': { border: 0 },
-                  bgcolor: slip.finalized ? 'action.hover' : 'transparent'
-                }}
-              >
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-                    {slip.transactionDate
-                      ? new Date(slip.transactionDate).toLocaleDateString('en-ZA', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : '-'}
-                  </Typography>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
-                      {slip.driverName || '-'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                      ID: {slip.driverId || 'N/A'}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
-                      {slip.vehicleRegNumber || '-'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                      ID: {slip.vehicleId || 'N/A'}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
-                      {slip.quantity ? `${formatNumber(slip.quantity)} L` : '-'}
-                    </Typography>
-                    {slip.unitPrice && (
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                        @ {formatCurrency(slip.unitPrice)}/L
-                      </Typography>
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" color="primary" sx={{ fontSize: '0.7rem' }}>
-                      {formatCurrency(slip.totalAmount)}
-                    </Typography>
-                    {slip.quantity && slip.totalAmount && (
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                        {formatCurrency(parseFloat(slip.totalAmount) / parseFloat(slip.quantity))}/L
-                      </Typography>
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-                    {slip.stationName || slip.location || '-'}
-                  </Typography>
-                  {slip.location && slip.stationName && (
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                      {slip.location}
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Chip
-                    label={slip.finalized ? 'Finalized' : 'Pending'}
-                    size="small"
-                    color={slip.finalized ? 'success' : 'warning'}
-                    variant="outlined"
-                    icon={slip.finalized ? <CheckCircle sx={{ fontSize: '0.7rem' }} /> : <Cancel sx={{ fontSize: '0.7rem' }} />}
-                    sx={{ height: 20, fontSize: '0.6rem' }}
-                  />
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Stack direction="row" spacing={0.5}>
-                    <Tooltip title="View Details">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          console.log('🖱️ View button clicked for slip ID:', slip.id);
-                          handleViewSlip(slip.id);
-                        }}
-                        color="primary"
-                        sx={{ p: 0.5 }}
-                      >
-                        <Visibility sx={{ fontSize: '0.9rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          console.log('🖱️ Edit button clicked for slip ID:', slip.id);
-                          handleEditSlip(slip.id);
-                        }}
-                        color="info"
-                        sx={{ p: 0.5 }}
-                      >
-                        <EditIcon sx={{ fontSize: '0.9rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          console.log('🖱️ Delete button clicked for slip ID:', slip.id);
-                          handleDeleteClick(slip.id);
-                        }}
-                        color="error"
-                        sx={{ p: 0.5 }}
-                      >
-                        <DeleteIcon sx={{ fontSize: '0.9rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+  /**
+   * Get fuel slips for a specific vehicle
+   * @param {number|string} vehicleId - Vehicle ID
+   */
+  getFuelSlipsByVehicle: async (vehicleId) => {
+    try {
+      console.log(`📤 Fetching fuel slips for vehicle: ${vehicleId}`);
+      const response = await api.get(`/fuel/slips/vehicle/${vehicleId}`);
+      const data = unwrap(response);
+      return Array.isArray(data) ? data : (data?.data || []);
+    } catch (error) {
+      throw handleApiError(error, `Fetching fuel slips for vehicle ${vehicleId}`);
+    }
+  },
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ fontSize: '1rem' }}>
-          <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
-          Delete Fuel Slip
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ fontSize: '0.9rem' }}>
-            Are you sure you want to delete this fuel slip? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleDeleteCancel} size="small" sx={{ fontSize: '0.8rem' }}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            variant="contained"
-            color="error"
-            disabled={deleting}
-            size="small"
-            sx={{ fontSize: '0.8rem' }}
-          >
-            {deleting ? <CircularProgress size={18} /> : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+  /**
+   * Get fuel slips for a date range
+   * @param {string} startDate - Start date (YYYY-MM-DD)
+   * @param {string} endDate - End date (YYYY-MM-DD)
+   */
+  getFuelSlipsByDateRange: async (startDate, endDate) => {
+    try {
+      console.log(`📤 Fetching fuel slips from ${startDate} to ${endDate}`);
+      const response = await api.get('/fuel/slips/period', {
+        params: { startDate, endDate }
+      });
+      const data = unwrap(response);
+      return Array.isArray(data) ? data : (data?.data || []);
+    } catch (error) {
+      throw handleApiError(error, 'Fetching fuel slips by date range');
+    }
+  },
 
-      {/* Footer summary - Compact */}
-      {summary && (
-        <Paper sx={{ p: 1.5, bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 1 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                Summary Totals
-              </Typography>
-              <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.9 }}>
-                {summary.slipCount} slips • {formatNumber(summary.totalQuantity)} litres
-              </Typography>
-            </Box>
-            <Box textAlign={{ xs: 'left', sm: 'right' }}>
-              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                {formatCurrency(summary.totalAmount)}
-              </Typography>
-              <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.9 }}>
-                Avg: {formatCurrency(summary.averagePrice)}/L
-              </Typography>
-            </Box>
-          </Stack>
-        </Paper>
-      )}
-    </Box>
-  );
-}
+  // ============================================================
+  // STATISTICS & REPORTS
+  // ============================================================
 
-export default FuelSlips;
+  /**
+   * Get fuel slip statistics
+   * @param {Object} params - Parameters
+   * @param {string} params.startDate - Start date (YYYY-MM-DD)
+   * @param {string} params.endDate - End date (YYYY-MM-DD)
+   * @param {number} params.vehicleId - Filter by vehicle
+   * @param {number} params.driverId - Filter by driver
+   */
+  getFuelStatistics: async (params = {}) => {
+    try {
+      console.log('📤 Fetching fuel statistics with params:', params);
+      const response = await api.get('/fuel/slips/statistics', { params });
+      return unwrap(response);
+    } catch (error) {
+      throw handleApiError(error, 'Fetching fuel statistics');
+    }
+  },
+
+  /**
+   * Get fuel consumption report
+   * @param {Object} params - Parameters
+   * @param {string} params.startDate - Start date (YYYY-MM-DD)
+   * @param {string} params.endDate - End date (YYYY-MM-DD)
+   * @param {number} params.vehicleId - Filter by vehicle
+   */
+  getFuelConsumptionReport: async (params = {}) => {
+    try {
+      console.log('📤 Fetching fuel consumption report with params:', params);
+      const response = await api.get('/fuel/slips/consumption-report', { params });
+      return unwrap(response);
+    } catch (error) {
+      throw handleApiError(error, 'Fetching fuel consumption report');
+    }
+  },
+
+  // ============================================================
+  // BULK OPERATIONS
+  // ============================================================
+
+  /**
+   * Bulk create fuel slips
+   * @param {Array} slips - Array of fuel slip data
+   */
+  bulkCreateFuelSlips: async (slips) => {
+    try {
+      console.log(`📤 Bulk creating ${slips.length} fuel slips`);
+      const payload = slips.map(slip => buildFuelSlipPayload(slip));
+      const response = await api.post('/fuel/slips/bulk', payload);
+      const result = unwrap(response);
+      console.log('✅ Bulk fuel slips created:', result);
+      return result;
+    } catch (error) {
+      throw handleApiError(error, 'Bulk creating fuel slips');
+    }
+  },
+
+  /**
+   * Bulk update fuel slips
+   * @param {Array} updates - Array of { id, data } objects
+   */
+  bulkUpdateFuelSlips: async (updates) => {
+    try {
+      console.log(`📤 Bulk updating ${updates.length} fuel slips`);
+      const payload = updates.map(({ id, data }) => ({
+        id,
+        ...buildFuelSlipPayload(data)
+      }));
+      const response = await api.put('/fuel/slips/bulk', payload);
+      const result = unwrap(response);
+      console.log('✅ Bulk fuel slips updated:', result);
+      return result;
+    } catch (error) {
+      throw handleApiError(error, 'Bulk updating fuel slips');
+    }
+  },
+
+  /**
+   * Bulk delete fuel slips
+   * @param {Array} ids - Array of fuel slip IDs
+   */
+  bulkDeleteFuelSlips: async (ids) => {
+    try {
+      console.log(`📤 Bulk deleting ${ids.length} fuel slips`);
+      const response = await api.delete('/fuel/slips/bulk', { data: { ids } });
+      console.log('✅ Bulk fuel slips deleted');
+      return unwrap(response);
+    } catch (error) {
+      throw handleApiError(error, 'Bulk deleting fuel slips');
+    }
+  },
+
+  // ============================================================
+  // EXPORT FUNCTIONS
+  // ============================================================
+
+  /**
+   * Export fuel slips to CSV
+   * @param {Object} filters - Filter parameters
+   */
+  exportFuelSlipsToCsv: async (filters = {}) => {
+    try {
+      console.log('📤 Exporting fuel slips to CSV with filters:', filters);
+      const response = await api.get('/fuel/slips/export/csv', {
+        params: filters,
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `fuel-slips-${dayjs().format('YYYY-MM-DD')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      throw handleApiError(error, 'Exporting fuel slips to CSV');
+    }
+  },
+
+  /**
+   * Export fuel slips to PDF
+   * @param {Object} filters - Filter parameters
+   */
+  exportFuelSlipsToPdf: async (filters = {}) => {
+    try {
+      console.log('📤 Exporting fuel slips to PDF with filters:', filters);
+      const response = await api.get('/fuel/slips/export/pdf', {
+        params: filters,
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `fuel-slips-${dayjs().format('YYYY-MM-DD')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      throw handleApiError(error, 'Exporting fuel slips to PDF');
+    }
+  },
+};
+
+// ============================================================
+// INDIVIDUAL EXPORTS (for direct import)
+// ============================================================
+
+export const {
+  getFuelSlips,
+  getFuelSlipById,
+  createFuelSlip,
+  updateFuelSlip,
+  deleteFuelSlip,
+  finalizeFuelSlip,
+  verifyFuelSlip,
+  getFuelSlipsByTrip,
+  getFuelSlipsByDriver,
+  getFuelSlipsByVehicle,
+  getFuelSlipsByDateRange,
+  getFuelStatistics,
+  getFuelConsumptionReport,
+  bulkCreateFuelSlips,
+  bulkUpdateFuelSlips,
+  bulkDeleteFuelSlips,
+  exportFuelSlipsToCsv,
+  exportFuelSlipsToPdf,
+} = fuelService;
+
+export default fuelService;
