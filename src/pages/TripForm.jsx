@@ -33,6 +33,7 @@ import {
 import {
   Save,
   Close,
+  Assignment as AssignmentIcon,
   Schedule as ScheduleIcon,
   DirectionsCar,
   Description,
