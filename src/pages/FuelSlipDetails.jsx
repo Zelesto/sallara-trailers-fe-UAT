@@ -36,8 +36,10 @@ import {
   CheckCircle,
   Cancel,
   Print as PrintIcon,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { fuelService } from '../services/fuelService';
+import { tripService } from '../services/tripService';
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
@@ -108,6 +110,7 @@ const FuelSlipDetails = () => {
   const [error, setError] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [tripDetails, setTripDetails] = useState(null);
 
   useEffect(() => {
     if (id) {
@@ -126,6 +129,16 @@ const FuelSlipDetails = () => {
       const data = await fuelService.getFuelSlipById(id);
       console.log('✅ Fuel slip fetched:', data);
       setSlip(data);
+
+      // If trip is linked, fetch trip details
+      if (data.tripId) {
+        try {
+          const trip = await tripService.getTripById(data.tripId);
+          setTripDetails(trip);
+        } catch (tripErr) {
+          console.warn('Could not fetch trip details:', tripErr);
+        }
+      }
     } catch (err) {
       console.error('❌ Failed to fetch fuel slip details:', err);
       setError(err.message || 'Failed to load fuel slip details');
@@ -151,12 +164,10 @@ const FuelSlipDetails = () => {
     window.print();
   };
 
-  // Handle go back
   const handleGoBack = () => {
     navigate('/fuel/slips');
   };
 
-  // Handle edit
   const handleEdit = () => {
     navigate(`/fuel/slips/${id}/edit`);
   };
@@ -329,14 +340,33 @@ const FuelSlipDetails = () => {
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                   Slip #: {slip.slipNumber || 'N/A'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                  Trip: {slip.tripId || 'N/A'}
-                </Typography>
+                {slip.tripId && (
+                  <Chip
+                    size="small"
+                    icon={<LinkIcon sx={{ fontSize: '0.7rem' }} />}
+                    label={`Trip: ${tripDetails?.tripNumber || slip.tripId}`}
+                    color="info"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: '0.55rem' }}
+                  />
+                )}
               </Stack>
             </Grid>
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Trip Details if linked */}
+      {tripDetails && (
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: 'info.light', borderRadius: 1 }}>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+            <strong>Linked Trip:</strong> {tripDetails.tripNumber} | 
+            <strong> Status:</strong> {tripDetails.status} |
+            <strong> Origin:</strong> {tripDetails.originLocation || tripDetails.originCity || 'N/A'} →
+            <strong> Destination:</strong> {tripDetails.destinationLocation || tripDetails.destinationCity || 'N/A'}
+          </Typography>
+        </Box>
+      )}
 
       {/* Details Grid - Compact */}
       <Grid container spacing={1.5}>
