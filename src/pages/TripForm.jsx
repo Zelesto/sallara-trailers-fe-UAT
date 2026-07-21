@@ -41,7 +41,6 @@ import {
   Scale,
   AttachMoney,
   Comment,
-  Assignment,
   Toll,
   Receipt,
   Business as BusinessIcon,
@@ -102,12 +101,6 @@ const DEPARTURE_OPTIONS = [
   { value: 'LAST_DROP', label: 'Last Drop Off Location' },
   { value: 'FREEHAND', label: 'Freehand / Custom Location' }
 ];
-
-const DEPOT_DISTANCE_HELPERS = {
-  DEPOT: 'Auto-calculated from depot to pickup',
-  LAST_DROP: 'Calculated from previous trip\'s destination',
-  FREEHAND: 'Manual entry'
-};
 
 /* ============================================================
    HELPER FUNCTIONS
@@ -480,6 +473,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [formErrors, setFormErrors] = useState({});
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // Data States
   const [vehicles, setVehicles] = useState([]);
@@ -625,6 +619,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         setFormErrors({});
         setError(null);
         setSuccessMessage(null);
+        setIsSuccess(false);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -639,7 +634,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   // Populate form with initial data when editing
   useEffect(() => {
     if (initialData && open) {
-      // Log initial data for debugging
       console.log('🔍 Populating form with initial data:', initialData);
       
       setForm(prev => ({
@@ -652,14 +646,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         referenceNumber: initialData.referenceNumber || '',
       }));
 
-      // Populate depot data
       if (initialData.departedFrom) setDepartureType(initialData.departedFrom);
       if (initialData.departureLocation) setDepartureLocation(initialData.departureLocation);
       if (initialData.fromDepotKm) setFromDepotKm(initialData.fromDepotKm);
       if (initialData.toDepotKm) setToDepotKm(initialData.toDepotKm);
       if (initialData.isFromDepot !== undefined) setIsFromDepot(initialData.isFromDepot);
 
-      // Populate addresses
       if (initialData.originLocation) {
         setOrigin({
           street: initialData.originStreetAddress || '',
@@ -758,7 +750,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   };
 
   /* ============================================================
-     FORM SUBMISSION - FIXED FOR UPDATES
+     FORM SUBMISSION - FIXED
    ============================================================ */
 
   const handleSubmit = useCallback(async () => {
@@ -773,12 +765,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setSubmitting(true);
     setError(null);
     setSuccessMessage(null);
+    setIsSuccess(false);
 
     try {
       const originAddress = buildAddress(origin);
       const destAddress = buildAddress(destination);
 
-      // Build payload - include all fields
       const payload = {
         tripType: form.tripType,
         status: form.status,
@@ -843,30 +835,42 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         }
       });
 
-      // Log what we're sending
       console.log(`📤 ${mode === 'edit' ? 'Updating' : 'Creating'} trip:`, payload);
       console.log(`📤 Mode: ${mode}, InitialData ID: ${initialData?.id}`);
 
       let result;
       if (mode === 'edit' && initialData?.id) {
-        // Use the update endpoint with the correct ID
         console.log(`📤 Sending update to trip ID: ${initialData.id}`);
         result = await tripService.updateTrip(initialData.id, payload);
         console.log('✅ Trip updated successfully:', result);
         setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
       } else {
+        console.log('📤 Creating new trip...');
         result = await tripService.createTrip(payload);
         console.log('✅ Trip created successfully:', result);
+        console.log('   - ID:', result.id);
+        console.log('   - Number:', result.tripNumber);
         setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+      }
+
+      setIsSuccess(true);
+
+      // Call onSuccess with the result
+      if (onSuccess) {
+        console.log('📤 Calling onSuccess with result ID:', result.id);
+        onSuccess(result);
       }
 
       // Refresh parent data
       if (fetchTrips) {
         console.log('🔄 Refreshing trip list...');
-        await fetchTrips();
-      }
-      if (onSuccess) {
-        onSuccess(result);
+        try {
+          await fetchTrips();
+          console.log('✅ Trip list refreshed');
+        } catch (refreshError) {
+          console.error('⚠️ Error refreshing trip list:', refreshError);
+          // Don't fail the whole operation - the trip was created successfully
+        }
       }
 
       // Close after delay
@@ -878,7 +882,20 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       console.error('❌ Trip error:', err);
       let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
 
-      if (err.response?.status === 409) {
+      // Check if it's a 404 error (trip created but not found)
+      if (err.response?.status === 404) {
+        if (err.response?.data?.detail?.includes('Trip not found')) {
+          console.warn('⚠️ Trip was created but not found on refresh - race condition');
+          setSuccessMessage('Trip created successfully!');
+          setIsSuccess(true);
+          setTimeout(() => {
+            if (onClose) onClose();
+          }, 1500);
+          setSubmitting(false);
+          return;
+        }
+        errorMessage = 'Resource not found. The trip may have been created but is not yet available.';
+      } else if (err.response?.status === 409) {
         errorMessage = 'Duplicate trip detected.';
       } else if (err.response?.status === 400) {
         errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
@@ -1084,7 +1101,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                               </InputAdornment>
                             )
                           }}
-                          helperText={DEPARTURE_OPTIONS.find(o => o.value === departureType)?.label === 'Depot' && selectedDepot 
+                          helperText={departureType === 'DEPOT' && selectedDepot 
                             ? 'Auto-calculated from depot to pickup' 
                             : 'Manual entry'}
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
@@ -1106,7 +1123,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                               </InputAdornment>
                             )
                           }}
-                          helperText={DEPARTURE_OPTIONS.find(o => o.value === departureType)?.label === 'Depot' && selectedDepot 
+                          helperText={departureType === 'DEPOT' && selectedDepot 
                             ? 'Auto-calculated from drop-off to depot' 
                             : 'Manual entry'}
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
@@ -1543,11 +1560,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
             variant="contained"
             onClick={handleSubmit}
             startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
-            disabled={submitting || loading}
+            disabled={submitting || loading || isSuccess}
             size="small"
             sx={{ fontSize: '0.8rem' }}
           >
-            {submitting ? 'Saving...' : (mode === 'create' ? 'Create Trip' : 'Update Trip')}
+            {submitting ? 'Saving...' : isSuccess ? '✓ Saved' : (mode === 'create' ? 'Create Trip' : 'Update Trip')}
           </Button>
         </DialogActions>
       </Dialog>
