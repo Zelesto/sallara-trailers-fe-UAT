@@ -1,159 +1,946 @@
 // src/pages/FuelSlipForm.jsx
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { fuelService } from '../services/fuelService';
 import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Stack,
-  CircularProgress,
-  Alert,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
-  Tooltip,
-  Divider,
+  Box, Paper, Typography, TextField, Button, Grid, Card, CardContent,
+  MenuItem, Select, InputLabel, FormControl, Alert, Stepper, Step, StepLabel,
+  IconButton, Autocomplete, InputAdornment, Radio, RadioGroup, FormControlLabel,
+  FormLabel, CircularProgress, Chip, Divider, Stack
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
-  Save as SaveIcon,
-  LocalGasStation,
-  Clear as ClearIcon,
+  LocalGasStation, DirectionsCar, Person, LocationOn, ArrowBack,
+  MyLocation, LocalOffer, Link as LinkIcon, CheckCircle, Clear as ClearIcon,
+  Save as SaveIcon, Edit as EditIcon, Delete as DeleteIcon
 } from '@mui/icons-material';
+import { useNavigate, useParams } from 'react-router-dom';
+import { fuelService } from '../services/fuelService';
+import { vehicleService } from '../services/vehicleService';
+import { driverService } from '../services/driverService';
+import { tripService } from '../services/tripService';
+
+// Constants
+const COMMON_STATIONS = ['BP Station', 'Shell Station', 'Caltex Station', 'Engen Station', 'Total Station', 'Sasol Station', 'Puma Station'];
+const COMMON_LOCATIONS = ['Johannesburg', 'Pretoria', 'Cape Town', 'Durban', 'Bloemfontein', 'Port Elizabeth', 'East London', 'Polokwane', 'Nelspruit', 'Rustenburg'];
+const FUEL_TYPES = ['Petrol (95 Unleaded)', 'Petrol (93 Unleaded)', 'Diesel (50ppm)', 'Diesel (10ppm)', 'Diesel (500ppm)'];
+const PAYMENT_METHODS = ['Cash', 'Credit Card', 'Debit Card', 'Fleet Card', 'Electronic Funds Transfer', 'Account Payment'];
+const STEPS = ['Basic Information', 'Fuel Details', 'Location & Payment', 'Review & Submit'];
+
+// Helper functions
+const formatCurrency = (amount) => {
+  if (!amount && amount !== 0) return 'R 0.00';
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2 }).format(num);
+};
+
+const generateSlipNumber = () => {
+  const now = new Date();
+  return `FS-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+};
+
+const extractRegistrationNumber = (input) => {
+  if (!input) return '';
+  if (/^[A-Z0-9]{3,10}$/i.test(input.trim())) {
+    return input.trim().toUpperCase();
+  }
+  const match = input.match(/^([A-Z0-9]{3,10})/i);
+  if (match) return match[1].toUpperCase();
+  return input.split(' ')[0].toUpperCase();
+};
+
+// Compact Info Item Component
+const InfoItem = ({ label, value }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #f0f0f0' }}>
+    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+      {label}:
+    </Typography>
+    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
+      {value || 'N/A'}
+    </Typography>
+  </Box>
+);
 
 const FuelSlipForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
-  const [loading, setLoading] = useState(isEdit);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+
+  // State
+  const [loading, setLoading] = useState(false);
+  const [fetchingData, setFetchingData] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [activeStep, setActiveStep] = useState(0);
+  const [stepErrors, setStepErrors] = useState([]);
+
+  // Data state
+  const [vehicles, setVehicles] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [trips, setTrips] = useState([]);
+
+  // Form state
   const [formData, setFormData] = useState({
     slipNumber: '',
     transactionDate: new Date().toISOString().slice(0, 16),
     vehicleId: '',
-    vehicleRegistration: '',
     driverId: '',
-    driverName: '',
+    tripId: '',
+    vehicleManual: '',
+    driverManual: '',
+    fuelType: 'Diesel (50ppm)',
     quantity: '',
     unitPrice: '',
+    totalAmount: '',
+    odometerReading: '',
     stationName: '',
     location: '',
-    notes: '',
-    fuelType: 'Diesel (50ppm)',
-    paymentMethod: 'Fleet Card',
-    receiptNumber: '',
-    odometerReading: '',
     pumpNumber: '',
-    tripId: '',
-    loadId: '',
-    fuelSourceId: '',
+    paymentMethod: 'Account Payment',
+    receiptNumber: '',
+    notes: '',
+    finalized: false
   });
 
+  // UI state
+  const [calculatedTotal, setCalculatedTotal] = useState(0);
+  const [entryMode, setEntryMode] = useState('manual');
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [vehicleInputValue, setVehicleInputValue] = useState('');
+  const [driverInputValue, setDriverInputValue] = useState('');
+
+  // Load data for edit mode
   useEffect(() => {
     if (isEdit && id) {
       fetchSlipDetails();
     }
   }, [id]);
 
+  // Initialize slip number
+  useEffect(() => {
+    if (!formData.slipNumber && !isEdit) {
+      setFormData(prev => ({ ...prev, slipNumber: generateSlipNumber() }));
+    }
+  }, []);
+
+  // Data fetching
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  // Calculate total when quantity or price changes
+  useEffect(() => {
+    calculateTotal();
+  }, [formData.quantity, formData.unitPrice]);
+
   const fetchSlipDetails = async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
       const data = await fuelService.getFuelSlipById(id);
+      console.log('Loading fuel slip for edit:', data);
+
+      // Determine entry mode
+      if (data.tripId) {
+        setEntryMode('trip');
+      } else {
+        setEntryMode('manual');
+      }
+
+      // Set form data
       setFormData({
         slipNumber: data.slipNumber || '',
         transactionDate: data.transactionDate ? new Date(data.transactionDate).toISOString().slice(0, 16) : '',
         vehicleId: data.vehicleId || '',
-        vehicleRegistration: data.vehicleRegNumber || '',
         driverId: data.driverId || '',
-        driverName: data.driverName || '',
+        tripId: data.tripId || '',
+        vehicleManual: data.vehicleRegNumber || '',
+        driverManual: data.driverName || '',
+        fuelType: data.fuelType || 'Diesel (50ppm)',
         quantity: data.quantity || '',
         unitPrice: data.unitPrice || '',
+        totalAmount: data.totalAmount || '',
+        odometerReading: data.odometerReading || '',
         stationName: data.stationName || '',
         location: data.location || '',
-        notes: data.notes || '',
-        fuelType: data.fuelType || 'Diesel (50ppm)',
-        paymentMethod: data.paymentMethod || 'Fleet Card',
-        receiptNumber: data.receiptNumber || '',
-        odometerReading: data.odometerReading || '',
         pumpNumber: data.pumpNumber || '',
-        tripId: data.tripId || '',
-        loadId: data.loadId || '',
-        fuelSourceId: data.fuelSourceId || '',
+        paymentMethod: data.paymentMethod || 'Account Payment',
+        receiptNumber: data.receiptNumber || '',
+        notes: data.notes || '',
+        finalized: data.finalized || false
       });
+
+      setVehicleInputValue(data.vehicleRegNumber || '');
+      setDriverInputValue(data.driverName || '');
+
     } catch (err) {
-      console.error('Failed to fetch fuel slip:', err);
+      console.error('Error loading fuel slip:', err);
       setError(err.message || 'Failed to load fuel slip');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field) => (event) => {
-    setFormData({ ...formData, [field]: event.target.value });
-  };
-
-  const handleClearField = (field) => {
-    setFormData({ ...formData, [field]: '' });
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setError(null);
-
+  const fetchAllData = async () => {
     try {
-      // Validate required fields
-      if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
-        throw new Error('Quantity must be greater than 0');
-      }
-      if (!formData.unitPrice || parseFloat(formData.unitPrice) <= 0) {
-        throw new Error('Unit price must be greater than 0');
-      }
-      if (!formData.stationName) {
-        throw new Error('Station name is required');
-      }
+      setFetchingData(true);
 
-      // Prepare data for API
-      const payload = {
-        ...formData,
-        quantity: parseFloat(formData.quantity),
-        unitPrice: parseFloat(formData.unitPrice),
-        odometerReading: formData.odometerReading ? parseFloat(formData.odometerReading) : null,
-        tripId: formData.tripId ? parseInt(formData.tripId, 10) : null,
-        loadId: formData.loadId ? parseInt(formData.loadId, 10) : null,
-        vehicleId: formData.vehicleId ? parseInt(formData.vehicleId, 10) : null,
-        driverId: formData.driverId ? parseInt(formData.driverId, 10) : null,
-        fuelSourceId: formData.fuelSourceId ? parseInt(formData.fuelSourceId, 10) : null,
+      const [vehiclesData, driversData, tripsData] = await Promise.all([
+        vehicleService.getAllVehicles(),
+        driverService.getAllDrivers(),
+        tripService.getAllTrips({ status: 'ACTIVE,IN_PROGRESS,PLANNED' })
+      ]);
+
+      const extractData = (response) => {
+        if (!response) return [];
+        if (Array.isArray(response)) return response;
+        if (response.data && Array.isArray(response.data)) return response.data;
+        if (response.content && Array.isArray(response.content)) return response.content;
+        if (response.results && Array.isArray(response.results)) return response.results;
+        if (typeof response === 'object' && !Array.isArray(response)) {
+          return Object.values(response);
+        }
+        return [];
       };
 
-      let result;
-      if (isEdit) {
-        result = await fuelService.updateFuelSlip(id, payload);
-        console.log('✅ Fuel slip updated:', result);
-      } else {
-        result = await fuelService.createFuelSlip(payload);
-        console.log('✅ Fuel slip created:', result);
-      }
+      setVehicles(extractData(vehiclesData));
+      setDrivers(extractData(driversData));
+      setTrips(extractData(tripsData));
 
-      navigate('/fuel/slips');
     } catch (err) {
-      console.error('❌ Failed to save fuel slip:', err);
-      setError(err.message || 'Failed to save fuel slip');
+      console.error('Error loading data:', err);
+      setError('Failed to load some data. You can still continue with manual entry.');
     } finally {
-      setSubmitting(false);
+      setFetchingData(false);
     }
   };
 
-  const handleCancel = () => {
-    navigate('/fuel/slips');
+  // Auto-populate vehicle and driver when trip is selected
+  const handleTripSelection = async (tripId) => {
+    console.log('Trip selected:', tripId);
+
+    if (!tripId) {
+      setFormData(prev => ({
+        ...prev,
+        tripId: '',
+        vehicleId: '',
+        driverId: '',
+        vehicleManual: '',
+        driverManual: ''
+      }));
+      setVehicleInputValue('');
+      setDriverInputValue('');
+      return;
+    }
+
+    try {
+      const selectedTrip = trips.find(t => t.id && t.id.toString() === tripId.toString());
+      if (!selectedTrip) {
+        setError('Selected trip not found');
+        return;
+      }
+
+      let newFormData = { ...formData, tripId };
+      let newVehicleValue = '';
+      let newDriverValue = '';
+
+      // Auto-populate vehicle
+      if (selectedTrip.vehicleId) {
+        const vehicle = vehicles.find(v => v.id && v.id.toString() === selectedTrip.vehicleId.toString());
+        if (vehicle) {
+          newFormData.vehicleId = vehicle.id;
+          newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || '';
+          newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
+        }
+      } else if (selectedTrip.vehicle && selectedTrip.vehicle.id) {
+        const vehicle = selectedTrip.vehicle;
+        newFormData.vehicleId = vehicle.id;
+        newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || '';
+        newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
+      } else if (selectedTrip.vehicleRegistration) {
+        newFormData.vehicleManual = selectedTrip.vehicleRegistration;
+        const matchingVehicle = vehicles.find(v => {
+          const regNum = v.registrationNumber || v.regNumber || '';
+          return regNum.toLowerCase().includes(selectedTrip.vehicleRegistration.toLowerCase());
+        });
+        if (matchingVehicle) {
+          newFormData.vehicleId = matchingVehicle.id;
+          newVehicleValue = `${matchingVehicle.registrationNumber} - ${matchingVehicle.make || ''} ${matchingVehicle.model || ''}`.trim();
+        } else {
+          newVehicleValue = selectedTrip.vehicleRegistration;
+        }
+      }
+
+      // Auto-populate driver
+      if (selectedTrip.driverId) {
+        const driver = drivers.find(d => d.id && d.id.toString() === selectedTrip.driverId.toString());
+        if (driver) {
+          newFormData.driverId = driver.id;
+          newFormData.driverManual = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
+          newDriverValue = newFormData.driverManual;
+        }
+      } else if (selectedTrip.driver && selectedTrip.driver.id) {
+        const driver = selectedTrip.driver;
+        newFormData.driverId = driver.id;
+        newFormData.driverManual = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
+        newDriverValue = newFormData.driverManual;
+      } else if (selectedTrip.driverName) {
+        newFormData.driverManual = selectedTrip.driverName;
+        const matchingDriver = drivers.find(d => {
+          const driverName = d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim();
+          return driverName.toLowerCase().includes(selectedTrip.driverName.toLowerCase());
+        });
+        if (matchingDriver) {
+          newFormData.driverId = matchingDriver.id;
+          newDriverValue = matchingDriver.fullName || `${matchingDriver.firstName || ''} ${matchingDriver.lastName || ''}`.trim();
+        } else {
+          newDriverValue = selectedTrip.driverName;
+        }
+      }
+
+      setFormData(newFormData);
+      setVehicleInputValue(newVehicleValue);
+      setDriverInputValue(newDriverValue);
+
+    } catch (err) {
+      console.error('Error auto-populating trip:', err);
+      setError('Failed to auto-populate trip data');
+    }
+  };
+
+  // Calculate total
+  const calculateTotal = () => {
+    const qty = parseFloat(formData.quantity) || 0;
+    const price = parseFloat(formData.unitPrice) || 0;
+    const total = qty * price;
+    setCalculatedTotal(total);
+    setFormData(prev => ({ ...prev, totalAmount: total.toFixed(2) }));
+  };
+
+  // Form handlers
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleEntryModeChange = (e) => {
+    const mode = e.target.value;
+    setEntryMode(mode);
+    setFormData(prev => ({
+      ...prev,
+      tripId: '',
+      vehicleId: '',
+      driverId: '',
+      vehicleManual: '',
+      driverManual: ''
+    }));
+    setVehicleInputValue('');
+    setDriverInputValue('');
+  };
+
+  // Handle vehicle selection/typing
+  const handleVehicleChange = (event, newValue) => {
+    let newVehicleId = '';
+    let newVehicleManual = '';
+    let newVehicleInputValue = '';
+
+    if (newValue && typeof newValue === 'object') {
+      newVehicleId = newValue.id;
+      newVehicleManual = newValue.registrationNumber || newValue.regNumber || '';
+      newVehicleInputValue = `${newVehicleManual} - ${newValue.make || ''} ${newValue.model || ''}`.trim();
+    } else if (typeof newValue === 'string') {
+      newVehicleManual = extractRegistrationNumber(newValue);
+      newVehicleInputValue = newValue;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      vehicleId: newVehicleId,
+      vehicleManual: newVehicleManual
+    }));
+    setVehicleInputValue(newVehicleInputValue);
+  };
+
+  // Handle driver selection/typing
+  const handleDriverChange = (event, newValue) => {
+    let newDriverId = '';
+    let newDriverManual = '';
+    let newDriverInputValue = '';
+
+    if (newValue && typeof newValue === 'object') {
+      newDriverId = newValue.id;
+      newDriverManual = newValue.fullName || `${newValue.firstName || ''} ${newValue.lastName || ''}`.trim();
+      newDriverInputValue = newDriverManual;
+    } else if (typeof newValue === 'string') {
+      newDriverManual = newValue;
+      newDriverInputValue = newValue;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      driverId: newDriverId,
+      driverManual: newDriverManual
+    }));
+    setDriverInputValue(newDriverInputValue);
+  };
+
+  // Location handling
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation not supported');
+      return;
+    }
+
+    setGettingLocation(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({
+          ...prev,
+          location: `Lat: ${latitude.toFixed(4)}, Long: ${longitude.toFixed(4)}`
+        }));
+        setGettingLocation(false);
+      },
+      (err) => {
+        console.error('Geolocation error:', err);
+        setLocationError('Unable to get location');
+        setGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Validation
+  const validateStep = (step) => {
+    const errors = [];
+
+    switch (step) {
+      case 0:
+        if (!formData.vehicleManual && !formData.vehicleId) {
+          errors.push('Vehicle registration is required');
+        }
+        if (!formData.driverManual && !formData.driverId) {
+          errors.push('Driver name is required');
+        }
+        if (!formData.transactionDate) {
+          errors.push('Date is required');
+        }
+        break;
+      case 1:
+        if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
+          errors.push('Valid quantity is required');
+        }
+        if (!formData.unitPrice || parseFloat(formData.unitPrice) <= 0) {
+          errors.push('Valid unit price is required');
+        }
+        if (!formData.odometerReading) {
+          errors.push('Odometer reading is required');
+        }
+        break;
+      case 2:
+        if (!formData.stationName) {
+          errors.push('Station name is required');
+        }
+        if (!formData.location) {
+          errors.push('Location is required');
+        }
+        break;
+    }
+
+    return errors;
+  };
+
+  // Step navigation
+  const handleNext = () => {
+    const errors = validateStep(activeStep);
+    if (errors.length) {
+      setStepErrors(errors);
+      return;
+    }
+    setStepErrors([]);
+    setActiveStep(prev => prev + 1);
+  };
+
+  const handleBack = () => {
+    setActiveStep(prev => prev - 1);
+    setError('');
+  };
+
+  // Submission
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+
+      const vehicleRegistration = extractRegistrationNumber(formData.vehicleManual);
+
+      if (!vehicleRegistration) {
+        setError('Please enter a valid vehicle registration number');
+        setLoading(false);
+        return;
+      }
+
+      const payload = {
+        slipNumber: formData.slipNumber,
+        transactionDate: new Date(formData.transactionDate).toISOString(),
+        vehicleRegistration: vehicleRegistration,
+        driverName: formData.driverManual,
+        fuelType: formData.fuelType,
+        quantity: parseFloat(formData.quantity),
+        unitPrice: parseFloat(formData.unitPrice),
+        stationName: formData.stationName || 'Unknown Station',
+        location: formData.location || 'Unknown Location',
+        paymentMethod: formData.paymentMethod || 'Cash',
+        tripId: formData.tripId || null,
+        odometerReading: formData.odometerReading ? parseFloat(formData.odometerReading) : null,
+        pumpNumber: formData.pumpNumber || null,
+        receiptNumber: formData.receiptNumber || null,
+        notes: formData.notes || null,
+        vehicleId: formData.vehicleId || null,
+        driverId: formData.driverId || null,
+        finalized: formData.finalized || false
+      };
+
+      console.log('Submitting fuel slip:', payload);
+
+      let response;
+      if (isEdit) {
+        response = await fuelService.updateFuelSlip(id, payload);
+        setSuccess('Fuel slip updated successfully!');
+      } else {
+        response = await fuelService.createFuelSlip(payload);
+        setSuccess('Fuel slip created successfully!');
+      }
+
+      console.log('Fuel slip saved:', response);
+      setTimeout(() => navigate('/fuel/slips'), 1500);
+
+    } catch (err) {
+      console.error('Error saving fuel slip:', err);
+      setError(err.message || 'Failed to save fuel slip');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Available trips filter (active and in progress)
+  const availableTrips = trips.filter(t =>
+    t.status === 'ACTIVE' || t.status === 'IN_PROGRESS' || t.status === 'PLANNED'
+  );
+
+  // Get selected trip details
+  const getSelectedTrip = () => {
+    if (!formData.tripId) return null;
+    return trips.find(t => t.id && t.id.toString() === formData.tripId.toString());
+  };
+
+  // Render step content
+  const renderStepContent = () => {
+    switch (activeStep) {
+      case 0:
+        return (
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              <Person sx={{ fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Basic Information
+            </Typography>
+
+            <Card sx={{ mb: 2 }}>
+              <CardContent sx={{ p: 1.5 }}>
+                <FormControl component="fieldset">
+                  <FormLabel sx={{ fontSize: '0.8rem' }}>Select Entry Mode</FormLabel>
+                  <RadioGroup row value={entryMode} onChange={handleEntryModeChange}>
+                    <FormControlLabel value="manual" control={<Radio size="small" />} label="Manual Entry" sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }} />
+                    <FormControlLabel value="trip" control={<Radio size="small" />} label="Select Active Trip" sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }} />
+                  </RadioGroup>
+                </FormControl>
+              </CardContent>
+            </Card>
+
+            {entryMode === 'trip' && (
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Trip</InputLabel>
+                <Select
+                  value={formData.tripId}
+                  onChange={(e) => handleTripSelection(e.target.value)}
+                  label="Trip"
+                  sx={{ fontSize: '0.8rem' }}
+                  renderValue={(selected) => {
+                    const trip = availableTrips.find(t => t.id && t.id.toString() === selected.toString());
+                    return trip
+                      ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.vehicleRegistration || 'No vehicle'}`
+                      : '-- Select a Trip --';
+                  }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>-- Select a Trip --</MenuItem>
+                  {availableTrips.map(trip => (
+                    <MenuItem key={trip.id} value={trip.id} sx={{ fontSize: '0.8rem' }}>
+                      {`${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'}`}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Slip Number"
+                  name="slipNumber"
+                  size="small"
+                  value={formData.slipNumber}
+                  onChange={handleInputChange}
+                  disabled={isEdit}
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{
+                    endAdornment: !isEdit && (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setFormData(prev => ({ ...prev, slipNumber: generateSlipNumber() }))}>
+                          <LocalOffer sx={{ fontSize: '0.9rem' }} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    sx: { fontSize: '0.8rem' }
+                  }}
+                  helperText={isEdit ? 'Slip number cannot be changed' : 'Auto-generated, click refresh icon to generate new'}
+                />
+                <TextField
+                  fullWidth
+                  label="Transaction Date & Time"
+                  type="datetime-local"
+                  name="transactionDate"
+                  size="small"
+                  value={formData.transactionDate}
+                  onChange={handleInputChange}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  freeSolo
+                  options={vehicles}
+                  size="small"
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return `${option.registrationNumber || option.regNumber || ''} - ${option.make || ''} ${option.model || ''}`.trim();
+                  }}
+                  value={vehicleInputValue}
+                  onChange={handleVehicleChange}
+                  inputValue={vehicleInputValue}
+                  onInputChange={(event, newValue) => setVehicleInputValue(newValue || '')}
+                  disabled={entryMode === 'trip' && !!formData.tripId}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Vehicle Registration *"
+                      size="small"
+                      helperText="Type registration number or select from list"
+                      error={!formData.vehicleManual && !formData.vehicleId}
+                      sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    />
+                  )}
+                />
+
+                <Autocomplete
+                  freeSolo
+                  options={drivers}
+                  size="small"
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.fullName || `${option.firstName || ''} ${option.lastName || ''}`.trim();
+                  }}
+                  value={driverInputValue}
+                  onChange={handleDriverChange}
+                  inputValue={driverInputValue}
+                  onInputChange={(event, newValue) => setDriverInputValue(newValue || '')}
+                  disabled={entryMode === 'trip' && !!formData.tripId}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Driver Name *"
+                      size="small"
+                      helperText="Type name or select from list"
+                      error={!formData.driverManual && !formData.driverId}
+                      sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        );
+
+      case 1:
+        return (
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              <LocalGasStation sx={{ fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Fuel Details
+            </Typography>
+
+            {stepErrors.length > 0 && stepErrors.map((err, i) => (
+              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem' }}>{err}</Alert>
+            ))}
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Fuel Type</InputLabel>
+                  <Select
+                    name="fuelType"
+                    value={formData.fuelType}
+                    onChange={handleInputChange}
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    {FUEL_TYPES.map(ft => (
+                      <MenuItem key={ft} value={ft} sx={{ fontSize: '0.8rem' }}>{ft}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  fullWidth
+                  label="Quantity (L)"
+                  name="quantity"
+                  type="number"
+                  size="small"
+                  value={formData.quantity}
+                  onChange={handleInputChange}
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>L</InputAdornment>,
+                    sx: { fontSize: '0.8rem' }
+                  }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Unit Price"
+                  name="unitPrice"
+                  type="number"
+                  size="small"
+                  value={formData.unitPrice}
+                  onChange={handleInputChange}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '0.7rem' }}>R</InputAdornment>,
+                    endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>/L</InputAdornment>,
+                    sx: { fontSize: '0.8rem' }
+                  }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Total Amount"
+                  name="totalAmount"
+                  size="small"
+                  value={formatCurrency(formData.totalAmount || calculatedTotal)}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{
+                    readOnly: true,
+                    sx: { fontSize: '0.8rem', fontWeight: 600 }
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Odometer Reading (km)"
+                  name="odometerReading"
+                  type="number"
+                  size="small"
+                  value={formData.odometerReading}
+                  onChange={handleInputChange}
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Pump Number"
+                  name="pumpNumber"
+                  size="small"
+                  value={formData.pumpNumber}
+                  onChange={handleInputChange}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Receipt Number"
+                  name="receiptNumber"
+                  size="small"
+                  value={formData.receiptNumber}
+                  onChange={handleInputChange}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Notes"
+                  name="notes"
+                  size="small"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  multiline
+                  rows={2}
+                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{ sx: { fontSize: '0.8rem' } }}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        );
+
+      case 2:
+        return (
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              <LocationOn sx={{ fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Location & Payment
+            </Typography>
+
+            {stepErrors.length > 0 && stepErrors.map((err, i) => (
+              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem' }}>{err}</Alert>
+            ))}
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  freeSolo
+                  options={COMMON_STATIONS}
+                  size="small"
+                  value={formData.stationName}
+                  onInputChange={(event, newValue) => {
+                    setFormData(prev => ({ ...prev, stationName: newValue || '' }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Station Name"
+                      size="small"
+                      sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    />
+                  )}
+                />
+
+                <Autocomplete
+                  freeSolo
+                  options={COMMON_LOCATIONS}
+                  size="small"
+                  value={formData.location}
+                  onInputChange={(event, newValue) => {
+                    setFormData(prev => ({ ...prev, location: newValue || '' }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Location"
+                      size="small"
+                      sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    />
+                  )}
+                />
+
+                <Button
+                  startIcon={<MyLocation sx={{ fontSize: '0.9rem' }} />}
+                  onClick={getCurrentLocation}
+                  disabled={gettingLocation}
+                  size="small"
+                  sx={{ mt: 1.5, fontSize: '0.75rem' }}
+                >
+                  {gettingLocation ? 'Getting Location...' : 'Use Current Location'}
+                </Button>
+
+                {locationError && (
+                  <Typography color="error" sx={{ mt: 1, fontSize: '0.75rem' }}>{locationError}</Typography>
+                )}
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Payment Method</InputLabel>
+                  <Select
+                    value={formData.paymentMethod}
+                    onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    {PAYMENT_METHODS.map(m => (
+                      <MenuItem key={m} value={m} sx={{ fontSize: '0.8rem' }}>{m}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {isEdit && (
+                  <Box sx={{ mt: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={formData.finalized}
+                          onChange={(e) => setFormData(prev => ({ ...prev, finalized: e.target.checked }))}
+                          size="small"
+                        />
+                      }
+                      label="Finalized"
+                      sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }}
+                    />
+                  </Box>
+                )}
+              </Grid>
+            </Grid>
+          </Box>
+        );
+
+      case 3:
+        const selectedTrip = getSelectedTrip();
+        return (
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 2 }}>
+              Review & Submit
+            </Typography>
+
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
+                Fuel Slip Details
+              </Typography>
+
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} md={6}>
+                  <InfoItem label="Slip Number" value={formData.slipNumber} />
+                  <InfoItem label="Date" value={new Date(formData.transactionDate).toLocaleString()} />
+                  <InfoItem label="Entry Mode" value={entryMode === 'trip' ? 'Trip-based' : 'Manual'} />
+                  {formData.tripId && selectedTrip && (
+                    <InfoItem label="Trip" value={selectedTrip.tripNumber || `Trip #${selectedTrip.id}`} />
+                  )}
+                  <InfoItem label="Vehicle" value={extractRegistrationNumber(formData.vehicleManual)} />
+                  <InfoItem label="Driver" value={formData.driverManual} />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <InfoItem label="Fuel Type" value={formData.fuelType} />
+                  <InfoItem label="Quantity" value={`${formData.quantity} L`} />
+                  <InfoItem label="Unit Price" value={formatCurrency(formData.unitPrice)} />
+                  <InfoItem label="Total" value={formatCurrency(formData.totalAmount)} />
+                  <InfoItem label="Station" value={formData.stationName} />
+                  <InfoItem label="Location" value={formData.location} />
+                  {isEdit && <InfoItem label="Status" value={formData.finalized ? 'Finalized' : 'Pending'} />}
+                </Grid>
+              </Grid>
+            </Paper>
+          </Box>
+        );
+
+      default:
+        return null;
+    }
   };
 
   if (loading) {
@@ -165,307 +952,93 @@ const FuelSlipForm = () => {
   }
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 }, maxWidth: 900, mx: 'auto' }}>
-      <Paper sx={{ p: 2 }}>
-        <Box display="flex" alignItems="center" mb={2}>
-          <IconButton onClick={handleCancel} size="small">
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ ml: 1, fontSize: '1rem', fontWeight: 600 }}>
-            <LocalGasStation sx={{ verticalAlign: 'middle', mr: 0.5, fontSize: '1.2rem' }} />
-            {isEdit ? 'Edit Fuel Slip' : 'New Fuel Slip'}
-          </Typography>
+    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Header - Compact */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />}
+          onClick={() => navigate('/fuel/slips')}
+          size="small"
+          sx={{ fontSize: '0.75rem', mb: 1 }}
+        >
+          Back to Fuel Slips
+        </Button>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <LocalGasStation sx={{ fontSize: 28, color: 'primary.main' }} />
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+              {isEdit ? 'Edit Fuel Slip' : 'Add New Fuel Slip'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+              {isEdit ? 'Update fuel transaction details' : 'Record a new fuel transaction for your fleet'}
+            </Typography>
+          </Box>
         </Box>
+      </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+      {/* Stepper - Compact */}
+      <Paper sx={{ p: 1.5, mb: 2 }}>
+        <Stepper activeStep={activeStep} alternativeLabel sx={{ '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
+          {STEPS.map(label => (
+            <Step key={label}><StepLabel>{label}</StepLabel></Step>
+          ))}
+        </Stepper>
+      </Paper>
 
-        <form onSubmit={handleSubmit}>
-          <Grid container spacing={2}>
-            {/* Basic Fields */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Slip Number"
-                value={formData.slipNumber}
-                onChange={handleChange('slipNumber')}
-                size="small"
-                disabled={isEdit}
-                helperText={isEdit ? 'Slip number cannot be changed' : 'Optional - auto-generated if left blank'}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Transaction Date"
-                type="datetime-local"
-                value={formData.transactionDate}
-                onChange={handleChange('transactionDate')}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
+      {/* Alerts */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess('')}>
+          {success}
+        </Alert>
+      )}
 
-            {/* Vehicle */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Vehicle Registration"
-                value={formData.vehicleRegistration}
-                onChange={handleChange('vehicleRegistration')}
-                size="small"
-                placeholder="e.g., ABC-123-GP"
-                InputProps={{
-                  endAdornment: formData.vehicleRegistration && (
-                    <IconButton size="small" onClick={() => handleClearField('vehicleRegistration')}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Vehicle ID"
-                type="number"
-                value={formData.vehicleId}
-                onChange={handleChange('vehicleId')}
-                size="small"
-                placeholder="Optional - link to existing vehicle"
-              />
-            </Grid>
+      {/* Form Content */}
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        {fetchingData && activeStep === 0 ? (
+          <Box display="flex" justifyContent="center" alignItems="center" p={3}>
+            <CircularProgress size={30} />
+            <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading data...</Typography>
+          </Box>
+        ) : (
+          <>
+            {renderStepContent()}
 
-            {/* Driver */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Driver Name"
-                value={formData.driverName}
-                onChange={handleChange('driverName')}
+            {/* Navigation Buttons - Compact */}
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+              <Button
+                disabled={activeStep === 0}
+                onClick={handleBack}
                 size="small"
-                placeholder="e.g., John Doe"
-                InputProps={{
-                  endAdornment: formData.driverName && (
-                    <IconButton size="small" onClick={() => handleClearField('driverName')}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Driver ID"
-                type="number"
-                value={formData.driverId}
-                onChange={handleChange('driverId')}
-                size="small"
-                placeholder="Optional - link to existing driver"
-              />
-            </Grid>
+                sx={{ fontSize: '0.8rem' }}
+              >
+                Back
+              </Button>
 
-            {/* Trip & Load References */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Trip ID"
-                type="number"
-                value={formData.tripId}
-                onChange={handleChange('tripId')}
-                size="small"
-                placeholder="Optional - link to trip"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Load ID"
-                type="number"
-                value={formData.loadId}
-                onChange={handleChange('loadId')}
-                size="small"
-                placeholder="Optional - link to load"
-              />
-            </Grid>
-
-            {/* Fuel Details */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
-                Fuel Details
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Quantity (L) *"
-                type="number"
-                required
-                value={formData.quantity}
-                onChange={handleChange('quantity')}
-                size="small"
-                InputProps={{ inputProps: { step: '0.01', min: '0.01' } }}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Unit Price (ZAR) *"
-                type="number"
-                required
-                value={formData.unitPrice}
-                onChange={handleChange('unitPrice')}
-                size="small"
-                InputProps={{ inputProps: { step: '0.01', min: '0.01' } }}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Odometer Reading"
-                type="number"
-                value={formData.odometerReading}
-                onChange={handleChange('odometerReading')}
-                size="small"
-                InputProps={{ inputProps: { step: '1', min: '0' } }}
-              />
-            </Grid>
-
-            {/* Station Details */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
-                Station Details
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Station Name *"
-                required
-                value={formData.stationName}
-                onChange={handleChange('stationName')}
-                size="small"
-                placeholder="e.g., Shell N1"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Location"
-                value={formData.location}
-                onChange={handleChange('location')}
-                size="small"
-                placeholder="e.g., Sandton, Johannesburg"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Pump Number"
-                value={formData.pumpNumber}
-                onChange={handleChange('pumpNumber')}
-                size="small"
-                placeholder="e.g., Pump 3"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Receipt Number"
-                value={formData.receiptNumber}
-                onChange={handleChange('receiptNumber')}
-                size="small"
-                placeholder="Optional receipt number"
-              />
-            </Grid>
-
-            {/* Additional Fields */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
-                Additional Information
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Fuel Type</InputLabel>
-                <Select
-                  value={formData.fuelType}
-                  label="Fuel Type"
-                  onChange={handleChange('fuelType')}
-                >
-                  <MenuItem value="Diesel (50ppm)">Diesel (50ppm)</MenuItem>
-                  <MenuItem value="Diesel (500ppm)">Diesel (500ppm)</MenuItem>
-                  <MenuItem value="Petrol 93">Petrol 93</MenuItem>
-                  <MenuItem value="Petrol 95">Petrol 95</MenuItem>
-                  <MenuItem value="LPG">LPG</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Payment Method</InputLabel>
-                <Select
-                  value={formData.paymentMethod}
-                  label="Payment Method"
-                  onChange={handleChange('paymentMethod')}
-                >
-                  <MenuItem value="Fleet Card">Fleet Card</MenuItem>
-                  <MenuItem value="Cash">Cash</MenuItem>
-                  <MenuItem value="Credit Card">Credit Card</MenuItem>
-                  <MenuItem value="Debit Card">Debit Card</MenuItem>
-                  <MenuItem value="Fuel Card">Fuel Card</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Notes */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Notes"
-                multiline
-                rows={3}
-                value={formData.notes}
-                onChange={handleChange('notes')}
-                size="small"
-                placeholder="Additional notes..."
-              />
-            </Grid>
-
-            {/* Actions */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                <Button
-                  variant="outlined"
-                  onClick={handleCancel}
-                  disabled={submitting}
-                  size="small"
-                  sx={{ fontSize: '0.8rem' }}
-                >
-                  Cancel
+              {activeStep < STEPS.length - 1 ? (
+                <Button variant="contained" onClick={handleNext} size="small" sx={{ fontSize: '0.8rem' }}>
+                  Next
                 </Button>
+              ) : (
                 <Button
-                  type="submit"
                   variant="contained"
-                  disabled={submitting}
-                  startIcon={submitting ? <CircularProgress size={18} /> : <SaveIcon />}
+                  color="primary"
+                  onClick={handleSubmit}
+                  disabled={loading}
                   size="small"
                   sx={{ fontSize: '0.8rem' }}
+                  startIcon={loading ? <CircularProgress size={16} /> : (isEdit ? <SaveIcon /> : <CheckCircle />)}
                 >
-                  {submitting ? 'Saving...' : (isEdit ? 'Update Slip' : 'Create Slip')}
+                  {loading ? 'Saving...' : (isEdit ? 'Update Slip' : 'Submit Fuel Slip')}
                 </Button>
-              </Stack>
-            </Grid>
-          </Grid>
-        </form>
+              )}
+            </Box>
+          </>
+        )}
       </Paper>
     </Box>
   );
