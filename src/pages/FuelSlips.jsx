@@ -120,7 +120,7 @@ function FuelSlips() {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Fetch slips
+  // Fetch slips - show latest first
   const fetchSlips = async () => {
     setLoading(true);
     setError(null);
@@ -138,8 +138,19 @@ function FuelSlips() {
         filters.vehicleId = vehicleFilter;
       }
 
+      // Add sort parameter to get latest first
+      filters.sort = 'transactionDate,desc';
+      
       const data = await fuelService.getFuelSlips(filters);
-      setSlips(data || []);
+      
+      // Sort by transaction date descending (latest first) as fallback
+      const sortedData = (data || []).sort((a, b) => {
+        const dateA = new Date(a.transactionDate || a.createdAt || 0);
+        const dateB = new Date(b.transactionDate || b.createdAt || 0);
+        return dateB - dateA;
+      });
+      
+      setSlips(sortedData);
     } catch (err) {
       console.error('Failed to fetch fuel slips:', err);
       setError(err.message || 'Failed to load fuel slips');
@@ -208,28 +219,20 @@ function FuelSlips() {
     setVehicleFilter('');
   };
 
-  // ============================================================
-  // FIX: Added console logs for debugging navigation
-  // ============================================================
-  
   // Handle view slip details
   const handleViewSlip = (id) => {
     console.log('🔍 Viewing fuel slip with ID:', id);
-    console.log('📤 Current path:', window.location.pathname);
-    console.log('📤 Navigating to: /fuel/slips/' + id);
     navigate(`/fuel/slips/${id}`);
   };
 
   // Handle edit slip
   const handleEditSlip = (id) => {
     console.log('✏️ Editing fuel slip with ID:', id);
-    console.log('📤 Navigating to: /fuel/slips/' + id + '/edit');
     navigate(`/fuel/slips/${id}/edit`);
   };
 
   // Handle delete dialog
   const handleDeleteClick = (id) => {
-    console.log('🗑️ Deleting fuel slip with ID:', id);
     setDeleteId(id);
     setDeleteDialogOpen(true);
   };
@@ -559,10 +562,7 @@ function FuelSlips() {
                     <Tooltip title="View Details">
                       <IconButton
                         size="small"
-                        onClick={() => {
-                          console.log('🖱️ View button clicked for slip ID:', slip.id);
-                          handleViewSlip(slip.id);
-                        }}
+                        onClick={() => handleViewSlip(slip.id)}
                         color="primary"
                         sx={{ p: 0.5 }}
                       >
@@ -572,10 +572,7 @@ function FuelSlips() {
                     <Tooltip title="Edit">
                       <IconButton
                         size="small"
-                        onClick={() => {
-                          console.log('🖱️ Edit button clicked for slip ID:', slip.id);
-                          handleEditSlip(slip.id);
-                        }}
+                        onClick={() => handleEditSlip(slip.id)}
                         color="info"
                         sx={{ p: 0.5 }}
                       >
@@ -585,10 +582,7 @@ function FuelSlips() {
                     <Tooltip title="Delete">
                       <IconButton
                         size="small"
-                        onClick={() => {
-                          console.log('🖱️ Delete button clicked for slip ID:', slip.id);
-                          handleDeleteClick(slip.id);
-                        }}
+                        onClick={() => handleDeleteClick(slip.id)}
                         color="error"
                         sx={{ p: 0.5 }}
                       >
