@@ -16,6 +16,11 @@ import {
   Alert,
   IconButton,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -31,7 +36,6 @@ import {
   CheckCircle,
   Cancel,
   Print as PrintIcon,
-  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { fuelService } from '../services/fuelService';
 
@@ -102,6 +106,8 @@ const FuelSlipDetails = () => {
   const [slip, setSlip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchSlipDetails();
@@ -122,13 +128,15 @@ const FuelSlipDetails = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this fuel slip?')) return;
+    setDeleting(true);
     try {
       await fuelService.deleteFuelSlip(id);
+      setDeleteDialogOpen(false);
       navigate('/fuel/slips');
     } catch (err) {
       console.error('Failed to delete fuel slip:', err);
       setError(err.message || 'Failed to delete fuel slip');
+      setDeleting(false);
     }
   };
 
@@ -183,6 +191,39 @@ const FuelSlipDetails = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '1rem' }}>
+          <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
+          Delete Fuel Slip
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontSize: '0.9rem' }}>
+            Are you sure you want to delete this fuel slip? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            variant="contained"
+            color="error"
+            disabled={deleting}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
+          >
+            {deleting ? <CircularProgress size={18} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Header - Compact */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
         <Stack direction="row" alignItems="center" spacing={1}>
@@ -218,7 +259,7 @@ const FuelSlipDetails = () => {
             <IconButton
               size="small"
               color="error"
-              onClick={handleDelete}
+              onClick={() => setDeleteDialogOpen(true)}
               sx={{ p: 0.5 }}
             >
               <DeleteIcon sx={{ fontSize: '0.9rem' }} />
@@ -396,7 +437,7 @@ const FuelSlipDetails = () => {
             variant="outlined"
             color="error"
             startIcon={<DeleteIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={handleDelete}
+            onClick={() => setDeleteDialogOpen(true)}
             size="small"
             sx={{ fontSize: '0.8rem' }}
           >
