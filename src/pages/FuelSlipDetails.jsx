@@ -110,17 +110,24 @@ const FuelSlipDetails = () => {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    fetchSlipDetails();
+    if (id) {
+      fetchSlipDetails();
+    } else {
+      setError('No fuel slip ID provided');
+      setLoading(false);
+    }
   }, [id]);
 
   const fetchSlipDetails = async () => {
     setLoading(true);
     setError(null);
     try {
+      console.log(`📤 Fetching fuel slip with ID: ${id}`);
       const data = await fuelService.getFuelSlipById(id);
+      console.log('✅ Fuel slip fetched:', data);
       setSlip(data);
     } catch (err) {
-      console.error('Failed to fetch fuel slip details:', err);
+      console.error('❌ Failed to fetch fuel slip details:', err);
       setError(err.message || 'Failed to load fuel slip details');
     } finally {
       setLoading(false);
@@ -144,6 +151,16 @@ const FuelSlipDetails = () => {
     window.print();
   };
 
+  // Handle go back
+  const handleGoBack = () => {
+    navigate('/fuel/slips');
+  };
+
+  // Handle edit
+  const handleEdit = () => {
+    navigate(`/fuel/slips/${id}/edit`);
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -160,15 +177,17 @@ const FuelSlipDetails = () => {
   if (error) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert severity="error" sx={{ fontSize: '0.8rem' }}>{error}</Alert>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => navigate('/fuel/slips')}
-          sx={{ mt: 2, fontSize: '0.8rem' }}
+        <Alert 
+          severity="error" 
+          sx={{ fontSize: '0.8rem', mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={handleGoBack}>
+              Go Back
+            </Button>
+          }
         >
-          Back to Fuel Slips
-        </Button>
+          {error}
+        </Alert>
       </Box>
     );
   }
@@ -176,15 +195,17 @@ const FuelSlipDetails = () => {
   if (!slip) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>Fuel slip not found</Alert>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => navigate('/fuel/slips')}
-          sx={{ mt: 2, fontSize: '0.8rem' }}
+        <Alert 
+          severity="warning" 
+          sx={{ fontSize: '0.8rem', mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={handleGoBack}>
+              Go Back
+            </Button>
+          }
         >
-          Back to Fuel Slips
-        </Button>
+          Fuel slip not found
+        </Alert>
       </Box>
     );
   }
@@ -204,7 +225,8 @@ const FuelSlipDetails = () => {
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ fontSize: '0.9rem' }}>
-            Are you sure you want to delete this fuel slip? This action cannot be undone.
+            Are you sure you want to delete fuel slip #{slip.slipNumber || slip.id}? 
+            This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -227,7 +249,7 @@ const FuelSlipDetails = () => {
       {/* Header - Compact */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <IconButton onClick={() => navigate('/fuel/slips')} size="small">
+          <IconButton onClick={handleGoBack} size="small">
             <ArrowBackIcon sx={{ fontSize: '0.9rem' }} />
           </IconButton>
           <Box>
@@ -235,7 +257,7 @@ const FuelSlipDetails = () => {
               Fuel Slip Details
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-              #{slip.id || 'N/A'} • {slip.transactionDate ? new Date(slip.transactionDate).toLocaleDateString() : 'N/A'}
+              #{slip.slipNumber || slip.id} • {slip.transactionDate ? new Date(slip.transactionDate).toLocaleDateString() : 'N/A'}
             </Typography>
           </Box>
         </Stack>
@@ -249,7 +271,7 @@ const FuelSlipDetails = () => {
             <IconButton
               size="small"
               color="primary"
-              onClick={() => navigate(`/fuel/slips/${id}/edit`)}
+              onClick={handleEdit}
               sx={{ p: 0.5 }}
             >
               <EditIcon sx={{ fontSize: '0.9rem' }} />
@@ -305,13 +327,11 @@ const FuelSlipDetails = () => {
             <Grid item xs={12} md={4}>
               <Stack alignItems={{ xs: 'flex-start', md: 'flex-end' }} spacing={0.5}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                  Created: {slip.createdAt ? new Date(slip.createdAt).toLocaleString() : 'N/A'}
+                  Slip #: {slip.slipNumber || 'N/A'}
                 </Typography>
-                {slip.updatedAt && (
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                    Updated: {new Date(slip.updatedAt).toLocaleString()}
-                  </Typography>
-                )}
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                  Trip: {slip.tripId || 'N/A'}
+                </Typography>
               </Stack>
             </Grid>
           </Grid>
@@ -366,6 +386,50 @@ const FuelSlipDetails = () => {
           </Stack>
         </Grid>
 
+        {/* Fuel Details */}
+        <Grid item xs={12}>
+          <Divider sx={{ my: 1.5 }} />
+          <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
+            Fuel Details
+          </Typography>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+            <Grid container spacing={1.5}>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                  Fuel Type
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                  {slip.fuelType || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                  Payment Method
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                  {slip.paymentMethod || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                  Odometer Reading
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                  {slip.odometerReading ? formatNumber(slip.odometerReading) : 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                  Pump Number
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                  {slip.pumpNumber || 'N/A'}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+
         {/* Notes Section */}
         {slip.notes && (
           <Grid item xs={12}>
@@ -394,16 +458,26 @@ const FuelSlipDetails = () => {
                   <strong>Created:</strong> {slip.createdAt ? new Date(slip.createdAt).toLocaleString() : 'N/A'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                  By: {slip.createdBy || 'N/A'}
+                  By: {slip.createdBy || 'System'}
                 </Typography>
               </Box>
-              {slip.updatedAt && (
+              {slip.updatedAt && slip.updatedAt !== slip.createdAt && (
                 <Box display="flex" justifyContent="space-between" alignItems="center">
                   <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
                     <strong>Last Updated:</strong> {new Date(slip.updatedAt).toLocaleString()}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                    By: {slip.updatedBy || 'N/A'}
+                    By: {slip.updatedBy || 'System'}
+                  </Typography>
+                </Box>
+              )}
+              {slip.verificationDate && (
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+                    <strong>Verified:</strong> {new Date(slip.verificationDate).toLocaleString()}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                    By: {slip.verifiedBy || 'System'}
                   </Typography>
                 </Box>
               )}
@@ -417,7 +491,7 @@ const FuelSlipDetails = () => {
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon sx={{ fontSize: '0.9rem' }} />}
-          onClick={() => navigate('/fuel/slips')}
+          onClick={handleGoBack}
           size="small"
           sx={{ fontSize: '0.8rem' }}
         >
@@ -427,7 +501,7 @@ const FuelSlipDetails = () => {
           <Button
             variant="contained"
             startIcon={<EditIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => navigate(`/fuel/slips/${id}/edit`)}
+            onClick={handleEdit}
             size="small"
             sx={{ fontSize: '0.8rem' }}
           >
