@@ -112,6 +112,11 @@ const handlePaginatedResponse = (data) => {
   });
 };
 
+/**
+ * Sleep helper for retry logic
+ */
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 /* ============================================================
    TRIP SERVICE - MAIN EXPORT
    ============================================================ */
@@ -136,15 +141,30 @@ export const tripService = {
   },
 
   /**
-   * Get trip by ID
+   * Get trip by ID with retry logic for race conditions
    */
-  getTripById: async (id) => {
-    try {
-      const response = await api.get(`/trips/${id}`);
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Fetching trip ${id}`);
+  getTripById: async (id, retries = 3, delay = 500) => {
+    let lastError;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`📤 Fetching trip ${id} (attempt ${attempt}/${retries})`);
+        const response = await api.get(`/trips/${id}`);
+        const data = unwrap(response);
+        if (data) {
+          console.log(`✅ Trip ${id} fetched successfully`);
+          return data;
+        }
+      } catch (error) {
+        lastError = error;
+        // If it's not a 404 or it's the last attempt, throw
+        if (error.response?.status !== 404 || attempt === retries) {
+          throw handleApiError(error, `Fetching trip ${id}`);
+        }
+        console.warn(`⚠️ Trip ${id} not found (attempt ${attempt}), retrying in ${delay}ms...`);
+        await sleep(delay);
+      }
     }
+    throw lastError;
   },
 
   /**
@@ -153,8 +173,11 @@ export const tripService = {
   createTrip: async (tripData) => {
     try {
       const payload = buildTripPayload(tripData);
+      console.log('📤 Creating trip payload:', payload);
       const response = await api.post('/trips', payload);
-      return unwrap(response);
+      const result = unwrap(response);
+      console.log('✅ Trip created successfully:', result);
+      return result;
     } catch (error) {
       throw handleApiError(error, 'Creating trip');
     }
