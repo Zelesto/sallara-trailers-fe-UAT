@@ -231,8 +231,8 @@ function TripList() {
       // Fallback sort by createdAt descending (newest first)
       const sortedContent = (response.content || [])
         .sort((a, b) => {
-          const dateA = new Date(a.createdAt || a.id);
-          const dateB = new Date(b.createdAt || b.id);
+          const dateA = new Date(a.id || a.createdAt);
+          const dateB = new Date(b.id || b.createdAt);
           return dateB - dateA;
         });
 
