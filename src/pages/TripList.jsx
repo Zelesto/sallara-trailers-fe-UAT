@@ -228,15 +228,17 @@ function TripList() {
         sortOrder: 'DESC'
       });
 
-      // Fallback sort by createdAt descending (newest first)
-      const sortedContent = (response.content || [])
+      // Extract only IDs and sort descending
+      const sortedIds = (response.content || [])
+        .map(item => item.id)
         .sort((a, b) => {
-          const dateA = new Date(a.id || a.createdAt);
-          const dateB = new Date(b.id || b.createdAt);
-          return dateB - dateA;
+          // Convert to numbers if they're numeric strings, or compare as strings
+          const idA = typeof a === 'string' ? parseInt(a, 10) : a;
+          const idB = typeof b === 'string' ? parseInt(b, 10) : b;
+          return idB - idA;
         });
 
-      setTrips(sortedContent);
+      setTrips(sortedIds);
       setPagination({
         page: response.number ?? page,
         pageSize: response.size ?? size,
@@ -250,7 +252,7 @@ function TripList() {
       setLoading(false);
     }
   }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
-
+  
   /* ============================================================
      EFFECTS
   ============================================================ */
