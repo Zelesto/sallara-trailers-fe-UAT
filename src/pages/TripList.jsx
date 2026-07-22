@@ -202,7 +202,7 @@ function TripList() {
     [trips]
   );
 
-  /* ============================================================
+ ============================================================
      FETCH TRIPS - SORT BY CREATED DATE DESC (NEWEST FIRST)
   ============================================================ */
 
@@ -228,17 +228,15 @@ function TripList() {
         sortOrder: 'DESC'
       });
 
-      // Extract only IDs and sort descending
-      const sortedIds = (response.content || [])
-        .map(item => item.id)
+      // Fallback sort by createdAt descending (newest first)
+      const sortedContent = (response.content || [])
         .sort((a, b) => {
-          // Convert to numbers if they're numeric strings, or compare as strings
-          const idA = typeof a === 'string' ? parseInt(a, 10) : a;
-          const idB = typeof b === 'string' ? parseInt(b, 10) : b;
-          return idB - idA;
+          const dateA = new Date(a.id || a.createdAt);
+          const dateB = new Date(b.id || b.createdAt);
+          return dateB - dateA;
         });
 
-      setTrips(sortedIds);
+      setTrips(sortedContent);
       setPagination({
         page: response.number ?? page,
         pageSize: response.size ?? size,
