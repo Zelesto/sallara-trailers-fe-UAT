@@ -139,7 +139,7 @@ function FuelSlips() {
       }
 
       // Add sort parameter to get latest first
-      filters.sort = 'transactionDate,desc';
+      filters.sort = 'id,desc';
       
       const data = await fuelService.getFuelSlips(filters);
       
