@@ -22,6 +22,7 @@ import {
   InputLabel,
   Select,
   Badge,
+  Pagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,7 +45,6 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
-import DownloadHandler from '../components/DownloadHandler';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, color = 'primary', icon: Icon, badge = null }) => (
@@ -104,30 +104,60 @@ const PODList = () => {
     scannedToday: 0,
     pendingDebrief: 0,
   });
+  
+  // ============================================================
+  // FIX: Add pagination state
+  // ============================================================
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     loadPods();
     loadScanningStats();
-  }, []);
+  }, [page, pageSize, filterStatus, filterType, searchTerm]);
 
   const loadPods = async () => {
     setLoading(true);
     try {
-      const response = await podService.getAllPods();
-      const data = Array.isArray(response) ? response : (response?.content || []);
+      // Build filter params
+      const params = {
+        page: page,
+        size: pageSize,
+        sort: 'createdAt,desc',
+      };
       
-      // Transform data to handle both tripId and tripNumber
-      const transformedData = data.map(pod => ({
+      // Add status filter if not 'ALL'
+      if (filterStatus !== 'ALL') {
+        params.status = filterStatus;
+      }
+      
+      // Add search filter
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      
+      const response = await podService.getAllPods(params);
+      
+      // Handle response format
+      const data = response?.content || response?.data || [];
+      const total = response?.totalElements || response?.total || data.length;
+      const pages = response?.totalPages || Math.ceil(total / pageSize);
+      
+      // Transform data
+      const transformedData = (Array.isArray(data) ? data : []).map(pod => ({
         ...pod,
         tripNumber: pod.tripNumber || pod.trip?.tripNumber || pod.tripId || 'N/A',
         tripId: pod.tripId || pod.trip?.id || null,
         customerName: pod.customerName || pod.customer?.name || 'N/A',
-        // Add debrief status flag
         needsDebrief: pod.status === 'PENDING' || pod.status === 'SCANNED',
         isScanned: pod.source === 'SCANNED' || pod.status === 'SCANNED',
       }));
       
       setPods(transformedData);
+      setTotalElements(total);
+      setTotalPages(pages);
       setError(null);
     } catch (err) {
       setError('Failed to load PODs');
@@ -366,45 +396,39 @@ const PODList = () => {
     },
   ];
 
-  // Filter PODs
-  const filteredPods = pods.filter(pod => {
-    const searchMatch = 
-      (pod.podNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (pod.customerName || pod.customer?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (pod.tripNumber || pod.trip?.tripNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const statusMatch = filterStatus === 'ALL' || pod.status === filterStatus;
-    
-    const typeMatch = filterType === 'ALL' || 
-      (filterType === 'SCANNED' && pod.source === 'SCANNED') ||
-      (filterType === 'UPLOADED' && pod.source !== 'SCANNED');
-    
-    return searchMatch && statusMatch && typeMatch;
-  });
-
-
-  const handleExport = async () => {
-  try {
-    // Get the export URL with timestamp to prevent caching
-    const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
-    const timestamp = new Date().getTime();
-    const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
-    
-    // Open in new window
-    window.open(exportUrl, '_blank');
-  } catch (error) {
-    console.error('Error exporting PODs:', error);
-    setError('Failed to export PODs. Please try again.');
-  }
-};
-  
+  // Stats
   const stats = {
-    total: pods.length,
+    total: totalElements,
     scanned: pods.filter(p => p.source === 'SCANNED').length,
     pending: pods.filter(p => p.status === 'PENDING' || p.status === 'SCANNED').length,
     delivered: pods.filter(p => p.status === 'DELIVERED').length,
     verified: pods.filter(p => p.status === 'VERIFIED').length,
     rejected: pods.filter(p => p.status === 'REJECTED').length,
+  };
+
+  const handleExport = async () => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
+      const timestamp = new Date().getTime();
+      const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
+      window.open(exportUrl, '_blank');
+    } catch (error) {
+      console.error('Error exporting PODs:', error);
+      setError('Failed to export PODs. Please try again.');
+    }
+  };
+
+  // ============================================================
+  // FIX: Handle page change
+  // ============================================================
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage - 1); // Convert to 0-based
+  };
+
+  const handlePageSizeChange = (event) => {
+    const newSize = parseInt(event.target.value, 10);
+    setPageSize(newSize);
+    setPage(0); // Reset to first page
   };
 
   return (
@@ -567,82 +591,137 @@ const PODList = () => {
             <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading PODs...</Typography>
           </Box>
         ) : (
-          <DataGrid
-            rows={filteredPods}
-            columns={columns}
-            pageSize={10}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            checkboxSelection={false}
-            disableRowSelectionOnClick
-            getRowId={(row) => row.id}
-            density="compact"
-            sx={{
-              border: 'none',
-              fontSize: '0.75rem',
-              '& .MuiDataGrid-cell': {
-                borderRight: '1px solid #f0f0f0',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 8px',
+          <>
+            <DataGrid
+              rows={pods}
+              columns={columns}
+              pagination
+              pageSize={pageSize}
+              rowsPerPageOptions={[5, 10, 20, 50, 100]}
+              paginationMode="server"
+              rowCount={totalElements}
+              onPageChange={(newPage) => setPage(newPage)}
+              onPageSizeChange={(newPageSize) => {
+                setPageSize(newPageSize);
+                setPage(0);
+              }}
+              checkboxSelection={false}
+              disableRowSelectionOnClick
+              getRowId={(row) => row.id}
+              density="compact"
+              loading={loading}
+              sx={{
+                border: 'none',
                 fontSize: '0.75rem',
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: '#f8f9fa',
-                borderBottom: '2px solid #e0e0e0',
-                minHeight: '36px !important',
-              },
-              '& .pod-header': {
-                fontSize: '0.65rem',
-                fontWeight: 600,
-                color: '#333',
-              },
-              '& .MuiDataGrid-row:hover': {
-                backgroundColor: '#f5f5f5',
-              },
-              '& .MuiDataGrid-cell:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeader:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeaderTitle': {
-                fontWeight: 600,
-                color: '#333',
-                fontSize: '0.65rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.3px',
-              },
-              '& .MuiDataGrid-virtualScroller': {
-                '& .MuiDataGrid-row': {
+                '& .MuiDataGrid-cell': {
+                  borderRight: '1px solid #f0f0f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 8px',
+                  fontSize: '0.75rem',
+                },
+                '& .MuiDataGrid-columnHeaders': {
+                  backgroundColor: '#f8f9fa',
+                  borderBottom: '2px solid #e0e0e0',
                   minHeight: '36px !important',
                 },
-              },
-            }}
-          />
+                '& .pod-header': {
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  color: '#333',
+                },
+                '& .MuiDataGrid-row:hover': {
+                  backgroundColor: '#f5f5f5',
+                },
+                '& .MuiDataGrid-cell:focus': {
+                  outline: 'none',
+                },
+                '& .MuiDataGrid-columnHeader:focus': {
+                  outline: 'none',
+                },
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  fontWeight: 600,
+                  color: '#333',
+                  fontSize: '0.65rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.3px',
+                },
+                '& .MuiDataGrid-virtualScroller': {
+                  '& .MuiDataGrid-row': {
+                    minHeight: '36px !important',
+                  },
+                },
+              }}
+            />
+            
+            {/* ============================================================
+              FIX: Add custom pagination footer
+              ============================================================ */}
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              p: 1,
+              borderTop: '1px solid #e0e0e0',
+              bgcolor: '#fafafa',
+              borderRadius: '0 0 4px 4px'
+            }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                Showing {pods.length} of {totalElements} PODs
+                {scanningStats.scannedToday > 0 && (
+                  <Chip 
+                    size="small" 
+                    label={`📸 ${scanningStats.scannedToday} scanned today`}
+                    sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
+                    color="info"
+                  />
+                )}
+                {scanningStats.pendingDebrief > 0 && (
+                  <Chip 
+                    size="small" 
+                    label={`⏳ ${scanningStats.pendingDebrief} pending debrief`}
+                    sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
+                    color="warning"
+                  />
+                )}
+              </Typography>
+              
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+                    Rows per page:
+                  </Typography>
+                  <Select
+                    value={pageSize}
+                    onChange={handlePageSizeChange}
+                    size="small"
+                    sx={{ fontSize: '0.65rem', minWidth: 60, height: 28 }}
+                  >
+                    <MenuItem value={5} sx={{ fontSize: '0.65rem' }}>5</MenuItem>
+                    <MenuItem value={10} sx={{ fontSize: '0.65rem' }}>10</MenuItem>
+                    <MenuItem value={20} sx={{ fontSize: '0.65rem' }}>20</MenuItem>
+                    <MenuItem value={50} sx={{ fontSize: '0.65rem' }}>50</MenuItem>
+                    <MenuItem value={100} sx={{ fontSize: '0.65rem' }}>100</MenuItem>
+                  </Select>
+                </Box>
+                
+                <Pagination
+                  count={totalPages}
+                  page={page + 1}
+                  onChange={handlePageChange}
+                  color="primary"
+                  size="small"
+                  showFirstButton
+                  showLastButton
+                />
+              </Stack>
+            </Box>
+          </>
         )}
       </Paper>
 
       {/* Footer - Compact */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-          Showing {filteredPods.length} of {pods.length} PODs
-          {scanningStats.scannedToday > 0 && (
-            <Chip 
-              size="small" 
-              label={`📸 ${scanningStats.scannedToday} scanned today`}
-              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
-              color="info"
-            />
-          )}
-          {scanningStats.pendingDebrief > 0 && (
-            <Chip 
-              size="small" 
-              label={`⏳ ${scanningStats.pendingDebrief} pending debrief`}
-              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
-              color="warning"
-            />
-          )}
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
           Last updated: {new Date().toLocaleString()}
         </Typography>
