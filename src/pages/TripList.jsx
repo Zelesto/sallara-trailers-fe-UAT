@@ -224,7 +224,7 @@ function TripList() {
         ...(status !== 'all' && { status }),
         ...(city && { city }),
         ...(customer && { customer }),
-        sortBy: 'createdAt',
+        sortBy: 'id',
         sortOrder: 'DESC'
       });
 
