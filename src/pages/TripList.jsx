@@ -202,7 +202,7 @@ function TripList() {
     [trips]
   );
 
- ============================================================
+/* ============================================================
      FETCH TRIPS - SORT BY CREATED DATE DESC (NEWEST FIRST)
   ============================================================ */
 
@@ -231,8 +231,8 @@ function TripList() {
       // Fallback sort by createdAt descending (newest first)
       const sortedContent = (response.content || [])
         .sort((a, b) => {
-          const dateA = new Date(a.id || a.createdAt);
-          const dateB = new Date(b.id || b.createdAt);
+          const dateA = new Date(a.id || a.id);
+          const dateB = new Date(b.id || b.id);
           return dateB - dateA;
         });
 
