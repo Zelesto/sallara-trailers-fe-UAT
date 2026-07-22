@@ -124,7 +124,7 @@ const PODList = () => {
       // Build filter params
       const params = {
         page: page,
-        size: pageSize,
+        size: 100,
         sort: 'createdAt,desc',
       };
       
