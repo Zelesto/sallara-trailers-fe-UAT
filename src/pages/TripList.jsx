@@ -217,26 +217,31 @@ function TripList() {
   setLoading(true);
 
   try {
-    // Build params object
+    // Build params object - make sure page is a number
     const params = {
-      page,
-      size,
+      page: Number(page),  // ← Ensure page is a number
+      size: Number(size),  // ← Ensure size is a number
+      sort: 'id,desc',
     };
-    
-    // Add sort parameter correctly
-    params.sort = 'id,desc';  // ← FIX: Use the correct format for Spring Data
     
     if (search) params.search = search;
     if (status !== 'all') params.status = status;
     if (city) params.city = city;
     if (customer) params.customer = customer;
 
-    const response = await tripService.getAllTrips(params);
+    console.log('📤 Fetching trips with params:', params);
 
-    // The response should already be sorted by ID descending from the backend
-    // but we can still apply a fallback sort just in case
+    const response = await tripService.getAllTrips(params);
+    
+    console.log('📥 Response received:', {
+      page: response.number,
+      totalElements: response.totalElements,
+      totalPages: response.totalPages,
+      contentLength: response.content?.length
+    });
+
     const sortedContent = (response.content || [])
-      .sort((a, b) => b.id - a.id);  // ← FIX: Use ID for sorting
+      .sort((a, b) => b.id - a.id);
 
     setTrips(sortedContent);
     setPagination({
