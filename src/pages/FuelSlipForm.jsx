@@ -221,12 +221,36 @@ const FuelSlipForm = () => {
   const fetchAllData = async () => {
     try {
       setFetchingData(true);
+      setLoadingTrips(true);
 
-      const [vehiclesData, driversData, tripsData] = await Promise.all([
-        vehicleService.getAllVehicles(),
-        driverService.getAllDrivers(),
-        tripService.getAllTrips({ status: 'ACTIVE,IN_PROGRESS,PLANNED' })
+      // Fetch vehicles and drivers
+      const [vehiclesData, driversData] = await Promise.all([
+        vehicleService.getAllVehicles().catch(() => []),
+        driverService.getAllDrivers().catch(() => [])
       ]);
+
+      // Fetch trips - try with status filter first, fallback to all
+      let tripsData = [];
+      try {
+        // Try with status filter for active trips
+        const response = await tripService.getAllTrips({ 
+          status: 'ACTIVE,IN_PROGRESS,PLANNED' 
+        });
+        tripsData = response?.content || response || [];
+        console.log('📦 Trips loaded with status filter:', tripsData.length);
+      } catch (tripError) {
+        console.warn('⚠️ Failed to fetch trips with status filter:', tripError);
+        // Fallback: get all trips without filter
+        try {
+          const fallbackResponse = await tripService.getAllTrips();
+          tripsData = fallbackResponse?.content || fallbackResponse || [];
+          console.log('📦 Trips loaded without filter (fallback):', tripsData.length);
+        } catch (fallbackError) {
+          console.warn('⚠️ Fallback trip fetch also failed:', fallbackError);
+          // Use empty array as last resort
+          tripsData = [];
+        }
+      }
 
       const extractData = (response) => {
         if (!response) return [];
@@ -260,13 +284,18 @@ const FuelSlipForm = () => {
       setDrivers(driversList);
       setTrips(tripsList);
 
-      console.log('Filtered trips (excluding finalized/completed):', tripsList.length);
+      console.log('📊 Loaded data summary:', {
+        vehicles: vehiclesList.length,
+        drivers: driversList.length,
+        trips: tripsList.length
+      });
 
-    } catch (err) {
-      console.error('Error loading data:', err);
+     } catch (err) {
+      console.error('❌ Error loading data:', err);
       setError('Failed to load some data. You can still continue with manual entry.');
     } finally {
       setFetchingData(false);
+      setLoadingTrips(false);
     }
   };
 
@@ -299,7 +328,7 @@ const FuelSlipForm = () => {
       let newVehicleValue = '';
       let newDriverValue = '';
 
-      // Auto-populate vehicle
+     // Auto-populate vehicle
       if (selectedTrip.vehicleId) {
         const vehicle = vehicles.find(v => v.id && v.id.toString() === selectedTrip.vehicleId.toString());
         if (vehicle) {
@@ -326,7 +355,7 @@ const FuelSlipForm = () => {
         }
       }
 
-      // Auto-populate driver
+       // Auto-populate driver
       if (selectedTrip.driverId) {
         const driver = drivers.find(d => d.id && d.id.toString() === selectedTrip.driverId.toString());
         if (driver) {
@@ -582,7 +611,7 @@ const FuelSlipForm = () => {
   };
 
   // Available trips filter (exclude FINALIZED and COMPLETED, show latest first)
-  const availableTrips = trips
+ const availableTrips = trips
     .filter(t => {
       const status = t.status?.toUpperCase() || '';
       return status !== 'FINALIZED' && status !== 'COMPLETED';
@@ -592,7 +621,7 @@ const FuelSlipForm = () => {
       const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
       return dateB - dateA;
     });
-
+  
   // Get selected trip details
   const getSelectedTrip = () => {
     if (!formData.tripId) return null;
