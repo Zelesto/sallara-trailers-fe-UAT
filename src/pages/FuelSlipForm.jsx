@@ -95,7 +95,14 @@ const InfoItem = ({ label, value }) => (
 const FuelSlipForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isEdit = Boolean(id);
+  
+  // ============================================================
+  // FIX: Proper mode detection
+  // ============================================================
+  const isEdit = id && id !== 'add' && id !== 'new' && id !== 'undefined';
+  const isCreate = !isEdit;
+
+  console.log('📝 FuelSlipForm - Mode:', isEdit ? 'Edit' : 'Create', 'ID:', id);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -142,11 +149,11 @@ const FuelSlipForm = () => {
   const [driverInputValue, setDriverInputValue] = useState('');
 
   // Load data for edit mode
-  useEffect(() => {
+   useEffect(() => {
     if (isEdit && id) {
       fetchSlipDetails();
     }
-  }, [id]);
+  }, [id, isEdit]);
 
   // Initialize slip number
   useEffect(() => {
