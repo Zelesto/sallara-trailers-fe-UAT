@@ -128,17 +128,30 @@ export const tripService = {
   // ============================================================
 
   /**
-   * Get all trips with pagination and filters
-   */
-  getAllTrips: async (params = {}) => {
-    try {
-      const response = await api.get('/trips', { params });
-      const rawData = unwrap(response);
-      return handlePaginatedResponse(rawData);
-    } catch (error) {
-      throw handleApiError(error, 'Fetching trips');
+ * Get all trips with pagination and filters
+ */
+getAllTrips: async (params = {}) => {
+  try {
+    // If sort is provided, ensure it's in the correct format
+    if (params.sortBy) {
+      const sortOrder = params.sortOrder || 'DESC';
+      params.sort = `${params.sortBy},${sortOrder.toLowerCase()}`;
+      delete params.sortBy;
+      delete params.sortOrder;
     }
-  },
+    
+    // Default sort by ID descending if not provided
+    if (!params.sort) {
+      params.sort = 'id,desc';
+    }
+    
+    const response = await api.get('/trips', { params });
+    const rawData = unwrap(response);
+    return handlePaginatedResponse(rawData);
+  } catch (error) {
+    throw handleApiError(error, 'Fetching trips');
+  }
+},
 
   /**
    * Get trip by ID with retry logic for race conditions
