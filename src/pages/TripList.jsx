@@ -207,49 +207,51 @@ function TripList() {
   ============================================================ */
 
   const fetchTrips = useCallback(async ({
-    page = 0,
-    size = pagination.pageSize,
-    search = searchText,
-    status = statusFilter,
-    city = cityFilter,
-    customer = customerFilter
-  } = {}) => {
-    setLoading(true);
+  page = 0,
+  size = pagination.pageSize,
+  search = searchText,
+  status = statusFilter,
+  city = cityFilter,
+  customer = customerFilter
+} = {}) => {
+  setLoading(true);
 
-    try {
-      const response = await tripService.getAllTrips({
-        page,
-        size,
-        ...(search && { search }),
-        ...(status !== 'all' && { status }),
-        ...(city && { city }),
-        ...(customer && { customer }),
-        sortBy: 'id',
-        sortOrder: 'DESC'
-      });
+  try {
+    // Build params object
+    const params = {
+      page,
+      size,
+    };
+    
+    // Add sort parameter correctly
+    params.sort = 'id,desc';  // ← FIX: Use the correct format for Spring Data
+    
+    if (search) params.search = search;
+    if (status !== 'all') params.status = status;
+    if (city) params.city = city;
+    if (customer) params.customer = customer;
 
-      // Fallback sort by createdAt descending (newest first)
-      const sortedContent = (response.content || [])
-        .sort((a, b) => {
-          const dateA = new Date(a.id || a.id);
-          const dateB = new Date(b.id || b.id);
-          return dateB - dateA;
-        });
+    const response = await tripService.getAllTrips(params);
 
-      setTrips(sortedContent);
-      setPagination({
-        page: response.number ?? page,
-        pageSize: response.size ?? size,
-        total: response.totalElements ?? 0
-      });
-    } catch (err) {
-      console.error('Error fetching trips:', err);
-      showNotification('Failed to load trips', 'error');
-      setTrips([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
+    // The response should already be sorted by ID descending from the backend
+    // but we can still apply a fallback sort just in case
+    const sortedContent = (response.content || [])
+      .sort((a, b) => b.id - a.id);  // ← FIX: Use ID for sorting
+
+    setTrips(sortedContent);
+    setPagination({
+      page: response.number ?? page,
+      pageSize: response.size ?? size,
+      total: response.totalElements ?? 0
+    });
+  } catch (err) {
+    console.error('Error fetching trips:', err);
+    showNotification('Failed to load trips', 'error');
+    setTrips([]);
+  } finally {
+    setLoading(false);
+  }
+}, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
   
   /* ============================================================
      EFFECTS
