@@ -1,51 +1,73 @@
-// src/services/enumService.js
+// src/services/enumService.ts
 import api from './api';
+import { EnumMaster, EnumPermission } from '../types/enum';
 
 export const enumService = {
-  getEnums: async (enumType) => {
-    const response = await api.get(`/enums/${enumType}`);
-    return response.data;
-  },
+    // ============================================================
+    // READ OPERATIONS
+    // ============================================================
 
-  getEnumsPaginated: async (params = {}) => {
-    const response = await api.get('/enums', { params });
-    return response.data;
-  },
+    getEnums: async (moduleName: string, category: string): Promise<EnumMaster[]> => {
+        const response = await api.get(`/enums/${moduleName}/${category}`);
+        return response.data;
+    },
 
-  getEnumTypes: async () => {
-    try {
-      const response = await api.get('/enums/types');
-      const data = response.data;
-      if (Array.isArray(data) && data.length > 0) {
-        return data;
-      }
-      return ['VEHICLE_TYPE', 'VEHICLE_STATUS', 'DRIVER_STATUS', 'LOAD_STATUS'];
-    } catch (error) {
-      console.error('Error fetching enum types, using defaults:', error);
-      return ['VEHICLE_TYPE', 'VEHICLE_STATUS', 'DRIVER_STATUS', 'LOAD_STATUS'];
+    getSystemEnums: async (moduleName: string, category: string): Promise<EnumMaster[]> => {
+        const response = await api.get(`/enums/${moduleName}/${category}/system`);
+        return response.data;
+    },
+
+    getCustomEnums: async (moduleName: string, category: string): Promise<EnumMaster[]> => {
+        const response = await api.get(`/enums/${moduleName}/${category}/custom`);
+        return response.data;
+    },
+
+    getEnumsByModule: async (moduleName: string): Promise<Record<string, EnumMaster[]>> => {
+        const response = await api.get(`/enums/module/${moduleName}`);
+        return response.data;
+    },
+
+    getDefaultEnum: async (moduleName: string, category: string): Promise<EnumMaster> => {
+        const response = await api.get(`/enums/${moduleName}/${category}/default`);
+        return response.data;
+    },
+
+    // ============================================================
+    // CREATE OPERATIONS
+    // ============================================================
+
+    createEnum: async (data: Partial<EnumMaster>): Promise<EnumMaster> => {
+        const response = await api.post('/enums', data);
+        return response.data;
+    },
+
+    // ============================================================
+    // UPDATE OPERATIONS
+    // ============================================================
+
+    updateEnum: async (id: number, data: Partial<EnumMaster>): Promise<EnumMaster> => {
+        const response = await api.put(`/enums/${id}`, data);
+        return response.data;
+    },
+
+    // ============================================================
+    // DELETE OPERATIONS
+    // ============================================================
+
+    deleteEnum: async (id: number): Promise<void> => {
+        await api.delete(`/enums/${id}`);
+    },
+
+    // ============================================================
+    // PERMISSION HELPERS
+    // ============================================================
+
+    getPermissions: (enumItem: EnumMaster): EnumPermission => {
+        return {
+            canCreate: !enumItem.isSystem,  // Can't create system enums
+            canEdit: enumItem.isEditable,
+            canDelete: enumItem.isDeletable && !enumItem.isSystem,
+            canDeactivate: enumItem.isEditable
+        };
     }
-  },
-
-  addCustomEnum: async (data) => {
-    const response = await api.post('/enums/custom', data);
-    return response.data;
-  },
-
-  updateCustomEnum: async (id, data) => {
-    const response = await api.put(`/enums/custom/${id}`, data);
-    return response.data;
-  },
-
-  deleteCustomEnum: async (id, enumType) => {
-    await api.delete(`/enums/custom/${id}`, {
-      params: { enumType }
-    });
-  },
-
-  toggleEnumStatus: async (id, enumType) => {
-    const response = await api.patch(`/enums/custom/${id}/toggle`, null, {
-      params: { enumType }
-    });
-    return response.data;
-  }
 };
