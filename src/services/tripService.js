@@ -132,7 +132,15 @@ export const tripService = {
  */
 getAllTrips: async (params = {}) => {
   try {
-    // If sort is provided, ensure it's in the correct format
+    // Ensure page and size are numbers
+    if (params.page !== undefined) {
+      params.page = Number(params.page);
+    }
+    if (params.size !== undefined) {
+      params.size = Number(params.size);
+    }
+    
+    // Handle sort
     if (params.sortBy) {
       const sortOrder = params.sortOrder || 'DESC';
       params.sort = `${params.sortBy},${sortOrder.toLowerCase()}`;
@@ -145,8 +153,18 @@ getAllTrips: async (params = {}) => {
       params.sort = 'id,desc';
     }
     
+    console.log('📤 getAllTrips params:', params);
+    
     const response = await api.get('/trips', { params });
     const rawData = unwrap(response);
+    
+    console.log('📥 getAllTrips response:', {
+      page: rawData?.number,
+      totalElements: rawData?.totalElements,
+      totalPages: rawData?.totalPages,
+      contentLength: rawData?.content?.length
+    });
+    
     return handlePaginatedResponse(rawData);
   } catch (error) {
     throw handleApiError(error, 'Fetching trips');
