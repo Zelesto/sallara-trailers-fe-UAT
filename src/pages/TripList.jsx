@@ -217,33 +217,30 @@ function TripList() {
   setLoading(true);
 
   try {
-    // Build params object - make sure page is a number
     const params = {
-      page: Number(page),  // ← Ensure page is a number
-      size: Number(size),  // ← Ensure size is a number
+      page: Number(page),
+      size: Number(size),
       sort: 'id,desc',
     };
     
     if (search) params.search = search;
     if (status !== 'all') params.status = status;
     if (city) params.city = city;
-    if (customer) params.customer = customer;
+    // REMOVE: customer is not supported directly, use search instead
+    // if (customer) params.customer = customer;
 
     console.log('📤 Fetching trips with params:', params);
 
     const response = await tripService.getAllTrips(params);
     
-    console.log('📥 Response received:', {
+    console.log('📥 Response:', {
       page: response.number,
       totalElements: response.totalElements,
       totalPages: response.totalPages,
       contentLength: response.content?.length
     });
 
-    const sortedContent = (response.content || [])
-      .sort((a, b) => b.id - a.id);
-
-    setTrips(sortedContent);
+    setTrips(response.content || []);
     setPagination({
       page: response.number ?? page,
       pageSize: response.size ?? size,
