@@ -29,7 +29,10 @@ import {
   ToggleOn as ToggleOnIcon,
   ToggleOff as ToggleOffIcon,
   CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
+  Info as InfoIcon
 } from "@mui/icons-material";
 import authService from "../services/auth";
 import userService from "../services/user";
@@ -38,7 +41,9 @@ import { enumService } from "../services/enumService";
 import DriverList from "./DriverList";
 import { useNavigate } from "react-router-dom";
 
-// Compact User Item Component
+// ============================================================
+// COMPACT USER ITEM
+// ============================================================
 const UserItem = ({ user, onDelete }) => {
   const roles = user?.roles || [];
   
@@ -109,77 +114,49 @@ const UserItem = ({ user, onDelete }) => {
   );
 };
 
-// Enum Management Component - WITHOUT tenantId
+// ============================================================
+// ENUM MANAGEMENT - UNIFIED VERSION
+// ============================================================
 const EnumManagement = () => {
   const [enums, setEnums] = useState([]);
-  const [enumTypes, setEnumTypes] = useState([]);
-  const [selectedType, setSelectedType] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEnum, setEditingEnum] = useState(null);
-  const [formData, setFormData] = useState({
-    enumType: '',
-    value: '',
-    displayName: '',
-    description: '',
-    icon: '',
-    color: '#1976D2',
-    sortOrder: 0
-  });
+  const [selectedModule, setSelectedModule] = useState('trip');
+  const [selectedCategory, setSelectedCategory] = useState('status');
+  const [showSystem, setShowSystem] = useState(true);
+  const [showCustom, setShowCustom] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
 
-  // Enum type configuration with icons and labels
-  const enumTypeConfig = {
-    VEHICLE_TYPE: { label: 'Vehicle Types', icon: <CarIcon />, description: 'Types of vehicles in the fleet' },
-    VEHICLE_STATUS: { label: 'Vehicle Statuses', icon: <CarIcon />, description: 'Status states for vehicles' },
-    DRIVER_STATUS: { label: 'Driver Statuses', icon: <DriverIcon />, description: 'Status states for drivers' },
-    LOAD_STATUS: { label: 'Load Statuses', icon: <InventoryIcon />, description: 'Status states for loads' },
-  };
+  // Form state for add/edit
+  const [formData, setFormData] = useState({
+    moduleName: 'trip',
+    category: 'status',
+    code: '',
+    displayName: '',
+    description: '',
+    sortOrder: 0,
+    colorCode: '#1976D2',
+    iconName: '',
+    metadata: {}
+  });
 
-  const loadEnumTypes = async () => {
-    try {
-      const response = await enumService.getEnumTypes();
-      // Handle different response formats
-      let types = [];
-      if (Array.isArray(response)) {
-        types = response;
-      } else if (response?.data && Array.isArray(response.data)) {
-        types = response.data;
-      } else if (response?.content && Array.isArray(response.content)) {
-        types = response.content;
-      } else if (response && typeof response === 'object') {
-        // If response is an object with keys, extract them
-        types = Object.keys(response).filter(key => !key.startsWith('_'));
-      }
-      
-      setEnumTypes(types);
-      if (types.length > 0 && !selectedType) {
-        setSelectedType(types[0]);
-      }
-    } catch (err) {
-      console.error('Error loading enum types:', err);
-      setError('Failed to load enum types');
-      // Set default types as fallback
-      const defaultTypes = ['VEHICLE_TYPE', 'VEHICLE_STATUS', 'DRIVER_STATUS', 'LOAD_STATUS'];
-      setEnumTypes(defaultTypes);
-      if (!selectedType) {
-        setSelectedType(defaultTypes[0]);
-      }
-    }
-  };
+  // Module and category options
+  const modules = ['trip', 'load', 'driver', 'vehicle', 'fuel', 'finance', 'pod', 'inventory'];
+  const categories = ['status', 'type', 'priority', 'approval', 'payment_method'];
 
+  // Load enums
   const loadEnums = async () => {
-    if (!selectedType) return;
+    if (!selectedModule || !selectedCategory) return;
     
     setLoading(true);
     setError(null);
     try {
-      const response = await enumService.getEnums(selectedType);
-      // Handle different response formats
+      const response = await enumService.getEnums(selectedModule, selectedCategory);
       let enumData = [];
       if (Array.isArray(response)) {
         enumData = response;
@@ -202,49 +179,47 @@ const EnumManagement = () => {
   };
 
   useEffect(() => {
-    loadEnumTypes();
-  }, []); // No dependency on tenantId
+    loadEnums();
+  }, [selectedModule, selectedCategory]);
 
-  useEffect(() => {
-    if (selectedType) {
-      loadEnums();
-    }
-  }, [selectedType]);
-
-  const getIconForEnumType = (type) => {
-    return enumTypeConfig[type]?.icon || <CategoryIcon />;
+  // Get filtered enums
+  const getFilteredEnums = () => {
+    return enums.filter(enumItem => {
+      if (!showSystem && enumItem.isSystem) return false;
+      if (!showCustom && !enumItem.isSystem) return false;
+      return true;
+    });
   };
 
-  const getLabelForEnumType = (type) => {
-    return enumTypeConfig[type]?.label || type?.replace(/_/g, ' ') || '';
-  };
+  const filteredEnums = getFilteredEnums();
 
-  const getDescriptionForEnumType = (type) => {
-    return enumTypeConfig[type]?.description || '';
-  };
-
+  // Dialog handlers
   const handleOpenDialog = (enumItem = null) => {
     if (enumItem) {
       setEditingEnum(enumItem);
       setFormData({
-        enumType: enumItem.enumType,
-        value: enumItem.value,
+        moduleName: enumItem.moduleName,
+        category: enumItem.category,
+        code: enumItem.code,
         displayName: enumItem.displayName,
         description: enumItem.description || '',
-        icon: enumItem.icon || '',
-        color: enumItem.color || '#1976D2',
-        sortOrder: enumItem.sortOrder || 0
+        sortOrder: enumItem.sortOrder || 0,
+        colorCode: enumItem.colorCode || '#1976D2',
+        iconName: enumItem.iconName || '',
+        metadata: enumItem.metadata || {}
       });
     } else {
       setEditingEnum(null);
       setFormData({
-        enumType: selectedType,
-        value: '',
+        moduleName: selectedModule,
+        category: selectedCategory,
+        code: '',
         displayName: '',
         description: '',
-        icon: '',
-        color: '#1976D2',
-        sortOrder: enums.length + 1
+        sortOrder: enums.length + 1,
+        colorCode: '#1976D2',
+        iconName: '',
+        metadata: {}
       });
     }
     setDialogOpen(true);
@@ -253,15 +228,6 @@ const EnumManagement = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingEnum(null);
-    setFormData({
-      enumType: selectedType,
-      value: '',
-      displayName: '',
-      description: '',
-      icon: '',
-      color: '#1976D2',
-      sortOrder: 0
-    });
   };
 
   const handleSubmit = async () => {
@@ -269,10 +235,10 @@ const EnumManagement = () => {
       setError(null);
       
       if (editingEnum) {
-        await enumService.updateCustomEnum(editingEnum.id, formData);
+        await enumService.updateEnum(editingEnum.id, formData);
         setSuccess('Enum updated successfully');
       } else {
-        await enumService.addCustomEnum(formData);
+        await enumService.createEnum(formData);
         setSuccess('Enum added successfully');
       }
       
@@ -290,7 +256,7 @@ const EnumManagement = () => {
     if (!window.confirm('Are you sure you want to delete this enum?')) return;
     
     try {
-      await enumService.deleteCustomEnum(id, selectedType);
+      await enumService.deleteEnum(id);
       setSuccess('Enum deleted successfully');
       await loadEnums();
       setTimeout(() => setSuccess(null), 3000);
@@ -300,14 +266,12 @@ const EnumManagement = () => {
     }
   };
 
-  const handleToggleStatus = async (id) => {
-    try {
-      await enumService.toggleEnumStatus(id, selectedType);
-      await loadEnums();
-    } catch (err) {
-      console.error('Error toggling enum status:', err);
-      setError(err.response?.data?.message || 'Failed to toggle enum status');
+  // Get badge color
+  const getChipColor = (enumItem) => {
+    if (enumItem.isSystem) {
+      return { bgcolor: '#e3f2fd', color: '#1565c0' };
     }
+    return { bgcolor: '#e8f5e9', color: '#2e7d32' };
   };
 
   return (
@@ -323,37 +287,81 @@ const EnumManagement = () => {
         </Alert>
       )}
 
-      {/* Enum Type Selector */}
+      {/* Filters */}
       <Paper sx={{ p: 2, mb: 2, bgcolor: 'grey.50' }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={3}>
             <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Select Enum Type</InputLabel>
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Module</InputLabel>
               <Select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                label="Select Enum Type"
+                value={selectedModule}
+                onChange={(e) => setSelectedModule(e.target.value)}
+                label="Module"
                 sx={{ fontSize: '0.75rem' }}
               >
-                {Array.isArray(enumTypes) && enumTypes.length > 0 ? (
-                  enumTypes.map((type) => (
-                    <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        {getIconForEnumType(type)}
-                        <span>{getLabelForEnumType(type)}</span>
-                      </Stack>
-                    </MenuItem>
-                  ))
-                ) : (
-                  <MenuItem disabled>No enum types available</MenuItem>
-                )}
+                {modules.map((m) => (
+                  <MenuItem key={m} value={m} sx={{ fontSize: '0.75rem' }}>
+                    {m.charAt(0).toUpperCase() + m.slice(1)}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Category</InputLabel>
+              <Select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                label="Category"
+                sx={{ fontSize: '0.75rem' }}
+              >
+                {categories.map((c) => (
+                  <MenuItem key={c} value={c} sx={{ fontSize: '0.75rem' }}>
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Stack direction="row" spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showSystem}
+                    onChange={(e) => setShowSystem(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    System
+                  </Typography>
+                }
+                sx={{ mr: 0 }}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showCustom}
+                    onChange={(e) => setShowCustom(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    Custom
+                  </Typography>
+                }
+                sx={{ mr: 0 }}
+              />
+            </Stack>
+          </Grid>
+          <Grid item xs={12} md={2}>
             <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
               <Tooltip title="Refresh">
-                <IconButton size="small" onClick={loadEnums}>
+                <IconButton size="small" onClick={loadEnums} sx={{ p: 0.5 }}>
                   <RefreshIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
@@ -364,16 +372,11 @@ const EnumManagement = () => {
                 size="small"
                 sx={{ fontSize: '0.75rem' }}
               >
-                Add New
+                Add Custom
               </Button>
             </Stack>
           </Grid>
         </Grid>
-        {selectedType && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', fontSize: '0.65rem' }}>
-            {getDescriptionForEnumType(selectedType)}
-          </Typography>
-        )}
       </Paper>
 
       {/* Enums Table */}
@@ -382,126 +385,132 @@ const EnumManagement = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: 'grey.50' }}>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Value</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Code</TableCell>
                 <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Display Name</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Icon</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Color</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Description</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }} align="center">Status</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }} align="center">System</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Type</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Default</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }}>Status</TableCell>
                 <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 1 }} align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={30} />
                   </TableCell>
                 </TableRow>
-              ) : enums.length === 0 ? (
+              ) : filteredEnums.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                      No enums found for {getLabelForEnumType(selectedType)}
+                      No enums found for {selectedModule} - {selectedCategory}
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                enums.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((enumItem) => (
-                  <TableRow key={enumItem.id || enumItem.value} hover>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
-                      <Chip
-                        label={enumItem.value}
-                        size="small"
-                        sx={{
-                          fontSize: '0.6rem',
-                          height: 20,
-                          backgroundColor: enumItem.isSystem ? 'grey.100' : 'primary.light',
-                          color: enumItem.isSystem ? 'text.secondary' : 'primary.main'
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
-                      {enumItem.displayName}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
-                      {enumItem.icon || '-'}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
-                      {enumItem.color ? (
-                        <Box
+                filteredEnums.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((enumItem) => {
+                  const chipColors = getChipColor(enumItem);
+                  const isSystemLocked = enumItem.isSystem && !enumItem.isEditable;
+                  
+                  return (
+                    <TableRow key={enumItem.id} hover>
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
+                        <Chip
+                          label={enumItem.code}
+                          size="small"
                           sx={{
-                            width: 20,
+                            fontSize: '0.6rem',
                             height: 20,
-                            borderRadius: '50%',
-                            backgroundColor: enumItem.color,
-                            border: '1px solid #e0e0e0'
+                            bgcolor: chipColors.bgcolor,
+                            color: chipColors.color
                           }}
                         />
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
-                      {enumItem.description || '-'}
-                    </TableCell>
-                    <TableCell align="center" sx={{ py: 0.5 }}>
-                      <Tooltip title={enumItem.isActive ? 'Active' : 'Inactive'}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleToggleStatus(enumItem.id)}
-                          disabled={enumItem.isSystem}
-                          sx={{ p: 0.25 }}
-                        >
-                          {enumItem.isActive ? (
-                            <CheckCircleIcon sx={{ fontSize: '0.9rem', color: 'success.main' }} />
-                          ) : (
-                            <CancelIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          {enumItem.iconName && (
+                            <span style={{ fontSize: '0.8rem' }}>{enumItem.iconName}</span>
                           )}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell align="center" sx={{ py: 0.5 }}>
-                      <Chip
-                        label={enumItem.isSystem ? 'System' : 'Custom'}
-                        size="small"
-                        color={enumItem.isSystem ? 'info' : 'default'}
-                        sx={{ fontSize: '0.5rem', height: 16 }}
-                      />
-                    </TableCell>
-                    <TableCell align="center" sx={{ py: 0.5 }}>
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
-                        {!enumItem.isSystem && (
-                          <>
-                            <Tooltip title="Edit">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenDialog(enumItem)}
-                                sx={{ p: 0.25 }}
-                              >
-                                <EditIcon sx={{ fontSize: '0.8rem' }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleDeleteEnum(enumItem.id)}
-                                sx={{ p: 0.25 }}
-                              >
-                                <DeleteIcon sx={{ fontSize: '0.8rem' }} />
-                              </IconButton>
-                            </Tooltip>
-                          </>
+                          {enumItem.colorCode && (
+                            <Box
+                              sx={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                backgroundColor: enumItem.colorCode,
+                                border: '1px solid #e0e0e0'
+                              }}
+                            />
+                          )}
+                          <span>{enumItem.displayName}</span>
+                        </Stack>
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
+                        <Chip
+                          label={enumItem.isSystem ? 'System' : 'Custom'}
+                          size="small"
+                          color={enumItem.isSystem ? 'info' : 'success'}
+                          variant="outlined"
+                          sx={{ fontSize: '0.5rem', height: 16 }}
+                          icon={enumItem.isSystem ? <LockIcon sx={{ fontSize: '0.5rem' }} /> : <LockOpenIcon sx={{ fontSize: '0.5rem' }} />}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
+                        {enumItem.isDefault && (
+                          <Chip
+                            label="Default"
+                            size="small"
+                            color="primary"
+                            sx={{ fontSize: '0.5rem', height: 16 }}
+                          />
                         )}
-                        {enumItem.isSystem && (
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                            Locked
-                          </Typography>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.5 }}>
+                        <Chip
+                          label={enumItem.isActive ? 'Active' : 'Inactive'}
+                          size="small"
+                          color={enumItem.isActive ? 'success' : 'error'}
+                          variant="outlined"
+                          sx={{ fontSize: '0.5rem', height: 16 }}
+                        />
+                      </TableCell>
+                      <TableCell align="center" sx={{ py: 0.5 }}>
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          {!isSystemLocked ? (
+                            <>
+                              <Tooltip title="Edit">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenDialog(enumItem)}
+                                  sx={{ p: 0.25 }}
+                                >
+                                  <EditIcon sx={{ fontSize: '0.8rem' }} />
+                                </IconButton>
+                              </Tooltip>
+                              {!enumItem.isSystem && (
+                                <Tooltip title="Delete">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleDeleteEnum(enumItem.id)}
+                                    sx={{ p: 0.25 }}
+                                  >
+                                    <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </>
+                          ) : (
+                            <Tooltip title="System enum - locked">
+                              <LockIcon sx={{ fontSize: '0.8rem', color: 'text.disabled' }} />
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -509,7 +518,7 @@ const EnumManagement = () => {
         
         <TablePagination
           component="div"
-          count={total}
+          count={filteredEnums.length}
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
@@ -527,6 +536,16 @@ const EnumManagement = () => {
         />
       </Paper>
 
+      {/* Stats Footer */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+          {filteredEnums.length} enums ({enums.filter(e => e.isSystem).length} system, {enums.filter(e => !e.isSystem).length} custom)
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+          Last updated: {new Date().toLocaleString()}
+        </Typography>
+      </Box>
+
       {/* Add/Edit Dialog */}
       <Dialog 
         open={dialogOpen} 
@@ -535,25 +554,64 @@ const EnumManagement = () => {
         fullWidth
       >
         <DialogTitle sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
-          {editingEnum ? 'Edit Enum' : 'Add New Enum'}
+          {editingEnum ? 'Edit Enum' : 'Add Custom Enum'}
+          {editingEnum?.isSystem && (
+            <Chip
+              label="System"
+              size="small"
+              color="info"
+              sx={{ ml: 1, fontSize: '0.6rem' }}
+            />
+          )}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Module</InputLabel>
+                  <Select
+                    value={formData.moduleName}
+                    onChange={(e) => setFormData({ ...formData, moduleName: e.target.value })}
+                    label="Module"
+                    disabled={editingEnum?.isSystem}
+                    sx={{ fontSize: '0.75rem' }}
+                  >
+                    {modules.map((m) => (
+                      <MenuItem key={m} value={m} sx={{ fontSize: '0.75rem' }}>
+                        {m.charAt(0).toUpperCase() + m.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Category</InputLabel>
+                  <Select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    label="Category"
+                    disabled={editingEnum?.isSystem}
+                    sx={{ fontSize: '0.75rem' }}
+                  >
+                    {categories.map((c) => (
+                      <MenuItem key={c} value={c} sx={{ fontSize: '0.75rem' }}>
+                        {c.charAt(0).toUpperCase() + c.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
             <TextField
-              label="Enum Type"
-              value={formData.enumType}
-              disabled
-              size="small"
-              fullWidth
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-            />
-            <TextField
-              label="Value (e.g., GROCERY)"
-              value={formData.value}
-              onChange={(e) => setFormData({ ...formData, value: e.target.value.toUpperCase() })}
+              label="Code (e.g., GROCERY)"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') })}
               required
               size="small"
               fullWidth
+              disabled={editingEnum?.isSystem}
               helperText="Use uppercase letters, numbers, and underscores only"
               sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
             />
@@ -580,8 +638,8 @@ const EnumManagement = () => {
               <Grid item xs={6}>
                 <TextField
                   label="Icon (Emoji)"
-                  value={formData.icon}
-                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                  value={formData.iconName}
+                  onChange={(e) => setFormData({ ...formData, iconName: e.target.value })}
                   size="small"
                   fullWidth
                   helperText="e.g., 🚛, 📦, ⛽"
@@ -592,8 +650,8 @@ const EnumManagement = () => {
                 <TextField
                   label="Color"
                   type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                  value={formData.colorCode}
+                  onChange={(e) => setFormData({ ...formData, colorCode: e.target.value })}
                   size="small"
                   fullWidth
                   sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
@@ -619,7 +677,7 @@ const EnumManagement = () => {
             onClick={handleSubmit} 
             variant="contained" 
             size="small"
-            disabled={!formData.value || !formData.displayName}
+            disabled={!formData.code || !formData.displayName}
             sx={{ fontSize: '0.75rem' }}
           >
             {editingEnum ? 'Update' : 'Add'}
@@ -630,7 +688,9 @@ const EnumManagement = () => {
   );
 };
 
-// Compact Tab Panel Component
+// ============================================================
+// TAB PANEL COMPONENT
+// ============================================================
 const TabPanel = ({ children, value, index }) => (
   <Box
     role="tabpanel"
@@ -641,6 +701,9 @@ const TabPanel = ({ children, value, index }) => (
   </Box>
 );
 
+// ============================================================
+// MAIN SETTINGS PAGE
+// ============================================================
 const SettingsPage = ({ currentUser }) => {
   const [tab, setTab] = useState(0);
   const navigate = useNavigate();
@@ -717,30 +780,7 @@ const SettingsPage = ({ currentUser }) => {
         errorMessage = err.response.data?.message || errorMessage;
       }
       setDriverError(errorMessage);
-      // Mock data for demo
-      const mockDrivers = [
-        {
-          id: 1,
-          firstName: "John",
-          lastName: "Doe",
-          licenseNumber: "DL12345",
-          licenseExpiry: "2024-12-31",
-          status: "Active",
-          email: "john.doe@example.com",
-          phone: "+1234567890"
-        },
-        {
-          id: 2,
-          firstName: "Jane",
-          lastName: "Smith",
-          licenseNumber: "DL67890",
-          licenseExpiry: "2025-06-30",
-          status: "Active",
-          email: "jane.smith@example.com",
-          phone: "+0987654321"
-        },
-      ];
-      setDrivers(mockDrivers);
+      setDrivers([]);
     } finally {
       setLoadingDrivers(false);
     }
@@ -832,7 +872,6 @@ const SettingsPage = ({ currentUser }) => {
 
           <Divider sx={{ mb: 2 }} />
 
-          {/* Tabs - Compact */}
           <Tabs 
             value={tab} 
             onChange={(e, newValue) => setTab(newValue)}
@@ -852,7 +891,6 @@ const SettingsPage = ({ currentUser }) => {
             <Tab label="Enums" />
           </Tabs>
 
-          {/* Tab Panels */}
           <TabPanel value={tab} index={0}>
             <Box sx={{ maxWidth: 500 }}>
               {success && <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }}>{success}</Alert>}
@@ -1028,7 +1066,7 @@ const SettingsPage = ({ currentUser }) => {
                 Enum Management
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mb: 2 }}>
-                Manage custom enumerations used throughout the system. System enums are locked and cannot be modified.
+                Manage enumerations used throughout the system. System enums are locked and cannot be modified.
               </Typography>
               <EnumManagement />
             </Box>
