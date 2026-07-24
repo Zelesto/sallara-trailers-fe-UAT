@@ -122,6 +122,20 @@ const PODForm = () => {
   if (value) {
     const tripId = value.id;
     console.log('🔄 Selected trip:', tripId);
+
+    // Extract customer name from various possible locations
+    let customerName = '';
+    if (value.customerName) {
+      customerName = value.customerName;
+    } else if (value.customer && value.customer.name) {
+      customerName = value.customer.name;
+    } else if (value.customer && value.customer.customerName) {
+      customerName = value.customer.customerName;
+    } else if (value.customerName) {
+      customerName = value.customerName;
+    }
+    
+    console.log('📝 Extracted customer name:', customerName);
     
     setFormData(prev => ({ 
       ...prev, 
