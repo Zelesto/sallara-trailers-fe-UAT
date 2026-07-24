@@ -12,37 +12,26 @@ export const podService = {
   try {
     let response;
     
-    const tripIdValue = podData.tripId ? parseInt(podData.tripId, 10) : null;
-    
-    // Validate required fields
-    if (!tripIdValue || tripIdValue <= 0) {
-      throw new Error('Valid Trip ID is required');
-    }
-    
-    if (!podData.customerName || !podData.customerName.trim()) {
-      throw new Error('Customer Name is required');
-    }
-    
-    if (!podData.deliveryDate) {
-      throw new Error('Delivery Date is required');
-    }
-    
-    console.log('📤 Sending podData fields:', {
-      tripId: tripIdValue,
-      customerName: podData.customerName.trim(),
-      deliveryDate: podData.deliveryDate,
-      status: podData.status || 'PENDING',
-      notes: podData.notes || '',
-      hasFile: !!file
-    });
-    
     if (file) {
       // Use FormData with individual fields
       const formData = new FormData();
       
+      // CRITICAL: Send each field individually, not as JSON
+      const tripIdValue = podData.tripId ? parseInt(podData.tripId, 10) : null;
+      
+      // Log the data being sent for debugging
+      console.log('📤 Sending podData fields:', {
+        tripId: tripIdValue,
+        customerName: podData.customerName || 'Adhoc Customer',
+        deliveryDate: podData.deliveryDate || new Date().toISOString().split('T')[0],
+        status: podData.status || 'PENDING',
+        notes: podData.notes || '',
+      });
+      
+      // Append individual fields
       formData.append('tripId', tripIdValue);
-      formData.append('customerName', podData.customerName.trim());
-      formData.append('deliveryDate', podData.deliveryDate);
+      formData.append('customerName', podData.customerName || 'Adhoc Customer');
+      formData.append('deliveryDate', podData.deliveryDate || new Date().toISOString().split('T')[0]);
       formData.append('status', podData.status || 'PENDING');
       formData.append('notes', podData.notes || '');
       formData.append('file', file);
@@ -52,57 +41,14 @@ export const podService = {
       });
     } else {
       // Send as JSON to /pods
-      response = await api.post('/pods', {
-        tripId: tripIdValue,
-        customerName: podData.customerName.trim(),
-        deliveryDate: podData.deliveryDate,
-        status: podData.status || 'PENDING',
-        notes: podData.notes || '',
-      });
+      response = await api.post('/pods', podData);
     }
     
     console.log('✅ POD created successfully:', response);
     return response;
   } catch (error) {
     console.error('❌ Error creating POD:', error);
-    
-    // Enhanced error handling
-    if (error.response) {
-      console.error('❌ Response status:', error.response.status);
-      console.error('❌ Response data:', error.response.data);
-      
-      let errorMessage = 'Failed to create POD. ';
-      
-      if (error.response.status === 500) {
-        errorMessage += 'Server error. The trip might not exist or there might be a database issue.';
-      } else if (error.response.status === 400) {
-        errorMessage += 'Invalid data provided. Please check all fields.';
-      } else if (error.response.status === 404) {
-        errorMessage += 'Trip not found. Please select a valid trip.';
-      } else if (error.response.status === 409) {
-        errorMessage += 'A POD already exists for this trip.';
-      }
-      
-      if (error.response.data?.message) {
-        errorMessage += ` Details: ${error.response.data.message}`;
-      }
-      
-      throw {
-        ...error,
-        userMessage: errorMessage,
-        status: error.response.status
-      };
-    } else if (error.request) {
-      throw {
-        ...error,
-        userMessage: 'Network error. Please check your connection and try again.'
-      };
-    } else {
-      throw {
-        ...error,
-        userMessage: error.message || 'An unexpected error occurred. Please try again.'
-      };
-    }
+    throw error;
   }
 },
 
@@ -117,43 +63,15 @@ export const podService = {
       tripId: tripIdValue,
       customerName: podData.customerName,
       deliveryDate: podData.deliveryDate,
-      status: podData.status,
-      notes: podData.notes,
-      file: file ? { name: file.name, size: file.size, type: file.type } : null
+      file: file ? file.name : null
     });
     
-    // Validate required fields
-    if (!tripIdValue || tripIdValue <= 0) {
-      throw new Error('Valid Trip ID is required');
-    }
-    
-    if (!podData.customerName || !podData.customerName.trim()) {
-      throw new Error('Customer Name is required');
-    }
-    
-    if (!podData.deliveryDate) {
-      throw new Error('Delivery Date is required');
-    }
-    
     formData.append('tripId', tripIdValue);
-    formData.append('customerName', podData.customerName.trim());
-    formData.append('deliveryDate', podData.deliveryDate);
+    formData.append('customerName', podData.customerName || 'Adhoc Customer');
+    formData.append('deliveryDate', podData.deliveryDate || new Date().toISOString().split('T')[0]);
     formData.append('status', podData.status || 'PENDING');
     formData.append('notes', podData.notes || '');
-    
-    if (file) {
-      formData.append('file', file);
-    }
-    
-    // Log form data entries for debugging
-    console.log('📦 FormData entries:');
-    for (let [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        console.log(`   ${key}: ${value.name} (${value.size} bytes, ${value.type})`);
-      } else {
-        console.log(`   ${key}: ${value}`);
-      }
-    }
+    formData.append('file', file);
     
     const response = await api.post('/pods', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -163,47 +81,7 @@ export const podService = {
     return response;
   } catch (error) {
     console.error('❌ Error creating POD:', error);
-    
-    // Enhanced error handling
-    if (error.response) {
-      console.error('❌ Response status:', error.response.status);
-      console.error('❌ Response data:', error.response.data);
-      
-      // Try to extract user-friendly error message
-      let errorMessage = 'Failed to create POD. ';
-      
-      if (error.response.status === 500) {
-        errorMessage += 'Server error. The trip might not exist or there might be a database issue.';
-      } else if (error.response.status === 400) {
-        errorMessage += 'Invalid data provided. Please check all fields.';
-      } else if (error.response.status === 404) {
-        errorMessage += 'Trip not found. Please select a valid trip.';
-      } else if (error.response.status === 409) {
-        errorMessage += 'A POD already exists for this trip.';
-      }
-      
-      if (error.response.data?.message) {
-        errorMessage += ` Details: ${error.response.data.message}`;
-      }
-      
-      throw {
-        ...error,
-        userMessage: errorMessage,
-        status: error.response.status
-      };
-    } else if (error.request) {
-      // The request was made but no response was received
-      throw {
-        ...error,
-        userMessage: 'Network error. Please check your connection and try again.'
-      };
-    } else {
-      // Something else happened
-      throw {
-        ...error,
-        userMessage: error.message || 'An unexpected error occurred. Please try again.'
-      };
-    }
+    throw error;
   }
 },
 
