@@ -21,6 +21,7 @@ import {
 import { ArrowBack, Save, CloudUpload, Search as SearchIcon } from '@mui/icons-material';
 import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
+import { customerService } from '../services/customerService'; // <-- ADD THIS IMPORT
 
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'Pending' },
@@ -29,25 +30,6 @@ const STATUS_OPTIONS = [
   { value: 'REJECTED', label: 'Rejected' },
   { value: 'CANCELLED', label: 'Cancelled' },
 ];
-
-// Helper function to extract customer name from trip
-const extractCustomerName = (trip) => {
-  if (!trip) return '';
-  
-  // Try different possible locations for customer name
-  if (trip.customerName) return trip.customerName;
-  if (trip.customer?.name) return trip.customer.name;
-  if (trip.customer?.customerName) return trip.customer.customerName;
-  if (trip.customer?.fullName) return trip.customer.fullName;
-  if (trip.customerName) return trip.customerName;
-  
-  // If customer is an object with a name property
-  if (typeof trip.customer === 'object' && trip.customer !== null) {
-    return trip.customer.name || trip.customer.customerName || '';
-  }
-  
-  return '';
-};
 
 const PODForm = () => {
   const { id } = useParams();
@@ -64,6 +46,10 @@ const PODForm = () => {
   const [trips, setTrips] = useState([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [searchTripTerm, setSearchTripTerm] = useState('');
+  
+  // ADD: Customer cache state
+  const [customerCache, setCustomerCache] = useState({});
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
 
   const [formData, setFormData] = useState({
     tripId: '',
@@ -91,16 +77,7 @@ const PODForm = () => {
       });
       const tripsData = response?.content || response || [];
       
-      // Log the trip data to debug
-      if (tripsData.length > 0) {
-        console.log('📦 Sample trip data:', tripsData[0]);
-        console.log('📦 Customer info in trip:', {
-          customerName: tripsData[0].customerName,
-          customer: tripsData[0].customer,
-          customerObject: tripsData[0].customer
-        });
-      }
-      
+      console.log('📦 Trip data sample:', tripsData[0]);
       setTrips(tripsData);
     } catch (err) {
       console.error('Error loading trips:', err);
@@ -140,6 +117,46 @@ const PODForm = () => {
     }
   };
 
+  // ADD: Function to fetch customer details by ID
+  const fetchCustomerDetails = async (customerId) => {
+    if (!customerId) return '';
+    
+    // Check cache first
+    if (customerCache[customerId]) {
+      console.log('📦 Using cached customer:', customerCache[customerId]);
+      return customerCache[customerId];
+    }
+    
+    setLoadingCustomer(true);
+    try {
+      console.log('🔍 Fetching customer details for ID:', customerId);
+      const customer = await customerService.getCustomerById(customerId);
+      const customerName = customer.name || customer.customerName || '';
+      
+      // Cache the result
+      setCustomerCache(prev => ({ ...prev, [customerId]: customerName }));
+      console.log('✅ Customer fetched:', customerName);
+      
+      return customerName;
+    } catch (err) {
+      console.error('❌ Error fetching customer:', err);
+      // Try to find in the trips list as fallback
+      const tripWithCustomer = trips.find(t => t.customerId === customerId);
+      if (tripWithCustomer) {
+        const name = tripWithCustomer.customerName || 
+                    tripWithCustomer.customer?.name || 
+                    tripWithCustomer.customer?.customerName || '';
+        if (name) {
+          setCustomerCache(prev => ({ ...prev, [customerId]: name }));
+          return name;
+        }
+      }
+      return '';
+    } finally {
+      setLoadingCustomer(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -148,19 +165,32 @@ const PODForm = () => {
     }
   };
 
-  // UPDATED: Better customer name extraction
-  const handleTripSelect = (event, value) => {
+  // UPDATED: handleTripSelect with customer fetching
+  const handleTripSelect = async (event, value) => {
     if (value) {
       const tripId = value.id;
-      const customerName = extractCustomerName(value);
+      const customerId = value.customerId;
       
       console.log('🔄 Selected trip:', value);
-      console.log('📝 Extracted customer name:', customerName);
+      console.log('📝 Customer ID:', customerId);
+      
+      // Try to get customer name from the trip object first
+      let customerName = value.customerName || 
+                        value.customer?.name || 
+                        value.customer?.customerName || '';
+      
+      // If no customer name and we have a customer ID, fetch it
+      if (!customerName && customerId) {
+        console.log('🔍 Fetching customer name for ID:', customerId);
+        customerName = await fetchCustomerDetails(customerId);
+      }
+      
+      console.log('📝 Final customer name:', customerName);
       
       setFormData(prev => ({ 
         ...prev, 
         tripId: tripId,
-        customerName: customerName || prev.customerName,
+        customerName: customerName || '',
       }));
       
       if (formErrors.tripId) {
@@ -193,7 +223,6 @@ const PODForm = () => {
   const validateForm = () => {
     const errors = {};
     
-    // Validate tripId - must be a valid number
     const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
     if (!tripIdValue || tripIdValue <= 0) {
       errors.tripId = 'Please select a valid Trip';
@@ -282,6 +311,15 @@ const PODForm = () => {
     );
   });
 
+  // UPDATED: Get option label with customer name
+  const getOptionLabel = (option) => {
+    if (typeof option === 'string') return option;
+    const customerName = option.customerName || 
+                        option.customer?.name || 
+                        option.customer?.customerName || '';
+    return `${option.tripNumber || option.id} - ${customerName || 'N/A'}`;
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -293,7 +331,6 @@ const PODForm = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
@@ -331,12 +368,8 @@ const PODForm = () => {
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={filteredTrips}
-                loading={loadingTrips}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  const customerName = extractCustomerName(option);
-                  return `${option.tripNumber || option.id} - ${customerName || 'N/A'}`;
-                }}
+                loading={loadingTrips || loadingCustomer}
+                getOptionLabel={getOptionLabel}
                 value={trips.find(t => t.id === parseInt(formData.tripId)) || null}
                 onChange={handleTripSelect}
                 onInputChange={(event, newInputValue) => {
@@ -362,23 +395,41 @@ const PODForm = () => {
                           {params.InputProps.startAdornment}
                         </>
                       ),
+                      endAdornment: (
+                        <>
+                          {loadingCustomer && <CircularProgress size={16} sx={{ mr: 1 }} />}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
                     }}
                   />
                 )}
-                renderOption={(props, option) => (
-                  <li {...props}>
-                    <Box>
-                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
-                        {option.tripNumber || `Trip #${option.id}`}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                        Customer: {extractCustomerName(option) || 'N/A'} | 
-                        Status: {option.status || 'N/A'} | 
-                        Date: {option.plannedStartDate ? new Date(option.plannedStartDate).toLocaleDateString() : 'N/A'}
-                      </Typography>
-                    </Box>
-                  </li>
-                )}
+                renderOption={(props, option) => {
+                  const customerName = option.customerName || 
+                                      option.customer?.name || 
+                                      option.customer?.customerName || '';
+                  return (
+                    <li {...props}>
+                      <Box>
+                        <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
+                          {option.tripNumber || `Trip #${option.id}`}
+                          {option.customerId && !customerName && (
+                            <Chip 
+                              label="Loading customer..." 
+                              size="small" 
+                              sx={{ ml: 1, height: 16, fontSize: '0.5rem' }} 
+                            />
+                          )}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                          Customer: {customerName || 'Loading...'} | 
+                          Status: {option.status || 'N/A'} | 
+                          Date: {option.plannedStartDate ? new Date(option.plannedStartDate).toLocaleDateString() : 'N/A'}
+                        </Typography>
+                      </Box>
+                    </li>
+                  );
+                }}
                 noOptionsText="No trips found. Only COMPLETED and FINALIZED trips are available."
                 loadingText="Loading trips..."
                 isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -396,10 +447,17 @@ const PODForm = () => {
                 required
                 size="small"
                 error={!!formErrors.customerName}
-                helperText={formErrors.customerName}
+                helperText={formErrors.customerName || 'Auto-populated from trip selection'}
                 sx={{
                   '& .MuiInputLabel-root': { fontSize: '0.75rem' },
                   '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                }}
+                InputProps={{
+                  endAdornment: loadingCustomer && (
+                    <InputAdornment position="end">
+                      <CircularProgress size={16} />
+                    </InputAdornment>
+                  ),
                 }}
               />
             </Grid>
@@ -539,7 +597,7 @@ const PODForm = () => {
                   variant="contained"
                   size="medium"
                   startIcon={submitting ? <CircularProgress size={18} /> : <Save sx={{ fontSize: '0.9rem' }} />}
-                  disabled={submitting}
+                  disabled={submitting || loadingCustomer}
                   sx={{ 
                     minWidth: { xs: '100%', sm: 180 },
                     fontSize: '0.8rem',
