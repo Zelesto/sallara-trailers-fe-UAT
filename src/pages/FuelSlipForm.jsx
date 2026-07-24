@@ -112,6 +112,8 @@ const FuelSlipForm = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [stepErrors, setStepErrors] = useState([]);
 
+  const [loadingTrips, setLoadingTrips] = useState(false);
+
   // Data state
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
