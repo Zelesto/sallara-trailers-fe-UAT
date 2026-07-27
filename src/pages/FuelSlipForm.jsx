@@ -1,5 +1,5 @@
 // src/pages/FuelSlipForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -719,27 +719,26 @@ const FuelSlipForm = () => {
   };
 
   // Available trips filter (exclude FINALIZED and COMPLETED, show latest first)
- console.log('🔍 DEBUG - Before filtering, trips count:', trips.length);
-console.log('🔍 DEBUG - Trip statuses before filter:', trips.map(t => t.status));
-
-const availableTrips = trips
-  .filter(t => {
-    const status = t.status?.toUpperCase() || '';
-    return status !== 'FINALIZED';
-  })
-  .sort((a, b) => {
-    const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
-    const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
-    return dateB - dateA;
-  });
-
-console.log('🔍 DEBUG - After filtering, availableTrips count:', availableTrips.length);
-console.log('🔍 DEBUG - availableTrips:', availableTrips.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
-  // Get selected trip details
-  const getSelectedTrip = () => {
-    if (!formData.tripId) return null;
-    return trips.find(t => t.id && t.id.toString() === formData.tripId.toString());
-  };
+ const availableTrips = useMemo(() => {
+  console.log('🔍 DEBUG - Before filtering, trips count:', trips.length);
+  console.log('🔍 DEBUG - Trip statuses before filter:', trips.map(t => t.status));
+  
+  const filtered = trips
+    .filter(t => {
+      const status = t.status?.toUpperCase() || '';
+      return status !== 'FINALIZED';
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+      const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+      return dateB - dateA;
+    });
+  
+  console.log('🔍 DEBUG - After filtering, availableTrips count:', filtered.length);
+  console.log('🔍 DEBUG - availableTrips:', filtered.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
+  
+  return filtered;
+}, [trips]);
 
   // Render step content
   const renderStepContent = () => {
