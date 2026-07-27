@@ -644,17 +644,22 @@ console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ id: t.id, tripN
   };
 
   // Available trips filter (exclude FINALIZED and COMPLETED, show latest first)
-  const availableTrips = trips
+ console.log('🔍 DEBUG - Before filtering, trips count:', trips.length);
+console.log('🔍 DEBUG - Trip statuses before filter:', trips.map(t => t.status));
+
+const availableTrips = trips
   .filter(t => {
     const status = t.status?.toUpperCase() || '';
-    return status !== 'FINALIZED';  // ✅ Only filter out FINALIZED
+    return status !== 'FINALIZED';
   })
-    .sort((a, b) => {
-      const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
-      const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
-      return dateB - dateA;
-    });
+  .sort((a, b) => {
+    const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+    const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+    return dateB - dateA;
+  });
 
+console.log('🔍 DEBUG - After filtering, availableTrips count:', availableTrips.length);
+console.log('🔍 DEBUG - availableTrips:', availableTrips.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
   // Get selected trip details
   const getSelectedTrip = () => {
     if (!formData.tripId) return null;
