@@ -302,6 +302,7 @@ const FuelSlipForm = () => {
   };
 
   // Auto-populate vehicle and driver when trip is selected
+  // Auto-populate vehicle and driver when trip is selected
   const handleTripSelection = async (tripId) => {
     console.log('Trip selected:', tripId);
 
@@ -321,6 +322,8 @@ const FuelSlipForm = () => {
 
     try {
       const selectedTrip = trips.find(t => t.id && t.id.toString() === tripId.toString());
+      console.log('Selected trip object:', selectedTrip);
+
       if (!selectedTrip) {
         setError('Selected trip not found');
         return;
@@ -334,48 +337,62 @@ const FuelSlipForm = () => {
       if (selectedTrip.vehicleId) {
         const vehicle = vehicles.find(v => v.id && v.id.toString() === selectedTrip.vehicleId.toString());
         if (vehicle) {
+          console.log('Found vehicle by ID:', vehicle);
           newFormData.vehicleId = vehicle.id;
-          newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || '';
+          newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || vehicle.plateNumber || '';
           newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
         }
       } else if (selectedTrip.vehicle && selectedTrip.vehicle.id) {
         const vehicle = selectedTrip.vehicle;
+        console.log('Found vehicle in trip object:', vehicle);
         newFormData.vehicleId = vehicle.id;
-        newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || '';
+        newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || vehicle.plateNumber || '';
         newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
       } else if (selectedTrip.vehicleRegistration) {
+        console.log('Trip has vehicleRegistration:', selectedTrip.vehicleRegistration);
         newFormData.vehicleManual = selectedTrip.vehicleRegistration;
+
         const matchingVehicle = vehicles.find(v => {
-          const regNum = v.registrationNumber || v.regNumber || '';
-          return regNum.toLowerCase().includes(selectedTrip.vehicleRegistration.toLowerCase());
+          const regNum = v.registrationNumber || v.regNumber || v.plateNumber;
+          if (!regNum) return false;
+          return regNum.toLowerCase().includes(selectedTrip.vehicleRegistration.toLowerCase()) ||
+                 selectedTrip.vehicleRegistration.toLowerCase().includes(regNum.toLowerCase());
         });
+
         if (matchingVehicle) {
           newFormData.vehicleId = matchingVehicle.id;
-          newVehicleValue = `${matchingVehicle.registrationNumber} - ${matchingVehicle.make || ''} ${matchingVehicle.model || ''}`.trim();
+          newVehicleValue = `${matchingVehicle.registrationNumber || matchingVehicle.regNumber || matchingVehicle.plateNumber} - ${matchingVehicle.make || ''} ${matchingVehicle.model || ''}`.trim();
         } else {
           newVehicleValue = selectedTrip.vehicleRegistration;
         }
       }
 
-       // Auto-populate driver
+      // Auto-populate driver
       if (selectedTrip.driverId) {
         const driver = drivers.find(d => d.id && d.id.toString() === selectedTrip.driverId.toString());
         if (driver) {
+          console.log('Found driver by ID:', driver);
           newFormData.driverId = driver.id;
           newFormData.driverManual = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
           newDriverValue = newFormData.driverManual;
         }
       } else if (selectedTrip.driver && selectedTrip.driver.id) {
         const driver = selectedTrip.driver;
+        console.log('Found driver in trip object:', driver);
         newFormData.driverId = driver.id;
         newFormData.driverManual = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
         newDriverValue = newFormData.driverManual;
       } else if (selectedTrip.driverName) {
+        console.log('Trip has driverName:', selectedTrip.driverName);
         newFormData.driverManual = selectedTrip.driverName;
+
         const matchingDriver = drivers.find(d => {
           const driverName = d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim();
-          return driverName.toLowerCase().includes(selectedTrip.driverName.toLowerCase());
+          if (!driverName) return false;
+          return driverName.toLowerCase().includes(selectedTrip.driverName.toLowerCase()) ||
+                 selectedTrip.driverName.toLowerCase().includes(driverName.toLowerCase());
         });
+
         if (matchingDriver) {
           newFormData.driverId = matchingDriver.id;
           newDriverValue = matchingDriver.fullName || `${matchingDriver.firstName || ''} ${matchingDriver.lastName || ''}`.trim();
@@ -387,6 +404,12 @@ const FuelSlipForm = () => {
       setFormData(newFormData);
       setVehicleInputValue(newVehicleValue);
       setDriverInputValue(newDriverValue);
+
+      console.log('After auto-population:', {
+        formData: newFormData,
+        vehicleValue: newVehicleValue,
+        driverValue: newDriverValue
+      });
 
     } catch (err) {
       console.error('Error auto-populating trip:', err);
