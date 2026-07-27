@@ -231,48 +231,93 @@ const FuelSlipForm = () => {
       driverService.getAllDrivers().catch(() => [])
     ]);
 
-    // ✅ TRY MULTIPLE APPROACHES TO GET TRIPS
+    // ✅ Use the existing /trips endpoint with proper parameters
     let tripsData = [];
-    
-    // Approach 1: Try with page parameter
     try {
+      // First try with a larger page size and explicit sorting
       const response = await tripService.getAllTrips({ 
         page: 0, 
         size: 100,
         sort: 'id,desc'
       });
-      tripsData = response?.content || response || [];
-      console.log('📦 Approach 1 - trips loaded:', tripsData.length);
+      
+      console.log('📦 Response from getAllTrips:', response);
+      
+      // Extract content properly
+      if (response && typeof response === 'object') {
+        if (response.content && Array.isArray(response.content)) {
+          tripsData = response.content;
+          console.log('📦 Trips loaded from content:', tripsData.length);
+        } else if (Array.isArray(response)) {
+          tripsData = response;
+          console.log('📦 Trips loaded as array:', tripsData.length);
+        } else if (response.data && Array.isArray(response.data)) {
+          tripsData = response.data;
+          console.log('📦 Trips loaded from data:', tripsData.length);
+        } else {
+          // Try to find any array in the response
+          for (const key of ['results', 'items', 'trips']) {
+            if (response[key] && Array.isArray(response[key])) {
+              tripsData = response[key];
+              console.log(`📦 Trips loaded from ${key}:`, tripsData.length);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (tripsData.length === 0) {
+        console.warn('⚠️ No trips found in response, checking raw response:', response);
+      }
     } catch (e) {
-      console.warn('⚠️ Approach 1 failed:', e);
+      console.warn('⚠️ Failed to fetch trips:', e);
     }
 
-    // Approach 2: If no trips, try without parameters
+    // If no trips, try without parameters
     if (tripsData.length === 0) {
       try {
         const response = await tripService.getAllTrips();
-        tripsData = response?.content || response || [];
-        console.log('📦 Approach 2 - trips loaded:', tripsData.length);
+        console.log('📦 Response without params:', response);
+        
+        if (response && typeof response === 'object') {
+          if (response.content && Array.isArray(response.content)) {
+            tripsData = response.content;
+            console.log('📦 Trips loaded from content (no params):', tripsData.length);
+          } else if (Array.isArray(response)) {
+            tripsData = response;
+            console.log('📦 Trips loaded as array (no params):', tripsData.length);
+          }
+        }
       } catch (e) {
-        console.warn('⚠️ Approach 2 failed:', e);
+        console.warn('⚠️ Failed to fetch trips without params:', e);
       }
     }
 
-    // Approach 3: If still no trips, try the direct API call
+    // Last resort: Direct fetch with token
     if (tripsData.length === 0) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('https://sallara-trailers-be-UAT.onrender.com/api/trips?page=0&size=100', {
+        const response = await fetch('https://sallara-trailers-be-UAT.onrender.com/api/trips?page=0&size=100&sort=id,desc', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-        const data = await response.json();
-        tripsData = data?.content || data || [];
-        console.log('📦 Approach 3 - trips loaded:', tripsData.length);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('📦 Direct fetch response:', data);
+          
+          if (data && data.content && Array.isArray(data.content)) {
+            tripsData = data.content;
+            console.log('📦 Trips loaded from direct fetch content:', tripsData.length);
+          } else if (Array.isArray(data)) {
+            tripsData = data;
+            console.log('📦 Trips loaded from direct fetch array:', tripsData.length);
+          }
+        }
       } catch (e) {
-        console.warn('⚠️ Approach 3 failed:', e);
+        console.warn('⚠️ Direct fetch failed:', e);
       }
     }
 
@@ -282,9 +327,7 @@ const FuelSlipForm = () => {
       if (response.data && Array.isArray(response.data)) return response.data;
       if (response.content && Array.isArray(response.content)) return response.content;
       if (response.results && Array.isArray(response.results)) return response.results;
-      if (typeof response === 'object' && !Array.isArray(response)) {
-        return Object.values(response);
-      }
+      if (response.items && Array.isArray(response.items)) return response.items;
       return [];
     };
 
@@ -294,7 +337,14 @@ const FuelSlipForm = () => {
 
     console.log('🔍 DEBUG - tripsList length:', tripsList.length);
     if (tripsList.length > 0) {
-      console.log('🔍 DEBUG - First trip:', tripsList[0]);
+      console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
+      console.log('🔍 DEBUG - All trip statuses:', tripsList.map(t => ({ 
+        id: t.id, 
+        tripNumber: t.tripNumber, 
+        status: t.status 
+      })));
+    } else {
+      console.warn('⚠️ No trips loaded! Check if database has trips.');
     }
 
     // Filter trips: Only exclude FINALIZED
@@ -309,6 +359,8 @@ const FuelSlipForm = () => {
         return dateB - dateA;
       });
 
+    console.log('📊 After filtering, trips:', tripsList.length);
+
     setVehicles(vehiclesList);
     setDrivers(driversList);
     setTrips(tripsList);
@@ -318,6 +370,10 @@ const FuelSlipForm = () => {
       drivers: driversList.length,
       trips: tripsList.length
     });
+
+    if (tripsList.length === 0) {
+      setError('No trips found. Please create a trip first, or use manual entry mode.');
+    }
 
   } catch (err) {
     console.error('❌ Error loading data:', err);
