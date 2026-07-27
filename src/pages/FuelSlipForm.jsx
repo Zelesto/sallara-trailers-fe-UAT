@@ -286,6 +286,14 @@ const FuelSlipForm = () => {
       setDrivers(driversList);
       setTrips(tripsList);
 
+
+      // ✅ ADD THESE DEBUG LOGS
+console.log('🔍 DEBUG - tripsList:', tripsList);
+console.log('🔍 DEBUG - tripsList length:', tripsList.length);
+console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
+console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
+
+      
       console.log('📊 Loaded data summary:', {
         vehicles: vehiclesList.length,
         drivers: driversList.length,
