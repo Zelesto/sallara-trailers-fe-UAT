@@ -221,93 +221,89 @@ const FuelSlipForm = () => {
   };
 
   const fetchAllData = async () => {
+  try {
+    setFetchingData(true);
+    setLoadingTrips(true);
+
+    // Fetch vehicles and drivers
+    const [vehiclesData, driversData] = await Promise.all([
+      vehicleService.getAllVehicles().catch(() => []),
+      driverService.getAllDrivers().catch(() => [])
+    ]);
+
+    // ✅ FETCH ALL TRIPS - NO STATUS FILTER
+    let tripsData = [];
     try {
-      setFetchingData(true);
-      setLoadingTrips(true);
+      const response = await tripService.getAllTrips({ 
+        size: 100  // Get all trips
+      });
+      tripsData = response?.content || response || [];
+      console.log('📦 All trips loaded:', tripsData.length);
+      console.log('📦 Trip statuses:', tripsData.map(t => t.status));
+    } catch (tripError) {
+      console.warn('⚠️ Failed to fetch trips:', tripError);
+      tripsData = [];
+    }
 
-      // Fetch vehicles and drivers
-      const [vehiclesData, driversData] = await Promise.all([
-        vehicleService.getAllVehicles().catch(() => []),
-        driverService.getAllDrivers().catch(() => [])
-      ]);
-
-      // Fetch trips - try with status filter first, fallback to all
-      let tripsData = [];
-      try {
-        // Try with status filter for active trips
-        const response = await tripService.getAllTrips({ 
-          status: 'ACTIVE,IN_PROGRESS,PLANNED' 
-        });
-        tripsData = response?.content || response || [];
-        console.log('📦 Trips loaded with status filter:', tripsData.length);
-      } catch (tripError) {
-        console.warn('⚠️ Failed to fetch trips with status filter:', tripError);
-        // Fallback: get all trips without filter
-        try {
-          const fallbackResponse = await tripService.getAllTrips();
-          tripsData = fallbackResponse?.content || fallbackResponse || [];
-          console.log('📦 Trips loaded without filter (fallback):', tripsData.length);
-        } catch (fallbackError) {
-          console.warn('⚠️ Fallback trip fetch also failed:', fallbackError);
-          // Use empty array as last resort
-          tripsData = [];
-        }
+    const extractData = (response) => {
+      if (!response) return [];
+      if (Array.isArray(response)) return response;
+      if (response.data && Array.isArray(response.data)) return response.data;
+      if (response.content && Array.isArray(response.content)) return response.content;
+      if (response.results && Array.isArray(response.results)) return response.results;
+      if (typeof response === 'object' && !Array.isArray(response)) {
+        return Object.values(response);
       }
+      return [];
+    };
 
-      const extractData = (response) => {
-        if (!response) return [];
-        if (Array.isArray(response)) return response;
-        if (response.data && Array.isArray(response.data)) return response.data;
-        if (response.content && Array.isArray(response.content)) return response.content;
-        if (response.results && Array.isArray(response.results)) return response.results;
-        if (typeof response === 'object' && !Array.isArray(response)) {
-          return Object.values(response);
-        }
-        return [];
-      };
+    let vehiclesList = extractData(vehiclesData);
+    let driversList = extractData(driversData);
+    let tripsList = extractData(tripsData);
 
-      let vehiclesList = extractData(vehiclesData);
-      let driversList = extractData(driversData);
-      let tripsList = extractData(tripsData);
+    console.log('🔍 DEBUG - tripsList:', tripsList);
+    console.log('🔍 DEBUG - tripsList length:', tripsList.length);
+    if (tripsList.length > 0) {
+      console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
+      console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ 
+        id: t.id, 
+        tripNumber: t.tripNumber, 
+        status: t.status 
+      })));
+    }
 
-      // Filter trips: Exclude FINALIZED and COMPLETED, and sort by date (latest first)
-      tripsList = tripsList
-  .filter(t => {
-    const status = t.status?.toUpperCase() || '';
-    return status !== 'FINALIZED';  // ✅ Only filter out FINALIZED
-  })
-        .sort((a, b) => {
-          const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
-          const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
-          return dateB - dateA;
-        });
-
-      setVehicles(vehiclesList);
-      setDrivers(driversList);
-      setTrips(tripsList);
-
-
-      // ✅ ADD THESE DEBUG LOGS
-console.log('🔍 DEBUG - tripsList:', tripsList);
-console.log('🔍 DEBUG - tripsList length:', tripsList.length);
-console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
-console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
-
-      
-      console.log('📊 Loaded data summary:', {
-        vehicles: vehiclesList.length,
-        drivers: driversList.length,
-        trips: tripsList.length
+    // Filter trips: Only exclude FINALIZED
+    tripsList = tripsList
+      .filter(t => {
+        const status = t.status?.toUpperCase() || '';
+        return status !== 'FINALIZED';
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+        const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+        return dateB - dateA;
       });
 
-    } catch (err) {
-      console.error('❌ Error loading data:', err);
-      setError('Failed to load some data. You can still continue with manual entry.');
-    } finally {
-      setFetchingData(false);
-      setLoadingTrips(false);
-    }
-  };
+    console.log('📊 After filtering, trips:', tripsList.length);
+
+    setVehicles(vehiclesList);
+    setDrivers(driversList);
+    setTrips(tripsList);
+
+    console.log('📊 Loaded data summary:', {
+      vehicles: vehiclesList.length,
+      drivers: driversList.length,
+      trips: tripsList.length
+    });
+
+  } catch (err) {
+    console.error('❌ Error loading data:', err);
+    setError('Failed to load some data. You can still continue with manual entry.');
+  } finally {
+    setFetchingData(false);
+    setLoadingTrips(false);
+  }
+};
 
   // Auto-populate vehicle and driver when trip is selected
   // Auto-populate vehicle and driver when trip is selected
