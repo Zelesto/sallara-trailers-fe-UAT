@@ -231,18 +231,49 @@ const FuelSlipForm = () => {
       driverService.getAllDrivers().catch(() => [])
     ]);
 
-    // ✅ FETCH ALL TRIPS - NO STATUS FILTER
+    // ✅ TRY MULTIPLE APPROACHES TO GET TRIPS
     let tripsData = [];
+    
+    // Approach 1: Try with page parameter
     try {
       const response = await tripService.getAllTrips({ 
-        size: 100  // Get all trips
+        page: 0, 
+        size: 100,
+        sort: 'id,desc'
       });
       tripsData = response?.content || response || [];
-      console.log('📦 All trips loaded:', tripsData.length);
-      console.log('📦 Trip statuses:', tripsData.map(t => t.status));
-    } catch (tripError) {
-      console.warn('⚠️ Failed to fetch trips:', tripError);
-      tripsData = [];
+      console.log('📦 Approach 1 - trips loaded:', tripsData.length);
+    } catch (e) {
+      console.warn('⚠️ Approach 1 failed:', e);
+    }
+
+    // Approach 2: If no trips, try without parameters
+    if (tripsData.length === 0) {
+      try {
+        const response = await tripService.getAllTrips();
+        tripsData = response?.content || response || [];
+        console.log('📦 Approach 2 - trips loaded:', tripsData.length);
+      } catch (e) {
+        console.warn('⚠️ Approach 2 failed:', e);
+      }
+    }
+
+    // Approach 3: If still no trips, try the direct API call
+    if (tripsData.length === 0) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('https://sallara-trailers-be-UAT.onrender.com/api/trips?page=0&size=100', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await response.json();
+        tripsData = data?.content || data || [];
+        console.log('📦 Approach 3 - trips loaded:', tripsData.length);
+      } catch (e) {
+        console.warn('⚠️ Approach 3 failed:', e);
+      }
     }
 
     const extractData = (response) => {
@@ -261,15 +292,9 @@ const FuelSlipForm = () => {
     let driversList = extractData(driversData);
     let tripsList = extractData(tripsData);
 
-    console.log('🔍 DEBUG - tripsList:', tripsList);
     console.log('🔍 DEBUG - tripsList length:', tripsList.length);
     if (tripsList.length > 0) {
-      console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
-      console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ 
-        id: t.id, 
-        tripNumber: t.tripNumber, 
-        status: t.status 
-      })));
+      console.log('🔍 DEBUG - First trip:', tripsList[0]);
     }
 
     // Filter trips: Only exclude FINALIZED
@@ -283,8 +308,6 @@ const FuelSlipForm = () => {
         const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
         return dateB - dateA;
       });
-
-    console.log('📊 After filtering, trips:', tripsList.length);
 
     setVehicles(vehiclesList);
     setDrivers(driversList);
