@@ -17,8 +17,8 @@ import {
 import {
   Add, Edit, Delete, Visibility, CheckCircle, Refresh,
   Search as SearchIcon, Dashboard, PlayArrow, Stop,
-  Warning as WarningIcon, LocationCity, PinDrop, SwapHoriz,
-  Person as PersonIcon, Business as BusinessIcon, LocalShipping,
+  Warning as WarningIcon, LocationCity,
+  Person as PersonIcon, Business as BusinessIcon,
   Receipt, Assignment, DirectionsCar
 } from '@mui/icons-material';
 
@@ -100,7 +100,86 @@ export const STATUS_CONFIG = {
 
 export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
 
-// Status Chip Component - Smaller version
+/* ================================
+   Helper Functions - Extract Display Values
+================================ */
+
+/**
+ * Safely extract customer name from trip object
+ * Handles both full object and ID-only responses
+ */
+const getCustomerDisplay = (trip) => {
+  // Try full object first
+  if (trip.customer?.name) return trip.customer.name;
+  // Try direct field
+  if (trip.customerName) return trip.customerName;
+  // Fallback to ID
+  if (trip.customer?.id) return `ID: ${trip.customer.id}`;
+  if (trip.customerId) return `ID: ${trip.customerId}`;
+  return 'N/A';
+};
+
+/**
+ * Safely extract vehicle registration from trip object
+ */
+const getVehicleDisplay = (trip) => {
+  // Try full object first
+  if (trip.vehicle?.registrationNumber) return trip.vehicle.registrationNumber;
+  if (trip.vehicle?.registration) return trip.vehicle.registration;
+  // Try direct field
+  if (trip.vehicleRegistration) return trip.vehicleRegistration;
+  // Fallback to ID
+  if (trip.vehicle?.id) return `ID: ${trip.vehicle.id}`;
+  if (trip.vehicleId) return `ID: ${trip.vehicleId}`;
+  return 'N/A';
+};
+
+/**
+ * Safely extract driver name from trip object
+ */
+const getDriverDisplay = (trip) => {
+  // Try full object first
+  if (trip.driver) {
+    const firstName = trip.driver.firstName || '';
+    const lastName = trip.driver.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (fullName) return fullName;
+    if (trip.driver.name) return trip.driver.name;
+  }
+  // Try direct field
+  if (trip.driverName) return trip.driverName;
+  // Fallback to ID
+  if (trip.driver?.id) return `ID: ${trip.driver.id}`;
+  if (trip.driverId) return `ID: ${trip.driverId}`;
+  return 'N/A';
+};
+
+/**
+ * Check if trip has valid customer data
+ */
+const hasCustomerData = (trip) => {
+  return !!(trip.customer?.name || trip.customerName);
+};
+
+/**
+ * Check if trip has valid vehicle data
+ */
+const hasVehicleData = (trip) => {
+  return !!(trip.vehicle?.registrationNumber || trip.vehicle?.registration || trip.vehicleRegistration);
+};
+
+/**
+ * Check if trip has valid driver data
+ */
+const hasDriverData = (trip) => {
+  return !!(trip.driver?.firstName || trip.driver?.name || trip.driverName);
+};
+
+/* ================================
+   UI Components
+================================ */
+
+// Status Chip Component
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
   
@@ -123,7 +202,7 @@ const StatusChip = ({ status }) => {
   );
 };
 
-// Location Display Component with Popover - Smaller version
+// Location Display Component
 const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   
@@ -216,7 +295,7 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
   );
 };
 
-// Simple notification state
+// Simple notification hook
 const useSimpleNotification = () => {
   const [notification, setNotification] = useState(null);
 
@@ -227,6 +306,10 @@ const useSimpleNotification = () => {
 
   return { notification, showNotification };
 };
+
+/* ================================
+   Main Component
+================================ */
 
 function TripList() {
   const { notification, showNotification } = useSimpleNotification();
@@ -243,7 +326,6 @@ function TripList() {
   const [showMetricsModal, setShowMetricsModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  // ⭐ Trip Notice Wizard State - MOVED TO MAIN COMPONENT
   const [showNoticeWizard, setShowNoticeWizard] = useState(false);
   const [noticeType, setNoticeType] = useState(null);
   const [noticeSubtype, setNoticeSubtype] = useState(null);
@@ -261,11 +343,11 @@ function TripList() {
   }, [trips]);
 
   const uniqueCustomers = useMemo(() => {
-    return [...new Set(trips.map(trip => trip.customer?.name || trip.customerName).filter(Boolean))];
+    return [...new Set(trips.map(trip => getCustomerDisplay(trip)).filter(val => val !== 'N/A' && !val.startsWith('ID:')))];
   }, [trips]);
 
   /* ================================
-     Fetch Trips - NEWEST FIRST
+     Fetch Trips
   ================================= */
   const fetchTrips = useCallback(async ({
     page = 0,
@@ -289,7 +371,6 @@ function TripList() {
         sortOrder: 'DESC'
       });
 
-      // The backend should already sort by ID desc, but keep this as fallback
       const sortedContent = (response.content || []).sort((a, b) => b.id - a.id);
 
       setTrips(sortedContent);
@@ -309,15 +390,12 @@ function TripList() {
   }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter]);
 
   /* ================================
-     Initial Load
+     Effects
   ================================= */
   useEffect(() => {
     fetchTrips({ page: 0 });
   }, []);
 
-  /* ================================
-     Debounced Filters
-  ================================= */
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchTrips({ page: 0 });
@@ -340,8 +418,7 @@ function TripList() {
           })
           .catch(err => {
             console.error('Error starting trip:', err);
-            const errorMsg = err.message || 'Failed to start trip';
-            showNotification(errorMsg, 'error');
+            showNotification(err.message || 'Failed to start trip', 'error');
           });
       }
     }
@@ -362,14 +439,12 @@ function TripList() {
           })
           .catch(err => {
             console.error('Error ending trip:', err);
-            const errorMsg = err.message || 'Failed to end trip';
-            showNotification(errorMsg, 'error');
+            showNotification(err.message || 'Failed to end trip', 'error');
           });
       }
     }
   };
 
-  // ⭐ Trip Notice Wizard Handlers - MOVED TO MAIN COMPONENT
   const handleOpenNoticeWizard = (trip, type = null, subtype = null) => {
     setSelectedTripForNotice(trip);
     setNoticeType(type);
@@ -445,7 +520,7 @@ function TripList() {
   }
 
   /* ================================
-     UI - Smaller and Compact
+     Render
   ================================= */
   return (
     <Box sx={{ p: 1.5 }}>
@@ -460,7 +535,7 @@ function TripList() {
         </Alert>
       )}
 
-      {/* Header - Smaller */}
+      {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
           <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
@@ -494,7 +569,7 @@ function TripList() {
         </Box>
       </Box>
 
-      {/* Filters - Compact with Customer Filter */}
+      {/* Filters */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -577,7 +652,7 @@ function TripList() {
         </CardContent>
       </Card>
 
-      {/* Table - Compact with All Columns */}
+      {/* Table */}
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
@@ -626,14 +701,13 @@ function TripList() {
                 const canEdit = !['CANCELLED', 'FINALIZED', 'CLOSED', 'COMPLETED'].includes(trip.status);
                 const canDelete = !['IN_PROGRESS', 'ACTIVE'].includes(trip.status);
                 
-               // Get customer name from customer object or direct field
-                const customerName = trip.customer?.name || trip.customerName || 'N/A';
-                // Get vehicle registration from vehicle object
-                const vehicleReg = trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A';
-                // Get driver name from driver object
-                const driverName = trip.driver 
-                  ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() 
-                  : trip.driverName || 'N/A';
+                // Use helper functions to get display values
+                const customerDisplay = getCustomerDisplay(trip);
+                const vehicleDisplay = getVehicleDisplay(trip);
+                const driverDisplay = getDriverDisplay(trip);
+                const hasCustomer = hasCustomerData(trip);
+                const hasVehicle = hasVehicleData(trip);
+                const hasDriver = hasDriverData(trip);
                 
                 return (
                   <TableRow key={trip.id} hover>
@@ -645,21 +719,21 @@ function TripList() {
 
                     {/* Customer Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {customerName !== 'N/A' ? (
+                      {hasCustomer ? (
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <BusinessIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                           <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                            {customerName}
+                            {customerDisplay}
                           </Typography>
                         </Stack>
                       ) : (
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          N/A
+                          {customerDisplay}
                         </Typography>
                       )}
                     </TableCell>
 
-                    {/* REF# Column - uses referenceNumber from entity */}
+                    {/* REF# Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
                       {trip.referenceNumber ? (
                         <Tooltip title="Reference Number">
@@ -677,7 +751,7 @@ function TripList() {
                       )}
                     </TableCell>
 
-                    {/* PO# Column - uses purchaseOrderNumber from entity */}
+                    {/* PO# Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
                       {trip.purchaseOrderNumber ? (
                         <Tooltip title="Purchase Order Number">
@@ -697,36 +771,36 @@ function TripList() {
 
                     {/* Vehicle Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {vehicleReg !== 'N/A' ? (
+                      {hasVehicle ? (
                         <Tooltip title="Vehicle Registration">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                             <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {vehicleReg}
+                              {vehicleDisplay}
                             </Typography>
                           </Stack>
                         </Tooltip>
                       ) : (
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          N/A
+                          {vehicleDisplay}
                         </Typography>
                       )}
                     </TableCell>
 
                     {/* Driver Column */}
                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {driverName !== 'N/A' ? (
+                      {hasDriver ? (
                         <Tooltip title="Driver Name">
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <PersonIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
                             <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {driverName}
+                              {driverDisplay}
                             </Typography>
                           </Stack>
                         </Tooltip>
                       ) : (
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          N/A
+                          {driverDisplay}
                         </Typography>
                       )}
                     </TableCell>
@@ -787,7 +861,6 @@ function TripList() {
 
                     <TableCell sx={{ py: 0.75 }}>
                       <Box display="flex" gap={0.25} flexWrap="wrap">
-                        {/* Start Trip Button */}
                         {canStart && (
                           <Tooltip title="Start Trip">
                             <IconButton 
@@ -801,7 +874,6 @@ function TripList() {
                           </Tooltip>
                         )}
 
-                        {/* End Trip Button */}
                         {canEnd && (
                           <Tooltip title="End Trip">
                             <IconButton 
@@ -815,7 +887,6 @@ function TripList() {
                           </Tooltip>
                         )}
 
-                        {/* Report Incident Button - Now opens TripNoticeWizard */}
                         {canReportIncident && (
                           <Tooltip title="Add Notice (Incident/Voucher/AE)">
                             <IconButton 
@@ -829,7 +900,6 @@ function TripList() {
                           </Tooltip>
                         )}
 
-                        {/* View Details */}
                         <Tooltip title="View Details">
                           <IconButton 
                             size="small" 
@@ -840,7 +910,6 @@ function TripList() {
                           </IconButton>
                         </Tooltip>
 
-                        {/* Edit Trip */}
                         {canEdit && (
                           <Tooltip title="Edit Trip">
                             <IconButton 
@@ -853,7 +922,6 @@ function TripList() {
                           </Tooltip>
                         )}
 
-                        {/* Trip Metrics */}
                         <Tooltip title="Trip Metrics">
                           <IconButton 
                             size="small" 
@@ -864,7 +932,6 @@ function TripList() {
                           </IconButton>
                         </Tooltip>
 
-                        {/* Finalize Trip */}
                         {canFinalize && (
                           <Tooltip title="Finalize Trip">
                             <IconButton
@@ -878,7 +945,6 @@ function TripList() {
                           </Tooltip>
                         )}
 
-                        {/* Delete Trip */}
                         {canDelete && (
                           <Tooltip title="Delete Trip">
                             <IconButton
@@ -901,7 +967,7 @@ function TripList() {
         </Table>
       </TableContainer>
 
-      {/* ⭐ Trip Notice Wizard - MOVED HERE */}
+      {/* Trip Notice Wizard */}
       {showNoticeWizard && selectedTripForNotice && (
         <TripNoticeWizard
           open={showNoticeWizard}
@@ -916,7 +982,7 @@ function TripList() {
         />
       )}
 
-      {/* Pagination - Compact */}
+      {/* Pagination */}
       {trips.length > 0 && (
         <Paper sx={{ p: 0.5 }}>
           <TablePagination
