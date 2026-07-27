@@ -272,10 +272,10 @@ const FuelSlipForm = () => {
 
       // Filter trips: Exclude FINALIZED and COMPLETED, and sort by date (latest first)
       tripsList = tripsList
-        .filter(t => {
-          const status = t.status?.toUpperCase() || '';
-          return status !== 'FINALIZED' && status !== 'COMPLETED';
-        })
+  .filter(t => {
+    const status = t.status?.toUpperCase() || '';
+    return status !== 'FINALIZED';  // ✅ Only filter out FINALIZED
+  })
         .sort((a, b) => {
           const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
           const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
