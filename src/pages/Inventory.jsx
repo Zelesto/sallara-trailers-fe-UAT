@@ -67,6 +67,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
+import { vehicleIssueService } from '../services/vehicleIssueService';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
@@ -404,20 +405,28 @@ const Inventory = () => {
     }
   };
 
-  const loadVehicleIssues = async () => {
-    setLoadingIssues(true);
-    try {
-      // This would call the vehicle issues endpoint
-      // const response = await inventoryService.getVehicleIssues();
-      // setVehicleIssues(response);
-      // Mock data for now
-      setVehicleIssues([]);
-    } catch (err) {
-      console.error('Error loading vehicle issues:', err);
-    } finally {
-      setLoadingIssues(false);
+  onst loadVehicleIssues = async () => {
+  setLoadingIssues(true);
+  try {
+    const response = await vehicleIssueService.getVehicleIssues();
+    let issuesData = [];
+    if (Array.isArray(response)) {
+      issuesData = response;
+    } else if (response?.content) {
+      issuesData = response.content;
+    } else if (response?.data) {
+      issuesData = Array.isArray(response.data) ? response.data : [];
     }
-  };
+    console.log('📦 Vehicle issues loaded:', issuesData);
+    setVehicleIssues(issuesData);
+  } catch (err) {
+    console.error('Error loading vehicle issues:', err);
+    setError('Failed to load vehicle issues');
+    setVehicleIssues([]);
+  } finally {
+    setLoadingIssues(false);
+  }
+};
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -514,33 +523,38 @@ const Inventory = () => {
   };
 
   const handleSubmitIssue = async () => {
-    try {
-      // Validate
-      if (!issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0) {
-        setError('Please fill in all required fields');
-        return;
-      }
-
-      const payload = {
-        vehicleId: parseInt(issueFormData.vehicleId),
-        driverId: parseInt(issueFormData.driverId),
-        tripId: issueFormData.tripId ? parseInt(issueFormData.tripId) : null,
-        items: [{
-          itemId: selectedItem.id,
-          quantity: parseFloat(issueFormData.quantity),
-          condition: issueFormData.condition,
-          notes: issueFormData.notes,
-        }],
-      };
-
-      // await inventoryService.issueItemsToVehicle(payload);
-      showSuccess('Items issued to vehicle successfully');
-      setShowIssueDialog(false);
-      loadData();
-    } catch (err) {
-      setError(err.message || 'Failed to issue items');
+  try {
+    // Validate
+    if (!issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0) {
+      setError('Please fill in all required fields');
+      return;
     }
-  };
+
+    const payload = {
+      vehicleId: parseInt(issueFormData.vehicleId),
+      driverId: parseInt(issueFormData.driverId),
+      tripId: issueFormData.tripId ? parseInt(issueFormData.tripId) : null,
+      items: [{
+        itemId: selectedItem.id,
+        quantity: parseFloat(issueFormData.quantity),
+        condition: issueFormData.condition,
+        notes: issueFormData.notes,
+      }],
+    };
+
+    await vehicleIssueService.createVehicleIssue(payload);
+    showSuccess('Items issued to vehicle successfully');
+    setShowIssueDialog(false);
+    loadData();
+    // Refresh vehicle issues if tab is active
+    if (activeTab === 1) {
+      await loadVehicleIssues();
+    }
+  } catch (err) {
+    console.error('Error issuing items:', err);
+    setError(err.message || 'Failed to issue items');
+  }
+};
 
   const handleSubmitReturn = async () => {
     try {
@@ -845,71 +859,102 @@ const Inventory = () => {
         </Card>
       </TabPanel>
 
-      {/* Tab: Vehicle Issues */}
-      <TabPanel value={activeTab} index={1}>
-        <Paper sx={{ p: 1.5, mb: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-              Vehicle Issues
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-              size="small"
-              sx={{ fontSize: '0.75rem' }}
-              onClick={() => {/* Open issue dialog with vehicle selection */}}
-            >
-              New Issue
-            </Button>
-          </Stack>
-        </Paper>
+     {/* Tab: Vehicle Issues */}
+<TabPanel value={activeTab} index={1}>
+  <Paper sx={{ p: 1.5, mb: 2 }}>
+    <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+        Vehicle Issues
+        <Chip
+          label={`${vehicleIssues.length} issues`}
+          size="small"
+          sx={{ ml: 1, height: 18, fontSize: '0.55rem' }}
+        />
+      </Typography>
+      <Button
+        variant="contained"
+        startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
+        size="small"
+        sx={{ fontSize: '0.75rem' }}
+        onClick={() => {
+          setSelectedItem(null);
+          setIssueFormData({
+            vehicleId: '',
+            driverId: '',
+            tripId: '',
+            quantity: 0,
+            condition: 'GOOD',
+            notes: '',
+          });
+          setShowIssueDialog(true);
+        }}
+      >
+        New Issue
+      </Button>
+    </Stack>
+  </Paper>
 
-        <Card sx={{ borderRadius: 1.5 }}>
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-            {loadingIssues ? (
-              <Box display="flex" justifyContent="center" py={3}>
-                <CircularProgress size={30} />
-              </Box>
-            ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {vehicleIssues.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                          <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                            No vehicle issues found
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      vehicleIssues.map((issue) => (
-                        <VehicleIssueRow
-                          key={issue.id}
-                          issue={issue}
-                          onView={(issue) => {/* Open view dialog */}}
-                          onReturn={handleReturnItems}
-                        />
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </CardContent>
-        </Card>
-      </TabPanel>
+  <Card sx={{ borderRadius: 1.5 }}>
+    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      {loadingIssues ? (
+        <Box display="flex" justifyContent="center" py={3}>
+          <CircularProgress size={30} />
+        </Box>
+      ) : vehicleIssues.length === 0 ? (
+        <Box py={3} textAlign="center">
+          <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+            No vehicle issues found
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            sx={{ mt: 1, fontSize: '0.75rem' }}
+            onClick={() => {
+              setSelectedItem(null);
+              setIssueFormData({
+                vehicleId: '',
+                driverId: '',
+                tripId: '',
+                quantity: 0,
+                condition: 'GOOD',
+                notes: '',
+              });
+              setShowIssueDialog(true);
+            }}
+          >
+            Create First Issue
+          </Button>
+        </Box>
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {vehicleIssues.map((issue) => (
+                <VehicleIssueRow
+                  key={issue.id}
+                  issue={issue}
+                  onView={() => {/* View details */}}
+                  onReturn={handleReturnItems}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </CardContent>
+  </Card>
+</TabPanel>
 
       {/* Tab: Stock Movements */}
       <TabPanel value={activeTab} index={2}>
