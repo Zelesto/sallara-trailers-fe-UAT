@@ -64,28 +64,48 @@ const PODForm = () => {
   }, [id]);
 
   const loadTrips = async () => {
-    setLoadingTrips(true);
+  setLoadingTrips(true);
+  try {
+    // ✅ Get ALL trips first, then filter in the frontend
+    const response = await tripService.getAllTrips({ 
+      page: 0,
+      size: 100,
+      sortBy: 'id',
+      sortOrder: 'DESC'
+    });
+    
+    let tripsData = response?.content || response || [];
+    console.log('📦 All trips loaded:', tripsData.length);
+    
+    // ✅ For PODs, show COMPLETED and FINALIZED trips (for proof of delivery)
+    // Also include IN_PROGRESS trips that might have been delivered
+    const filteredTrips = tripsData.filter(trip => {
+      const status = trip.status?.toUpperCase() || '';
+      return ['COMPLETED', 'FINALIZED', 'IN_PROGRESS', 'DELIVERED'].includes(status);
+    });
+    
+    console.log('📦 Filtered trips for POD:', filteredTrips.length);
+    setTrips(filteredTrips);
+    
+  } catch (err) {
+    console.error('Error loading trips:', err);
+    // Fallback: try without params
     try {
-      const response = await tripService.getAllTrips({ 
-        status: 'COMPLETED,FINALIZED',
-        size: 100 
+      const fallbackResponse = await tripService.getAllTrips();
+      const fallbackData = fallbackResponse?.content || fallbackResponse || [];
+      const filtered = fallbackData.filter(trip => {
+        const status = trip.status?.toUpperCase() || '';
+        return ['COMPLETED', 'FINALIZED', 'IN_PROGRESS', 'DELIVERED'].includes(status);
       });
-      const tripsData = response?.content || response || [];
-      setTrips(tripsData);
-    } catch (err) {
-      console.error('Error loading trips:', err);
-      try {
-        const fallbackResponse = await tripService.getAllTrips({ size: 100 });
-        const fallbackData = fallbackResponse?.content || fallbackResponse || [];
-        setTrips(fallbackData);
-      } catch (fallbackErr) {
-        console.error('Fallback error loading trips:', fallbackErr);
-        setTrips([]);
-      }
-    } finally {
-      setLoadingTrips(false);
+      setTrips(filtered);
+    } catch (fallbackErr) {
+      console.error('Fallback error loading trips:', fallbackErr);
+      setTrips([]);
     }
-  };
+  } finally {
+    setLoadingTrips(false);
+  }
+};
 
   const loadPod = async () => {
     try {
