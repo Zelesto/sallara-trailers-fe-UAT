@@ -231,93 +231,48 @@ const FuelSlipForm = () => {
       driverService.getAllDrivers().catch(() => [])
     ]);
 
-    // ✅ Use the existing /trips endpoint with proper parameters
+    // ✅ FETCH TRIPS - Use the exact same approach as TripList
     let tripsData = [];
     try {
-      // First try with a larger page size and explicit sorting
-      const response = await tripService.getAllTrips({ 
-        page: 0, 
-        size: 100,
-        sort: 'id,desc'
+      // Use the same params that work in TripList
+      const response = await tripService.getAllTrips({
+        page: 0,
+        size: 10,
+        sortBy: 'id',
+        sortOrder: 'DESC'
       });
       
-      console.log('📦 Response from getAllTrips:', response);
+      console.log('📦 getAllTrips response:', response);
       
-      // Extract content properly
-      if (response && typeof response === 'object') {
-        if (response.content && Array.isArray(response.content)) {
-          tripsData = response.content;
-          console.log('📦 Trips loaded from content:', tripsData.length);
-        } else if (Array.isArray(response)) {
-          tripsData = response;
-          console.log('📦 Trips loaded as array:', tripsData.length);
-        } else if (response.data && Array.isArray(response.data)) {
-          tripsData = response.data;
-          console.log('📦 Trips loaded from data:', tripsData.length);
-        } else {
-          // Try to find any array in the response
-          for (const key of ['results', 'items', 'trips']) {
-            if (response[key] && Array.isArray(response[key])) {
-              tripsData = response[key];
-              console.log(`📦 Trips loaded from ${key}:`, tripsData.length);
-              break;
-            }
-          }
-        }
+      // Extract content - TripList uses this same pattern
+      if (response && response.content && Array.isArray(response.content)) {
+        tripsData = response.content;
+        console.log('📦 Trips loaded from content:', tripsData.length);
+      } else if (Array.isArray(response)) {
+        tripsData = response;
+        console.log('📦 Trips loaded as array:', tripsData.length);
       }
       
-      if (tripsData.length === 0) {
-        console.warn('⚠️ No trips found in response, checking raw response:', response);
-      }
-    } catch (e) {
-      console.warn('⚠️ Failed to fetch trips:', e);
+    } catch (error) {
+      console.error('❌ Error fetching trips:', error);
+      tripsData = [];
     }
 
-    // If no trips, try without parameters
+    // If no trips with params, try without (like TripList fallback)
     if (tripsData.length === 0) {
       try {
         const response = await tripService.getAllTrips();
-        console.log('📦 Response without params:', response);
+        console.log('📦 getAllTrips without params:', response);
         
-        if (response && typeof response === 'object') {
-          if (response.content && Array.isArray(response.content)) {
-            tripsData = response.content;
-            console.log('📦 Trips loaded from content (no params):', tripsData.length);
-          } else if (Array.isArray(response)) {
-            tripsData = response;
-            console.log('📦 Trips loaded as array (no params):', tripsData.length);
-          }
+        if (response && response.content && Array.isArray(response.content)) {
+          tripsData = response.content;
+          console.log('📦 Trips loaded from content (no params):', tripsData.length);
+        } else if (Array.isArray(response)) {
+          tripsData = response;
+          console.log('📦 Trips loaded as array (no params):', tripsData.length);
         }
-      } catch (e) {
-        console.warn('⚠️ Failed to fetch trips without params:', e);
-      }
-    }
-
-    // Last resort: Direct fetch with token
-    if (tripsData.length === 0) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('https://sallara-trailers-be-UAT.onrender.com/api/trips?page=0&size=100&sort=id,desc', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('📦 Direct fetch response:', data);
-          
-          if (data && data.content && Array.isArray(data.content)) {
-            tripsData = data.content;
-            console.log('📦 Trips loaded from direct fetch content:', tripsData.length);
-          } else if (Array.isArray(data)) {
-            tripsData = data;
-            console.log('📦 Trips loaded from direct fetch array:', tripsData.length);
-          }
-        }
-      } catch (e) {
-        console.warn('⚠️ Direct fetch failed:', e);
+      } catch (error) {
+        console.error('❌ Error fetching trips without params:', error);
       }
     }
 
@@ -326,8 +281,6 @@ const FuelSlipForm = () => {
       if (Array.isArray(response)) return response;
       if (response.data && Array.isArray(response.data)) return response.data;
       if (response.content && Array.isArray(response.content)) return response.content;
-      if (response.results && Array.isArray(response.results)) return response.results;
-      if (response.items && Array.isArray(response.items)) return response.items;
       return [];
     };
 
@@ -338,20 +291,19 @@ const FuelSlipForm = () => {
     console.log('🔍 DEBUG - tripsList length:', tripsList.length);
     if (tripsList.length > 0) {
       console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
-      console.log('🔍 DEBUG - All trip statuses:', tripsList.map(t => ({ 
+      console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ 
         id: t.id, 
         tripNumber: t.tripNumber, 
         status: t.status 
       })));
-    } else {
-      console.warn('⚠️ No trips loaded! Check if database has trips.');
     }
 
-    // Filter trips: Only exclude FINALIZED
+    // ✅ Only filter out FINALIZED - keep COMPLETED for fuel slips
     tripsList = tripsList
       .filter(t => {
         const status = t.status?.toUpperCase() || '';
-        return status !== 'FINALIZED';
+        // Keep COMPLETED trips for fuel slips (they need to add fuel after trip)
+        return status !== 'FINALIZED' && status !== 'CANCELLED';
       })
       .sort((a, b) => {
         const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
@@ -372,7 +324,7 @@ const FuelSlipForm = () => {
     });
 
     if (tripsList.length === 0) {
-      setError('No trips found. Please create a trip first, or use manual entry mode.');
+      setError('No trips available. Please ensure trips exist in the system.');
     }
 
   } catch (err) {
@@ -384,7 +336,6 @@ const FuelSlipForm = () => {
   }
 };
 
-  // Auto-populate vehicle and driver when trip is selected
   // Auto-populate vehicle and driver when trip is selected
   const handleTripSelection = async (tripId) => {
     console.log('Trip selected:', tripId);
