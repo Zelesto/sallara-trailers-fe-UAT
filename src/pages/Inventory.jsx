@@ -545,7 +545,7 @@ const Inventory = () => {
     await vehicleIssueService.createVehicleIssue(payload);
     showSuccess('Items issued to vehicle successfully');
     setShowIssueDialog(false);
-    loadData();
+    await loadData();
     // Refresh vehicle issues if tab is active
     if (activeTab === 1) {
       await loadVehicleIssues();
