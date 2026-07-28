@@ -111,7 +111,6 @@ const FuelSlipForm = () => {
   const [success, setSuccess] = useState('');
   const [activeStep, setActiveStep] = useState(0);
   const [stepErrors, setStepErrors] = useState([]);
-
   const [loadingTrips, setLoadingTrips] = useState(false);
 
   // Data state
@@ -150,6 +149,11 @@ const FuelSlipForm = () => {
   const [vehicleInputValue, setVehicleInputValue] = useState('');
   const [driverInputValue, setDriverInputValue] = useState('');
 
+  // ✅ Move getSelectedTrip here - at the component level
+  const getSelectedTrip = () => {
+    if (!formData.tripId) return null;
+    return trips.find(t => t.id && t.id.toString() === formData.tripId.toString());
+  };
   // Load data for edit mode
    useEffect(() => {
     if (isEdit && id) {
