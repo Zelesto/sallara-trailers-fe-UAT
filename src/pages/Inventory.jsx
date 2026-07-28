@@ -68,6 +68,8 @@ import {
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
+import { vehicleService } from '../services/vehicleService'; 
+import { driverService } from '../services/driverService'; 
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
@@ -329,6 +331,13 @@ const Inventory = () => {
   const [vehicleIssues, setVehicleIssues] = useState([]);
   const [loadingIssues, setLoadingIssues] = useState(false);
 
+  // ✅ Add state for vehicles and drivers
+  const [vehicles, setVehicles] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
+
+
   // Dialog states
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
@@ -356,12 +365,12 @@ const Inventory = () => {
     driverId: '',
     tripId: '',
     quantity: 0,
-    condition: 'GOOD',
+    condition: 'NEW',
     notes: '',
   });
   const [returnFormData, setReturnFormData] = useState({
     quantity: 0,
-    condition: 'GOOD',
+    condition: 'DAMAGED',
     notes: '',
   });
 
@@ -396,6 +405,44 @@ const Inventory = () => {
       }
       setLocations(locationsData);
 
+      // ✅ Get vehicles
+      try {
+        setLoadingVehicles(true);
+        const vehiclesResponse = await vehicleService.getAllVehicles();
+        let vehiclesData = [];
+        if (Array.isArray(vehiclesResponse)) {
+          vehiclesData = vehiclesResponse;
+        } else if (vehiclesResponse?.content) {
+          vehiclesData = vehiclesResponse.content;
+        } else if (vehiclesResponse?.data) {
+          vehiclesData = Array.isArray(vehiclesResponse.data) ? vehiclesResponse.data : [];
+        }
+        setVehicles(vehiclesData);
+      } catch (err) {
+        console.error('Error loading vehicles:', err);
+      } finally {
+        setLoadingVehicles(false);
+      }
+
+      // ✅ Get drivers
+      try {
+        setLoadingDrivers(true);
+        const driversResponse = await driverService.getAllDrivers();
+        let driversData = [];
+        if (Array.isArray(driversResponse)) {
+          driversData = driversResponse;
+        } else if (driversResponse?.content) {
+          driversData = driversResponse.content;
+        } else if (driversResponse?.data) {
+          driversData = Array.isArray(driversResponse.data) ? driversResponse.data : [];
+        }
+        setDrivers(driversData);
+      } catch (err) {
+        console.error('Error loading drivers:', err);
+      } finally {
+        setLoadingDrivers(false);
+      }
+      
       // Get stats
       const statsResponse = await inventoryService.getInventoryStats();
       setStats(statsResponse);
@@ -521,7 +568,7 @@ const Inventory = () => {
       driverId: '',
       tripId: '',
       quantity: 0,
-      condition: 'GOOD',
+      condition: 'NEW',
       notes: '',
     });
     setShowIssueDialog(true);
@@ -541,7 +588,7 @@ const Inventory = () => {
     setSelectedIssue(issue);
     setReturnFormData({
       quantity: 0,
-      condition: 'GOOD',
+      condition: 'DAMAGED',
       notes: '',
     });
     setShowReturnDialog(true);
@@ -570,6 +617,17 @@ const Inventory = () => {
     await vehicleIssueService.createVehicleIssue(payload);
     showSuccess('Items issued to vehicle successfully');
     setShowIssueDialog(false);
+
+    // Reset form
+      setIssueFormData({
+        vehicleId: '',
+        driverId: '',
+        tripId: '',
+        quantity: 0,
+        condition: 'NEW',
+        notes: '',
+      });
+    
     await loadData();
     // Refresh vehicle issues if tab is active
     if (activeTab === 1) {
@@ -689,7 +747,7 @@ const Inventory = () => {
     );
   }
 
-  return (
+   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
       {/* Header */}
       <Box sx={{ mb: 2 }}>
@@ -726,6 +784,7 @@ const Inventory = () => {
           <Tab label="Stock Movements" icon={<SwapHoriz sx={{ fontSize: '0.9rem' }} />} iconPosition="start" sx={{ fontSize: '0.75rem', minHeight: 36 }} />
         </Tabs>
       </Paper>
+
 
       {/* Tab: Items */}
       <TabPanel value={activeTab} index={0}>
@@ -801,6 +860,8 @@ const Inventory = () => {
             </Grid>
           </Grid>
         </Paper>
+
+        
 
         {/* Stats Cards */}
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
@@ -885,101 +946,101 @@ const Inventory = () => {
       </TabPanel>
 
      {/* Tab: Vehicle Issues */}
-<TabPanel value={activeTab} index={1}>
-  <Paper sx={{ p: 1.5, mb: 2 }}>
-    <Stack direction="row" justifyContent="space-between" alignItems="center">
-      <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-        Vehicle Issues
-        <Chip
-          label={`${vehicleIssues.length} issues`}
-          size="small"
-          sx={{ ml: 1, height: 18, fontSize: '0.55rem' }}
-        />
-      </Typography>
-      <Button
-        variant="contained"
-        startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-        size="small"
-        sx={{ fontSize: '0.75rem' }}
-        onClick={() => {
-          setSelectedItem(null);
-          setIssueFormData({
-            vehicleId: '',
-            driverId: '',
-            tripId: '',
-            quantity: 0,
-            condition: 'GOOD',
-            notes: '',
-          });
-          setShowIssueDialog(true);
-        }}
-      >
-        New Issue
-      </Button>
-    </Stack>
-  </Paper>
+      <TabPanel value={activeTab} index={1}>
+        <Paper sx={{ p: 1.5, mb: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+              Vehicle Issues
+              <Chip
+                label={`${vehicleIssues.length} issues`}
+                size="small"
+                sx={{ ml: 1, height: 18, fontSize: '0.55rem' }}
+              />
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
+              size="small"
+              sx={{ fontSize: '0.75rem' }}
+              onClick={() => {
+                setSelectedItem(null);
+                setIssueFormData({
+                  vehicleId: '',
+                  driverId: '',
+                  tripId: '',
+                  quantity: 0,
+                  condition: 'GOOD',
+                  notes: '',
+                });
+                setShowIssueDialog(true);
+              }}
+            >
+              New Issue
+            </Button>
+          </Stack>
+        </Paper>
 
-  <Card sx={{ borderRadius: 1.5 }}>
-    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-      {loadingIssues ? (
-        <Box display="flex" justifyContent="center" py={3}>
-          <CircularProgress size={30} />
-        </Box>
-      ) : vehicleIssues.length === 0 ? (
-        <Box py={3} textAlign="center">
-          <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-            No vehicle issues found
-          </Typography>
-          <Button
-            variant="outlined"
-            size="small"
-            sx={{ mt: 1, fontSize: '0.75rem' }}
-            onClick={() => {
-              setSelectedItem(null);
-              setIssueFormData({
-                vehicleId: '',
-                driverId: '',
-                tripId: '',
-                quantity: 0,
-                condition: 'GOOD',
-                notes: '',
-              });
-              setShowIssueDialog(true);
-            }}
-          >
-            Create First Issue
-          </Button>
-        </Box>
-      ) : (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
-                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {vehicleIssues.map((issue) => (
-                <VehicleIssueRow
-                  key={issue.id}
-                  issue={issue}
-                  onView={() => {/* View details */}}
-                  onReturn={handleReturnItems}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </CardContent>
-  </Card>
-</TabPanel>
+        <Card sx={{ borderRadius: 1.5 }}>
+          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+            {loadingIssues ? (
+              <Box display="flex" justifyContent="center" py={3}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : vehicleIssues.length === 0 ? (
+              <Box py={3} textAlign="center">
+                <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                  No vehicle issues found
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{ mt: 1, fontSize: '0.75rem' }}
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setIssueFormData({
+                      vehicleId: '',
+                      driverId: '',
+                      tripId: '',
+                      quantity: 0,
+                      condition: 'GOOD',
+                      notes: '',
+                    });
+                    setShowIssueDialog(true);
+                  }}
+                >
+                  Create First Issue
+                </Button>
+              </Box>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {vehicleIssues.map((issue) => (
+                      <VehicleIssueRow
+                        key={issue.id}
+                        issue={issue}
+                        onView={() => {/* View details */}}
+                        onReturn={handleReturnItems}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
+      </TabPanel>
 
       {/* Tab: Stock Movements */}
       <TabPanel value={activeTab} index={2}>
@@ -1217,30 +1278,66 @@ const Inventory = () => {
               <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
                 Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity})
               </Alert>
-              <TextField
-                label="Vehicle ID *"
-                type="number"
-                value={issueFormData.vehicleId}
-                onChange={(e) => setIssueFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Driver ID *"
-                type="number"
-                value={issueFormData.driverId}
-                onChange={(e) => setIssueFormData(prev => ({ ...prev, driverId: e.target.value }))}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Trip ID"
-                type="number"
-                value={issueFormData.tripId}
-                onChange={(e) => setIssueFormData(prev => ({ ...prev, tripId: e.target.value }))}
-                fullWidth
-                size="small"
-              />
+
+              {/* ✅ Vehicle Dropdown */}
+              <FormControl fullWidth size="small" required>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
+                <Select
+                  value={issueFormData.vehicleId}
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
+                  label="Vehicle *"
+                  disabled={loadingVehicles}
+                  sx={{ fontSize: '0.8rem' }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>
+                    {loadingVehicles ? 'Loading vehicles...' : 'Select Vehicle'}
+                  </MenuItem>
+                  {vehicles.map((vehicle) => (
+                    <MenuItem key={vehicle.id} value={vehicle.id} sx={{ fontSize: '0.8rem' }}>
+                      {vehicle.registrationNumber || vehicle.regNumber || `Vehicle #${vehicle.id}`}
+                      {vehicle.make && ` - ${vehicle.make}`}
+                      {vehicle.model && ` ${vehicle.model}`}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* ✅ Driver Dropdown */}
+              <FormControl fullWidth size="small" required>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
+                <Select
+                  value={issueFormData.driverId}
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, driverId: e.target.value }))}
+                  label="Driver *"
+                  disabled={loadingDrivers}
+                  sx={{ fontSize: '0.8rem' }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>
+                    {loadingDrivers ? 'Loading drivers...' : 'Select Driver'}
+                  </MenuItem>
+                  {drivers.map((driver) => (
+                    <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: '0.8rem' }}>
+                      {driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`}
+                      {driver.employeeNumber && ` (${driver.employeeNumber})`}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* ✅ Trip Dropdown (Optional) */}
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Associated Trip (Optional)</InputLabel>
+                <Select
+                  value={issueFormData.tripId}
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, tripId: e.target.value }))}
+                  label="Associated Trip (Optional)"
+                  sx={{ fontSize: '0.8rem' }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>No Trip</MenuItem>
+                  {/* You can add trips here if needed */}
+                </Select>
+              </FormControl>
+
               <TextField
                 label="Quantity *"
                 type="number"
@@ -1250,19 +1347,23 @@ const Inventory = () => {
                 size="small"
                 InputProps={{ inputProps: { min: 0.01, max: selectedItem.quantity } }}
                 helperText={`Max: ${selectedItem.quantity}`}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
+
               <FormControl fullWidth size="small">
-                <InputLabel>Condition</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
                 <Select
                   value={issueFormData.condition}
                   onChange={(e) => setIssueFormData(prev => ({ ...prev, condition: e.target.value }))}
                   label="Condition"
+                  sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="GOOD">Good</MenuItem>
-                  <MenuItem value="NEW">New</MenuItem>
-                  <MenuItem value="WOR">Worn</MenuItem>
+                  <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
+                  <MenuItem value="NEW" sx={{ fontSize: '0.8rem' }}>New</MenuItem>
+                  <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
                 </Select>
               </FormControl>
+
               <TextField
                 label="Notes"
                 value={issueFormData.notes}
@@ -1271,13 +1372,21 @@ const Inventory = () => {
                 size="small"
                 multiline
                 rows={2}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
               />
             </Stack>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowIssueDialog(false)} size="small">Cancel</Button>
-          <Button variant="contained" size="small" onClick={handleSubmitIssue}>
+          <Button onClick={() => setShowIssueDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSubmitIssue}
+            sx={{ fontSize: '0.8rem' }}
+          >
             Issue Item
           </Button>
         </DialogActions>
