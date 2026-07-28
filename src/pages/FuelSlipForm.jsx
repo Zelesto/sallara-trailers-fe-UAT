@@ -1,5 +1,5 @@
 // src/pages/FuelSlipForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -151,19 +151,19 @@ const FuelSlipForm = () => {
   const [driverInputValue, setDriverInputValue] = useState('');
 
   // Load data for edit mode
-  useEffect(() => {
+   useEffect(() => {
     if (isEdit && id) {
       fetchSlipDetails();
     }
   }, [id, isEdit]);
-  
+
   // Initialize slip number
- useEffect(() => {
-    if (!formData.slipNumber && isCreate) {
+  useEffect(() => {
+    if (!formData.slipNumber && !isEdit) {
       setFormData(prev => ({ ...prev, slipNumber: generateSlipNumber() }));
     }
-  }, [isCreate]);
-  
+  }, []);
+
   // Data fetching
   useEffect(() => {
     fetchAllData();
@@ -221,85 +221,120 @@ const FuelSlipForm = () => {
   };
 
   const fetchAllData = async () => {
+  try {
+    setFetchingData(true);
+    setLoadingTrips(true);
+
+    // Fetch vehicles and drivers
+    const [vehiclesData, driversData] = await Promise.all([
+      vehicleService.getAllVehicles().catch(() => []),
+      driverService.getAllDrivers().catch(() => [])
+    ]);
+
+    // ✅ FETCH TRIPS - Use the exact same approach as TripList
+    let tripsData = [];
     try {
-      setFetchingData(true);
-      setLoadingTrips(true);
-
-      // Fetch vehicles and drivers
-      const [vehiclesData, driversData] = await Promise.all([
-        vehicleService.getAllVehicles().catch(() => []),
-        driverService.getAllDrivers().catch(() => [])
-      ]);
-
-      // Fetch trips - try with status filter first, fallback to all
-      let tripsData = [];
-      try {
-        // Try with status filter for active trips
-        const response = await tripService.getAllTrips({ 
-          status: 'ACTIVE,IN_PROGRESS,PLANNED' 
-        });
-        tripsData = response?.content || response || [];
-        console.log('📦 Trips loaded with status filter:', tripsData.length);
-      } catch (tripError) {
-        console.warn('⚠️ Failed to fetch trips with status filter:', tripError);
-        // Fallback: get all trips without filter
-        try {
-          const fallbackResponse = await tripService.getAllTrips();
-          tripsData = fallbackResponse?.content || fallbackResponse || [];
-          console.log('📦 Trips loaded without filter (fallback):', tripsData.length);
-        } catch (fallbackError) {
-          console.warn('⚠️ Fallback trip fetch also failed:', fallbackError);
-          // Use empty array as last resort
-          tripsData = [];
-        }
+      // Use the same params that work in TripList
+      const response = await tripService.getAllTrips({
+        page: 0,
+        size: 10,
+        sortBy: 'id',
+        sortOrder: 'DESC'
+      });
+      
+      console.log('📦 getAllTrips response:', response);
+      
+      // Extract content - TripList uses this same pattern
+      if (response && response.content && Array.isArray(response.content)) {
+        tripsData = response.content;
+        console.log('📦 Trips loaded from content:', tripsData.length);
+      } else if (Array.isArray(response)) {
+        tripsData = response;
+        console.log('📦 Trips loaded as array:', tripsData.length);
       }
+      
+    } catch (error) {
+      console.error('❌ Error fetching trips:', error);
+      tripsData = [];
+    }
 
-      const extractData = (response) => {
-        if (!response) return [];
-        if (Array.isArray(response)) return response;
-        if (response.data && Array.isArray(response.data)) return response.data;
-        if (response.content && Array.isArray(response.content)) return response.content;
-        if (response.results && Array.isArray(response.results)) return response.results;
-        if (typeof response === 'object' && !Array.isArray(response)) {
-          return Object.values(response);
+    // If no trips with params, try without (like TripList fallback)
+    if (tripsData.length === 0) {
+      try {
+        const response = await tripService.getAllTrips();
+        console.log('📦 getAllTrips without params:', response);
+        
+        if (response && response.content && Array.isArray(response.content)) {
+          tripsData = response.content;
+          console.log('📦 Trips loaded from content (no params):', tripsData.length);
+        } else if (Array.isArray(response)) {
+          tripsData = response;
+          console.log('📦 Trips loaded as array (no params):', tripsData.length);
         }
-        return [];
-      };
+      } catch (error) {
+        console.error('❌ Error fetching trips without params:', error);
+      }
+    }
 
-      let vehiclesList = extractData(vehiclesData);
-      let driversList = extractData(driversData);
-      let tripsList = extractData(tripsData);
+    const extractData = (response) => {
+      if (!response) return [];
+      if (Array.isArray(response)) return response;
+      if (response.data && Array.isArray(response.data)) return response.data;
+      if (response.content && Array.isArray(response.content)) return response.content;
+      return [];
+    };
 
-      // Filter trips: Exclude FINALIZED and COMPLETED, and sort by date (latest first)
-      tripsList = tripsList
-        .filter(t => {
-          const status = t.status?.toUpperCase() || '';
-          return status !== 'FINALIZED' && status !== 'COMPLETED';
-        })
-        .sort((a, b) => {
-          const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
-          const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
-          return dateB - dateA;
-        });
+    let vehiclesList = extractData(vehiclesData);
+    let driversList = extractData(driversData);
+    let tripsList = extractData(tripsData);
 
-      setVehicles(vehiclesList);
-      setDrivers(driversList);
-      setTrips(tripsList);
+    console.log('🔍 DEBUG - tripsList length:', tripsList.length);
+    if (tripsList.length > 0) {
+      console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
+      console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ 
+        id: t.id, 
+        tripNumber: t.tripNumber, 
+        status: t.status 
+      })));
+    }
 
-      console.log('📊 Loaded data summary:', {
-        vehicles: vehiclesList.length,
-        drivers: driversList.length,
-        trips: tripsList.length
+    // ✅ Only filter out FINALIZED - keep COMPLETED for fuel slips
+    tripsList = tripsList
+      .filter(t => {
+        const status = t.status?.toUpperCase() || '';
+        // Keep COMPLETED trips for fuel slips (they need to add fuel after trip)
+        return status !== 'FINALIZED' && status !== 'CANCELLED';
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+        const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+        return dateB - dateA;
       });
 
-     } catch (err) {
-      console.error('❌ Error loading data:', err);
-      setError('Failed to load some data. You can still continue with manual entry.');
-    } finally {
-      setFetchingData(false);
-      setLoadingTrips(false);
+    console.log('📊 After filtering, trips:', tripsList.length);
+
+    setVehicles(vehiclesList);
+    setDrivers(driversList);
+    setTrips(tripsList);
+
+    console.log('📊 Loaded data summary:', {
+      vehicles: vehiclesList.length,
+      drivers: driversList.length,
+      trips: tripsList.length
+    });
+
+    if (tripsList.length === 0) {
+      setError('No trips available. Please ensure trips exist in the system.');
     }
-  };
+
+  } catch (err) {
+    console.error('❌ Error loading data:', err);
+    setError('Failed to load some data. You can still continue with manual entry.');
+  } finally {
+    setFetchingData(false);
+    setLoadingTrips(false);
+  }
+};
 
   // Auto-populate vehicle and driver when trip is selected
   const handleTripSelection = async (tripId) => {
@@ -321,6 +356,8 @@ const FuelSlipForm = () => {
 
     try {
       const selectedTrip = trips.find(t => t.id && t.id.toString() === tripId.toString());
+      console.log('Selected trip object:', selectedTrip);
+
       if (!selectedTrip) {
         setError('Selected trip not found');
         return;
@@ -330,52 +367,66 @@ const FuelSlipForm = () => {
       let newVehicleValue = '';
       let newDriverValue = '';
 
-     // Auto-populate vehicle
+      // Auto-populate vehicle
       if (selectedTrip.vehicleId) {
         const vehicle = vehicles.find(v => v.id && v.id.toString() === selectedTrip.vehicleId.toString());
         if (vehicle) {
+          console.log('Found vehicle by ID:', vehicle);
           newFormData.vehicleId = vehicle.id;
-          newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || '';
+          newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || vehicle.plateNumber || '';
           newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
         }
       } else if (selectedTrip.vehicle && selectedTrip.vehicle.id) {
         const vehicle = selectedTrip.vehicle;
+        console.log('Found vehicle in trip object:', vehicle);
         newFormData.vehicleId = vehicle.id;
-        newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || '';
+        newFormData.vehicleManual = vehicle.registrationNumber || vehicle.regNumber || vehicle.plateNumber || '';
         newVehicleValue = `${newFormData.vehicleManual} - ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
       } else if (selectedTrip.vehicleRegistration) {
+        console.log('Trip has vehicleRegistration:', selectedTrip.vehicleRegistration);
         newFormData.vehicleManual = selectedTrip.vehicleRegistration;
+
         const matchingVehicle = vehicles.find(v => {
-          const regNum = v.registrationNumber || v.regNumber || '';
-          return regNum.toLowerCase().includes(selectedTrip.vehicleRegistration.toLowerCase());
+          const regNum = v.registrationNumber || v.regNumber || v.plateNumber;
+          if (!regNum) return false;
+          return regNum.toLowerCase().includes(selectedTrip.vehicleRegistration.toLowerCase()) ||
+                 selectedTrip.vehicleRegistration.toLowerCase().includes(regNum.toLowerCase());
         });
+
         if (matchingVehicle) {
           newFormData.vehicleId = matchingVehicle.id;
-          newVehicleValue = `${matchingVehicle.registrationNumber} - ${matchingVehicle.make || ''} ${matchingVehicle.model || ''}`.trim();
+          newVehicleValue = `${matchingVehicle.registrationNumber || matchingVehicle.regNumber || matchingVehicle.plateNumber} - ${matchingVehicle.make || ''} ${matchingVehicle.model || ''}`.trim();
         } else {
           newVehicleValue = selectedTrip.vehicleRegistration;
         }
       }
 
-       // Auto-populate driver
+      // Auto-populate driver
       if (selectedTrip.driverId) {
         const driver = drivers.find(d => d.id && d.id.toString() === selectedTrip.driverId.toString());
         if (driver) {
+          console.log('Found driver by ID:', driver);
           newFormData.driverId = driver.id;
           newFormData.driverManual = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
           newDriverValue = newFormData.driverManual;
         }
       } else if (selectedTrip.driver && selectedTrip.driver.id) {
         const driver = selectedTrip.driver;
+        console.log('Found driver in trip object:', driver);
         newFormData.driverId = driver.id;
         newFormData.driverManual = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
         newDriverValue = newFormData.driverManual;
       } else if (selectedTrip.driverName) {
+        console.log('Trip has driverName:', selectedTrip.driverName);
         newFormData.driverManual = selectedTrip.driverName;
+
         const matchingDriver = drivers.find(d => {
           const driverName = d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim();
-          return driverName.toLowerCase().includes(selectedTrip.driverName.toLowerCase());
+          if (!driverName) return false;
+          return driverName.toLowerCase().includes(selectedTrip.driverName.toLowerCase()) ||
+                 selectedTrip.driverName.toLowerCase().includes(driverName.toLowerCase());
         });
+
         if (matchingDriver) {
           newFormData.driverId = matchingDriver.id;
           newDriverValue = matchingDriver.fullName || `${matchingDriver.firstName || ''} ${matchingDriver.lastName || ''}`.trim();
@@ -387,6 +438,12 @@ const FuelSlipForm = () => {
       setFormData(newFormData);
       setVehicleInputValue(newVehicleValue);
       setDriverInputValue(newDriverValue);
+
+      console.log('After auto-population:', {
+        formData: newFormData,
+        vehicleValue: newVehicleValue,
+        driverValue: newDriverValue
+      });
 
     } catch (err) {
       console.error('Error auto-populating trip:', err);
@@ -613,10 +670,14 @@ const FuelSlipForm = () => {
   };
 
   // Available trips filter (exclude FINALIZED and COMPLETED, show latest first)
- const availableTrips = trips
+ const availableTrips = useMemo(() => {
+  console.log('🔍 DEBUG - Before filtering, trips count:', trips.length);
+  console.log('🔍 DEBUG - Trip statuses before filter:', trips.map(t => t.status));
+  
+  const filtered = trips
     .filter(t => {
       const status = t.status?.toUpperCase() || '';
-      return status !== 'FINALIZED' && status !== 'COMPLETED';
+      return status !== 'FINALIZED';
     })
     .sort((a, b) => {
       const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
@@ -624,11 +685,11 @@ const FuelSlipForm = () => {
       return dateB - dateA;
     });
   
-  // Get selected trip details
-  const getSelectedTrip = () => {
-    if (!formData.tripId) return null;
-    return trips.find(t => t.id && t.id.toString() === formData.tripId.toString());
-  };
+  console.log('🔍 DEBUG - After filtering, availableTrips count:', filtered.length);
+  console.log('🔍 DEBUG - availableTrips:', filtered.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
+  
+  return filtered;
+}, [trips]);
 
   // Render step content
   const renderStepContent = () => {
