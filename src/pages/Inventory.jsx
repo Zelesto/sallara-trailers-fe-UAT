@@ -238,6 +238,14 @@ const InventoryItemRow = ({ item, onView, onEdit, onDelete, locations, onIssue, 
 
 // Vehicle Issue Row Component
 const VehicleIssueRow = ({ issue, onView, onReturn }) => {
+  // Log the issue data
+  console.log('🔍 Rendering VehicleIssueRow:', issue);
+  
+  if (!issue) {
+    console.warn('⚠️ Issue is null or undefined');
+    return null;
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'RETURNED': return 'success';
@@ -250,14 +258,14 @@ const VehicleIssueRow = ({ issue, onView, onReturn }) => {
     <TableRow hover>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
-          {issue.issueNumber}
+          {issue.issueNumber || `Issue #${issue.id}`}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
           <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-            {issue.vehicleRegistration || `Vehicle #${issue.vehicleId}`}
+            {issue.vehicleId ? `Vehicle #${issue.vehicleId}` : 'N/A'}
           </Typography>
         </Stack>
       </TableCell>
@@ -265,7 +273,7 @@ const VehicleIssueRow = ({ issue, onView, onReturn }) => {
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <Person sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
           <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-            {issue.driverName || `Driver #${issue.driverId}`}
+            {issue.driverId ? `Driver #${issue.driverId}` : 'N/A'}
           </Typography>
         </Stack>
       </TableCell>
@@ -276,12 +284,12 @@ const VehicleIssueRow = ({ issue, onView, onReturn }) => {
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {new Date(issue.issueDate).toLocaleDateString()}
+          {issue.issueDate ? new Date(issue.issueDate).toLocaleDateString() : 'N/A'}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Chip
-          label={issue.status}
+          label={issue.status || 'ISSUED'}
           color={getStatusColor(issue.status)}
           size="small"
           sx={{ height: 18, fontSize: '0.55rem' }}
@@ -409,15 +417,32 @@ const Inventory = () => {
   setLoadingIssues(true);
   try {
     const response = await vehicleIssueService.getVehicleIssues();
+    console.log('📦 Raw vehicle issues response:', response);
+    
+    // ✅ Handle different response formats
     let issuesData = [];
     if (Array.isArray(response)) {
       issuesData = response;
-    } else if (response?.content) {
+    } else if (response?.content && Array.isArray(response.content)) {
       issuesData = response.content;
-    } else if (response?.data) {
-      issuesData = Array.isArray(response.data) ? response.data : [];
+    } else if (response?.data && Array.isArray(response.data)) {
+      issuesData = response.data;
+    } else if (response && typeof response === 'object') {
+      // Try to find any array in the response
+      const values = Object.values(response);
+      const arrayProp = values.find(v => Array.isArray(v) && v.length > 0);
+      if (arrayProp) {
+        issuesData = arrayProp;
+      }
     }
-    console.log('📦 Vehicle issues loaded:', issuesData);
+    
+    console.log('📦 Parsed vehicle issues:', issuesData);
+    console.log('📦 Number of issues:', issuesData.length);
+    
+    if (issuesData.length > 0) {
+      console.log('📦 First issue sample:', issuesData[0]);
+    }
+    
     setVehicleIssues(issuesData);
   } catch (err) {
     console.error('Error loading vehicle issues:', err);
