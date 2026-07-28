@@ -978,101 +978,103 @@ const Inventory = () => {
       </TabPanel>
 
      {/* Tab: Vehicle Issues */}
-      <TabPanel value={activeTab} index={1}>
-        <Paper sx={{ p: 1.5, mb: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-              Vehicle Issues
-              <Chip
-                label={`${vehicleIssues.length} issues`}
-                size="small"
-                sx={{ ml: 1, height: 18, fontSize: '0.55rem' }}
-              />
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-              size="small"
-              sx={{ fontSize: '0.75rem' }}
-              onClick={() => {
-                setSelectedItem(null);
-                setIssueFormData({
-                  vehicleId: '',
-                  driverId: '',
-                  tripId: '',
-                  quantity: 0,
-                  condition: 'GOOD',
-                  notes: '',
-                });
-                setShowIssueDialog(true);
-              }}
-            >
-              New Issue
-            </Button>
-          </Stack>
-        </Paper>
+<TabPanel value={activeTab} index={1}>
+  <Paper sx={{ p: 1.5, mb: 2 }}>
+    <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+        Vehicle Issues
+        <Chip
+          label={`${vehicleIssues.length} issues`}
+          size="small"
+          sx={{ ml: 1, height: 18, fontSize: '0.55rem' }}
+        />
+      </Typography>
+      <Button
+        variant="contained"
+        startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
+        size="small"
+        sx={{ fontSize: '0.75rem' }}
+        onClick={() => {
+          setSelectedItem(null);
+          setIssueFormData({
+            vehicleId: '',
+            driverId: '',
+            tripId: '',
+            quantity: 0,
+            condition: 'GOOD',
+            notes: '',
+          });
+          setShowIssueDialog(true);
+        }}
+      >
+        New Issue
+      </Button>
+    </Stack>
+  </Paper>
 
-        <Card sx={{ borderRadius: 1.5 }}>
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-            {loadingIssues ? (
-              <Box display="flex" justifyContent="center" py={3}>
-                <CircularProgress size={30} />
-              </Box>
-            ) : vehicleIssues.length === 0 ? (
-              <Box py={3} textAlign="center">
-                <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                  No vehicle issues found
-                </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  sx={{ mt: 1, fontSize: '0.75rem' }}
-                  onClick={() => {
-                    setSelectedItem(null);
-                    setIssueFormData({
-                      vehicleId: '',
-                      driverId: '',
-                      tripId: '',
-                      quantity: 0,
-                      condition: 'GOOD',
-                      notes: '',
-                    });
-                    setShowIssueDialog(true);
-                  }}
-                >
-                  Create First Issue
-                </Button>
-              </Box>
-            ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {vehicleIssues.map((issue) => (
-                      <VehicleIssueRow
-                        key={issue.id}
-                        issue={issue}
-                        onView={() => {/* View details */}}
-                        onReturn={handleReturnItems}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </CardContent>
-        </Card>
-      </TabPanel>
+  <Card sx={{ borderRadius: 1.5 }}>
+    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      {loadingIssues ? (
+        <Box display="flex" justifyContent="center" py={3}>
+          <CircularProgress size={30} />
+        </Box>
+      ) : vehicleIssues.length === 0 ? (
+        <Box py={3} textAlign="center">
+          <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+            No vehicle issues found
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            sx={{ mt: 1, fontSize: '0.75rem' }}
+            onClick={() => {
+              setSelectedItem(null);
+              setIssueFormData({
+                vehicleId: '',
+                driverId: '',
+                tripId: '',
+                quantity: 0,
+                condition: 'GOOD',
+                notes: '',
+              });
+              setShowIssueDialog(true);
+            }}
+          >
+            Create First Issue
+          </Button>
+        </Box>
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
+                <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {vehicleIssues.map((issue) => (
+                <VehicleIssueRow
+                  key={issue.id}
+                  issue={issue}
+                  onView={() => {/* View details */}}
+                  onReturn={handleReturnItems}
+                  vehicles={vehicles}    // ✅ Pass vehicles
+                  drivers={drivers}      // ✅ Pass drivers
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </CardContent>
+  </Card>
+</TabPanel>
 
       {/* Tab: Stock Movements */}
       <TabPanel value={activeTab} index={2}>
