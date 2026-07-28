@@ -405,7 +405,7 @@ const Inventory = () => {
     }
   };
 
-  onst loadVehicleIssues = async () => {
+  const loadVehicleIssues = async () => {
   setLoadingIssues(true);
   try {
     const response = await vehicleIssueService.getVehicleIssues();
