@@ -239,7 +239,7 @@ const InventoryItemRow = ({ item, onView, onEdit, onDelete, locations, onIssue, 
 };
 
 // Vehicle Issue Row Component
-const VehicleIssueRow = ({ issue, onView, onReturn }) => {
+const VehicleIssueRow = ({ issue, onView, onReturn, vehicles, drivers }) => {
   // Log the issue data
   console.log('🔍 Rendering VehicleIssueRow:', issue);
   
@@ -256,6 +256,33 @@ const VehicleIssueRow = ({ issue, onView, onReturn }) => {
     }
   };
 
+  // ✅ Find vehicle by ID
+  const getVehicle = (vehicleId) => {
+    if (!vehicleId) return null;
+    return vehicles?.find(v => v.id === vehicleId);
+  };
+
+  // ✅ Find driver by ID
+  const getDriver = (driverId) => {
+    if (!driverId) return null;
+    return drivers?.find(d => d.id === driverId);
+  };
+
+  const vehicle = getVehicle(issue.vehicleId);
+  const driver = getDriver(issue.driverId);
+
+  // ✅ Get vehicle display name
+  const getVehicleDisplay = (vehicle) => {
+    if (!vehicle) return `Vehicle #${issue.vehicleId}`;
+    return vehicle.registrationNumber || vehicle.regNumber || `Vehicle #${vehicle.id}`;
+  };
+
+  // ✅ Get driver display name
+  const getDriverDisplay = (driver) => {
+    if (!driver) return `Driver #${issue.driverId}`;
+    return driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`;
+  };
+
   return (
     <TableRow hover>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -267,15 +294,20 @@ const VehicleIssueRow = ({ issue, onView, onReturn }) => {
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
           <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-            {issue.vehicleId ? `Vehicle #${issue.vehicleId}` : 'N/A'}
+            {getVehicleDisplay(vehicle)}
           </Typography>
+          {vehicle && vehicle.make && (
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+              ({vehicle.make} {vehicle.model || ''})
+            </Typography>
+          )}
         </Stack>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <Person sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
           <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-            {issue.driverId ? `Driver #${issue.driverId}` : 'N/A'}
+            {getDriverDisplay(driver)}
           </Typography>
         </Stack>
       </TableCell>
