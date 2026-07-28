@@ -1,33 +1,32 @@
-// src/services/enumService.ts
+// src/services/enumService.js
 import api from './api';
-import { EnumMaster, EnumPermission } from '../types/enum';
 
 export const enumService = {
     // ============================================================
     // READ OPERATIONS
     // ============================================================
 
-    getEnums: async (moduleName: string, category: string): Promise<EnumMaster[]> => {
+    getEnums: async (moduleName, category) => {
         const response = await api.get(`/enums/${moduleName}/${category}`);
         return response.data;
     },
 
-    getSystemEnums: async (moduleName: string, category: string): Promise<EnumMaster[]> => {
+    getSystemEnums: async (moduleName, category) => {
         const response = await api.get(`/enums/${moduleName}/${category}/system`);
         return response.data;
     },
 
-    getCustomEnums: async (moduleName: string, category: string): Promise<EnumMaster[]> => {
+    getCustomEnums: async (moduleName, category) => {
         const response = await api.get(`/enums/${moduleName}/${category}/custom`);
         return response.data;
     },
 
-    getEnumsByModule: async (moduleName: string): Promise<Record<string, EnumMaster[]>> => {
+    getEnumsByModule: async (moduleName) => {
         const response = await api.get(`/enums/module/${moduleName}`);
         return response.data;
     },
 
-    getDefaultEnum: async (moduleName: string, category: string): Promise<EnumMaster> => {
+    getDefaultEnum: async (moduleName, category) => {
         const response = await api.get(`/enums/${moduleName}/${category}/default`);
         return response.data;
     },
@@ -36,7 +35,7 @@ export const enumService = {
     // CREATE OPERATIONS
     // ============================================================
 
-    createEnum: async (data: Partial<EnumMaster>): Promise<EnumMaster> => {
+    createEnum: async (data) => {
         const response = await api.post('/enums', data);
         return response.data;
     },
@@ -45,7 +44,7 @@ export const enumService = {
     // UPDATE OPERATIONS
     // ============================================================
 
-    updateEnum: async (id: number, data: Partial<EnumMaster>): Promise<EnumMaster> => {
+    updateEnum: async (id, data) => {
         const response = await api.put(`/enums/${id}`, data);
         return response.data;
     },
@@ -54,7 +53,7 @@ export const enumService = {
     // DELETE OPERATIONS
     // ============================================================
 
-    deleteEnum: async (id: number): Promise<void> => {
+    deleteEnum: async (id) => {
         await api.delete(`/enums/${id}`);
     },
 
@@ -62,9 +61,9 @@ export const enumService = {
     // PERMISSION HELPERS
     // ============================================================
 
-    getPermissions: (enumItem: EnumMaster): EnumPermission => {
+    getPermissions: (enumItem) => {
         return {
-            canCreate: !enumItem.isSystem,  // Can't create system enums
+            canCreate: !enumItem.isSystem,
             canEdit: enumItem.isEditable,
             canDelete: enumItem.isDeletable && !enumItem.isSystem,
             canDeactivate: enumItem.isEditable
