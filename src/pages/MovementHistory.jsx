@@ -47,6 +47,7 @@ import {
   Add,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+// ✅ FIXED: Correct import path (going up two levels from pages/inventory/ to services/)
 import { inventoryMovementService } from '../../services/inventoryMovementService';
 import { inventoryService } from '../../services/inventoryService';
 
@@ -280,20 +281,6 @@ const MovementHistory = () => {
             sx={{ fontSize: '0.75rem' }}
           >
             Refresh
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => {
-              // Emit event to parent or navigate within inventory
-              // Since we're in a tab, we should use the parent's state
-              // For now, navigate to the new movement page if route exists
-              navigate('/inventory/movements/new');
-            }}
-            size="small"
-            sx={{ fontSize: '0.75rem' }}
-          >
-            New Movement
           </Button>
           {stats.pending > 0 && (
             <Chip
