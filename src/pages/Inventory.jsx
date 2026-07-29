@@ -70,6 +70,7 @@ import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
 import { vehicleService } from '../services/vehicleService'; 
 import { driverService } from '../services/driverService'; 
+import MovementHistory from './inventory/MovementHistory';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
@@ -1305,18 +1306,9 @@ const Inventory = () => {
       </TabPanel>
 
       {/* Tab: Stock Movements */}
-      <TabPanel value={activeTab} index={3}>
-        <Paper sx={{ p: 1.5, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Stock Movements</Typography>
-        </Paper>
-        <Card sx={{ borderRadius: 1.5 }}>
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-            <Typography color="text.secondary" sx={{ fontSize: '0.8rem', textAlign: 'center', py: 3 }}>
-              Stock movement history will be displayed here
-            </Typography>
-          </CardContent>
-        </Card>
-      </TabPanel>
+<TabPanel value={activeTab} index={3}>
+  <MovementHistory />
+</TabPanel>
 
       {/* ==================== DIALOGS ==================== */}
 
