@@ -115,6 +115,41 @@ swapDriverItem: async (issueId, swapData) => {
 },
 
   /**
+ * Swap an item from a vehicle issue
+ */
+swapItem: async (issueId, swapData) => {
+  try {
+    console.log('📤 Swapping vehicle item from issue:', issueId, swapData);
+    const response = await api.post(`/inventory/vehicle-issues/${issueId}/swap`, swapData);
+    console.log('📥 Swap response:', response);
+    const result = response.data || response;
+    console.log('📥 Swap result:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Error swapping vehicle item:', error);
+    throw error;
+  }
+},
+
+/**
+ * Swap an item from a driver issue
+ */
+swapDriverItem: async (issueId, swapData) => {
+  try {
+    console.log('📤 Swapping driver item from issue:', issueId, swapData);
+    const response = await api.post(`/inventory/driver-issues/${issueId}/swap`, swapData);
+    console.log('📥 Driver swap response:', response);
+    const result = response.data || response;
+    console.log('📥 Driver swap result:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Error swapping driver item:', error);
+    throw error;
+  }
+},
+  
+
+  /**
    * Create a new vehicle issue
    */
   createVehicleIssue: async (data) => {
