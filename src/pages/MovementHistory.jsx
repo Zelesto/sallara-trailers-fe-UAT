@@ -48,8 +48,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 // ✅ FIXED: Correct import path (going up two levels from pages/inventory/ to services/)
-import { inventoryMovementService } from '../../services/inventoryMovementService';
-import { inventoryService } from '../../services/inventoryService';
+import { inventoryMovementService } from '../services/inventoryMovementService';
+import { inventoryService } from '../services/inventoryService';
 
 // Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
