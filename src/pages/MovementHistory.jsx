@@ -44,10 +44,11 @@ import {
   Receipt,
   Person,
   Event,
+  Add,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { inventoryMovementService } from '../services/inventoryMovementService';
-import { inventoryService } from '../services/inventoryService';
+import { inventoryMovementService } from '../../services/inventoryMovementService';
+import { inventoryService } from '../../services/inventoryService';
 
 // Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
@@ -113,7 +114,6 @@ const MovementHistory = () => {
     }
   }, [location.search]);
 
-  // Define calculateStats BEFORE it's used
   const calculateStats = (data) => {
     const movementsArray = Array.isArray(data) ? data : [];
     const pending = movementsArray.filter(m => m.approvalStatus === 'PENDING').length;
@@ -138,7 +138,6 @@ const MovementHistory = () => {
       const data = await inventoryMovementService.getMovementHistory();
       console.log('Movement history response:', data);
       
-      // Extract movements from paginated response
       let movementsData = [];
       if (Array.isArray(data)) {
         movementsData = data;
@@ -147,7 +146,6 @@ const MovementHistory = () => {
       } else if (data && data.data) {
         movementsData = Array.isArray(data.data) ? data.data : [];
       } else if (data && typeof data === 'object') {
-        // Try to find any array property
         const values = Object.values(data);
         const arrayProp = values.find(v => Array.isArray(v));
         movementsData = arrayProp || [];
@@ -196,7 +194,6 @@ const MovementHistory = () => {
 
   const handleFilterStatusChange = (status) => {
     setFilterStatus(status);
-    // Update URL without reload
     const params = new URLSearchParams(location.search);
     if (status === 'ALL') {
       params.delete('status');
@@ -264,7 +261,7 @@ const MovementHistory = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
             <Inventory sx={{ mr: 0.5, verticalAlign: 'middle', fontSize: '1.2rem' }} />
@@ -286,8 +283,13 @@ const MovementHistory = () => {
           </Button>
           <Button
             variant="contained"
-            startIcon={<Inventory sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => navigate('/inventory/movements/new')}
+            startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => {
+              // Emit event to parent or navigate within inventory
+              // Since we're in a tab, we should use the parent's state
+              // For now, navigate to the new movement page if route exists
+              navigate('/inventory/movements/new');
+            }}
             size="small"
             sx={{ fontSize: '0.75rem' }}
           >
