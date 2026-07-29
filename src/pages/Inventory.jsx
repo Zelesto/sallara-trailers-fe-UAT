@@ -243,11 +243,14 @@ const InventoryItemRow = ({
               <Edit sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
+          
+          {/* MOVEMENT BUTTON - STOCK IN/OUT/ADJUST */}
           <Tooltip title="Stock Movement">
             <IconButton size="small" color="info" onClick={() => onMovement(item)} sx={{ p: 0.5 }}>
               <SwapHoriz sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
+          
           {isConsumable && !item.isHeld && item.isActive && (
             <>
               {item.isVehicleIssuable !== false && (
