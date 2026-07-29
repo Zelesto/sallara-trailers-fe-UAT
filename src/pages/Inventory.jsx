@@ -38,6 +38,7 @@ import {
   LinearProgress,
   FormControlLabel,
   Checkbox,
+  Switch,
 } from '@mui/material';
 import {
   Inventory as InventoryIcon,
@@ -65,6 +66,10 @@ import {
   Receipt,
   Save as SaveIcon,
   Close as CloseIcon,
+  Lock as LockIcon,
+  Event as EventIcon,
+  Description as DescriptionIcon,
+  PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -194,13 +199,24 @@ const InventoryItemRow = ({ item, onView, onEdit, onDelete, locations, onIssue, 
         </Stack>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-        <Chip
-          label={statusConfig.label}
-          color={statusConfig.color}
-          size="small"
-          icon={statusConfig.icon}
-          sx={{ height: 18, fontSize: '0.55rem' }}
-        />
+        <Stack spacing={0.25}>
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+            icon={statusConfig.icon}
+            sx={{ height: 18, fontSize: '0.55rem' }}
+          />
+          {item.isHeld && (
+            <Chip
+              label="On Hold"
+              size="small"
+              color="warning"
+              icon={<LockIcon sx={{ fontSize: '0.6rem' }} />}
+              sx={{ height: 16, fontSize: '0.5rem' }}
+            />
+          )}
+        </Stack>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
@@ -470,7 +486,7 @@ const Inventory = () => {
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedIssueItem, setSelectedIssueItem] = useState(null);
 
-  // Form states
+  // Form states - Updated with all new columns
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -481,7 +497,16 @@ const Inventory = () => {
     quantity: 0,
     unitCost: 0,
     minLevel: 0,
+    isActive: true,
     notes: '',
+    isDriverIssuable: true,
+    isVehicleIssuable: true,
+    returnByDate: '',
+    isHeld: false,
+    holdCode: '',
+    holdDate: '',
+    holdReason: '',
+    heldBy: '',
   });
   const [formErrors, setFormErrors] = useState({});
   const [issueFormData, setIssueFormData] = useState({
@@ -674,7 +699,16 @@ const Inventory = () => {
       quantity: item.quantity || 0,
       unitCost: item.unitCost || 0,
       minLevel: item.minLevel || 0,
+      isActive: item.isActive !== false,
       notes: item.notes || '',
+      isDriverIssuable: item.isDriverIssuable !== false,
+      isVehicleIssuable: item.isVehicleIssuable !== false,
+      returnByDate: item.returnByDate || '',
+      isHeld: item.isHeld || false,
+      holdCode: item.holdCode || '',
+      holdDate: item.holdDate || '',
+      holdReason: item.holdReason || '',
+      heldBy: item.heldBy || '',
     });
     setShowAddDialog(true);
   };
@@ -702,7 +736,16 @@ const Inventory = () => {
       quantity: 0,
       unitCost: 0,
       minLevel: 0,
+      isActive: true,
       notes: '',
+      isDriverIssuable: true,
+      isVehicleIssuable: true,
+      returnByDate: '',
+      isHeld: false,
+      holdCode: '',
+      holdDate: '',
+      holdReason: '',
+      heldBy: '',
     });
     setFormErrors({});
     setShowAddDialog(true);
@@ -937,8 +980,19 @@ const Inventory = () => {
         quantity: parseInt(formData.quantity) || 0,
         unitCost: parseFloat(formData.unitCost) || 0,
         minLevel: parseInt(formData.minLevel) || 0,
+        isActive: formData.isActive !== false,
         notes: formData.notes || '',
+        isDriverIssuable: formData.isDriverIssuable !== false,
+        isVehicleIssuable: formData.isVehicleIssuable !== false,
+        returnByDate: formData.returnByDate || null,
+        isHeld: formData.isHeld || false,
+        holdCode: formData.holdCode || null,
+        holdDate: formData.holdDate || null,
+        holdReason: formData.holdReason || null,
+        heldBy: formData.heldBy || null,
       };
+
+      console.log('📦 Submitting inventory item:', payload);
 
       if (selectedItem) {
         await inventoryService.updateInventoryItem(selectedItem.id, payload);
@@ -1409,8 +1463,8 @@ const Inventory = () => {
 
       {/* ==================== DIALOGS ==================== */}
 
-      {/* Add/Edit Item Dialog */}
-      <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="sm" fullWidth>
+      {/* Add/Edit Item Dialog - Updated with all new columns */}
+      <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
             {selectedItem ? 'Edit Inventory Item' : 'Add New Inventory Item'}
@@ -1419,6 +1473,13 @@ const Inventory = () => {
         <DialogContent sx={{ p: 2.5 }}>
           <Stack spacing={2}>
             <Grid container spacing={2}>
+              {/* Basic Information */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+                  Basic Information
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+              </Grid>
               <Grid item xs={12}>
                 <TextField
                   label="Item Name *"
@@ -1456,17 +1517,26 @@ const Inventory = () => {
                     sx={{ fontSize: '0.8rem' }}
                   >
                     <MenuItem value="EA" sx={{ fontSize: '0.8rem' }}>Each (EA)</MenuItem>
-                    <MenuItem value="LTR" sx={{ fontSize: '0.8rem' }}>Litre (LTR)</MenuItem>
+                    <MenuItem value="LITER" sx={{ fontSize: '0.8rem' }}>Litre (LITER)</MenuItem>
                     <MenuItem value="KG" sx={{ fontSize: '0.8rem' }}>Kilogram (KG)</MenuItem>
                     <MenuItem value="M" sx={{ fontSize: '0.8rem' }}>Meter (M)</MenuItem>
                     <MenuItem value="BOX" sx={{ fontSize: '0.8rem' }}>Box (BOX)</MenuItem>
+                    <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>Set (SET)</MenuItem>
                     <MenuItem value="PK" sx={{ fontSize: '0.8rem' }}>Pack (PK)</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              {/* Stock Information */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
+                  Stock Information
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+              </Grid>
+              <Grid item xs={12} sm={4}>
                 <TextField
-                  label="Quantity"
+                  label="Quantity *"
                   name="quantity"
                   type="number"
                   value={formData.quantity}
@@ -1479,7 +1549,7 @@ const Inventory = () => {
                   sx={{ fontSize: '0.8rem' }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   label="Min Level"
                   name="minLevel"
@@ -1494,7 +1564,7 @@ const Inventory = () => {
                   sx={{ fontSize: '0.8rem' }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   label="Unit Cost (R)"
                   name="unitCost"
@@ -1506,6 +1576,19 @@ const Inventory = () => {
                   error={!!formErrors.unitCost}
                   helperText={formErrors.unitCost}
                   InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Reorder Level"
+                  name="reorderLevel"
+                  type="number"
+                  value={formData.reorderLevel}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  InputProps={{ inputProps: { min: 0 } }}
                   sx={{ fontSize: '0.8rem' }}
                 />
               </Grid>
@@ -1531,7 +1614,15 @@ const Inventory = () => {
                   )}
                 </FormControl>
               </Grid>
+
+              {/* Flags and Settings */}
               <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
+                  Settings & Flags
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -1545,6 +1636,143 @@ const Inventory = () => {
                   sx={{ fontSize: '0.8rem' }}
                 />
               </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isActive"
+                      checked={formData.isActive}
+                      onChange={handleFormChange}
+                      size="small"
+                    />
+                  }
+                  label="Is Active"
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isDriverIssuable"
+                      checked={formData.isDriverIssuable}
+                      onChange={handleFormChange}
+                      size="small"
+                    />
+                  }
+                  label="Can Issue to Drivers"
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isVehicleIssuable"
+                      checked={formData.isVehicleIssuable}
+                      onChange={handleFormChange}
+                      size="small"
+                    />
+                  }
+                  label="Can Issue to Vehicles"
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Return By Date"
+                  name="returnByDate"
+                  type="date"
+                  value={formData.returnByDate}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+
+              {/* Hold Information */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
+                  Hold Information
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isHeld"
+                      checked={formData.isHeld}
+                      onChange={handleFormChange}
+                      size="small"
+                    />
+                  }
+                  label="Item is on Hold"
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              {formData.isHeld && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Hold Code"
+                      name="holdCode"
+                      value={formData.holdCode}
+                      onChange={handleFormChange}
+                      fullWidth
+                      size="small"
+                      sx={{ fontSize: '0.8rem' }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Hold Date"
+                      name="holdDate"
+                      type="date"
+                      value={formData.holdDate}
+                      onChange={handleFormChange}
+                      fullWidth
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ fontSize: '0.8rem' }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Held By"
+                      name="heldBy"
+                      value={formData.heldBy}
+                      onChange={handleFormChange}
+                      fullWidth
+                      size="small"
+                      sx={{ fontSize: '0.8rem' }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Hold Reason"
+                      name="holdReason"
+                      value={formData.holdReason}
+                      onChange={handleFormChange}
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={2}
+                      sx={{ fontSize: '0.8rem' }}
+                    />
+                  </Grid>
+                </>
+              )}
+
+              {/* Notes */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
+                  Additional Information
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+              </Grid>
               <Grid item xs={12}>
                 <TextField
                   label="Notes"
@@ -1554,7 +1782,7 @@ const Inventory = () => {
                   fullWidth
                   size="small"
                   multiline
-                  rows={2}
+                  rows={3}
                   sx={{ fontSize: '0.8rem' }}
                 />
               </Grid>
@@ -1571,8 +1799,8 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog */}
-      <Dialog open={showViewDialog} onClose={() => setShowViewDialog(false)} maxWidth="sm" fullWidth>
+      {/* View Dialog - Updated with all new columns */}
+      <Dialog open={showViewDialog} onClose={() => setShowViewDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Item Details</Typography>
         </DialogTitle>
@@ -1592,15 +1820,15 @@ const Inventory = () => {
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Unit of Measure</Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.unitOfMeasure || 'EA'}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={4}>
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Quantity</Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedItem.quantity}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={4}>
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Min Level</Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.minLevel || 0}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={4}>
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Unit Cost</Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>R {selectedItem.unitCost?.toFixed(2) || '0.00'}</Typography>
                 </Grid>
@@ -1610,21 +1838,106 @@ const Inventory = () => {
                     {locations.find(l => l.id === selectedItem.locationId)?.name || 'N/A'}
                   </Typography>
                 </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Reorder Level</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.reorderLevel || 0}</Typography>
+                </Grid>
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      label={selectedItem.quantity <= 0 ? 'Out of Stock' : selectedItem.quantity <= selectedItem.minLevel ? 'Low Stock' : 'In Stock'}
+                      color={selectedItem.quantity <= 0 ? 'error' : selectedItem.quantity <= selectedItem.minLevel ? 'warning' : 'success'}
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                    />
+                    {selectedItem.isHeld && (
+                      <Chip
+                        label="On Hold"
+                        color="warning"
+                        size="small"
+                        icon={<LockIcon sx={{ fontSize: '0.7rem' }} />}
+                        sx={{ height: 20, fontSize: '0.65rem' }}
+                      />
+                    )}
+                    {!selectedItem.isActive && (
+                      <Chip
+                        label="Inactive"
+                        color="default"
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.65rem' }}
+                      />
+                    )}
+                  </Stack>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Driver Issuable</Typography>
                   <Chip
-                    label={selectedItem.quantity <= 0 ? 'Out of Stock' : selectedItem.quantity <= selectedItem.minLevel ? 'Low Stock' : 'In Stock'}
-                    color={selectedItem.quantity <= 0 ? 'error' : selectedItem.quantity <= selectedItem.minLevel ? 'warning' : 'success'}
+                    label={selectedItem.isDriverIssuable !== false ? 'Yes' : 'No'}
+                    color={selectedItem.isDriverIssuable !== false ? 'success' : 'error'}
                     size="small"
-                    sx={{ mt: 0.5, height: 20, fontSize: '0.65rem' }}
+                    sx={{ height: 18, fontSize: '0.6rem' }}
                   />
                 </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Vehicle Issuable</Typography>
+                  <Chip
+                    label={selectedItem.isVehicleIssuable !== false ? 'Yes' : 'No'}
+                    color={selectedItem.isVehicleIssuable !== false ? 'success' : 'error'}
+                    size="small"
+                    sx={{ height: 18, fontSize: '0.6rem' }}
+                  />
+                </Grid>
+                {selectedItem.returnByDate && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Return By Date</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {new Date(selectedItem.returnByDate).toLocaleDateString()}
+                    </Typography>
+                  </Grid>
+                )}
+                {selectedItem.isHeld && (
+                  <>
+                    {selectedItem.holdCode && (
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Hold Code</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.holdCode}</Typography>
+                      </Grid>
+                    )}
+                    {selectedItem.holdDate && (
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Hold Date</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                          {new Date(selectedItem.holdDate).toLocaleDateString()}
+                        </Typography>
+                      </Grid>
+                    )}
+                    {selectedItem.heldBy && (
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Held By</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.heldBy}</Typography>
+                      </Grid>
+                    )}
+                    {selectedItem.holdReason && (
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Hold Reason</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.holdReason}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
                 {selectedItem.notes && (
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.notes}</Typography>
                   </Grid>
                 )}
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                    Created: {selectedItem.createdAt ? new Date(selectedItem.createdAt).toLocaleString() : 'N/A'}
+                    {selectedItem.updatedAt && ` | Updated: ${new Date(selectedItem.updatedAt).toLocaleString()}`}
+                  </Typography>
+                </Grid>
               </Grid>
             </Stack>
           )}
@@ -1660,11 +1973,13 @@ const Inventory = () => {
                 sx={{ fontSize: '0.8rem' }}
               >
                 <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
-                {inventoryItems.map((item) => (
-                  <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
-                    {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
-                  </MenuItem>
-                ))}
+                {inventoryItems
+                  .filter(item => item.isVehicleIssuable !== false && !item.isHeld)
+                  .map((item) => (
+                    <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                      {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
 
@@ -1802,11 +2117,13 @@ const Inventory = () => {
                 sx={{ fontSize: '0.8rem' }}
               >
                 <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
-                {inventoryItems.map((item) => (
-                  <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
-                    {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
-                  </MenuItem>
-                ))}
+                {inventoryItems
+                  .filter(item => item.isDriverIssuable !== false && !item.isHeld)
+                  .map((item) => (
+                    <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                      {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
 
@@ -1988,7 +2305,7 @@ const Inventory = () => {
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Replacement Item</MenuItem>
                   {inventoryItems
-                    .filter(item => item.id !== selectedIssueItem.itemId)
+                    .filter(item => item.id !== selectedIssueItem.itemId && !item.isHeld)
                     .map((item) => (
                       <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
                         {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
