@@ -261,8 +261,8 @@ const menuSections = [
     icon: <InventoryIcon />,
     items: [
       { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
-      { text: 'Stock Movements', icon: <FuelIcon />, path: '/inventory/movements' },
-      { text: 'New Movement', icon: <AddLocationIcon />, path: '/inventory/movements/new' },
+      //{ text: 'Stock Movements', icon: <FuelIcon />, path: '/inventory/movements' },
+      //{ text: 'New Movement', icon: <AddLocationIcon />, path: '/inventory/movements/new' },
       { text: 'Pending Approvals', icon: <PendingIcon />, path: '/inventory/movements?status=PENDING' },
     ],
   },
