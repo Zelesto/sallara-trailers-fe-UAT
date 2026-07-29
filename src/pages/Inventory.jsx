@@ -70,7 +70,7 @@ import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
 import { vehicleService } from '../services/vehicleService'; 
 import { driverService } from '../services/driverService'; 
-import MovementHistory from './inventory/MovementHistory';
+import MovementHistory from './MovementHistory';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
