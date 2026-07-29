@@ -36,8 +36,8 @@ import {
   Avatar,
   Badge,
   LinearProgress,
-  FormControlLabel,  
-  Checkbox,  
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   Inventory as InventoryIcon,
@@ -68,8 +68,8 @@ import {
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
-import { vehicleService } from '../services/vehicleService'; 
-import { driverService } from '../services/driverService'; 
+import { vehicleService } from '../services/vehicleService';
+import { driverService } from '../services/driverService';
 import MovementHistory from './MovementHistory';
 
 // Compact Stat Card Component
@@ -491,6 +491,7 @@ const Inventory = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [issueFormData, setIssueFormData] = useState({
+    itemId: '', // Added for selecting item in dialog
     vehicleId: '',
     driverId: '',
     tripId: '',
@@ -589,8 +590,12 @@ const Inventory = () => {
       }
       
       // Get stats
-      const statsResponse = await inventoryService.getInventoryStats();
-      setStats(statsResponse);
+      try {
+        const statsResponse = await inventoryService.getInventoryStats();
+        setStats(statsResponse);
+      } catch (err) {
+        console.error('Error loading stats:', err);
+      }
 
       // Load issues if tabs are active
       if (activeTab === 1) {
@@ -699,7 +704,7 @@ const Inventory = () => {
       unitOfMeasure: 'EA',
       isConsumable: true,
       reorderLevel: 0,
-      locationId: '',
+      locationId: locations.length > 0 ? locations[0].id : '',
       quantity: 0,
       unitCost: 0,
       minLevel: 0,
@@ -713,10 +718,11 @@ const Inventory = () => {
   const handleIssueItem = (item) => {
     setSelectedItem(item);
     setIssueFormData({
+      itemId: item.id,
       vehicleId: '',
       driverId: '',
       tripId: '',
-      quantity: 0,
+      quantity: 1,
       condition: 'NEW',
       notes: '',
     });
@@ -728,7 +734,7 @@ const Inventory = () => {
     setSelectedItem(item);
     setDriverIssueFormData({
       driverId: '',
-      quantity: 0,
+      quantity: 1,
       condition: 'NEW',
       notes: '',
     });
@@ -738,7 +744,7 @@ const Inventory = () => {
   const handleReceiveItem = (item) => {
     setSelectedItem(item);
     setReturnFormData({
-      quantity: 0,
+      quantity: 1,
       condition: 'GOOD',
       notes: '',
     });
@@ -747,9 +753,10 @@ const Inventory = () => {
 
   const handleReturnItems = (issue) => {
     setSelectedIssue(issue);
-    setSelectedItem(issue.items?.[0]);
+    const firstItem = issue.items?.[0];
+    setSelectedItem(firstItem);
     setReturnFormData({
-      quantity: 0,
+      quantity: firstItem?.quantityIssued || 1,
       condition: 'DAMAGED',
       notes: '',
     });
@@ -774,6 +781,14 @@ const Inventory = () => {
 
   const handleSubmitVehicleIssue = async () => {
     try {
+      // Use selectedItem or issueFormData.itemId
+      const itemId = selectedItem?.id || issueFormData.itemId;
+      
+      if (!itemId) {
+        setError('Please select an item');
+        return;
+      }
+      
       if (!issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0) {
         setError('Please fill in all required fields');
         return;
@@ -784,13 +799,14 @@ const Inventory = () => {
         driverId: parseInt(issueFormData.driverId),
         tripId: issueFormData.tripId ? parseInt(issueFormData.tripId) : null,
         items: [{
-          itemId: selectedItem.id,
+          itemId: parseInt(itemId),
           quantity: parseFloat(issueFormData.quantity),
           condition: issueFormData.condition,
           notes: issueFormData.notes,
         }],
       };
 
+      console.log('🚗 Submitting vehicle issue:', payload);
       await vehicleIssueService.createVehicleIssue(payload);
       showSuccess('Items issued to vehicle successfully');
       setShowIssueDialog(false);
@@ -799,7 +815,8 @@ const Inventory = () => {
       if (activeTab === 1) await loadVehicleIssues();
     } catch (err) {
       console.error('Error issuing items:', err);
-      setError(err.message || 'Failed to issue items');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to issue items';
+      setError(errorMessage);
     }
   };
 
@@ -810,16 +827,23 @@ const Inventory = () => {
         return;
       }
 
+      const itemId = selectedItem?.id;
+      if (!itemId) {
+        setError('Please select an item');
+        return;
+      }
+
       const payload = {
         driverId: parseInt(driverIssueFormData.driverId),
         items: [{
-          itemId: selectedItem.id,
+          itemId: parseInt(itemId),
           quantity: parseFloat(driverIssueFormData.quantity),
           condition: driverIssueFormData.condition,
           notes: driverIssueFormData.notes,
         }],
       };
 
+      console.log('👤 Submitting driver issue:', payload);
       await vehicleIssueService.createDriverIssue(payload);
       showSuccess('Items issued to driver successfully');
       setShowDriverIssueDialog(false);
@@ -828,7 +852,8 @@ const Inventory = () => {
       if (activeTab === 2) await loadDriverIssues();
     } catch (err) {
       console.error('Error issuing items to driver:', err);
-      setError(err.message || 'Failed to issue items to driver');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to issue items to driver';
+      setError(errorMessage);
     }
   };
 
@@ -839,12 +864,20 @@ const Inventory = () => {
         return;
       }
 
+      const itemId = selectedItem?.id || selectedIssueItem?.itemId;
+      if (!itemId) {
+        setError('No item selected for return');
+        return;
+      }
+
       const returnPayload = [{
-        itemId: selectedItem?.id,
+        itemId: parseInt(itemId),
         quantity: parseFloat(returnFormData.quantity),
         condition: returnFormData.condition,
         notes: returnFormData.notes,
       }];
+
+      console.log('🔄 Submitting return:', returnPayload);
 
       if (selectedIssue?.issueNumber?.startsWith('DI-')) {
         await vehicleIssueService.returnDriverItems(selectedIssue.id, returnPayload);
@@ -860,7 +893,8 @@ const Inventory = () => {
       if (activeTab === 2) await loadDriverIssues();
     } catch (err) {
       console.error('Error returning items:', err);
-      setError(err.message || 'Failed to return items');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to return items';
+      setError(errorMessage);
     }
   };
 
@@ -881,6 +915,8 @@ const Inventory = () => {
         condition: swapFormData.damagedCondition,
       };
 
+      console.log('🔄 Submitting swap:', swapPayload);
+
       if (swapFormData.issueType === 'driver') {
         await vehicleIssueService.swapDriverItem(selectedIssue.id, swapPayload);
       } else {
@@ -895,7 +931,8 @@ const Inventory = () => {
       if (activeTab === 2) await loadDriverIssues();
     } catch (err) {
       console.error('Error swapping item:', err);
-      setError(err.message || 'Failed to swap item');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to swap item';
+      setError(errorMessage);
     }
   };
 
@@ -903,26 +940,45 @@ const Inventory = () => {
     if (!validateForm()) return;
 
     try {
+      // Ensure all numeric fields are properly parsed
       const payload = {
-        ...formData,
+        name: formData.name.trim(),
+        category: formData.category,
+        unitOfMeasure: formData.unitOfMeasure || 'EA',
+        isConsumable: formData.isConsumable !== false,
+        reorderLevel: parseInt(formData.reorderLevel) || 0,
+        locationId: parseInt(formData.locationId),
+        quantity: parseInt(formData.quantity) || 0,
         unitCost: parseFloat(formData.unitCost) || 0,
         minLevel: parseInt(formData.minLevel) || 0,
-        quantity: parseInt(formData.quantity) || 0,
-        reorderLevel: parseInt(formData.reorderLevel) || 0,
+        notes: formData.notes || '',
       };
 
+      console.log('📦 Submitting inventory item:', payload);
+
+      let response;
       if (selectedItem) {
-        await inventoryService.updateInventoryItem(selectedItem.id, payload);
+        response = await inventoryService.updateInventoryItem(selectedItem.id, payload);
         showSuccess('Item updated successfully');
       } else {
-        await inventoryService.createInventoryItem(payload);
+        response = await inventoryService.createInventoryItem(payload);
         showSuccess('Item created successfully');
       }
 
+      console.log('✅ Response:', response);
       setShowAddDialog(false);
-      loadData();
+      resetForms();
+      await loadData();
     } catch (err) {
-      setError(err.message || 'Failed to save inventory item');
+      console.error('❌ Error saving inventory item:', err);
+      // Show more detailed error
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to save inventory item';
+      setError(errorMessage);
+      
+      // Log the full error for debugging      if (err.response) {
+        console.error('Error response:', err.response.data);
+        console.error('Error status:', err.response.status);
+      }
     }
   };
 
@@ -932,6 +988,8 @@ const Inventory = () => {
     if (!formData.category) errors.category = 'Category is required';
     if (!formData.locationId) errors.locationId = 'Location is required';
     if (formData.minLevel < 0) errors.minLevel = 'Min level cannot be negative';
+    if (formData.quantity < 0) errors.quantity = 'Quantity cannot be negative';
+    if (formData.unitCost < 0) errors.unitCost = 'Unit cost cannot be negative';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -948,10 +1006,38 @@ const Inventory = () => {
   };
 
   const resetForms = () => {
-    setIssueFormData({ vehicleId: '', driverId: '', tripId: '', quantity: 0, condition: 'NEW', notes: '' });
-    setDriverIssueFormData({ driverId: '', quantity: 0, condition: 'NEW', notes: '' });
-    setReturnFormData({ quantity: 0, condition: 'DAMAGED', notes: '' });
-    setSwapFormData({ oldItemId: '', newItemId: '', newQuantity: 1, returnQuantity: 1, damagedCondition: 'DAMAGED', damageNotes: '', issueType: 'vehicle' });
+    setIssueFormData({ 
+      itemId: '', 
+      vehicleId: '', 
+      driverId: '', 
+      tripId: '', 
+      quantity: 0, 
+      condition: 'NEW', 
+      notes: '' 
+    });
+    setDriverIssueFormData({ 
+      driverId: '', 
+      quantity: 0, 
+      condition: 'NEW', 
+      notes: '' 
+    });
+    setReturnFormData({ 
+      quantity: 0, 
+      condition: 'DAMAGED', 
+      notes: '' 
+    });
+    setSwapFormData({ 
+      oldItemId: '', 
+      newItemId: '', 
+      newQuantity: 1, 
+      returnQuantity: 1, 
+      damagedCondition: 'DAMAGED', 
+      damageNotes: '', 
+      issueType: 'vehicle' 
+    });
+    setSelectedItem(null);
+    setSelectedIssue(null);
+    setSelectedIssueItem(null);
   };
 
   const showSuccess = (message) => {
@@ -1181,8 +1267,17 @@ const Inventory = () => {
               size="small"
               sx={{ fontSize: '0.75rem' }}
               onClick={() => {
+                // Open dialog with no item selected
                 setSelectedItem(null);
-                setIssueFormData({ vehicleId: '', driverId: '', tripId: '', quantity: 0, condition: 'NEW', notes: '' });
+                setIssueFormData({ 
+                  itemId: '',
+                  vehicleId: '', 
+                  driverId: '', 
+                  tripId: '', 
+                  quantity: 1, 
+                  condition: 'NEW', 
+                  notes: '' 
+                });
                 setShowIssueDialog(true);
               }}
             >
@@ -1198,7 +1293,19 @@ const Inventory = () => {
             ) : vehicleIssues.length === 0 ? (
               <Box py={3} textAlign="center">
                 <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No vehicle issues found</Typography>
-                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => { setSelectedItem(null); setIssueFormData({ vehicleId: '', driverId: '', tripId: '', quantity: 0, condition: 'NEW', notes: '' }); setShowIssueDialog(true); }}>
+                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => { 
+                  setSelectedItem(null);
+                  setIssueFormData({ 
+                    itemId: '',
+                    vehicleId: '', 
+                    driverId: '', 
+                    tripId: '', 
+                    quantity: 1, 
+                    condition: 'NEW', 
+                    notes: '' 
+                  });
+                  setShowIssueDialog(true);
+                }}>
                   Create First Issue
                 </Button>
               </Box>
@@ -1251,7 +1358,12 @@ const Inventory = () => {
               sx={{ fontSize: '0.75rem' }}
               onClick={() => {
                 setSelectedItem(null);
-                setDriverIssueFormData({ driverId: '', quantity: 0, condition: 'NEW', notes: '' });
+                setDriverIssueFormData({ 
+                  driverId: '', 
+                  quantity: 1, 
+                  condition: 'NEW', 
+                  notes: '' 
+                });
                 setShowDriverIssueDialog(true);
               }}
             >
@@ -1267,7 +1379,16 @@ const Inventory = () => {
             ) : driverIssues.length === 0 ? (
               <Box py={3} textAlign="center">
                 <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No driver issues found</Typography>
-                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => { setSelectedItem(null); setDriverIssueFormData({ driverId: '', quantity: 0, condition: 'NEW', notes: '' }); setShowDriverIssueDialog(true); }}>
+                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => { 
+                  setSelectedItem(null);
+                  setDriverIssueFormData({ 
+                    driverId: '', 
+                    quantity: 1, 
+                    condition: 'NEW', 
+                    notes: '' 
+                  });
+                  setShowDriverIssueDialog(true);
+                }}>
                   Create First Issue
                 </Button>
               </Box>
@@ -1306,107 +1427,499 @@ const Inventory = () => {
       </TabPanel>
 
       {/* Tab: Stock Movements */}
-<TabPanel value={activeTab} index={3}>
-  <MovementHistory />
-</TabPanel>
+      <TabPanel value={activeTab} index={3}>
+        <MovementHistory />
+      </TabPanel>
 
       {/* ==================== DIALOGS ==================== */}
 
-      {/* View Dialog - Keep existing */}
-      {/* Add/Edit Dialog - Keep existing */}
+      {/* Add/Edit Item Dialog */}
+      <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+            {selectedItem ? 'Edit Inventory Item' : 'Add New Inventory Item'}
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2.5 }}>
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  label="Item Name *"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.name}
+                  helperText={formErrors.name}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Category *"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.category}
+                  helperText={formErrors.category}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Unit of Measure</InputLabel>
+                  <Select
+                    name="unitOfMeasure"
+                    value={formData.unitOfMeasure}
+                    onChange={handleFormChange}
+                    label="Unit of Measure"
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    <MenuItem value="EA" sx={{ fontSize: '0.8rem' }}>Each (EA)</MenuItem>
+                    <MenuItem value="LTR" sx={{ fontSize: '0.8rem' }}>Litre (LTR)</MenuItem>
+                    <MenuItem value="KG" sx={{ fontSize: '0.8rem' }}>Kilogram (KG)</MenuItem>
+                    <MenuItem value="M" sx={{ fontSize: '0.8rem' }}>Meter (M)</MenuItem>
+                    <MenuItem value="BOX" sx={{ fontSize: '0.8rem' }}>Box (BOX)</MenuItem>
+                    <MenuItem value="PK" sx={{ fontSize: '0.8rem' }}>Pack (PK)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Quantity"
+                  name="quantity"
+                  type="number"
+                  value={formData.quantity}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.quantity}
+                  helperText={formErrors.quantity}
+                  InputProps={{ inputProps: { min: 0 } }}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Min Level"
+                  name="minLevel"
+                  type="number"
+                  value={formData.minLevel}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.minLevel}
+                  helperText={formErrors.minLevel}
+                  InputProps={{ inputProps: { min: 0 } }}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Unit Cost (R)"
+                  name="unitCost"
+                  type="number"
+                  value={formData.unitCost}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.unitCost}
+                  helperText={formErrors.unitCost}
+                  InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small" error={!!formErrors.locationId}>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Location *</InputLabel>
+                  <Select
+                    name="locationId"
+                    value={formData.locationId}
+                    onChange={handleFormChange}
+                    label="Location *"
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Location</MenuItem>
+                    {locations.map((loc) => (
+                      <MenuItem key={loc.id} value={loc.id} sx={{ fontSize: '0.8rem' }}>{loc.name}</MenuItem>
+                    ))}
+                  </Select>
+                  {formErrors.locationId && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, fontSize: '0.7rem' }}>
+                      {formErrors.locationId}
+                    </Typography>
+                  )}
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isConsumable"
+                      checked={formData.isConsumable}
+                      onChange={handleFormChange}
+                      size="small"
+                    />
+                  }
+                  label="Is Consumable Item"
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Notes"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleFormChange}
+                  fullWidth
+                  size="small"
+                  multiline
+                  rows={2}
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+            </Grid>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+          <Button onClick={() => setShowAddDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button variant="contained" size="small" onClick={handleSubmit} sx={{ fontSize: '0.8rem' }}>
+            {selectedItem ? 'Update Item' : 'Add Item'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      {/* Vehicle Issue Dialog */}
+      {/* View Dialog */}
+      <Dialog open={showViewDialog} onClose={() => setShowViewDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Item Details</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2.5 }}>
+          {selectedItem && (
+            <Stack spacing={2}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Name</Typography>
+                  <Typography variant="body1" sx={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedItem.name}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Category</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.category || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Unit of Measure</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.unitOfMeasure || 'EA'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Quantity</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedItem.quantity}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Min Level</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.minLevel || 0}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Unit Cost</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>R {selectedItem.unitCost?.toFixed(2) || '0.00'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Location</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                    {locations.find(l => l.id === selectedItem.locationId)?.name || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
+                  <Chip
+                    label={selectedItem.quantity <= 0 ? 'Out of Stock' : selectedItem.quantity <= selectedItem.minLevel ? 'Low Stock' : 'In Stock'}
+                    color={selectedItem.quantity <= 0 ? 'error' : selectedItem.quantity <= selectedItem.minLevel ? 'warning' : 'success'}
+                    size="small"
+                    sx={{ mt: 0.5, height: 20, fontSize: '0.65rem' }}
+                  />
+                </Grid>
+                {selectedItem.notes && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.notes}</Typography>
+                  </Grid>
+                )}
+              </Grid>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+          <Button onClick={() => setShowViewDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Vehicle Issue Dialog - FIXED */}
       <Dialog open={showIssueDialog} onClose={() => setShowIssueDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Issue Item to Vehicle</Typography>
         </DialogTitle>
         <DialogContent sx={{ p: 2.5 }}>
-          {selectedItem && (
-            <Stack spacing={2}>
-              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity})</Alert>
-              <FormControl fullWidth size="small" required>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
-                <Select value={issueFormData.vehicleId} onChange={(e) => setIssueFormData(prev => ({ ...prev, vehicleId: e.target.value }))} label="Vehicle *" disabled={loadingVehicles} sx={{ fontSize: '0.8rem' }}>
-                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingVehicles ? 'Loading vehicles...' : 'Select Vehicle'}</MenuItem>
-                  {vehicles.map((vehicle) => (
-                    <MenuItem key={vehicle.id} value={vehicle.id} sx={{ fontSize: '0.8rem' }}>
-                      {vehicle.registrationNumber || vehicle.regNumber || `Vehicle #${vehicle.id}`}
-                      {vehicle.make && ` - ${vehicle.make}`}{vehicle.model && ` ${vehicle.model}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small" required>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
-                <Select value={issueFormData.driverId} onChange={(e) => setIssueFormData(prev => ({ ...prev, driverId: e.target.value }))} label="Driver *" disabled={loadingDrivers} sx={{ fontSize: '0.8rem' }}>
-                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingDrivers ? 'Loading drivers...' : 'Select Driver'}</MenuItem>
-                  {drivers.map((driver) => (
-                    <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: '0.8rem' }}>
-                      {driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField label="Trip ID (Optional)" type="number" value={issueFormData.tripId} onChange={(e) => setIssueFormData(prev => ({ ...prev, tripId: e.target.value }))} fullWidth size="small" />
-              <TextField label="Quantity *" type="number" value={issueFormData.quantity} onChange={(e) => setIssueFormData(prev => ({ ...prev, quantity: e.target.value }))} fullWidth size="small" InputProps={{ inputProps: { min: 0.01, max: selectedItem.quantity } }} helperText={`Max: ${selectedItem.quantity}`} />
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
-                <Select value={issueFormData.condition} onChange={(e) => setIssueFormData(prev => ({ ...prev, condition: e.target.value }))} label="Condition" sx={{ fontSize: '0.8rem' }}>
-                  <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
-                  <MenuItem value="NEW" sx={{ fontSize: '0.8rem' }}>New</MenuItem>
-                  <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField label="Notes" value={issueFormData.notes} onChange={(e) => setIssueFormData(prev => ({ ...prev, notes: e.target.value }))} fullWidth size="small" multiline rows={2} />
-            </Stack>
-          )}
+          <Stack spacing={2}>
+            {/* Item Selection - Always shown */}
+            <FormControl fullWidth size="small" required>
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Select Item *</InputLabel>
+              <Select
+                value={selectedItem?.id || issueFormData.itemId || ''}
+                onChange={(e) => {
+                  const item = inventoryItems.find(i => i.id === e.target.value);
+                  setSelectedItem(item);
+                  setIssueFormData(prev => ({ 
+                    ...prev, 
+                    itemId: e.target.value,
+                    quantity: 1 // Reset quantity when item changes
+                  }));
+                }}
+                label="Select Item *"
+                sx={{ fontSize: '0.8rem' }}
+              >
+                <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
+                {inventoryItems.map((item) => (
+                  <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                    {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {selectedItem && (
+              <>
+                <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+                  Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity} {selectedItem.unitOfMeasure || 'EA'})
+                </Alert>
+                
+                <FormControl fullWidth size="small" required>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
+                  <Select 
+                    value={issueFormData.vehicleId} 
+                    onChange={(e) => setIssueFormData(prev => ({ ...prev, vehicleId: e.target.value }))} 
+                    label="Vehicle *" 
+                    disabled={loadingVehicles} 
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingVehicles ? 'Loading vehicles...' : 'Select Vehicle'}</MenuItem>
+                    {vehicles.map((vehicle) => (
+                      <MenuItem key={vehicle.id} value={vehicle.id} sx={{ fontSize: '0.8rem' }}>
+                        {vehicle.registrationNumber || vehicle.regNumber || `Vehicle #${vehicle.id}`}
+                        {vehicle.make && ` - ${vehicle.make}`}{vehicle.model && ` ${vehicle.model}`}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <FormControl fullWidth size="small" required>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
+                  <Select 
+                    value={issueFormData.driverId} 
+                    onChange={(e) => setIssueFormData(prev => ({ ...prev, driverId: e.target.value }))} 
+                    label="Driver *" 
+                    disabled={loadingDrivers} 
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingDrivers ? 'Loading drivers...' : 'Select Driver'}</MenuItem>
+                    {drivers.map((driver) => (
+                      <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: '0.8rem' }}>
+                        {driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <TextField 
+                  label="Trip ID (Optional)" 
+                  type="number" 
+                  value={issueFormData.tripId} 
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, tripId: e.target.value }))} 
+                  fullWidth 
+                  size="small" 
+                />
+                
+                <TextField 
+                  label="Quantity *" 
+                  type="number" 
+                  value={issueFormData.quantity} 
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, quantity: e.target.value }))} 
+                  fullWidth 
+                  size="small" 
+                  InputProps={{ 
+                    inputProps: { 
+                      min: 0.01, 
+                      max: selectedItem.quantity 
+                    } 
+                  }} 
+                  helperText={`Max: ${selectedItem.quantity}`} 
+                />
+                
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
+                  <Select 
+                    value={issueFormData.condition} 
+                    onChange={(e) => setIssueFormData(prev => ({ ...prev, condition: e.target.value }))} 
+                    label="Condition" 
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
+                    <MenuItem value="NEW" sx={{ fontSize: '0.8rem' }}>New</MenuItem>
+                    <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <TextField 
+                  label="Notes" 
+                  value={issueFormData.notes} 
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, notes: e.target.value }))} 
+                  fullWidth 
+                  size="small" 
+                  multiline 
+                  rows={2} 
+                />
+              </>
+            )}
+          </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowIssueDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>Cancel</Button>
-          <Button variant="contained" size="small" onClick={handleSubmitVehicleIssue} sx={{ fontSize: '0.8rem' }}>Issue Item</Button>
+          <Button onClick={() => setShowIssueDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            size="small" 
+            onClick={handleSubmitVehicleIssue} 
+            sx={{ fontSize: '0.8rem' }}
+            disabled={!selectedItem || !issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0}
+          >
+            Issue Item
+          </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Driver Issue Dialog */}
+      {/* Driver Issue Dialog - FIXED */}
       <Dialog open={showDriverIssueDialog} onClose={() => setShowDriverIssueDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Issue Item to Driver</Typography>
         </DialogTitle>
         <DialogContent sx={{ p: 2.5 }}>
-          {selectedItem && (
-            <Stack spacing={2}>
-              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity})</Alert>
-              <FormControl fullWidth size="small" required>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
-                <Select value={driverIssueFormData.driverId} onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, driverId: e.target.value }))} label="Driver *" disabled={loadingDrivers} sx={{ fontSize: '0.8rem' }}>
-                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingDrivers ? 'Loading drivers...' : 'Select Driver'}</MenuItem>
-                  {drivers.map((driver) => (
-                    <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: '0.8rem' }}>
-                      {driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField label="Quantity *" type="number" value={driverIssueFormData.quantity} onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, quantity: e.target.value }))} fullWidth size="small" InputProps={{ inputProps: { min: 0.01, max: selectedItem.quantity } }} helperText={`Max: ${selectedItem.quantity}`} />
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
-                <Select value={driverIssueFormData.condition} onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, condition: e.target.value }))} label="Condition" sx={{ fontSize: '0.8rem' }}>
-                  <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
-                  <MenuItem value="NEW" sx={{ fontSize: '0.8rem' }}>New</MenuItem>
-                  <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField label="Notes" value={driverIssueFormData.notes} onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, notes: e.target.value }))} fullWidth size="small" multiline rows={2} />
-            </Stack>
-          )}
+          <Stack spacing={2}>
+            {/* Item Selection - Always shown */}
+            <FormControl fullWidth size="small" required>
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Select Item *</InputLabel>
+              <Select
+                value={selectedItem?.id || ''}
+                onChange={(e) => {
+                  const item = inventoryItems.find(i => i.id === e.target.value);
+                  setSelectedItem(item);
+                  setDriverIssueFormData(prev => ({ 
+                    ...prev, 
+                    quantity: 1 // Reset quantity when item changes
+                  }));
+                }}
+                label="Select Item *"
+                sx={{ fontSize: '0.8rem' }}
+              >
+                <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
+                {inventoryItems.map((item) => (
+                  <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                    {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {selectedItem && (
+              <>
+                <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+                  Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity} {selectedItem.unitOfMeasure || 'EA'})
+                </Alert>
+                
+                <FormControl fullWidth size="small" required>
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
+                  <Select 
+                    value={driverIssueFormData.driverId} 
+                    onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, driverId: e.target.value }))} 
+                    label="Driver *" 
+                    disabled={loadingDrivers} 
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingDrivers ? 'Loading drivers...' : 'Select Driver'}</MenuItem>
+                    {drivers.map((driver) => (
+                      <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: '0.8rem' }}>
+                        {driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <TextField 
+                  label="Quantity *" 
+                  type="number" 
+                  value={driverIssueFormData.quantity} 
+                  onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, quantity: e.target.value }))} 
+                  fullWidth 
+                  size="small" 
+                  InputProps={{ 
+                    inputProps: { 
+                      min: 0.01, 
+                      max: selectedItem.quantity 
+                    } 
+                  }} 
+                  helperText={`Max: ${selectedItem.quantity}`} 
+                />
+                
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
+                  <Select 
+                    value={driverIssueFormData.condition} 
+                    onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, condition: e.target.value }))} 
+                    label="Condition" 
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
+                    <MenuItem value="NEW" sx={{ fontSize: '0.8rem' }}>New</MenuItem>
+                    <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <TextField 
+                  label="Notes" 
+                  value={driverIssueFormData.notes} 
+                  onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, notes: e.target.value }))} 
+                  fullWidth 
+                  size="small" 
+                  multiline 
+                  rows={2} 
+                />
+              </>
+            )}
+          </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowDriverIssueDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>Cancel</Button>
-          <Button variant="contained" size="small" onClick={handleSubmitDriverIssue} sx={{ fontSize: '0.8rem' }}>Issue to Driver</Button>
+          <Button onClick={() => setShowDriverIssueDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            size="small" 
+            onClick={handleSubmitDriverIssue} 
+            sx={{ fontSize: '0.8rem' }}
+            disabled={!selectedItem || !driverIssueFormData.driverId || driverIssueFormData.quantity <= 0}
+          >
+            Issue to Driver
+          </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Return Dialog */}
+      {/* Return Dialog - FIXED */}
       <Dialog open={showReturnDialog} onClose={() => setShowReturnDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Return Item</Typography>
@@ -1414,11 +1927,27 @@ const Inventory = () => {
         <DialogContent sx={{ p: 2.5 }}>
           {selectedItem && (
             <Stack spacing={2}>
-              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>Returning: <strong>{selectedItem.name}</strong></Alert>
-              <TextField label="Quantity *" type="number" value={returnFormData.quantity} onChange={(e) => setReturnFormData(prev => ({ ...prev, quantity: e.target.value }))} fullWidth size="small" InputProps={{ inputProps: { min: 0.01 } }} />
+              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+                Returning: <strong>{selectedItem.name}</strong>
+                {selectedIssue && ` from ${selectedIssue.issueNumber}`}
+              </Alert>
+              <TextField 
+                label="Quantity *" 
+                type="number" 
+                value={returnFormData.quantity} 
+                onChange={(e) => setReturnFormData(prev => ({ ...prev, quantity: e.target.value }))} 
+                fullWidth 
+                size="small" 
+                InputProps={{ inputProps: { min: 0.01 } }} 
+              />
               <FormControl fullWidth size="small">
                 <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
-                <Select value={returnFormData.condition} onChange={(e) => setReturnFormData(prev => ({ ...prev, condition: e.target.value }))} label="Condition" sx={{ fontSize: '0.8rem' }}>
+                <Select 
+                  value={returnFormData.condition} 
+                  onChange={(e) => setReturnFormData(prev => ({ ...prev, condition: e.target.value }))} 
+                  label="Condition" 
+                  sx={{ fontSize: '0.8rem' }}
+                >
                   <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
                   <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
                   <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
@@ -1426,17 +1955,35 @@ const Inventory = () => {
                   <MenuItem value="BROKEN" sx={{ fontSize: '0.8rem' }}>Broken</MenuItem>
                 </Select>
               </FormControl>
-              <TextField label="Notes" value={returnFormData.notes} onChange={(e) => setReturnFormData(prev => ({ ...prev, notes: e.target.value }))} fullWidth size="small" multiline rows={2} />
+              <TextField 
+                label="Notes" 
+                value={returnFormData.notes} 
+                onChange={(e) => setReturnFormData(prev => ({ ...prev, notes: e.target.value }))} 
+                fullWidth 
+                size="small" 
+                multiline 
+                rows={2} 
+              />
             </Stack>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowReturnDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>Cancel</Button>
-          <Button variant="contained" size="small" onClick={handleSubmitReturn} sx={{ fontSize: '0.8rem' }}>Return Item</Button>
+          <Button onClick={() => setShowReturnDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            size="small" 
+            onClick={handleSubmitReturn} 
+            sx={{ fontSize: '0.8rem' }}
+            disabled={returnFormData.quantity <= 0}
+          >
+            Return Item
+          </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Swap Dialog */}
+      {/* Swap Dialog - FIXED */}
       <Dialog open={showSwapDialog} onClose={() => setShowSwapDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Swap Item</Typography>
@@ -1448,40 +1995,101 @@ const Inventory = () => {
                 Swapping: <strong>{selectedIssueItem.itemName || `Item #${selectedIssueItem.itemId}`}</strong>
                 <br />From Issue: <strong>{selectedIssue.issueNumber}</strong>
               </Alert>
-              <TextField label="Old Item" value={selectedIssueItem.itemName || `Item #${selectedIssueItem.itemId}`} fullWidth size="small" disabled />
+              
+              <TextField 
+                label="Current Item" 
+                value={selectedIssueItem.itemName || `Item #${selectedIssueItem.itemId}`} 
+                fullWidth 
+                size="small" 
+                disabled 
+              />
+              
               <FormControl fullWidth size="small" required>
                 <InputLabel sx={{ fontSize: '0.75rem' }}>Replacement Item *</InputLabel>
-                <Select value={swapFormData.newItemId} onChange={(e) => setSwapFormData(prev => ({ ...prev, newItemId: e.target.value }))} label="Replacement Item *" sx={{ fontSize: '0.8rem' }}>
+                <Select 
+                  value={swapFormData.newItemId} 
+                  onChange={(e) => setSwapFormData(prev => ({ ...prev, newItemId: e.target.value }))} 
+                  label="Replacement Item *" 
+                  sx={{ fontSize: '0.8rem' }}
+                >
                   <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Replacement Item</MenuItem>
-                  {inventoryItems.filter(item => item.id !== selectedIssueItem.itemId).map((item) => (
-                    <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>{item.name} (Available: {item.quantity})</MenuItem>
-                  ))}
+                  {inventoryItems
+                    .filter(item => item.id !== selectedIssueItem.itemId)
+                    .map((item) => (
+                      <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                        {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
+              
               <Grid container spacing={1.5}>
                 <Grid item xs={6}>
-                  <TextField label="Quantity" type="number" value={swapFormData.newQuantity} onChange={(e) => setSwapFormData(prev => ({ ...prev, newQuantity: e.target.value }))} fullWidth size="small" InputProps={{ inputProps: { min: 1 } }} />
+                  <TextField 
+                    label="New Quantity" 
+                    type="number" 
+                    value={swapFormData.newQuantity} 
+                    onChange={(e) => setSwapFormData(prev => ({ ...prev, newQuantity: e.target.value }))} 
+                    fullWidth 
+                    size="small" 
+                    InputProps={{ inputProps: { min: 1 } }} 
+                  />
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField label="Return Quantity" type="number" value={swapFormData.returnQuantity} onChange={(e) => setSwapFormData(prev => ({ ...prev, returnQuantity: e.target.value }))} fullWidth size="small" InputProps={{ inputProps: { min: 0.01 } }} />
+                  <TextField 
+                    label="Return Quantity" 
+                    type="number" 
+                    value={swapFormData.returnQuantity} 
+                    onChange={(e) => setSwapFormData(prev => ({ ...prev, returnQuantity: e.target.value }))} 
+                    fullWidth 
+                    size="small" 
+                    InputProps={{ inputProps: { min: 0.01 } }} 
+                  />
                 </Grid>
               </Grid>
+              
               <FormControl fullWidth size="small" required>
                 <InputLabel sx={{ fontSize: '0.75rem' }}>Damaged Condition *</InputLabel>
-                <Select value={swapFormData.damagedCondition} onChange={(e) => setSwapFormData(prev => ({ ...prev, damagedCondition: e.target.value }))} label="Damaged Condition *" sx={{ fontSize: '0.8rem' }}>
+                <Select 
+                  value={swapFormData.damagedCondition} 
+                  onChange={(e) => setSwapFormData(prev => ({ ...prev, damagedCondition: e.target.value }))} 
+                  label="Damaged Condition *" 
+                  sx={{ fontSize: '0.8rem' }}
+                >
                   <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
                   <MenuItem value="FAULTY" sx={{ fontSize: '0.8rem' }}>Faulty</MenuItem>
                   <MenuItem value="BROKEN" sx={{ fontSize: '0.8rem' }}>Broken</MenuItem>
                   <MenuItem value="WORN" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
                 </Select>
               </FormControl>
-              <TextField label="Damage Notes" value={swapFormData.damageNotes} onChange={(e) => setSwapFormData(prev => ({ ...prev, damageNotes: e.target.value }))} fullWidth size="small" multiline rows={2} placeholder="Describe the damage or issue..." />
+              
+              <TextField 
+                label="Damage Notes" 
+                value={swapFormData.damageNotes} 
+                onChange={(e) => setSwapFormData(prev => ({ ...prev, damageNotes: e.target.value }))} 
+                fullWidth 
+                size="small" 
+                multiline 
+                rows={2} 
+                placeholder="Describe the damage or issue..." 
+              />
             </Stack>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowSwapDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>Cancel</Button>
-          <Button variant="contained" color="warning" size="small" onClick={handleSubmitSwap} sx={{ fontSize: '0.8rem' }}>Swap Item</Button>
+          <Button onClick={() => setShowSwapDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="warning" 
+            size="small" 
+            onClick={handleSubmitSwap} 
+            sx={{ fontSize: '0.8rem' }}
+            disabled={!swapFormData.newItemId || swapFormData.newQuantity <= 0}
+          >
+            Swap Item
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
