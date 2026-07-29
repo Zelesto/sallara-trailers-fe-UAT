@@ -70,6 +70,9 @@ import {
   Event as EventIcon,
   Description as DescriptionIcon,
   PersonAdd as PersonAddIcon,
+  AddCircle as AddCircleIcon,
+  RemoveCircle as RemoveCircleIcon,
+  Adjust as AdjustIcon,
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -127,8 +130,18 @@ const TabPanel = ({ children, value, index, ...other }) => (
   </div>
 );
 
-// Inventory Item Component
-const InventoryItemRow = ({ item, onView, onEdit, onDelete, locations, onIssue, onReceive, onIssueToDriver }) => {
+// Inventory Item Component - UPDATED with onMovement
+const InventoryItemRow = ({ 
+  item, 
+  onView, 
+  onEdit, 
+  onDelete, 
+  locations, 
+  onIssue, 
+  onReceive, 
+  onIssueToDriver,
+  onMovement // Added this
+}) => {
   const getStatusConfig = (quantity, minLevel) => {
     if (quantity <= 0) {
       return { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Out of Stock' };
@@ -230,18 +243,27 @@ const InventoryItemRow = ({ item, onView, onEdit, onDelete, locations, onIssue, 
               <Edit sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
-          {isConsumable && (
+          <Tooltip title="Stock Movement">
+            <IconButton size="small" color="info" onClick={() => onMovement(item)} sx={{ p: 0.5 }}>
+              <SwapHoriz sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
+          {isConsumable && !item.isHeld && item.isActive && (
             <>
-              <Tooltip title="Issue to Vehicle">
-                <IconButton size="small" color="warning" onClick={() => onIssue(item)} sx={{ p: 0.5 }}>
-                  <DirectionsCar sx={{ fontSize: '0.9rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Issue to Driver">
-                <IconButton size="small" color="info" onClick={() => onIssueToDriver(item)} sx={{ p: 0.5 }}>
-                  <Person sx={{ fontSize: '0.9rem' }} />
-                </IconButton>
-              </Tooltip>
+              {item.isVehicleIssuable !== false && (
+                <Tooltip title="Issue to Vehicle">
+                  <IconButton size="small" color="warning" onClick={() => onIssue(item)} sx={{ p: 0.5 }}>
+                    <DirectionsCar sx={{ fontSize: '0.9rem' }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {item.isDriverIssuable !== false && (
+                <Tooltip title="Issue to Driver">
+                  <IconButton size="small" color="info" onClick={() => onIssueToDriver(item)} sx={{ p: 0.5 }}>
+                    <Person sx={{ fontSize: '0.9rem' }} />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title="Receive Return">
                 <IconButton size="small" color="success" onClick={() => onReceive(item)} sx={{ p: 0.5 }}>
                   <SwapHoriz sx={{ fontSize: '0.9rem' }} />
@@ -482,11 +504,12 @@ const Inventory = () => {
   const [showDriverIssueDialog, setShowDriverIssueDialog] = useState(false);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [showSwapDialog, setShowSwapDialog] = useState(false);
+  const [showMovementDialog, setShowMovementDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedIssueItem, setSelectedIssueItem] = useState(null);
 
-  // Form states - Updated with all new columns
+  // Form states
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -538,6 +561,13 @@ const Inventory = () => {
     damageNotes: '',
     issueType: 'vehicle',
   });
+  const [movementFormData, setMovementFormData] = useState({
+    itemId: '',
+    quantity: 0,
+    operation: 'ADD',
+    reason: '',
+    notes: '',
+  });
 
   // Load data
   useEffect(() => {
@@ -558,6 +588,21 @@ const Inventory = () => {
       } else if (itemsResponse?.data) {
         itemsData = Array.isArray(itemsResponse.data) ? itemsResponse.data : [];
       }
+
+      // Ensure all items have the new fields with defaults
+      itemsData = itemsData.map(item => ({
+        ...item,
+        isDriverIssuable: item.isDriverIssuable !== undefined ? item.isDriverIssuable : true,
+        isVehicleIssuable: item.isVehicleIssuable !== undefined ? item.isVehicleIssuable : true,
+        isActive: item.isActive !== undefined ? item.isActive : true,
+        isHeld: item.isHeld || false,
+        holdCode: item.holdCode || null,
+        holdDate: item.holdDate || null,
+        holdReason: item.holdReason || null,
+        heldBy: item.heldBy || null,
+        returnByDate: item.returnByDate || null,
+      }));
+
       setInventoryItems(itemsData);
 
       // Get locations
@@ -589,7 +634,7 @@ const Inventory = () => {
         setLoadingVehicles(false);
       }
 
-      // Get drivers
+      // Get drivers - FIXED: was calling vehicleService instead of driverService
       try {
         setLoadingDrivers(true);
         const driversResponse = await driverService.getAllDrivers();
@@ -679,6 +724,58 @@ const Inventory = () => {
     setActiveTab(newValue);
     if (newValue === 1) loadVehicleIssues();
     if (newValue === 2) loadDriverIssues();
+  };
+
+  // Movement Operations
+  const handleMovement = (item) => {
+    setSelectedItem(item);
+    setMovementFormData({
+      itemId: item.id,
+      quantity: 0,
+      operation: 'ADD',
+      reason: '',
+      notes: '',
+    });
+    setShowMovementDialog(true);
+  };
+
+  const handleSubmitMovement = async () => {
+    try {
+      if (!movementFormData.itemId || movementFormData.quantity <= 0) {
+        setError('Please select an item and enter a valid quantity');
+        return;
+      }
+
+      if (!movementFormData.reason) {
+        setError('Please provide a reason for the movement');
+        return;
+      }
+
+      const payload = {
+        itemId: parseInt(movementFormData.itemId),
+        quantity: parseFloat(movementFormData.quantity),
+        operation: movementFormData.operation,
+        reason: movementFormData.reason,
+        notes: movementFormData.notes,
+      };
+
+      console.log('📦 Submitting movement:', payload);
+      
+      await inventoryService.updateQuantity(
+        payload.itemId,
+        payload.quantity,
+        payload.operation
+      );
+
+      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
+      setShowMovementDialog(false);
+      resetForms();
+      await loadData();
+    } catch (err) {
+      console.error('Error updating stock:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
+      setError(errorMessage);
+    }
   };
 
   // CRUD Operations
@@ -1274,6 +1371,7 @@ const Inventory = () => {
                         onIssue={handleIssueItem}
                         onReceive={handleReceiveItem}
                         onIssueToDriver={handleIssueToDriver}
+                        onMovement={handleMovement} // ADDED THIS
                       />
                     ))
                   )}
@@ -1463,7 +1561,7 @@ const Inventory = () => {
 
       {/* ==================== DIALOGS ==================== */}
 
-      {/* Add/Edit Item Dialog - Updated with all new columns */}
+      {/* Add/Edit Item Dialog */}
       <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
@@ -1473,7 +1571,6 @@ const Inventory = () => {
         <DialogContent sx={{ p: 2.5 }}>
           <Stack spacing={2}>
             <Grid container spacing={2}>
-              {/* Basic Information */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
                   Basic Information
@@ -1527,7 +1624,6 @@ const Inventory = () => {
                 </FormControl>
               </Grid>
 
-              {/* Stock Information */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
                   Stock Information
@@ -1615,7 +1711,6 @@ const Inventory = () => {
                 </FormControl>
               </Grid>
 
-              {/* Flags and Settings */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
                   Settings & Flags
@@ -1692,7 +1787,6 @@ const Inventory = () => {
                 />
               </Grid>
 
-              {/* Hold Information */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
                   Hold Information
@@ -1766,7 +1860,6 @@ const Inventory = () => {
                 </>
               )}
 
-              {/* Notes */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
                   Additional Information
@@ -1799,7 +1892,7 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - Updated with all new columns */}
+      {/* View Dialog */}
       <Dialog open={showViewDialog} onClose={() => setShowViewDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Item Details</Typography>
@@ -2380,6 +2473,129 @@ const Inventory = () => {
             disabled={!swapFormData.newItemId || swapFormData.newQuantity <= 0}
           >
             Swap Item
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Movement Dialog */}
+      <Dialog open={showMovementDialog} onClose={() => setShowMovementDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+            Stock Movement
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2.5 }}>
+          {selectedItem && (
+            <Stack spacing={2}>
+              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+                <strong>{selectedItem.name}</strong>
+                <br />
+                Current Quantity: <strong>{selectedItem.quantity}</strong> {selectedItem.unitOfMeasure || 'EA'}
+                <br />
+                Min Level: {selectedItem.minLevel || 0}
+              </Alert>
+
+              <FormControl fullWidth size="small" required>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Operation *</InputLabel>
+                <Select
+                  value={movementFormData.operation}
+                  onChange={(e) => setMovementFormData(prev => ({ ...prev, operation: e.target.value }))}
+                  label="Operation *"
+                  sx={{ fontSize: '0.8rem' }}
+                >
+                  <MenuItem value="ADD" sx={{ fontSize: '0.8rem' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <AddCircleIcon sx={{ fontSize: '0.9rem', color: 'success.main' }} />
+                      <span>Stock In (Add)</span>
+                    </Stack>
+                  </MenuItem>
+                  <MenuItem value="SUBTRACT" sx={{ fontSize: '0.8rem' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <RemoveCircleIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
+                      <span>Stock Out (Subtract)</span>
+                    </Stack>
+                  </MenuItem>
+                  <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <AdjustIcon sx={{ fontSize: '0.9rem', color: 'warning.main' }} />
+                      <span>Adjust (Set)</span>
+                    </Stack>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Quantity *"
+                type="number"
+                value={movementFormData.quantity}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                fullWidth
+                size="small"
+                InputProps={{
+                  inputProps: {
+                    min: movementFormData.operation === 'SUBTRACT' ? 0.01 : 0,
+                    max: movementFormData.operation === 'SUBTRACT' ? selectedItem.quantity : undefined,
+                    step: 0.01
+                  }
+                }}
+                helperText={
+                  movementFormData.operation === 'SUBTRACT' 
+                    ? `Max: ${selectedItem.quantity}` 
+                    : movementFormData.operation === 'SET'
+                    ? `Set to new quantity`
+                    : 'Enter quantity to add'
+                }
+              />
+
+              <TextField
+                label="Reason *"
+                value={movementFormData.reason}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, reason: e.target.value }))}
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
+                placeholder="e.g., New stock received, Damaged items, Inventory adjustment"
+              />
+
+              <TextField
+                label="Notes"
+                value={movementFormData.notes}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, notes: e.target.value }))}
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
+                placeholder="Additional notes about this movement"
+              />
+
+              {movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem.quantity && (
+                <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
+                  Insufficient stock! Available: {selectedItem.quantity}
+                </Alert>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+          <Button onClick={() => setShowMovementDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSubmitMovement}
+            sx={{ fontSize: '0.8rem' }}
+            disabled={
+              !movementFormData.itemId || 
+              movementFormData.quantity <= 0 || 
+              !movementFormData.reason ||
+              (movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem?.quantity)
+            }
+          >
+            {movementFormData.operation === 'ADD' && 'Add Stock'}
+            {movementFormData.operation === 'SUBTRACT' && 'Remove Stock'}
+            {movementFormData.operation === 'SET' && 'Set Quantity'}
           </Button>
         </DialogActions>
       </Dialog>
