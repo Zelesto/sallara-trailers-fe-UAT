@@ -66,6 +66,54 @@ export const vehicleIssueService = {
     }
   },
 
+  // Driver Issue Methods
+getDriverIssues: async () => {
+  try {
+    console.log('📤 Fetching driver issues from API');
+    const response = await api.get('/inventory/driver-issues');
+    console.log('📥 Driver issues response:', response);
+    const data = response.data || response;
+    return Array.isArray(data) ? data : (data?.content || []);
+  } catch (error) {
+    console.error('❌ Error fetching driver issues:', error);
+    return [];
+  }
+},
+
+createDriverIssue: async (data) => {
+  try {
+    console.log('📤 Creating driver issue:', data);
+    const response = await api.post('/inventory/driver-issues', data);
+    console.log('📥 Create driver issue response:', response);
+    return response.data || response;
+  } catch (error) {
+    console.error('❌ Error creating driver issue:', error);
+    throw error;
+  }
+},
+
+returnDriverItems: async (issueId, returnData) => {
+  try {
+    console.log('📤 Returning driver items:', issueId, returnData);
+    const response = await api.post(`/inventory/driver-issues/${issueId}/return`, returnData);
+    return response.data || response;
+  } catch (error) {
+    console.error('❌ Error returning driver items:', error);
+    throw error;
+  }
+},
+
+swapDriverItem: async (issueId, swapData) => {
+  try {
+    console.log('📤 Swapping driver item:', issueId, swapData);
+    const response = await api.post(`/inventory/driver-issues/${issueId}/swap`, swapData);
+    return response.data || response;
+  } catch (error) {
+    console.error('❌ Error swapping driver item:', error);
+    throw error;
+  }
+},
+
   /**
    * Create a new vehicle issue
    */
