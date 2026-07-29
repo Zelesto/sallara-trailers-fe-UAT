@@ -246,12 +246,7 @@ const InventoryItemRow = ({ item, onView, onEdit, onDelete, locations, onIssue, 
 
 // Vehicle Issue Row Component
 const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers }) => {
-  console.log('🔍 Rendering VehicleIssueRow:', issue);
-  
-  if (!issue) {
-    console.warn('⚠️ Issue is null or undefined');
-    return null;
-  }
+  if (!issue) return null;
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -359,8 +354,6 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers })
 
 // Driver Issue Row Component
 const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryItems }) => {
-  console.log('🔍 Rendering DriverIssueRow:', issue);
-  
   if (!issue) return null;
 
   const getStatusColor = (status) => {
@@ -446,6 +439,7 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
   );
 };
 
+// Main Inventory Component
 const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -491,22 +485,22 @@ const Inventory = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [issueFormData, setIssueFormData] = useState({
-    itemId: '', // Added for selecting item in dialog
+    itemId: '',
     vehicleId: '',
     driverId: '',
     tripId: '',
-    quantity: 0,
+    quantity: 1,
     condition: 'NEW',
     notes: '',
   });
   const [driverIssueFormData, setDriverIssueFormData] = useState({
     driverId: '',
-    quantity: 0,
+    quantity: 1,
     condition: 'NEW',
     notes: '',
   });
   const [returnFormData, setReturnFormData] = useState({
-    quantity: 0,
+    quantity: 1,
     condition: 'DAMAGED',
     notes: '',
   });
@@ -781,7 +775,6 @@ const Inventory = () => {
 
   const handleSubmitVehicleIssue = async () => {
     try {
-      // Use selectedItem or issueFormData.itemId
       const itemId = selectedItem?.id || issueFormData.itemId;
       
       if (!itemId) {
@@ -806,7 +799,6 @@ const Inventory = () => {
         }],
       };
 
-      console.log('🚗 Submitting vehicle issue:', payload);
       await vehicleIssueService.createVehicleIssue(payload);
       showSuccess('Items issued to vehicle successfully');
       setShowIssueDialog(false);
@@ -843,7 +835,6 @@ const Inventory = () => {
         }],
       };
 
-      console.log('👤 Submitting driver issue:', payload);
       await vehicleIssueService.createDriverIssue(payload);
       showSuccess('Items issued to driver successfully');
       setShowDriverIssueDialog(false);
@@ -876,8 +867,6 @@ const Inventory = () => {
         condition: returnFormData.condition,
         notes: returnFormData.notes,
       }];
-
-      console.log('🔄 Submitting return:', returnPayload);
 
       if (selectedIssue?.issueNumber?.startsWith('DI-')) {
         await vehicleIssueService.returnDriverItems(selectedIssue.id, returnPayload);
@@ -915,8 +904,6 @@ const Inventory = () => {
         condition: swapFormData.damagedCondition,
       };
 
-      console.log('🔄 Submitting swap:', swapPayload);
-
       if (swapFormData.issueType === 'driver') {
         await vehicleIssueService.swapDriverItem(selectedIssue.id, swapPayload);
       } else {
@@ -940,7 +927,6 @@ const Inventory = () => {
     if (!validateForm()) return;
 
     try {
-      // Ensure all numeric fields are properly parsed
       const payload = {
         name: formData.name.trim(),
         category: formData.category,
@@ -954,31 +940,21 @@ const Inventory = () => {
         notes: formData.notes || '',
       };
 
-      console.log('📦 Submitting inventory item:', payload);
-
-      let response;
       if (selectedItem) {
-        response = await inventoryService.updateInventoryItem(selectedItem.id, payload);
+        await inventoryService.updateInventoryItem(selectedItem.id, payload);
         showSuccess('Item updated successfully');
       } else {
-        response = await inventoryService.createInventoryItem(payload);
+        await inventoryService.createInventoryItem(payload);
         showSuccess('Item created successfully');
       }
 
-      console.log('✅ Response:', response);
       setShowAddDialog(false);
       resetForms();
       await loadData();
     } catch (err) {
-      console.error('❌ Error saving inventory item:', err);
-      // Show more detailed error
+      console.error('Error saving inventory item:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to save inventory item';
       setError(errorMessage);
-      
-      // Log the full error for debugging      if (err.response) {
-        console.error('Error response:', err.response.data);
-        console.error('Error status:', err.response.status);
-      }
     }
   };
 
@@ -1011,18 +987,18 @@ const Inventory = () => {
       vehicleId: '', 
       driverId: '', 
       tripId: '', 
-      quantity: 0, 
+      quantity: 1, 
       condition: 'NEW', 
       notes: '' 
     });
     setDriverIssueFormData({ 
       driverId: '', 
-      quantity: 0, 
+      quantity: 1, 
       condition: 'NEW', 
       notes: '' 
     });
     setReturnFormData({ 
-      quantity: 0, 
+      quantity: 1, 
       condition: 'DAMAGED', 
       notes: '' 
     });
@@ -1069,6 +1045,7 @@ const Inventory = () => {
     return searchMatch && categoryMatch && statusMatch;
   });
 
+  // Loading state
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -1267,7 +1244,6 @@ const Inventory = () => {
               size="small"
               sx={{ fontSize: '0.75rem' }}
               onClick={() => {
-                // Open dialog with no item selected
                 setSelectedItem(null);
                 setIssueFormData({ 
                   itemId: '',
@@ -1660,14 +1636,13 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Vehicle Issue Dialog - FIXED */}
+      {/* Vehicle Issue Dialog */}
       <Dialog open={showIssueDialog} onClose={() => setShowIssueDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Issue Item to Vehicle</Typography>
         </DialogTitle>
         <DialogContent sx={{ p: 2.5 }}>
           <Stack spacing={2}>
-            {/* Item Selection - Always shown */}
             <FormControl fullWidth size="small" required>
               <InputLabel sx={{ fontSize: '0.75rem' }}>Select Item *</InputLabel>
               <Select
@@ -1678,7 +1653,7 @@ const Inventory = () => {
                   setIssueFormData(prev => ({ 
                     ...prev, 
                     itemId: e.target.value,
-                    quantity: 1 // Reset quantity when item changes
+                    quantity: 1
                   }));
                 }}
                 label="Select Item *"
@@ -1804,14 +1779,13 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Driver Issue Dialog - FIXED */}
+      {/* Driver Issue Dialog */}
       <Dialog open={showDriverIssueDialog} onClose={() => setShowDriverIssueDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Issue Item to Driver</Typography>
         </DialogTitle>
         <DialogContent sx={{ p: 2.5 }}>
           <Stack spacing={2}>
-            {/* Item Selection - Always shown */}
             <FormControl fullWidth size="small" required>
               <InputLabel sx={{ fontSize: '0.75rem' }}>Select Item *</InputLabel>
               <Select
@@ -1821,7 +1795,7 @@ const Inventory = () => {
                   setSelectedItem(item);
                   setDriverIssueFormData(prev => ({ 
                     ...prev, 
-                    quantity: 1 // Reset quantity when item changes
+                    quantity: 1
                   }));
                 }}
                 label="Select Item *"
@@ -1919,7 +1893,7 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Return Dialog - FIXED */}
+      {/* Return Dialog */}
       <Dialog open={showReturnDialog} onClose={() => setShowReturnDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Return Item</Typography>
@@ -1983,7 +1957,7 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Swap Dialog - FIXED */}
+      {/* Swap Dialog */}
       <Dialog open={showSwapDialog} onClose={() => setShowSwapDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Swap Item</Typography>
