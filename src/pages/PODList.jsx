@@ -23,6 +23,11 @@ import {
   Select,
   Badge,
   Pagination,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -105,13 +110,16 @@ const PODList = () => {
     pendingDebrief: 0,
   });
   
-  // ============================================================
-  // FIX: Add pagination state
-  // ============================================================
+  // Pagination state
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+
+  // Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadPods();
@@ -121,31 +129,26 @@ const PODList = () => {
   const loadPods = async () => {
     setLoading(true);
     try {
-      // Build filter params
       const params = {
         page: page,
         size: pageSize,
         sort: 'createdAt,desc',
       };
       
-      // Add status filter if not 'ALL'
       if (filterStatus !== 'ALL') {
         params.status = filterStatus;
       }
       
-      // Add search filter
       if (searchTerm) {
         params.search = searchTerm;
       }
       
       const response = await podService.getAllPods(params);
       
-      // Handle response format
       const data = response?.content || response?.data || [];
       const total = response?.totalElements || response?.total || data.length;
       const pages = response?.totalPages || Math.ceil(total / pageSize);
       
-      // Transform data
       const transformedData = (Array.isArray(data) ? data : []).map(pod => ({
         ...pod,
         tripNumber: pod.tripNumber || pod.trip?.tripNumber || pod.tripId || 'N/A',
@@ -179,17 +182,59 @@ const PODList = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this POD?')) return;
+  // ============================================================
+  // FIX: Delete functionality with dialog
+  // ============================================================
+  const handleDeleteClick = (id) => {
+    setDeleteId(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
     try {
-      await podService.deletePod(id);
+      await podService.deletePod(deleteId);
+      setDeleteDialogOpen(false);
+      setDeleteId(null);
       setSuccessMessage('POD deleted successfully');
       loadPods();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError('Failed to delete POD');
       setTimeout(() => setError(null), 3000);
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setDeleteId(null);
+  };
+
+  // ============================================================
+  // FIX: Edit navigation - ensures proper routing
+  // ============================================================
+  const handleEditClick = (podId) => {
+    console.log('📝 Editing POD ID:', podId);
+    navigate(`/pods/${podId}/edit`);
+  };
+
+  // ============================================================
+  // FIX: View navigation
+  // ============================================================
+  const handleViewClick = (podId) => {
+    console.log('👁️ Viewing POD ID:', podId);
+    navigate(`/pods/${podId}`);
+  };
+
+  // ============================================================
+  // FIX: Debrief navigation
+  // ============================================================
+  const handleDebriefClick = (podId) => {
+    console.log('📋 Debriefing POD ID:', podId);
+    navigate(`/pods/${podId}/debrief`);
   };
 
   const getStatusChip = (status) => {
@@ -353,7 +398,7 @@ const PODList = () => {
             <IconButton
               size="small"
               color="primary"
-              onClick={() => navigate(`/pods/${params.row.id}`)}
+              onClick={() => handleViewClick(params.row.id)}
               sx={{ p: 0.5 }}
             >
               <ViewIcon sx={{ fontSize: '0.9rem' }} />
@@ -364,7 +409,7 @@ const PODList = () => {
               <IconButton
                 size="small"
                 color="success"
-                onClick={() => navigate(`/pods/${params.row.id}/debrief`)}
+                onClick={() => handleDebriefClick(params.row.id)}
                 sx={{ p: 0.5 }}
               >
                 <AssignmentIcon sx={{ fontSize: '0.9rem' }} />
@@ -375,7 +420,7 @@ const PODList = () => {
             <IconButton
               size="small"
               color="secondary"
-              onClick={() => navigate(`/pods/${params.row.id}/edit`)}
+              onClick={() => handleEditClick(params.row.id)}
               sx={{ p: 0.5 }}
             >
               <EditIcon sx={{ fontSize: '0.9rem' }} />
@@ -385,7 +430,7 @@ const PODList = () => {
             <IconButton
               size="small"
               color="error"
-              onClick={() => handleDelete(params.row.id)}
+              onClick={() => handleDeleteClick(params.row.id)}
               sx={{ p: 0.5 }}
             >
               <DeleteIcon sx={{ fontSize: '0.9rem' }} />
@@ -418,22 +463,19 @@ const PODList = () => {
     }
   };
 
-  // ============================================================
-  // FIX: Handle page change
-  // ============================================================
   const handlePageChange = (event, newPage) => {
-    setPage(newPage - 1); // Convert to 0-based
+    setPage(newPage - 1);
   };
 
   const handlePageSizeChange = (event) => {
     const newSize = parseInt(event.target.value, 10);
     setPageSize(newSize);
-    setPage(0); // Reset to first page
+    setPage(0);
   };
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
@@ -480,7 +522,7 @@ const PODList = () => {
       {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>{error}</Alert>}
       {successMessage && <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
 
-      {/* Stats Cards - Compact */}
+      {/* Stats Cards */}
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
         <Grid item xs={6} sm={4} md={2.4}>
           <StatCard title="Total" value={stats.total} color="primary" icon={ReceiptIcon} />
@@ -514,7 +556,7 @@ const PODList = () => {
         </Grid>
       </Grid>
 
-      {/* Filters - Compact */}
+      {/* Filters */}
       <Paper sx={{ p: 1.5, mb: 2 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
           <TextField
@@ -583,7 +625,7 @@ const PODList = () => {
         </Stack>
       </Paper>
 
-      {/* Data Grid - Compact */}
+      {/* Data Grid - FIXED: Removed duplicate pagination, using DataGrid's built-in pagination */}
       <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -591,141 +633,138 @@ const PODList = () => {
             <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading PODs...</Typography>
           </Box>
         ) : (
-          <>
-            <DataGrid
-              rows={pods}
-              columns={columns}
-              pagination
-              pageSize={pageSize}
-              rowsPerPageOptions={[5, 10, 20, 50, 100]}
-              paginationMode="server"
-              rowCount={totalElements}
-              onPageChange={(newPage) => setPage(newPage)}
-              onPageSizeChange={(newPageSize) => {
-                setPageSize(newPageSize);
-                setPage(0);
-              }}
-              checkboxSelection={false}
-              disableRowSelectionOnClick
-              getRowId={(row) => row.id}
-              density="compact"
-              loading={loading}
-              sx={{
-                border: 'none',
+          <DataGrid
+            rows={pods}
+            columns={columns}
+            pagination
+            paginationMode="server"
+            rowCount={totalElements}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={(newPage) => setPage(newPage)}
+            onPageSizeChange={(newPageSize) => {
+              setPageSize(newPageSize);
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 20, 50, 100]}
+            checkboxSelection={false}
+            disableRowSelectionOnClick
+            getRowId={(row) => row.id}
+            density="compact"
+            loading={loading}
+            sx={{
+              border: 'none',
+              fontSize: '0.75rem',
+              '& .MuiDataGrid-cell': {
+                borderRight: '1px solid #f0f0f0',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 8px',
                 fontSize: '0.75rem',
-                '& .MuiDataGrid-cell': {
-                  borderRight: '1px solid #f0f0f0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '0 8px',
-                  fontSize: '0.75rem',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#f8f9fa',
-                  borderBottom: '2px solid #e0e0e0',
+              },
+              '& .MuiDataGrid-columnHeaders': {
+                backgroundColor: '#f8f9fa',
+                borderBottom: '2px solid #e0e0e0',
+                minHeight: '36px !important',
+              },
+              '& .pod-header': {
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                color: '#333',
+              },
+              '& .MuiDataGrid-row:hover': {
+                backgroundColor: '#f5f5f5',
+              },
+              '& .MuiDataGrid-cell:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-columnHeader:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-columnHeaderTitle': {
+                fontWeight: 600,
+                color: '#333',
+                fontSize: '0.65rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.3px',
+              },
+              '& .MuiDataGrid-virtualScroller': {
+                '& .MuiDataGrid-row': {
                   minHeight: '36px !important',
                 },
-                '& .pod-header': {
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  color: '#333',
-                },
-                '& .MuiDataGrid-row:hover': {
-                  backgroundColor: '#f5f5f5',
-                },
-                '& .MuiDataGrid-cell:focus': {
-                  outline: 'none',
-                },
-                '& .MuiDataGrid-columnHeader:focus': {
-                  outline: 'none',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 600,
-                  color: '#333',
-                  fontSize: '0.65rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.3px',
-                },
-                '& .MuiDataGrid-virtualScroller': {
-                  '& .MuiDataGrid-row': {
-                    minHeight: '36px !important',
-                  },
-                },
-              }}
-            />
-            
-            {/* ============================================================
-              FIX: Add custom pagination footer
-              ============================================================ */}
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              p: 1,
-              borderTop: '1px solid #e0e0e0',
-              bgcolor: '#fafafa',
-              borderRadius: '0 0 4px 4px'
-            }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                Showing {pods.length} of {totalElements} PODs
-                {scanningStats.scannedToday > 0 && (
-                  <Chip 
-                    size="small" 
-                    label={`📸 ${scanningStats.scannedToday} scanned today`}
-                    sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
-                    color="info"
-                  />
-                )}
-                {scanningStats.pendingDebrief > 0 && (
-                  <Chip 
-                    size="small" 
-                    label={`⏳ ${scanningStats.pendingDebrief} pending debrief`}
-                    sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
-                    color="warning"
-                  />
-                )}
-              </Typography>
-              
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-                    Rows per page:
-                  </Typography>
-                  <Select
-                    value={pageSize}
-                    onChange={handlePageSizeChange}
-                    size="small"
-                    sx={{ fontSize: '0.65rem', minWidth: 60, height: 28 }}
-                  >
-                    <MenuItem value={5} sx={{ fontSize: '0.65rem' }}>5</MenuItem>
-                    <MenuItem value={10} sx={{ fontSize: '0.65rem' }}>10</MenuItem>
-                    <MenuItem value={20} sx={{ fontSize: '0.65rem' }}>20</MenuItem>
-                    <MenuItem value={50} sx={{ fontSize: '0.65rem' }}>50</MenuItem>
-                    <MenuItem value={100} sx={{ fontSize: '0.65rem' }}>100</MenuItem>
-                  </Select>
-                </Box>
-                
-                <Pagination
-                  count={totalPages}
-                  page={page + 1}
-                  onChange={handlePageChange}
-                  color="primary"
-                  size="small"
-                  showFirstButton
-                  showLastButton
-                />
-              </Stack>
-            </Box>
-          </>
+              },
+            }}
+          />
         )}
       </Paper>
 
-      {/* Footer - Compact */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+      {/* Footer with stats - FIXED: Moved footer outside DataGrid */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mt: 1,
+        p: 1,
+        bgcolor: '#fafafa',
+        borderRadius: 1,
+        border: '1px solid #e0e0e0'
+      }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+          Showing {pods.length} of {totalElements} PODs
+          {scanningStats.scannedToday > 0 && (
+            <Chip 
+              size="small" 
+              label={`📸 ${scanningStats.scannedToday} scanned today`}
+              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
+              color="info"
+            />
+          )}
+          {scanningStats.pendingDebrief > 0 && (
+            <Chip 
+              size="small" 
+              label={`⏳ ${scanningStats.pendingDebrief} pending debrief`}
+              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
+              color="warning"
+            />
+          )}
+        </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
           Last updated: {new Date().toLocaleString()}
         </Typography>
       </Box>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '1rem' }}>
+          <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
+          Delete POD
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontSize: '0.9rem' }}>
+            Are you sure you want to delete this POD? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleDeleteCancel} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleting}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
+          >
+            {deleting ? <CircularProgress size={18} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
