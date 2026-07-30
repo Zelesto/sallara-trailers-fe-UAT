@@ -233,21 +233,23 @@ export const fuelService = {
   },
 
   /**
-   * Verify a fuel slip
-   * @param {number|string} id - Fuel slip ID
-   * @param {string} verifiedBy - Person verifying the slip
-   */
-  verifyFuelSlip: async (id, verifiedBy) => {
-    try {
-      console.log(`📤 Verifying fuel slip: ${id}`);
-      const response = await api.post(`/fuel/slips/${id}/verify`, { verifiedBy });
-      const result = unwrap(response);
-      console.log('✅ Fuel slip verified:', result);
-      return result;
-    } catch (error) {
-      throw handleApiError(error, `Verifying fuel slip ${id}`);
-    }
-  },
+ * Verify a fuel slip
+ * @param {number|string} id - Fuel slip ID
+ * @param {string} verifiedBy - Person verifying the slip
+ */
+verifyFuelSlip: async (id, verifiedBy) => {
+  try {
+    console.log(`📤 Verifying fuel slip: ${id} with verifiedBy: ${verifiedBy}`);
+    const response = await api.post(`/fuel/slips/${id}/verify`, null, {
+      params: { verifiedBy }
+    });
+    const result = unwrap(response);
+    console.log('✅ Fuel slip verified:', result);
+    return result;
+  } catch (error) {
+    throw handleApiError(error, `Verifying fuel slip ${id}`);
+  }
+},
 
   // ============================================================
   // QUERY OPERATIONS
