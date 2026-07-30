@@ -366,20 +366,22 @@ function FuelSlips() {
   };
 
   const handleVerifyConfirm = async () => {
-    if (!verifyId) return;
-    setVerifying(true);
-    try {
-      await fuelService.verifyFuelSlip(verifyId);
-      setVerifyDialogOpen(false);
-      setVerifyId(null);
-      await fetchSlips();
-    } catch (err) {
-      console.error('Failed to verify fuel slip:', err);
-      setError(err.message || 'Failed to verify fuel slip');
-    } finally {
-      setVerifying(false);
-    }
-  };
+  if (!verifyId) return;
+  setVerifying(true);
+  try {
+    // Get current user - you can get this from your auth context
+    const currentUser = 'SYSTEM'; // Replace with actual user from auth context
+    await fuelService.verifyFuelSlip(verifyId, currentUser);
+    setVerifyDialogOpen(false);
+    setVerifyId(null);
+    await fetchSlips();
+  } catch (err) {
+    console.error('Failed to verify fuel slip:', err);
+    setError(err.message || 'Failed to verify fuel slip');
+  } finally {
+    setVerifying(false);
+  }
+};
 
   const handleVerifyCancel = () => {
     setVerifyDialogOpen(false);
