@@ -58,7 +58,6 @@ import { useAuth } from '../context/AuthContext';
 
 
 
-const { user } = useAuth();
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
@@ -155,6 +154,7 @@ const StatusChip = ({ status }) => {
 function FuelSlips() {
   const params = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [slips, setSlips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
