@@ -724,6 +724,7 @@ const Inventory = () => {
     if (newValue === 2) loadDriverIssues();
   };
 
+
   // Movement Operations
   const handleMovement = (item) => {
   setSelectedItem(item);
@@ -746,6 +747,24 @@ const Inventory = () => {
   });
   setShowMovementDialog(true);
 };
+
+  const [movementFormData, setMovementFormData] = useState({
+  itemId: '',
+  quantity: 0,
+  operation: 'ADD',
+  movementType: 'IN',
+  reason: '',
+  notes: '',
+  referenceNumber: '',
+  referenceType: 'PURCHASE_ORDER',
+  requiresApproval: false,
+  approvalStatus: 'APPROVED',
+  performedBy: 'SYSTEM',
+  tripId: null,
+  fuelSlipId: null,
+  approvedBy: null,
+  approvedAt: null,
+});
 
   const handleSubmitMovement = async () => {
   try {
