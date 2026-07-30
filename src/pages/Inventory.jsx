@@ -73,8 +73,8 @@ import {
   AddCircle as AddCircleIcon,
   RemoveCircle as RemoveCircleIcon,
   Adjust as AdjustIcon,
-  CompareArrows as CompareArrowsIcon, 
-  Undo as UndoIcon, 
+  CompareArrows as CompareArrowsIcon,
+  Undo as UndoIcon,
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -133,15 +133,15 @@ const TabPanel = ({ children, value, index, ...other }) => (
   </div>
 );
 
-// Inventory Item Component - UPDATED with onMovement
-InventoryItemRow = ({ 
-  item, 
-  onView, 
-  onEdit, 
-  onDelete, 
-  locations, 
-  onIssue, 
-  onReceive, 
+// Inventory Item Component - FIXED
+const InventoryItemRow = ({
+  item,
+  onView,
+  onEdit,
+  onDelete,
+  locations,
+  onIssue,
+  onReceive,
   onIssueToDriver,
   onMovement
 }) => {
@@ -244,9 +244,9 @@ InventoryItemRow = ({
             />
           )}
         </Stack>
-      </TableCell>mRow 
-        
-          {/* Actions - FIXED: Properly closed TableCell */}
+      </TableCell>
+
+      {/* Actions - FIXED: Properly separated TableCell */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
           {/* View Details */}
@@ -255,21 +255,21 @@ InventoryItemRow = ({
               <Visibility sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
-          
+
           {/* Edit Item */}
           <Tooltip title="Edit Item">
             <IconButton size="small" color="secondary" onClick={() => onEdit(item)} sx={{ p: 0.5 }}>
               <Edit sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
-          
+
           {/* STOCK MOVEMENT - CompareArrows Icon */}
           <Tooltip title="Stock Movement (Add/Remove/Adjust)">
             <IconButton size="small" color="info" onClick={() => onMovement(item)} sx={{ p: 0.5 }}>
               <CompareArrowsIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
-          
+
           {/* Issue to Vehicle */}
           {isConsumable && !item.isHeld && item.isActive && item.isVehicleIssuable !== false && (
             <Tooltip title="Issue to Vehicle">
@@ -278,7 +278,7 @@ InventoryItemRow = ({
               </IconButton>
             </Tooltip>
           )}
-          
+
           {/* Issue to Driver */}
           {isConsumable && !item.isHeld && item.isActive && item.isDriverIssuable !== false && (
             <Tooltip title="Issue to Driver">
@@ -287,7 +287,7 @@ InventoryItemRow = ({
               </IconButton>
             </Tooltip>
           )}
-          
+
           {/* RECEIVE RETURN - Undo Icon */}
           {isConsumable && !item.isHeld && item.isActive && (
             <Tooltip title="Receive Return">
@@ -296,7 +296,7 @@ InventoryItemRow = ({
               </IconButton>
             </Tooltip>
           )}
-          
+
           {/* Delete Item */}
           <Tooltip title="Delete Item">
             <IconButton size="small" color="error" onClick={() => onDelete(item)} sx={{ p: 0.5 }}>
@@ -588,7 +588,23 @@ const Inventory = () => {
     damageNotes: '',
     issueType: 'vehicle',
   });
- 
+  const [movementFormData, setMovementFormData] = useState({
+    itemId: '',
+    quantity: 0,
+    operation: 'ADD',
+    movementType: 'IN',
+    reason: '',
+    notes: '',
+    referenceNumber: '',
+    referenceType: 'PURCHASE_ORDER',
+    requiresApproval: false,
+    approvalStatus: 'APPROVED',
+    performedBy: 'SYSTEM',
+    tripId: null,
+    fuelSlipId: null,
+    approvedBy: null,
+    approvedAt: null,
+  });
 
   // Load data
   useEffect(() => {
@@ -655,7 +671,7 @@ const Inventory = () => {
         setLoadingVehicles(false);
       }
 
-      // Get drivers - FIXED: was calling vehicleService instead of driverService
+      // Get drivers
       try {
         setLoadingDrivers(true);
         const driversResponse = await driverService.getAllDrivers();
@@ -673,7 +689,7 @@ const Inventory = () => {
       } finally {
         setLoadingDrivers(false);
       }
-      
+
       // Get stats
       try {
         const statsResponse = await inventoryService.getInventoryStats();
@@ -747,125 +763,104 @@ const Inventory = () => {
     if (newValue === 2) loadDriverIssues();
   };
 
-
   // Movement Operations
   const handleMovement = (item) => {
-  setSelectedItem(item);
-  setMovementFormData({
-    itemId: item.id,
-    quantity: 1,
-    operation: 'ADD',
-    movementType: 'IN',
-    reason: '',
-    notes: '',
-    referenceNumber: `MOV-${Date.now()}`,
-    referenceType: 'PURCHASE_ORDER',
-    requiresApproval: false,
-    approvalStatus: 'APPROVED',
-    performedBy: 'SYSTEM', // You can get this from auth context
-    tripId: null,
-    fuelSlipId: null,
-    approvedBy: null,
-    approvedAt: null,
-  });
-  setShowMovementDialog(true);
-};
-
-  const [movementFormData, setMovementFormData] = useState({
-  itemId: '',
-  quantity: 0,
-  operation: 'ADD',
-  movementType: 'IN',
-  reason: '',
-  notes: '',
-  referenceNumber: '',
-  referenceType: 'PURCHASE_ORDER',
-  requiresApproval: false,
-  approvalStatus: 'APPROVED',
-  performedBy: 'SYSTEM',
-  tripId: null,
-  fuelSlipId: null,
-  approvedBy: null,
-  approvedAt: null,
-});
+    setSelectedItem(item);
+    setMovementFormData({
+      itemId: item.id,
+      quantity: 1,
+      operation: 'ADD',
+      movementType: 'IN',
+      reason: '',
+      notes: '',
+      referenceNumber: `MOV-${Date.now()}`,
+      referenceType: 'PURCHASE_ORDER',
+      requiresApproval: false,
+      approvalStatus: 'APPROVED',
+      performedBy: 'SYSTEM',
+      tripId: null,
+      fuelSlipId: null,
+      approvedBy: null,
+      approvedAt: null,
+    });
+    setShowMovementDialog(true);
+  };
 
   const handleSubmitMovement = async () => {
-  try {
-    if (!movementFormData.itemId || movementFormData.quantity <= 0) {
-      setError('Please select an item and enter a valid quantity');
-      return;
+    try {
+      if (!movementFormData.itemId || movementFormData.quantity <= 0) {
+        setError('Please select an item and enter a valid quantity');
+        return;
+      }
+
+      if (!movementFormData.reason) {
+        setError('Please provide a reason for the movement');
+        return;
+      }
+
+      // Map operation to movementType
+      let movementType = 'ADJUSTMENT';
+      let referenceType = 'ADJUSTMENT';
+
+      switch (movementFormData.operation) {
+        case 'ADD':
+          movementType = 'IN';
+          referenceType = 'PURCHASE_ORDER';
+          break;
+        case 'SUBTRACT':
+          movementType = 'OUT';
+          referenceType = 'ADJUSTMENT';
+          break;
+        case 'SET':
+          movementType = 'ADJUSTMENT';
+          referenceType = 'ADJUSTMENT';
+          break;
+        default:
+          movementType = 'ADJUSTMENT';
+          referenceType = 'ADJUSTMENT';
+      }
+
+      // Get current user from auth context
+      const currentUser = 'SYSTEM';
+
+      // Build the payload with all fields
+      const payload = {
+        itemId: parseInt(movementFormData.itemId),
+        quantity: parseFloat(movementFormData.quantity),
+        movementType: movementType,
+        reason: movementFormData.reason,
+        notes: movementFormData.notes || '',
+        referenceNumber: movementFormData.referenceNumber || `MOV-${Date.now()}`,
+        referenceType: referenceType,
+        requiresApproval: movementFormData.requiresApproval || false,
+        approvalStatus: movementFormData.requiresApproval ? 'PENDING' : 'APPROVED',
+        performedBy: currentUser,
+        tripId: movementFormData.tripId ? parseInt(movementFormData.tripId) : null,
+        fuelSlipId: movementFormData.fuelSlipId ? parseInt(movementFormData.fuelSlipId) : null,
+        approvedBy: movementFormData.requiresApproval ? movementFormData.approvedBy : currentUser,
+        approvedAt: movementFormData.requiresApproval ? null : new Date().toISOString(),
+      };
+
+      console.log('📦 Submitting movement payload:', JSON.stringify(payload, null, 2));
+
+      // Use the existing inventoryMovementService
+      const response = await inventoryMovementService.recordMovement(payload);
+
+      if (response && response.data) {
+        showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
+      } else {
+        showSuccess('Stock movement recorded successfully');
+      }
+
+      setShowMovementDialog(false);
+      resetForms();
+      await loadData();
+    } catch (err) {
+      console.error('Error updating stock:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
+      setError(errorMessage);
     }
-
-    if (!movementFormData.reason) {
-      setError('Please provide a reason for the movement');
-      return;
-    }
-
-    // Map operation to movementType
-    let movementType = 'ADJUSTMENT';
-    let referenceType = 'ADJUSTMENT';
-    
-    switch (movementFormData.operation) {
-      case 'ADD':
-        movementType = 'IN';
-        referenceType = 'PURCHASE_ORDER';
-        break;
-      case 'SUBTRACT':
-        movementType = 'OUT';
-        referenceType = 'ADJUSTMENT';
-        break;
-      case 'SET':
-        movementType = 'ADJUSTMENT';
-        referenceType = 'ADJUSTMENT';
-        break;
-      default:
-        movementType = 'ADJUSTMENT';
-        referenceType = 'ADJUSTMENT';
-    }
-
-    // Get current user from auth context
-    const currentUser = 'SYSTEM';
-
-    // Build the payload with all fields
-    const payload = {
-      itemId: parseInt(movementFormData.itemId),
-      quantity: parseFloat(movementFormData.quantity),
-      movementType: movementType,
-      reason: movementFormData.reason,
-      notes: movementFormData.notes || '',
-      referenceNumber: movementFormData.referenceNumber || `MOV-${Date.now()}`,
-      referenceType: referenceType,
-      requiresApproval: movementFormData.requiresApproval || false,
-      approvalStatus: movementFormData.requiresApproval ? 'PENDING' : 'APPROVED',
-      performedBy: currentUser,
-      tripId: movementFormData.tripId ? parseInt(movementFormData.tripId) : null,
-      fuelSlipId: movementFormData.fuelSlipId ? parseInt(movementFormData.fuelSlipId) : null,
-      approvedBy: movementFormData.requiresApproval ? movementFormData.approvedBy : currentUser,
-      approvedAt: movementFormData.requiresApproval ? null : new Date().toISOString(),
-    };
-
-    console.log('📦 Submitting movement payload:', JSON.stringify(payload, null, 2));
-    
-    // Use the existing inventoryMovementService
-    const response = await inventoryMovementService.recordMovement(payload);
-    
-    if (response && response.data) {
-      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
-    } else {
-      showSuccess('Stock movement recorded successfully');
-    }
-    
-    setShowMovementDialog(false);
-    resetForms();
-    await loadData();
-  } catch (err) {
-    console.error('Error updating stock:', err);
-    const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
-    setError(errorMessage);
-  }
-};
-
-   
+  };
 
   // CRUD Operations
   const handleView = (item) => {
@@ -1005,12 +1000,12 @@ const Inventory = () => {
   const handleSubmitVehicleIssue = async () => {
     try {
       const itemId = selectedItem?.id || issueFormData.itemId;
-      
+
       if (!itemId) {
         setError('Please select an item');
         return;
       }
-      
+
       if (!issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0) {
         setError('Please fill in all required fields');
         return;
@@ -1102,7 +1097,7 @@ const Inventory = () => {
       } else {
         await vehicleIssueService.returnItems(selectedIssue.id, returnPayload);
       }
-      
+
       showSuccess('Items returned successfully');
       setShowReturnDialog(false);
       resetForms();
@@ -1138,7 +1133,7 @@ const Inventory = () => {
       } else {
         await vehicleIssueService.swapItem(selectedIssue.id, swapPayload);
       }
-      
+
       showSuccess('Item swapped successfully!');
       setShowSwapDialog(false);
       resetForms();
@@ -1212,9 +1207,9 @@ const Inventory = () => {
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
     }));
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
@@ -1222,34 +1217,34 @@ const Inventory = () => {
   };
 
   const resetForms = () => {
-    setIssueFormData({ 
-      itemId: '', 
-      vehicleId: '', 
-      driverId: '', 
-      tripId: '', 
-      quantity: 1, 
-      condition: 'NEW', 
-      notes: '' 
+    setIssueFormData({
+      itemId: '',
+      vehicleId: '',
+      driverId: '',
+      tripId: '',
+      quantity: 1,
+      condition: 'NEW',
+      notes: ''
     });
-    setDriverIssueFormData({ 
-      driverId: '', 
-      quantity: 1, 
-      condition: 'NEW', 
-      notes: '' 
+    setDriverIssueFormData({
+      driverId: '',
+      quantity: 1,
+      condition: 'NEW',
+      notes: ''
     });
-    setReturnFormData({ 
-      quantity: 1, 
-      condition: 'DAMAGED', 
-      notes: '' 
+    setReturnFormData({
+      quantity: 1,
+      condition: 'DAMAGED',
+      notes: ''
     });
-    setSwapFormData({ 
-      oldItemId: '', 
-      newItemId: '', 
-      newQuantity: 1, 
-      returnQuantity: 1, 
-      damagedCondition: 'DAMAGED', 
-      damageNotes: '', 
-      issueType: 'vehicle' 
+    setSwapFormData({
+      oldItemId: '',
+      newItemId: '',
+      newQuantity: 1,
+      returnQuantity: 1,
+      damagedCondition: 'DAMAGED',
+      damageNotes: '',
+      issueType: 'vehicle'
     });
     setSelectedItem(null);
     setSelectedIssue(null);
@@ -1268,11 +1263,11 @@ const Inventory = () => {
 
   // Filter items
   const filteredItems = inventoryItems.filter(item => {
-    const searchMatch = 
+    const searchMatch =
       item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.category?.toLowerCase().includes(searchTerm.toLowerCase());
     const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
-    
+
     let statusMatch = true;
     if (statusFilter !== 'all') {
       const quantity = item.quantity || 0;
@@ -1281,7 +1276,7 @@ const Inventory = () => {
       else if (statusFilter === 'Low Stock') statusMatch = quantity > 0 && quantity <= minLevel;
       else if (statusFilter === 'Out of Stock') statusMatch = quantity <= 0;
     }
-    
+
     return searchMatch && categoryMatch && statusMatch;
   });
 
@@ -1460,7 +1455,7 @@ const Inventory = () => {
                         onIssue={handleIssueItem}
                         onReceive={handleReceiveItem}
                         onIssueToDriver={handleIssueToDriver}
-                        onMovement={handleMovement} // ADDED THIS
+                        onMovement={handleMovement}
                       />
                     ))
                   )}
@@ -1486,14 +1481,14 @@ const Inventory = () => {
               sx={{ fontSize: '0.75rem' }}
               onClick={() => {
                 setSelectedItem(null);
-                setIssueFormData({ 
+                setIssueFormData({
                   itemId: '',
-                  vehicleId: '', 
-                  driverId: '', 
-                  tripId: '', 
-                  quantity: 1, 
-                  condition: 'NEW', 
-                  notes: '' 
+                  vehicleId: '',
+                  driverId: '',
+                  tripId: '',
+                  quantity: 1,
+                  condition: 'NEW',
+                  notes: ''
                 });
                 setShowIssueDialog(true);
               }}
@@ -1510,16 +1505,16 @@ const Inventory = () => {
             ) : vehicleIssues.length === 0 ? (
               <Box py={3} textAlign="center">
                 <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No vehicle issues found</Typography>
-                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => { 
+                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => {
                   setSelectedItem(null);
-                  setIssueFormData({ 
+                  setIssueFormData({
                     itemId: '',
-                    vehicleId: '', 
-                    driverId: '', 
-                    tripId: '', 
-                    quantity: 1, 
-                    condition: 'NEW', 
-                    notes: '' 
+                    vehicleId: '',
+                    driverId: '',
+                    tripId: '',
+                    quantity: 1,
+                    condition: 'NEW',
+                    notes: ''
                   });
                   setShowIssueDialog(true);
                 }}>
@@ -1545,7 +1540,7 @@ const Inventory = () => {
                       <VehicleIssueRow
                         key={issue.id}
                         issue={issue}
-                        onView={() => {}}
+                        onView={() => { }}
                         onReturn={handleReturnItems}
                         onSwap={handleSwap}
                         vehicles={vehicles}
@@ -1575,11 +1570,11 @@ const Inventory = () => {
               sx={{ fontSize: '0.75rem' }}
               onClick={() => {
                 setSelectedItem(null);
-                setDriverIssueFormData({ 
-                  driverId: '', 
-                  quantity: 1, 
-                  condition: 'NEW', 
-                  notes: '' 
+                setDriverIssueFormData({
+                  driverId: '',
+                  quantity: 1,
+                  condition: 'NEW',
+                  notes: ''
                 });
                 setShowDriverIssueDialog(true);
               }}
@@ -1596,13 +1591,13 @@ const Inventory = () => {
             ) : driverIssues.length === 0 ? (
               <Box py={3} textAlign="center">
                 <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No driver issues found</Typography>
-                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => { 
+                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => {
                   setSelectedItem(null);
-                  setDriverIssueFormData({ 
-                    driverId: '', 
-                    quantity: 1, 
-                    condition: 'NEW', 
-                    notes: '' 
+                  setDriverIssueFormData({
+                    driverId: '',
+                    quantity: 1,
+                    condition: 'NEW',
+                    notes: ''
                   });
                   setShowDriverIssueDialog(true);
                 }}>
@@ -1628,7 +1623,7 @@ const Inventory = () => {
                       <DriverIssueRow
                         key={issue.id}
                         issue={issue}
-                        onView={() => {}}
+                        onView={() => { }}
                         onReturn={handleReturnItems}
                         onSwap={handleSwap}
                         drivers={drivers}
@@ -2145,8 +2140,8 @@ const Inventory = () => {
                 onChange={(e) => {
                   const item = inventoryItems.find(i => i.id === e.target.value);
                   setSelectedItem(item);
-                  setIssueFormData(prev => ({ 
-                    ...prev, 
+                  setIssueFormData(prev => ({
+                    ...prev,
                     itemId: e.target.value,
                     quantity: 1
                   }));
@@ -2170,14 +2165,14 @@ const Inventory = () => {
                 <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
                   Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity} {selectedItem.unitOfMeasure || 'EA'})
                 </Alert>
-                
+
                 <FormControl fullWidth size="small" required>
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
-                  <Select 
-                    value={issueFormData.vehicleId} 
-                    onChange={(e) => setIssueFormData(prev => ({ ...prev, vehicleId: e.target.value }))} 
-                    label="Vehicle *" 
-                    disabled={loadingVehicles} 
+                  <Select
+                    value={issueFormData.vehicleId}
+                    onChange={(e) => setIssueFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
+                    label="Vehicle *"
+                    disabled={loadingVehicles}
                     sx={{ fontSize: '0.8rem' }}
                   >
                     <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingVehicles ? 'Loading vehicles...' : 'Select Vehicle'}</MenuItem>
@@ -2189,14 +2184,14 @@ const Inventory = () => {
                     ))}
                   </Select>
                 </FormControl>
-                
+
                 <FormControl fullWidth size="small" required>
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
-                  <Select 
-                    value={issueFormData.driverId} 
-                    onChange={(e) => setIssueFormData(prev => ({ ...prev, driverId: e.target.value }))} 
-                    label="Driver *" 
-                    disabled={loadingDrivers} 
+                  <Select
+                    value={issueFormData.driverId}
+                    onChange={(e) => setIssueFormData(prev => ({ ...prev, driverId: e.target.value }))}
+                    label="Driver *"
+                    disabled={loadingDrivers}
                     sx={{ fontSize: '0.8rem' }}
                   >
                     <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingDrivers ? 'Loading drivers...' : 'Select Driver'}</MenuItem>
@@ -2207,38 +2202,38 @@ const Inventory = () => {
                     ))}
                   </Select>
                 </FormControl>
-                
-                <TextField 
-                  label="Trip ID (Optional)" 
-                  type="number" 
-                  value={issueFormData.tripId} 
-                  onChange={(e) => setIssueFormData(prev => ({ ...prev, tripId: e.target.value }))} 
-                  fullWidth 
-                  size="small" 
+
+                <TextField
+                  label="Trip ID (Optional)"
+                  type="number"
+                  value={issueFormData.tripId}
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, tripId: e.target.value }))}
+                  fullWidth
+                  size="small"
                 />
-                
-                <TextField 
-                  label="Quantity *" 
-                  type="number" 
-                  value={issueFormData.quantity} 
-                  onChange={(e) => setIssueFormData(prev => ({ ...prev, quantity: e.target.value }))} 
-                  fullWidth 
-                  size="small" 
-                  InputProps={{ 
-                    inputProps: { 
-                      min: 0.01, 
-                      max: selectedItem.quantity 
-                    } 
-                  }} 
-                  helperText={`Max: ${selectedItem.quantity}`} 
+
+                <TextField
+                  label="Quantity *"
+                  type="number"
+                  value={issueFormData.quantity}
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                  fullWidth
+                  size="small"
+                  InputProps={{
+                    inputProps: {
+                      min: 0.01,
+                      max: selectedItem.quantity
+                    }
+                  }}
+                  helperText={`Max: ${selectedItem.quantity}`}
                 />
-                
+
                 <FormControl fullWidth size="small">
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
-                  <Select 
-                    value={issueFormData.condition} 
-                    onChange={(e) => setIssueFormData(prev => ({ ...prev, condition: e.target.value }))} 
-                    label="Condition" 
+                  <Select
+                    value={issueFormData.condition}
+                    onChange={(e) => setIssueFormData(prev => ({ ...prev, condition: e.target.value }))}
+                    label="Condition"
                     sx={{ fontSize: '0.8rem' }}
                   >
                     <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
@@ -2246,15 +2241,15 @@ const Inventory = () => {
                     <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
                   </Select>
                 </FormControl>
-                
-                <TextField 
-                  label="Notes" 
-                  value={issueFormData.notes} 
-                  onChange={(e) => setIssueFormData(prev => ({ ...prev, notes: e.target.value }))} 
-                  fullWidth 
-                  size="small" 
-                  multiline 
-                  rows={2} 
+
+                <TextField
+                  label="Notes"
+                  value={issueFormData.notes}
+                  onChange={(e) => setIssueFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  fullWidth
+                  size="small"
+                  multiline
+                  rows={2}
                 />
               </>
             )}
@@ -2264,10 +2259,10 @@ const Inventory = () => {
           <Button onClick={() => setShowIssueDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
-            size="small" 
-            onClick={handleSubmitVehicleIssue} 
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSubmitVehicleIssue}
             sx={{ fontSize: '0.8rem' }}
             disabled={!selectedItem || !issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0}
           >
@@ -2290,8 +2285,8 @@ const Inventory = () => {
                 onChange={(e) => {
                   const item = inventoryItems.find(i => i.id === e.target.value);
                   setSelectedItem(item);
-                  setDriverIssueFormData(prev => ({ 
-                    ...prev, 
+                  setDriverIssueFormData(prev => ({
+                    ...prev,
                     quantity: 1
                   }));
                 }}
@@ -2314,14 +2309,14 @@ const Inventory = () => {
                 <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
                   Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity} {selectedItem.unitOfMeasure || 'EA'})
                 </Alert>
-                
+
                 <FormControl fullWidth size="small" required>
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
-                  <Select 
-                    value={driverIssueFormData.driverId} 
-                    onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, driverId: e.target.value }))} 
-                    label="Driver *" 
-                    disabled={loadingDrivers} 
+                  <Select
+                    value={driverIssueFormData.driverId}
+                    onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, driverId: e.target.value }))}
+                    label="Driver *"
+                    disabled={loadingDrivers}
                     sx={{ fontSize: '0.8rem' }}
                   >
                     <MenuItem value="" sx={{ fontSize: '0.8rem' }}>{loadingDrivers ? 'Loading drivers...' : 'Select Driver'}</MenuItem>
@@ -2332,29 +2327,29 @@ const Inventory = () => {
                     ))}
                   </Select>
                 </FormControl>
-                
-                <TextField 
-                  label="Quantity *" 
-                  type="number" 
-                  value={driverIssueFormData.quantity} 
-                  onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, quantity: e.target.value }))} 
-                  fullWidth 
-                  size="small" 
-                  InputProps={{ 
-                    inputProps: { 
-                      min: 0.01, 
-                      max: selectedItem.quantity 
-                    } 
-                  }} 
-                  helperText={`Max: ${selectedItem.quantity}`} 
+
+                <TextField
+                  label="Quantity *"
+                  type="number"
+                  value={driverIssueFormData.quantity}
+                  onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                  fullWidth
+                  size="small"
+                  InputProps={{
+                    inputProps: {
+                      min: 0.01,
+                      max: selectedItem.quantity
+                    }
+                  }}
+                  helperText={`Max: ${selectedItem.quantity}`}
                 />
-                
+
                 <FormControl fullWidth size="small">
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
-                  <Select 
-                    value={driverIssueFormData.condition} 
-                    onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, condition: e.target.value }))} 
-                    label="Condition" 
+                  <Select
+                    value={driverIssueFormData.condition}
+                    onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, condition: e.target.value }))}
+                    label="Condition"
                     sx={{ fontSize: '0.8rem' }}
                   >
                     <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
@@ -2362,15 +2357,15 @@ const Inventory = () => {
                     <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
                   </Select>
                 </FormControl>
-                
-                <TextField 
-                  label="Notes" 
-                  value={driverIssueFormData.notes} 
-                  onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, notes: e.target.value }))} 
-                  fullWidth 
-                  size="small" 
-                  multiline 
-                  rows={2} 
+
+                <TextField
+                  label="Notes"
+                  value={driverIssueFormData.notes}
+                  onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  fullWidth
+                  size="small"
+                  multiline
+                  rows={2}
                 />
               </>
             )}
@@ -2380,10 +2375,10 @@ const Inventory = () => {
           <Button onClick={() => setShowDriverIssueDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
-            size="small" 
-            onClick={handleSubmitDriverIssue} 
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSubmitDriverIssue}
             sx={{ fontSize: '0.8rem' }}
             disabled={!selectedItem || !driverIssueFormData.driverId || driverIssueFormData.quantity <= 0}
           >
@@ -2404,21 +2399,21 @@ const Inventory = () => {
                 Returning: <strong>{selectedItem.name}</strong>
                 {selectedIssue && ` from ${selectedIssue.issueNumber}`}
               </Alert>
-              <TextField 
-                label="Quantity *" 
-                type="number" 
-                value={returnFormData.quantity} 
-                onChange={(e) => setReturnFormData(prev => ({ ...prev, quantity: e.target.value }))} 
-                fullWidth 
-                size="small" 
-                InputProps={{ inputProps: { min: 0.01 } }} 
+              <TextField
+                label="Quantity *"
+                type="number"
+                value={returnFormData.quantity}
+                onChange={(e) => setReturnFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                fullWidth
+                size="small"
+                InputProps={{ inputProps: { min: 0.01 } }}
               />
               <FormControl fullWidth size="small">
                 <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
-                <Select 
-                  value={returnFormData.condition} 
-                  onChange={(e) => setReturnFormData(prev => ({ ...prev, condition: e.target.value }))} 
-                  label="Condition" 
+                <Select
+                  value={returnFormData.condition}
+                  onChange={(e) => setReturnFormData(prev => ({ ...prev, condition: e.target.value }))}
+                  label="Condition"
                   sx={{ fontSize: '0.8rem' }}
                 >
                   <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
@@ -2428,14 +2423,14 @@ const Inventory = () => {
                   <MenuItem value="BROKEN" sx={{ fontSize: '0.8rem' }}>Broken</MenuItem>
                 </Select>
               </FormControl>
-              <TextField 
-                label="Notes" 
-                value={returnFormData.notes} 
-                onChange={(e) => setReturnFormData(prev => ({ ...prev, notes: e.target.value }))} 
-                fullWidth 
-                size="small" 
-                multiline 
-                rows={2} 
+              <TextField
+                label="Notes"
+                value={returnFormData.notes}
+                onChange={(e) => setReturnFormData(prev => ({ ...prev, notes: e.target.value }))}
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
               />
             </Stack>
           )}
@@ -2444,10 +2439,10 @@ const Inventory = () => {
           <Button onClick={() => setShowReturnDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
-            size="small" 
-            onClick={handleSubmitReturn} 
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSubmitReturn}
             sx={{ fontSize: '0.8rem' }}
             disabled={returnFormData.quantity <= 0}
           >
@@ -2468,21 +2463,21 @@ const Inventory = () => {
                 Swapping: <strong>{selectedIssueItem.itemName || `Item #${selectedIssueItem.itemId}`}</strong>
                 <br />From Issue: <strong>{selectedIssue.issueNumber}</strong>
               </Alert>
-              
-              <TextField 
-                label="Current Item" 
-                value={selectedIssueItem.itemName || `Item #${selectedIssueItem.itemId}`} 
-                fullWidth 
-                size="small" 
-                disabled 
+
+              <TextField
+                label="Current Item"
+                value={selectedIssueItem.itemName || `Item #${selectedIssueItem.itemId}`}
+                fullWidth
+                size="small"
+                disabled
               />
-              
+
               <FormControl fullWidth size="small" required>
                 <InputLabel sx={{ fontSize: '0.75rem' }}>Replacement Item *</InputLabel>
-                <Select 
-                  value={swapFormData.newItemId} 
-                  onChange={(e) => setSwapFormData(prev => ({ ...prev, newItemId: e.target.value }))} 
-                  label="Replacement Item *" 
+                <Select
+                  value={swapFormData.newItemId}
+                  onChange={(e) => setSwapFormData(prev => ({ ...prev, newItemId: e.target.value }))}
+                  label="Replacement Item *"
                   sx={{ fontSize: '0.8rem' }}
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Replacement Item</MenuItem>
@@ -2495,38 +2490,38 @@ const Inventory = () => {
                     ))}
                 </Select>
               </FormControl>
-              
+
               <Grid container spacing={1.5}>
                 <Grid item xs={6}>
-                  <TextField 
-                    label="New Quantity" 
-                    type="number" 
-                    value={swapFormData.newQuantity} 
-                    onChange={(e) => setSwapFormData(prev => ({ ...prev, newQuantity: e.target.value }))} 
-                    fullWidth 
-                    size="small" 
-                    InputProps={{ inputProps: { min: 1 } }} 
+                  <TextField
+                    label="New Quantity"
+                    type="number"
+                    value={swapFormData.newQuantity}
+                    onChange={(e) => setSwapFormData(prev => ({ ...prev, newQuantity: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    InputProps={{ inputProps: { min: 1 } }}
                   />
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField 
-                    label="Return Quantity" 
-                    type="number" 
-                    value={swapFormData.returnQuantity} 
-                    onChange={(e) => setSwapFormData(prev => ({ ...prev, returnQuantity: e.target.value }))} 
-                    fullWidth 
-                    size="small" 
-                    InputProps={{ inputProps: { min: 0.01 } }} 
+                  <TextField
+                    label="Return Quantity"
+                    type="number"
+                    value={swapFormData.returnQuantity}
+                    onChange={(e) => setSwapFormData(prev => ({ ...prev, returnQuantity: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    InputProps={{ inputProps: { min: 0.01 } }}
                   />
                 </Grid>
               </Grid>
-              
+
               <FormControl fullWidth size="small" required>
                 <InputLabel sx={{ fontSize: '0.75rem' }}>Damaged Condition *</InputLabel>
-                <Select 
-                  value={swapFormData.damagedCondition} 
-                  onChange={(e) => setSwapFormData(prev => ({ ...prev, damagedCondition: e.target.value }))} 
-                  label="Damaged Condition *" 
+                <Select
+                  value={swapFormData.damagedCondition}
+                  onChange={(e) => setSwapFormData(prev => ({ ...prev, damagedCondition: e.target.value }))}
+                  label="Damaged Condition *"
                   sx={{ fontSize: '0.8rem' }}
                 >
                   <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
@@ -2535,16 +2530,16 @@ const Inventory = () => {
                   <MenuItem value="WORN" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
                 </Select>
               </FormControl>
-              
-              <TextField 
-                label="Damage Notes" 
-                value={swapFormData.damageNotes} 
-                onChange={(e) => setSwapFormData(prev => ({ ...prev, damageNotes: e.target.value }))} 
-                fullWidth 
-                size="small" 
-                multiline 
-                rows={2} 
-                placeholder="Describe the damage or issue..." 
+
+              <TextField
+                label="Damage Notes"
+                value={swapFormData.damageNotes}
+                onChange={(e) => setSwapFormData(prev => ({ ...prev, damageNotes: e.target.value }))}
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
+                placeholder="Describe the damage or issue..."
               />
             </Stack>
           )}
@@ -2553,11 +2548,11 @@ const Inventory = () => {
           <Button onClick={() => setShowSwapDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
-            color="warning" 
-            size="small" 
-            onClick={handleSubmitSwap} 
+          <Button
+            variant="contained"
+            color="warning"
+            size="small"
+            onClick={handleSubmitSwap}
             sx={{ fontSize: '0.8rem' }}
             disabled={!swapFormData.newItemId || swapFormData.newQuantity <= 0}
           >
@@ -2567,292 +2562,292 @@ const Inventory = () => {
       </Dialog>
 
       {/* Movement Dialog */}
-<Dialog open={showMovementDialog} onClose={() => setShowMovementDialog(false)} maxWidth="md" fullWidth>
-  <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-    <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-      Stock Movement
-    </Typography>
-  </DialogTitle>
-  <DialogContent sx={{ p: 2.5 }}>
-    {selectedItem && (
-      <Stack spacing={2}>
-        <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
-          <strong>{selectedItem.name}</strong>
-          <br />
-          Current Quantity: <strong>{selectedItem.quantity}</strong> {selectedItem.unitOfMeasure || 'EA'}
-          <br />
-          Min Level: {selectedItem.minLevel || 0}
-        </Alert>
+      <Dialog open={showMovementDialog} onClose={() => setShowMovementDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+            Stock Movement
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2.5 }}>
+          {selectedItem && (
+            <Stack spacing={2}>
+              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+                <strong>{selectedItem.name}</strong>
+                <br />
+                Current Quantity: <strong>{selectedItem.quantity}</strong> {selectedItem.unitOfMeasure || 'EA'}
+                <br />
+                Min Level: {selectedItem.minLevel || 0}
+              </Alert>
 
-        {/* Operation Selection */}
-        <FormControl fullWidth size="small" required>
-          <InputLabel sx={{ fontSize: '0.75rem' }}>Operation *</InputLabel>
-          <Select
-            value={movementFormData.operation}
-            onChange={(e) => {
-              const operation = e.target.value;
-              let movementType = 'ADJUSTMENT';
-              let referenceType = 'ADJUSTMENT';
-              
-              switch (operation) {
-                case 'ADD':
-                  movementType = 'IN';
-                  referenceType = 'PURCHASE_ORDER';
-                  break;
-                case 'SUBTRACT':
-                  movementType = 'OUT';
-                  referenceType = 'ADJUSTMENT';
-                  break;
-                case 'SET':
-                  movementType = 'ADJUSTMENT';
-                  referenceType = 'ADJUSTMENT';
-                  break;
-                default:
-                  movementType = 'ADJUSTMENT';
-                  referenceType = 'ADJUSTMENT';
-              }
-              
-              setMovementFormData(prev => ({ 
-                ...prev, 
-                operation: operation,
-                movementType: movementType,
-                referenceType: referenceType
-              }));
-            }}
-            label="Operation *"
-            sx={{ fontSize: '0.8rem' }}
-          >
-            <MenuItem value="ADD" sx={{ fontSize: '0.8rem' }}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <AddCircleIcon sx={{ fontSize: '0.9rem', color: 'success.main' }} />
-                <span>Stock In (Add)</span>
-              </Stack>
-            </MenuItem>
-            <MenuItem value="SUBTRACT" sx={{ fontSize: '0.8rem' }}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <RemoveCircleIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
-                <span>Stock Out (Subtract)</span>
-              </Stack>
-            </MenuItem>
-            <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <AdjustIcon sx={{ fontSize: '0.9rem', color: 'warning.main' }} />
-                <span>Adjust (Set)</span>
-              </Stack>
-            </MenuItem>
-          </Select>
-        </FormControl>
-
-        {/* Quantity */}
-        <TextField
-          label="Quantity *"
-          type="number"
-          value={movementFormData.quantity}
-          onChange={(e) => setMovementFormData(prev => ({ ...prev, quantity: e.target.value }))}
-          fullWidth
-          size="small"
-          InputProps={{
-            inputProps: {
-              min: movementFormData.operation === 'SUBTRACT' ? 0.01 : 0,
-              max: movementFormData.operation === 'SUBTRACT' ? selectedItem.quantity : undefined,
-              step: 0.01
-            }
-          }}
-          helperText={
-            movementFormData.operation === 'SUBTRACT' 
-              ? `Max: ${selectedItem.quantity}` 
-              : movementFormData.operation === 'SET'
-              ? `Set to new quantity`
-              : 'Enter quantity to add'
-          }
-        />
-
-        {/* Reason */}
-        <TextField
-          label="Reason *"
-          value={movementFormData.reason}
-          onChange={(e) => setMovementFormData(prev => ({ ...prev, reason: e.target.value }))}
-          fullWidth
-          size="small"
-          multiline
-          rows={2}
-          placeholder="e.g., New stock received, Damaged items, Inventory adjustment"
-        />
-
-        {/* Notes */}
-        <TextField
-          label="Notes"
-          value={movementFormData.notes}
-          onChange={(e) => setMovementFormData(prev => ({ ...prev, notes: e.target.value }))}
-          fullWidth
-          size="small"
-          multiline
-          rows={2}
-          placeholder="Additional notes about this movement"
-        />
-
-        <Divider sx={{ my: 1 }} />
-
-        {/* Reference Information */}
-        <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
-          Reference Information
-        </Typography>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Reference Number"
-              value={movementFormData.referenceNumber}
-              onChange={(e) => setMovementFormData(prev => ({ ...prev, referenceNumber: e.target.value }))}
-              fullWidth
-              size="small"
-              placeholder="e.g., PO-12345, INV-67890"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Reference Type</InputLabel>
-              <Select
-                value={movementFormData.referenceType}
-                onChange={(e) => setMovementFormData(prev => ({ ...prev, referenceType: e.target.value }))}
-                label="Reference Type"
-                sx={{ fontSize: '0.8rem' }}
-              >
-                <MenuItem value="PURCHASE_ORDER" sx={{ fontSize: '0.8rem' }}>Purchase Order</MenuItem>
-                <MenuItem value="INVOICE" sx={{ fontSize: '0.8rem' }}>Invoice</MenuItem>
-                <MenuItem value="RETURN" sx={{ fontSize: '0.8rem' }}>Return</MenuItem>
-                <MenuItem value="ADJUSTMENT" sx={{ fontSize: '0.8rem' }}>Adjustment</MenuItem>
-                <MenuItem value="TRANSFER" sx={{ fontSize: '0.8rem' }}>Transfer</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Trip ID (Optional)"
-              type="number"
-              value={movementFormData.tripId || ''}
-              onChange={(e) => setMovementFormData(prev => ({ ...prev, tripId: e.target.value }))}
-              fullWidth
-              size="small"
-              placeholder="Associated trip ID"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Fuel Slip ID (Optional)"
-              type="number"
-              value={movementFormData.fuelSlipId || ''}
-              onChange={(e) => setMovementFormData(prev => ({ ...prev, fuelSlipId: e.target.value }))}
-              fullWidth
-              size="small"
-              placeholder="Associated fuel slip ID"
-            />
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 1 }} />
-
-        {/* Approval Settings */}
-        <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
-          Approval Settings
-        </Typography>
-
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={movementFormData.requiresApproval}
-              onChange={(e) => {
-                setMovementFormData(prev => ({ 
-                  ...prev, 
-                  requiresApproval: e.target.checked,
-                  approvalStatus: e.target.checked ? 'PENDING' : 'APPROVED'
-                }));
-              }}
-              size="small"
-            />
-          }
-          label="Requires Approval"
-          sx={{ fontSize: '0.8rem' }}
-        />
-
-        {movementFormData.requiresApproval && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Approved By"
-                value={movementFormData.approvedBy || ''}
-                onChange={(e) => setMovementFormData(prev => ({ ...prev, approvedBy: e.target.value }))}
-                fullWidth
-                size="small"
-                placeholder="Name of approver"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
+              {/* Operation Selection */}
+              <FormControl fullWidth size="small" required>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Operation *</InputLabel>
                 <Select
-                  value={movementFormData.approvalStatus}
-                  onChange={(e) => setMovementFormData(prev => ({ ...prev, approvalStatus: e.target.value }))}
-                  label="Approval Status"
+                  value={movementFormData.operation}
+                  onChange={(e) => {
+                    const operation = e.target.value;
+                    let movementType = 'ADJUSTMENT';
+                    let referenceType = 'ADJUSTMENT';
+
+                    switch (operation) {
+                      case 'ADD':
+                        movementType = 'IN';
+                        referenceType = 'PURCHASE_ORDER';
+                        break;
+                      case 'SUBTRACT':
+                        movementType = 'OUT';
+                        referenceType = 'ADJUSTMENT';
+                        break;
+                      case 'SET':
+                        movementType = 'ADJUSTMENT';
+                        referenceType = 'ADJUSTMENT';
+                        break;
+                      default:
+                        movementType = 'ADJUSTMENT';
+                        referenceType = 'ADJUSTMENT';
+                    }
+
+                    setMovementFormData(prev => ({
+                      ...prev,
+                      operation: operation,
+                      movementType: movementType,
+                      referenceType: referenceType
+                    }));
+                  }}
+                  label="Operation *"
                   sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="PENDING" sx={{ fontSize: '0.8rem' }}>Pending</MenuItem>
-                  <MenuItem value="APPROVED" sx={{ fontSize: '0.8rem' }}>Approved</MenuItem>
-                  <MenuItem value="REJECTED" sx={{ fontSize: '0.8rem' }}>Rejected</MenuItem>
+                  <MenuItem value="ADD" sx={{ fontSize: '0.8rem' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <AddCircleIcon sx={{ fontSize: '0.9rem', color: 'success.main' }} />
+                      <span>Stock In (Add)</span>
+                    </Stack>
+                  </MenuItem>
+                  <MenuItem value="SUBTRACT" sx={{ fontSize: '0.8rem' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <RemoveCircleIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
+                      <span>Stock Out (Subtract)</span>
+                    </Stack>
+                  </MenuItem>
+                  <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <AdjustIcon sx={{ fontSize: '0.9rem', color: 'warning.main' }} />
+                      <span>Adjust (Set)</span>
+                    </Stack>
+                  </MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12}>
+
+              {/* Quantity */}
               <TextField
-                label="Performed By"
-                value={movementFormData.performedBy}
-                onChange={(e) => setMovementFormData(prev => ({ ...prev, performedBy: e.target.value }))}
+                label="Quantity *"
+                type="number"
+                value={movementFormData.quantity}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, quantity: e.target.value }))}
                 fullWidth
                 size="small"
-                placeholder="Who performed this movement"
+                InputProps={{
+                  inputProps: {
+                    min: movementFormData.operation === 'SUBTRACT' ? 0.01 : 0,
+                    max: movementFormData.operation === 'SUBTRACT' ? selectedItem.quantity : undefined,
+                    step: 0.01
+                  }
+                }}
+                helperText={
+                  movementFormData.operation === 'SUBTRACT'
+                    ? `Max: ${selectedItem.quantity}`
+                    : movementFormData.operation === 'SET'
+                      ? `Set to new quantity`
+                      : 'Enter quantity to add'
+                }
               />
-            </Grid>
-          </Grid>
-        )}
 
-        {/* Validation Alert */}
-        {movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem.quantity && (
-          <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
-            Insufficient stock! Available: {selectedItem.quantity}
-          </Alert>
-        )}
+              {/* Reason */}
+              <TextField
+                label="Reason *"
+                value={movementFormData.reason}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, reason: e.target.value }))}
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
+                placeholder="e.g., New stock received, Damaged items, Inventory adjustment"
+              />
 
-        {movementFormData.requiresApproval && !movementFormData.approvedBy && (
-          <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>
-            This movement requires approval. Please specify who will approve it.
-          </Alert>
-        )}
-      </Stack>
-    )}
-  </DialogContent>
-  <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-    <Button onClick={() => setShowMovementDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
-      Cancel
-    </Button>
-    <Button
-      variant="contained"
-      size="small"
-      onClick={handleSubmitMovement}
-      sx={{ fontSize: '0.8rem' }}
-      disabled={
-        !movementFormData.itemId || 
-        movementFormData.quantity <= 0 || 
-        !movementFormData.reason ||
-        (movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem?.quantity) ||
-        (movementFormData.requiresApproval && !movementFormData.approvedBy)
-      }
-    >
-      {movementFormData.operation === 'ADD' && 'Add Stock'}
-      {movementFormData.operation === 'SUBTRACT' && 'Remove Stock'}
-      {movementFormData.operation === 'SET' && 'Set Quantity'}
-    </Button>
-  </DialogActions>
-</Dialog>
+              {/* Notes */}
+              <TextField
+                label="Notes"
+                value={movementFormData.notes}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, notes: e.target.value }))}
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
+                placeholder="Additional notes about this movement"
+              />
+
+              <Divider sx={{ my: 1 }} />
+
+              {/* Reference Information */}
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+                Reference Information
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Reference Number"
+                    value={movementFormData.referenceNumber}
+                    onChange={(e) => setMovementFormData(prev => ({ ...prev, referenceNumber: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    placeholder="e.g., PO-12345, INV-67890"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Reference Type</InputLabel>
+                    <Select
+                      value={movementFormData.referenceType}
+                      onChange={(e) => setMovementFormData(prev => ({ ...prev, referenceType: e.target.value }))}
+                      label="Reference Type"
+                      sx={{ fontSize: '0.8rem' }}
+                    >
+                      <MenuItem value="PURCHASE_ORDER" sx={{ fontSize: '0.8rem' }}>Purchase Order</MenuItem>
+                      <MenuItem value="INVOICE" sx={{ fontSize: '0.8rem' }}>Invoice</MenuItem>
+                      <MenuItem value="RETURN" sx={{ fontSize: '0.8rem' }}>Return</MenuItem>
+                      <MenuItem value="ADJUSTMENT" sx={{ fontSize: '0.8rem' }}>Adjustment</MenuItem>
+                      <MenuItem value="TRANSFER" sx={{ fontSize: '0.8rem' }}>Transfer</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Trip ID (Optional)"
+                    type="number"
+                    value={movementFormData.tripId || ''}
+                    onChange={(e) => setMovementFormData(prev => ({ ...prev, tripId: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    placeholder="Associated trip ID"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Fuel Slip ID (Optional)"
+                    type="number"
+                    value={movementFormData.fuelSlipId || ''}
+                    onChange={(e) => setMovementFormData(prev => ({ ...prev, fuelSlipId: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    placeholder="Associated fuel slip ID"
+                  />
+                </Grid>
+              </Grid>
+
+              <Divider sx={{ my: 1 }} />
+
+              {/* Approval Settings */}
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+                Approval Settings
+              </Typography>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={movementFormData.requiresApproval}
+                    onChange={(e) => {
+                      setMovementFormData(prev => ({
+                        ...prev,
+                        requiresApproval: e.target.checked,
+                        approvalStatus: e.target.checked ? 'PENDING' : 'APPROVED'
+                      }));
+                    }}
+                    size="small"
+                  />
+                }
+                label="Requires Approval"
+                sx={{ fontSize: '0.8rem' }}
+              />
+
+              {movementFormData.requiresApproval && (
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Approved By"
+                      value={movementFormData.approvedBy || ''}
+                      onChange={(e) => setMovementFormData(prev => ({ ...prev, approvedBy: e.target.value }))}
+                      fullWidth
+                      size="small"
+                      placeholder="Name of approver"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
+                      <Select
+                        value={movementFormData.approvalStatus}
+                        onChange={(e) => setMovementFormData(prev => ({ ...prev, approvalStatus: e.target.value }))}
+                        label="Approval Status"
+                        sx={{ fontSize: '0.8rem' }}
+                      >
+                        <MenuItem value="PENDING" sx={{ fontSize: '0.8rem' }}>Pending</MenuItem>
+                        <MenuItem value="APPROVED" sx={{ fontSize: '0.8rem' }}>Approved</MenuItem>
+                        <MenuItem value="REJECTED" sx={{ fontSize: '0.8rem' }}>Rejected</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Performed By"
+                      value={movementFormData.performedBy}
+                      onChange={(e) => setMovementFormData(prev => ({ ...prev, performedBy: e.target.value }))}
+                      fullWidth
+                      size="small"
+                      placeholder="Who performed this movement"
+                    />
+                  </Grid>
+                </Grid>
+              )}
+
+              {/* Validation Alert */}
+              {movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem.quantity && (
+                <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
+                  Insufficient stock! Available: {selectedItem.quantity}
+                </Alert>
+              )}
+
+              {movementFormData.requiresApproval && !movementFormData.approvedBy && (
+                <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>
+                  This movement requires approval. Please specify who will approve it.
+                </Alert>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+          <Button onClick={() => setShowMovementDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSubmitMovement}
+            sx={{ fontSize: '0.8rem' }}
+            disabled={
+              !movementFormData.itemId ||
+              movementFormData.quantity <= 0 ||
+              !movementFormData.reason ||
+              (movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem?.quantity) ||
+              (movementFormData.requiresApproval && !movementFormData.approvedBy)
+            }
+          >
+            {movementFormData.operation === 'ADD' && 'Add Stock'}
+            {movementFormData.operation === 'SUBTRACT' && 'Remove Stock'}
+            {movementFormData.operation === 'SET' && 'Set Quantity'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
