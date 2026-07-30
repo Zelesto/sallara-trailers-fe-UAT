@@ -476,7 +476,7 @@ const MainLayout = () => {
                 fontSize: '0.7rem',
               }}
             >
-              v1.0.3
+              v1.0.4 - 30 JULY 2026
             </Typography>
           </BrandText>
         </LogoWrapper>
