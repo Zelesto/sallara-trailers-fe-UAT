@@ -253,6 +253,7 @@ function App() {
                     <Route path="pods" element={<PODList />} />
                     <Route path="pods/new" element={<PodForm />} />
                     <Route path="pods/:id" element={<PodDetails />} />
+                    <Route path="/pods/:id/edit" element={<PODForm />} />
                     <Route path="pods/trip/:tripId" element={<PODList />} />
                     <Route path="/pods/scan" element={<ScanPOD />} />
                     <Route path="/pods/:id/debrief" element={<DebriefPOD />} />
