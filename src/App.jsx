@@ -58,7 +58,7 @@ const ReceivablesPage = lazy(() => import("./pages/finance/ReceivablePage"));
 const PayablesPage = lazy(() => import("./pages/finance/PayablePage"));
 
 const PODList = lazy(() => import("./pages/PODList"));
-const PODForm = lazy(() => import("./pages/PODForm"));
+const PodForm = lazy(() => import("./pages/PodForm"));
 const PodDetails = lazy(() => import("./pages/PodDetails"));
 const ScanPOD = lazy(() => import("./pages/ScanPOD"));
 const DebriefPOD = lazy(() => import("./pages/DebriefPOD"));
@@ -251,9 +251,9 @@ function App() {
 
                     {/* POD */}
                     <Route path="pods" element={<PODList />} />
-                    <Route path="pods/new" element={<PODForm />} />
+                    <Route path="pods/new" element={<PodForm />} />
                     <Route path="pods/:id" element={<PodDetails />} />
-                    <Route path="/pods/:id/edit" element={<PODForm />} />
+                    <Route path="/pods/:id/edit" element={<PodForm />} />
                     <Route path="pods/trip/:tripId" element={<PODList />} />
                     <Route path="/pods/scan" element={<ScanPOD />} />
                     <Route path="/pods/:id/debrief" element={<DebriefPOD />} />
