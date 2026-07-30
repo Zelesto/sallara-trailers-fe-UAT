@@ -27,6 +27,16 @@ import {
   DialogActions,
   DialogContentText,
   Snackbar,
+  Avatar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   Timeline,
@@ -64,6 +74,15 @@ import {
   Schedule as ScheduleIcon,
   CloudUpload as CloudUploadIcon,
   Close as CloseIcon,
+  ExpandMore as ExpandMoreIcon,
+  LocationOn as LocationIcon,
+  Phone as PhoneIcon,
+  Email as EmailIcon,
+  Business as BusinessIcon,
+  AttachFile as AttachFileIcon,
+  EventNote as EventNoteIcon,
+  Assessment as AssessmentIcon,
+  LocalShipping as ShippingIcon,
 } from '@mui/icons-material';
 import { podService } from '../services/podService';
 import DownloadHandler from '../components/DownloadHandler';
@@ -77,7 +96,9 @@ const PODDetails = () => {
   const [error, setError] = useState(null);
   const [statusHistory, setStatusHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  
+  const [tripDetails, setTripDetails] = useState(null);
+  const [loadingTrip, setLoadingTrip] = useState(false);
+
   // Re-upload states
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -95,12 +116,32 @@ const PODDetails = () => {
     try {
       const data = await podService.getPodById(id);
       setPod(data);
+      
+      // Load trip details if tripId exists
+      if (data.tripId) {
+        loadTripDetails(data.tripId);
+      }
+      
       setError(null);
     } catch (err) {
       setError('Failed to load POD details');
       console.error('Error loading POD:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTripDetails = async (tripId) => {
+    setLoadingTrip(true);
+    try {
+      // This would be your trip service call
+      // const trip = await tripService.getTripById(tripId);
+      // setTripDetails(trip);
+      setTripDetails({ id: tripId, status: 'COMPLETED' }); // Placeholder
+    } catch (err) {
+      console.error('Error loading trip details:', err);
+    } finally {
+      setLoadingTrip(false);
     }
   };
 
@@ -117,7 +158,7 @@ const PODDetails = () => {
     }
   };
 
-  // Dropzone configuration for file upload
+  // Dropzone configuration
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
     accept: {
       'application/pdf': ['.pdf'],
@@ -126,7 +167,7 @@ const PODDetails = () => {
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
     },
-    maxSize: 10485760, // 10MB
+    maxSize: 10485760,
     onDrop: (acceptedFiles) => {
       if (acceptedFiles.length > 0) {
         handleReupload(acceptedFiles[0]);
@@ -165,8 +206,6 @@ const PODDetails = () => {
       
       showSnackbar('File uploaded successfully!', 'success');
       setUploadDialogOpen(false);
-      
-      // Refresh POD details
       await loadPod();
       
     } catch (error) {
@@ -282,6 +321,19 @@ const PODDetails = () => {
     return colors[status] || 'grey';
   };
 
+  // Format quality rating as stars
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        i <= rating ? 
+          <StarIcon key={i} sx={{ fontSize: '1rem', color: '#FFD700' }} /> : 
+          <StarBorderIcon key={i} sx={{ fontSize: '1rem', color: '#FFD700' }} />
+      );
+    }
+    return <Box sx={{ display: 'flex', alignItems: 'center' }}>{stars}</Box>;
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -361,11 +413,6 @@ const PODDetails = () => {
           <Tooltip title="Print">
             <IconButton size="small" color="primary" onClick={() => window.print()} sx={{ p: 0.5 }}>
               <PrintIcon sx={{ fontSize: '0.9rem' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Share">
-            <IconButton size="small" color="primary" sx={{ p: 0.5 }}>
-              <ShareIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
           <Button
@@ -503,84 +550,218 @@ const PODDetails = () => {
         </CardContent>
       </Card>
 
-      {/* Rest of your existing code... (Grid with details, timeline, etc.) */}
+      {/* Main Content Grid */}
       <Grid container spacing={2}>
+        {/* Left Column - Main Details */}
         <Grid item xs={12} md={8}>
-          {/* Details Section */}
+          {/* POD Information */}
           <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
             <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
+              <ReceiptIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
               POD Information
             </Typography>
             
             <Grid container spacing={1.5}>
-              <Grid item xs={12} md={6}>
-                <Stack spacing={1.5}>
-                  <InfoItem label="POD Number" value={pod.podNumber} />
-                  <InfoItem label="Trip ID" value={`#${pod.tripId || 'N/A'}`} />
-                  <InfoItem label="Customer Name" value={pod.customerName || 'N/A'} />
-                  <InfoItem label="Delivery Date" value={pod.deliveryDate ? new Date(pod.deliveryDate).toLocaleDateString() : 'N/A'} />
-                  {pod.driverName && (
-                    <InfoItem label="Driver Name" value={pod.driverName} />
-                  )}
-                </Stack>
+              <Grid item xs={12} sm={6}>
+                <InfoItem label="POD Number" value={pod.podNumber} />
+                <InfoItem label="Trip ID" value={`#${pod.tripId || 'N/A'}`} />
+                <InfoItem label="Customer Name" value={pod.customerName || 'N/A'} />
+                <InfoItem label="Delivery Date" value={pod.deliveryDate ? new Date(pod.deliveryDate).toLocaleDateString() : 'N/A'} />
+                {pod.driverName && (
+                  <InfoItem label="Driver Name" value={pod.driverName} />
+                )}
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Stack spacing={1.5}>
-                  <InfoItem label="Status" value={getStatusChip(pod.status)} isChip />
-                  {pod.source && (
-                    <InfoItem 
-                      label="Source" 
-                      value={
-                        <Chip
-                          size="small"
-                          icon={pod.source === 'SCANNED' ? <ScanIcon sx={{ fontSize: '0.7rem' }} /> : <ReceiptIcon sx={{ fontSize: '0.7rem' }} />}
-                          label={pod.source === 'SCANNED' ? 'Scanned from Driver' : 'Manual Upload'}
-                          color={pod.source === 'SCANNED' ? 'info' : 'default'}
-                          sx={{ fontSize: '0.65rem', height: 22 }}
-                        />
-                      }
-                      isCustom
-                    />
-                  )}
+              <Grid item xs={12} sm={6}>
+                <InfoItem label="Status" value={getStatusChip(pod.status)} isChip />
+                {pod.source && (
                   <InfoItem 
-                    label="Document Type" 
+                    label="Source" 
                     value={
-                      <Stack direction="row" alignItems="center" spacing={0.5}>
-                        {hasFile ? getDocumentIcon(pod.documentType) : <WarningIcon sx={{ fontSize: 20, color: '#ff9800' }} />}
-                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                          {hasFile ? (pod.documentType || 'N/A') : 'No file uploaded'}
-                        </Typography>
-                      </Stack>
+                      <Chip
+                        size="small"
+                        icon={pod.source === 'SCANNED' ? <ScanIcon sx={{ fontSize: '0.7rem' }} /> : <ReceiptIcon sx={{ fontSize: '0.7rem' }} />}
+                        label={pod.source === 'SCANNED' ? 'Scanned from Driver' : 'Manual Upload'}
+                        color={pod.source === 'SCANNED' ? 'info' : 'default'}
+                        sx={{ fontSize: '0.65rem', height: 22 }}
+                      />
                     }
                     isCustom
                   />
-                  <InfoItem label="File Size" value={hasFile ? (pod.fileSize || 'N/A') : 'N/A'} />
-                  <InfoItem 
-                    label="Uploaded By" 
-                    value={
-                      <Box>
-                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                          {pod.uploadedBy || 'N/A'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                          {pod.uploadedAt ? new Date(pod.uploadedAt).toLocaleString() : 'N/A'}
-                        </Typography>
-                      </Box>
-                    }
-                    isCustom
-                  />
-                </Stack>
+                )}
+                <InfoItem 
+                  label="Document" 
+                  value={
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      {hasFile ? getDocumentIcon(pod.documentType) : <WarningIcon sx={{ fontSize: 20, color: '#ff9800' }} />}
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                        {hasFile ? (pod.documentType || 'N/A') : 'No file uploaded'}
+                      </Typography>
+                    </Stack>
+                  }
+                  isCustom
+                />
+                <InfoItem label="File Size" value={hasFile ? (pod.fileSize || 'N/A') : 'N/A'} />
+                <InfoItem 
+                  label="Uploaded By" 
+                  value={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                        {pod.uploadedBy || 'N/A'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                        {pod.uploadedAt ? new Date(pod.uploadedAt).toLocaleString() : 'N/A'}
+                      </Typography>
+                    </Box>
+                  }
+                  isCustom
+                />
               </Grid>
-
-              {/* Notes and other sections remain the same */}
-              {/* ... keep your existing notes, debrief info, audit trail sections ... */}
             </Grid>
           </Paper>
+
+          {/* Debrief Information */}
+          {pod.debriefedAt && (
+            <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
+                <AssignmentIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
+                Debrief Information
+              </Typography>
+              
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} sm={6}>
+                  <InfoItem 
+                    label="Debriefed By" 
+                    value={pod.debriefedBy || 'N/A'} 
+                  />
+                  <InfoItem 
+                    label="Debriefed At" 
+                    value={pod.debriefedAt ? new Date(pod.debriefedAt).toLocaleString() : 'N/A'} 
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <InfoItem 
+                    label="Received By" 
+                    value={pod.receivedBy || 'N/A'} 
+                  />
+                  <InfoItem 
+                    label="Delivery Condition" 
+                    value={
+                      <Chip
+                        size="small"
+                        label={pod.deliveryCondition || 'N/A'}
+                        color={
+                          pod.deliveryCondition === 'GOOD' ? 'success' :
+                          pod.deliveryCondition === 'DAMAGED' ? 'error' :
+                          pod.deliveryCondition === 'PARTIAL' ? 'warning' :
+                          'default'
+                        }
+                        sx={{ fontSize: '0.65rem', height: 22 }}
+                      />
+                    }
+                    isCustom
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <InfoItem 
+                    label="Quality Rating" 
+                    value={renderStars(pod.qualityRating || 0)}
+                    isCustom
+                  />
+                </Grid>
+                {pod.issuesFound && (
+                  <Grid item xs={12}>
+                    <InfoItem 
+                      label="Issues Found" 
+                      value={pod.issuesFound}
+                    />
+                  </Grid>
+                )}
+                {pod.debriefNotes && (
+                  <Grid item xs={12}>
+                    <InfoItem 
+                      label="Debrief Notes" 
+                      value={pod.debriefNotes}
+                    />
+                  </Grid>
+                )}
+                {pod.additionalInfo && (
+                  <Grid item xs={12}>
+                    <InfoItem 
+                      label="Additional Information" 
+                      value={pod.additionalInfo}
+                    />
+                  </Grid>
+                )}
+              </Grid>
+            </Paper>
+          )}
+
+          {/* Trip Details Accordion */}
+          {pod.tripId && (
+            <Paper sx={{ mb: 2 }}>
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                    <ShippingIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
+                    Trip Details
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={6}>
+                      <InfoItem label="Trip Number" value={`#${pod.tripId}`} />
+                      <InfoItem label="Trip Status" value={tripDetails?.status || 'N/A'} />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <InfoItem label="Vehicle" value={pod.vehicleRegistration || 'N/A'} />
+                      <InfoItem label="Driver" value={pod.driverName || 'N/A'} />
+                    </Grid>
+                  </Grid>
+                </AccordionDetails>
+              </Accordion>
+            </Paper>
+          )}
+
+          {/* Notes */}
+          {pod.notes && (
+            <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
+                <CommentIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
+                Notes
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+                {pod.notes}
+              </Typography>
+            </Paper>
+          )}
+
+          {/* Audit Trail */}
+          {pod.auditTrail && Object.keys(pod.auditTrail).length > 0 && (
+            <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 2 }}>
+                <HistoryIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
+                Audit Trail
+              </Typography>
+              <Stack spacing={1}>
+                {Object.entries(pod.auditTrail).map(([key, value]) => (
+                  <Box key={key} sx={{ p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary' }}>
+                      {key}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                      {typeof value === 'string' ? value : JSON.stringify(value)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Paper>
+          )}
         </Grid>
 
+        {/* Right Column - Timeline and Actions */}
         <Grid item xs={12} md={4}>
-          {/* Status Timeline - keep existing */}
+          {/* Status Timeline */}
           <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
             <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 2 }}>
               <ScheduleIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 1 }} />
@@ -780,7 +961,7 @@ const PODDetails = () => {
   );
 };
 
-// Helper components (keep your existing InfoItem and AuditItem components)
+// InfoItem Component
 const InfoItem = ({ label, value, isChip = false, isCustom = false }) => (
   <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
@@ -792,20 +973,9 @@ const InfoItem = ({ label, value, isChip = false, isCustom = false }) => (
       value
     ) : (
       <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
-        {value}
+        {value || 'N/A'}
       </Typography>
     )}
-  </Box>
-);
-
-const AuditItem = ({ label, value, by }) => (
-  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-      <strong>{label}:</strong> {value}
-    </Typography>
-    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-      By: {by || 'N/A'}
-    </Typography>
   </Box>
 );
 
