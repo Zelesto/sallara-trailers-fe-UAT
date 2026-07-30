@@ -66,6 +66,10 @@ import { analyticsService } from '../services/analyticsService';
 import { inventoryNotificationService } from '../services/inventoryNotificationService';
 import { tripService } from '../services/tripService';
 
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
@@ -88,7 +92,7 @@ const formatNumber = (num, decimals = 0) => {
   }).format(number);
 };
 
-// Helper function for colors
+// Color helper functions
 const getColor = (color) => {
   const colors = {
     primary: '#5D87FF',
@@ -113,7 +117,10 @@ const getColorBg = (color) => {
   return colors[color] || colors.primary;
 };
 
-// Compact Stat Card Component
+// ============================================================
+// COMPACT STAT CARD COMPONENT
+// ============================================================
+
 const StatCard = React.memo(({
   title,
   value,
@@ -206,18 +213,17 @@ const StatCard = React.memo(({
   </Card>
 ));
 
-// Low Stock Alert Component with Collapsible
+// ============================================================
+// LOW STOCK ALERT COMPONENT
+// ============================================================
+
 const LowStockAlert = ({ items }) => {
   const [expanded, setExpanded] = useState(() => {
-    // Check localStorage for saved state
     const saved = localStorage.getItem('lowStockExpanded');
     return saved !== null ? JSON.parse(saved) : true;
   });
 
-  const [showIcon, setShowIcon] = useState(!expanded);
-
   if (!items || items.length === 0) {
-    // Hide completely if no items
     return null;
   }
 
@@ -228,7 +234,6 @@ const LowStockAlert = ({ items }) => {
     const newState = !expanded;
     setExpanded(newState);
     localStorage.setItem('lowStockExpanded', JSON.stringify(newState));
-    setShowIcon(newState ? false : true);
   };
 
   // Icon-only mode (minimized)
@@ -342,7 +347,12 @@ const LowStockAlert = ({ items }) => {
   );
 };
 
+// ============================================================
+// MAIN DASHBOARD COMPONENT
+// ============================================================
+
 const Dashboard = () => {
+  // ========== STATE ==========
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
@@ -350,10 +360,12 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [activeTrips, setActiveTrips] = useState([]);
+  
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Fetch active trips for driver/vehicle availability
+  // ========== HELPER FUNCTIONS ==========
+  
   const fetchActiveTrips = async () => {
     try {
       const response = await tripService.getAllTrips({
@@ -369,9 +381,7 @@ const Dashboard = () => {
     }
   };
 
-  // Calculate available drivers and vehicles
   const calculateAvailability = (trips) => {
-    // Get all drivers and vehicles currently on active trips
     const driversInTrips = new Set();
     const vehiclesInTrips = new Set();
 
@@ -383,7 +393,6 @@ const Dashboard = () => {
     const activeDrivers = driversInTrips.size;
     const activeVehicles = vehiclesInTrips.size;
     
-    // Assuming total drivers and vehicles from dashboard data
     const totalDrivers = dashboardData?.summary?.totalDrivers || 0;
     const totalVehicles = dashboardData?.summary?.totalVehicles || 0;
 
@@ -395,6 +404,8 @@ const Dashboard = () => {
     };
   };
 
+  // ========== DATA FETCHING ==========
+  
   const fetchDashboardData = async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
@@ -422,7 +433,6 @@ const Dashboard = () => {
 
       const formatDate = (date) => date.toISOString().split('T')[0];
       
-      // Fetch all data in parallel
       const [response, lowStock, activeTripsData] = await Promise.all([
         analyticsService.getDashboardKPIs(formatDate(startDate), formatDate(endDate)),
         (async () => {
@@ -463,11 +473,14 @@ const Dashboard = () => {
     }
   };
 
+  // ========== EFFECTS ==========
+  
   useEffect(() => {
     fetchDashboardData();
   }, [period]);
 
-  // Calculate availability from active trips
+  // ========== MEMOIZED VALUES ==========
+  
   const availability = useMemo(() => {
     if (!activeTrips.length) {
       return { activeDrivers: 0, activeVehicles: 0, availableDrivers: 0, availableVehicles: 0 };
@@ -475,27 +488,23 @@ const Dashboard = () => {
     return calculateAvailability(activeTrips);
   }, [activeTrips, dashboardData]);
 
-  // Top Drivers Table with Cost/km and Rating
+  // ========== SUB-COMPONENTS ==========
+  
+  // Top Drivers Table
   const TopDriversTable = () => {
     const topDrivers = dashboardData?.topDrivers || dashboardData?.summary?.topDrivers || [];
     
-    // Calculate rating based on multiple factors
     const calculateDriverRating = (driver) => {
       const efficiency = driver.efficiency || driver.kmPerLiter || 0;
       const trips = driver.tripCount || driver.tripsCompleted || 0;
       const costPerKm = driver.costPerKm || 0;
       
-      // Rating out of 5 based on:
-      // - Efficiency: max 2.5 points (8+ km/L = 2.5)
-      // - Trip count: max 1.5 points (10+ trips = 1.5)
-      // - Cost per km: max 1 point (< R2/km = 1)
-      
       let rating = 0;
-      rating += Math.min(efficiency / 3.2, 2.5); // 8 km/L = 2.5
-      rating += Math.min(trips / 6.67, 1.5); // 10 trips = 1.5
-      rating += costPerKm < 2 ? 1 : costPerKm < 3 ? 0.5 : 0; // Cost efficiency
+      rating += Math.min(efficiency / 3.2, 2.5);
+      rating += Math.min(trips / 6.67, 1.5);
+      rating += costPerKm < 2 ? 1 : costPerKm < 3 ? 0.5 : 0;
       
-      return Math.min(Math.round(rating * 10) / 10, 5); // Round to 1 decimal, max 5
+      return Math.min(Math.round(rating * 10) / 10, 5);
     };
 
     const enhancedDrivers = topDrivers.map(driver => ({
@@ -679,7 +688,7 @@ const Dashboard = () => {
     );
   };
 
-  // Recent Activity - Enhanced with real activities
+  // Recent Activity
   const RecentActivity = () => {
     const activities = dashboardData?.recentActivities || [];
 
@@ -706,7 +715,6 @@ const Dashboard = () => {
       }
     };
 
-    // Generate real activities if none exist
     const displayActivities = activities.length > 0 ? activities : [
       { type: 'info', message: 'System is operational', status: 'success', time: 'Just now' },
       { type: 'trip', message: 'No recent trips recorded', status: 'info', time: 'Recently' },
@@ -789,6 +797,8 @@ const Dashboard = () => {
     );
   };
 
+  // ========== LOADING STATE ==========
+  
   if (loading && !dashboardData) {
     return (
       <Box sx={{
@@ -808,11 +818,12 @@ const Dashboard = () => {
     );
   }
 
+  // ========== MAIN RENDER ==========
+  
   const summary = dashboardData?.summary || {};
   const vehicleKpis = dashboardData?.topVehicles || dashboardData?.vehicleKpis || [];
   const periodStats = dashboardData?.period || {};
 
-  // Use calculated availability
   const displayActiveDrivers = availability.activeDrivers || summary.activeDrivers || 0;
   const displayActiveVehicles = availability.activeVehicles || summary.activeVehicles || 0;
   const availableDrivers = availability.availableDrivers || 0;
@@ -820,7 +831,7 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
+      {/* ===== HEADER ===== */}
       <Stack 
         direction={{ xs: 'column', sm: 'row' }} 
         justifyContent="space-between" 
@@ -858,6 +869,7 @@ const Dashboard = () => {
         </Tooltip>
       </Stack>
 
+      {/* ===== ERROR ALERT ===== */}
       {error && (
         <Alert
           severity="error"
@@ -872,10 +884,10 @@ const Dashboard = () => {
         </Alert>
       )}
 
-      {/* Low Stock Alerts - Collapsible */}
+      {/* ===== LOW STOCK ALERTS ===== */}
       <LowStockAlert items={lowStockItems} />
 
-      {/* Availability Info */}
+      {/* ===== AVAILABILITY INFO ===== */}
       {(availableDrivers > 0 || availableVehicles > 0) && (
         <Paper sx={{ p: 1, mb: 2, backgroundColor: '#f0f7ff', borderRadius: 1.5 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }}>
@@ -903,7 +915,7 @@ const Dashboard = () => {
         </Paper>
       )}
 
-      {/* Time Period Selector - Compact */}
+      {/* ===== PERIOD SELECTOR ===== */}
       <Box sx={{
         backgroundColor: '#f8fafc',
         p: { xs: 1, sm: 1.5 },
@@ -956,7 +968,7 @@ const Dashboard = () => {
         )}
       </Box>
 
-      {/* Key Metrics Grid - Compact */}
+      {/* ===== KEY METRICS ===== */}
       <Grid container spacing={1.5} mb={2}>
         <Grid item xs={6} sm={6} md={3}>
           <StatCard
@@ -1009,7 +1021,7 @@ const Dashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Detailed Analytics Grid - Compact */}
+      {/* ===== DETAILED ANALYTICS ===== */}
       <Grid container spacing={1.5} mb={2}>
         <Grid item xs={12} lg={8}>
           <TopDriversTable />
@@ -1019,7 +1031,7 @@ const Dashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Additional Metrics - Compact */}
+      {/* ===== ADDITIONAL METRICS ===== */}
       <Grid container spacing={1.5}>
         <Grid item xs={12} md={6}>
           <Paper sx={{
@@ -1199,7 +1211,7 @@ const Dashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Footer Info - Compact */}
+      {/* ===== FOOTER ===== */}
       <Box mt={2} pt={2} borderTop={1} borderColor="divider">
         <Stack 
           direction={{ xs: 'column', sm: 'row' }} 
