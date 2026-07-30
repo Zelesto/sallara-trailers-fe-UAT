@@ -56,9 +56,6 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
-
-
-
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return 'R 0.00';
@@ -154,7 +151,8 @@ const StatusChip = ({ status }) => {
 function FuelSlips() {
   const params = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useAuth(); // MOVED INSIDE THE COMPONENT
+  
   const [slips, setSlips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -371,21 +369,21 @@ function FuelSlips() {
   };
 
   const handleVerifyConfirm = async () => {
-  if (!verifyId) return;
-  setVerifying(true);
-  try {
-    const currentUser = user?.username || user?.email || 'SYSTEM';
-    await fuelService.verifyFuelSlip(verifyId, currentUser);
-    setVerifyDialogOpen(false);
-    setVerifyId(null);
-    await fetchSlips();
-  } catch (err) {
-    console.error('Failed to verify fuel slip:', err);
-    setError(err.message || 'Failed to verify fuel slip');
-  } finally {
-    setVerifying(false);
-  }
-};
+    if (!verifyId) return;
+    setVerifying(true);
+    try {
+      const currentUser = user?.username || user?.email || 'SYSTEM';
+      await fuelService.verifyFuelSlip(verifyId, currentUser);
+      setVerifyDialogOpen(false);
+      setVerifyId(null);
+      await fetchSlips();
+    } catch (err) {
+      console.error('Failed to verify fuel slip:', err);
+      setError(err.message || 'Failed to verify fuel slip');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleVerifyCancel = () => {
     setVerifyDialogOpen(false);
