@@ -234,63 +234,66 @@ const InventoryItemRow = ({
           )}
         </Stack>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-  <Stack direction="row" spacing={0.25}>
-    {/* View Details */}
-    <Tooltip title="View Details">
-      <IconButton size="small" color="primary" onClick={() => onView(item)} sx={{ p: 0.5 }}>
-        <Visibility sx={{ fontSize: '0.9rem' }} />
-      </IconButton>
-    </Tooltip>
-    
-    {/* Edit Item */}
-    <Tooltip title="Edit Item">
-      <IconButton size="small" color="secondary" onClick={() => onEdit(item)} sx={{ p: 0.5 }}>
-        <Edit sx={{ fontSize: '0.9rem' }} />
-      </IconButton>
-    </Tooltip>
-    
-    {/* STOCK MOVEMENT - CompareArrows Icon (different from Receive Return) */}
-    <Tooltip title="Stock Movement (Add/Remove/Adjust)">
-      <IconButton size="small" color="info" onClick={() => onMovement(item)} sx={{ p: 0.5 }}>
-        <CompareArrowsIcon sx={{ fontSize: '0.9rem' }} />
-      </IconButton>
-    </Tooltip>
-    
-    {/* Issue to Vehicle */}
-    {isConsumable && !item.isHeld && item.isActive && item.isVehicleIssuable !== false && (
-      <Tooltip title="Issue to Vehicle">
-        <IconButton size="small" color="warning" onClick={() => onIssue(item)} sx={{ p: 0.5 }}>
-          <DirectionsCar sx={{ fontSize: '0.9rem' }} />
-        </IconButton>
-      </Tooltip>
-    )}
-    
-    {/* Issue to Driver */}
-    {isConsumable && !item.isHeld && item.isActive && item.isDriverIssuable !== false && (
-      <Tooltip title="Issue to Driver">
-        <IconButton size="small" color="info" onClick={() => onIssueToDriver(item)} sx={{ p: 0.5 }}>
-          <Person sx={{ fontSize: '0.9rem' }} />
-        </IconButton>
-      </Tooltip>
-    )}
-    
-    {/* RECEIVE RETURN - Undo Icon (different from Stock Movement) */}
-    {isConsumable && !item.isHeld && item.isActive && (
-      <Tooltip title="Receive Return">
-        <IconButton size="small" color="success" onClick={() => onReceive(item)} sx={{ p: 0.5 }}>
-          <UndoIcon sx={{ fontSize: '0.9rem' }} />
-        </IconButton>
-      </Tooltip>
-    )}
-    
-    {/* Delete Item */}
-    <Tooltip title="Delete Item">
-      <IconButton size="small" color="error" onClick={() => onDelete(item)} sx={{ p: 0.5 }}>
-        <Delete sx={{ fontSize: '0.9rem' }} />
-      </IconButton>
-    </Tooltip>
-  </Stack>
-</TableCell>
+        
+          {/* Actions - FIXED: Properly closed TableCell */}
+      <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+        <Stack direction="row" spacing={0.25}>
+          {/* View Details */}
+          <Tooltip title="View Details">
+            <IconButton size="small" color="primary" onClick={() => onView(item)} sx={{ p: 0.5 }}>
+              <Visibility sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
+          
+          {/* Edit Item */}
+          <Tooltip title="Edit Item">
+            <IconButton size="small" color="secondary" onClick={() => onEdit(item)} sx={{ p: 0.5 }}>
+              <Edit sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
+          
+          {/* STOCK MOVEMENT - CompareArrows Icon */}
+          <Tooltip title="Stock Movement (Add/Remove/Adjust)">
+            <IconButton size="small" color="info" onClick={() => onMovement(item)} sx={{ p: 0.5 }}>
+              <CompareArrowsIcon sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
+          
+          {/* Issue to Vehicle */}
+          {isConsumable && !item.isHeld && item.isActive && item.isVehicleIssuable !== false && (
+            <Tooltip title="Issue to Vehicle">
+              <IconButton size="small" color="warning" onClick={() => onIssue(item)} sx={{ p: 0.5 }}>
+                <DirectionsCar sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {/* Issue to Driver */}
+          {isConsumable && !item.isHeld && item.isActive && item.isDriverIssuable !== false && (
+            <Tooltip title="Issue to Driver">
+              <IconButton size="small" color="info" onClick={() => onIssueToDriver(item)} sx={{ p: 0.5 }}>
+                <Person sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {/* RECEIVE RETURN - Undo Icon */}
+          {isConsumable && !item.isHeld && item.isActive && (
+            <Tooltip title="Receive Return">
+              <IconButton size="small" color="success" onClick={() => onReceive(item)} sx={{ p: 0.5 }}>
+                <UndoIcon sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {/* Delete Item */}
+          <Tooltip title="Delete Item">
+            <IconButton size="small" color="error" onClick={() => onDelete(item)} sx={{ p: 0.5 }}>
+              <Delete sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </TableCell>
     </TableRow>
   );
 };
