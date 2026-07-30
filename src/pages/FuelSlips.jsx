@@ -54,6 +54,11 @@ import {
   Verified as VerifiedIcon,
   Pending as PendingIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../context/AuthContext';
+
+
+
+const { user } = useAuth();
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
@@ -369,8 +374,7 @@ function FuelSlips() {
   if (!verifyId) return;
   setVerifying(true);
   try {
-    // Get current user - you can get this from your auth context
-    const currentUser = 'SYSTEM'; // Replace with actual user from auth context
+    const currentUser = user?.username || user?.email || 'SYSTEM';
     await fuelService.verifyFuelSlip(verifyId, currentUser);
     setVerifyDialogOpen(false);
     setVerifyId(null);
