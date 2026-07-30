@@ -56,50 +56,6 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
-
-// Add this helper function at the top of FuelSlips.jsx
-const getFuelSlipStatus = (slip) => {
-  // If verified_by is populated, it's VERIFIED
-  if (slip.verifiedBy) {
-    return 'VERIFIED';
-  }
-  // If finalized is true, it's FINALIZED
-  if (slip.finalized) {
-    return 'FINALIZED';
-  }
-  // Otherwise it's PENDING
-  return 'PENDING';
-};
-
-// Update the StatusChip component
-const StatusChip = ({ slip }) => {
-  const status = getFuelSlipStatus(slip);
-  
-  const getStatusConfig = (status) => {
-    switch (status) {
-      case 'VERIFIED':
-        return { color: 'success', icon: <VerifiedIcon sx={{ fontSize: '0.7rem' }} />, label: 'Verified' };
-      case 'FINALIZED':
-        return { color: 'info', icon: <CheckCircle sx={{ fontSize: '0.7rem' }} />, label: 'Finalized' };
-      case 'PENDING':
-        return { color: 'warning', icon: <PendingIcon sx={{ fontSize: '0.7rem' }} />, label: 'Pending' };
-      default:
-        return { color: 'default', icon: null, label: status || 'Unknown' };
-    }
-  };
-
-  const config = getStatusConfig(status);
-  return (
-    <Chip
-      label={config.label}
-      size="small"
-      color={config.color}
-      icon={config.icon}
-      sx={{ height: 20, fontSize: '0.6rem' }}
-    />
-  );
-};
-
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return 'R 0.00';
@@ -120,6 +76,20 @@ const formatNumber = (num) => {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(number);
+};
+
+// ========== DERIVED STATUS FUNCTION ==========
+const getFuelSlipStatus = (slip) => {
+  // If verified_by is populated, it's VERIFIED
+  if (slip.verifiedBy) {
+    return 'VERIFIED';
+  }
+  // If finalized is true, it's FINALIZED
+  if (slip.finalized) {
+    return 'FINALIZED';
+  }
+  // Otherwise it's PENDING
+  return 'PENDING';
 };
 
 // Compact Stat Card Component
@@ -165,16 +135,18 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge
   </Card>
 );
 
-// Status Chip Component
-const StatusChip = ({ status }) => {
+// Status Chip Component - Updated to use derived status
+const StatusChip = ({ slip }) => {
+  const status = getFuelSlipStatus(slip);
+  
   const getStatusConfig = (status) => {
-    switch (status?.toUpperCase()) {
+    switch (status) {
       case 'VERIFIED':
         return { color: 'success', icon: <VerifiedIcon sx={{ fontSize: '0.7rem' }} />, label: 'Verified' };
+      case 'FINALIZED':
+        return { color: 'info', icon: <CheckCircle sx={{ fontSize: '0.7rem' }} />, label: 'Finalized' };
       case 'PENDING':
         return { color: 'warning', icon: <PendingIcon sx={{ fontSize: '0.7rem' }} />, label: 'Pending' };
-      case 'REJECTED':
-        return { color: 'error', icon: <Cancel sx={{ fontSize: '0.7rem' }} />, label: 'Rejected' };
       default:
         return { color: 'default', icon: null, label: status || 'Unknown' };
     }
@@ -195,7 +167,7 @@ const StatusChip = ({ status }) => {
 function FuelSlips() {
   const params = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth(); // MOVED INSIDE THE COMPONENT
+  const { user } = useAuth();
   
   const [slips, setSlips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -258,37 +230,36 @@ function FuelSlips() {
     fetchSlips();
   }, [params.id, driverFilter, vehicleFilter, statusFilter]);
 
-  // Get unique drivers and vehicles for filters
- // Get unique statuses from slips
-const { drivers, vehicles, statuses } = useMemo(() => {
-  const uniqueDrivers = [];
-  const uniqueVehicles = [];
-  const uniqueStatuses = new Set();
-  const driverMap = new Map();
-  const vehicleMap = new Map();
+  // Get unique drivers, vehicles, and statuses for filters
+  const { drivers, vehicles, statuses } = useMemo(() => {
+    const uniqueDrivers = [];
+    const uniqueVehicles = [];
+    const uniqueStatuses = new Set();
+    const driverMap = new Map();
+    const vehicleMap = new Map();
 
-  slips.forEach(slip => {
-    if (slip.driverId && slip.driverName && !driverMap.has(slip.driverId)) {
-      driverMap.set(slip.driverId, slip.driverName);
-      uniqueDrivers.push({ id: slip.driverId, name: slip.driverName });
-    }
+    slips.forEach(slip => {
+      if (slip.driverId && slip.driverName && !driverMap.has(slip.driverId)) {
+        driverMap.set(slip.driverId, slip.driverName);
+        uniqueDrivers.push({ id: slip.driverId, name: slip.driverName });
+      }
 
-    if (slip.vehicleId && slip.vehicleRegNumber && !vehicleMap.has(slip.vehicleId)) {
-      vehicleMap.set(slip.vehicleId, slip.vehicleRegNumber);
-      uniqueVehicles.push({ id: slip.vehicleId, regNumber: slip.vehicleRegNumber });
-    }
+      if (slip.vehicleId && slip.vehicleRegNumber && !vehicleMap.has(slip.vehicleId)) {
+        vehicleMap.set(slip.vehicleId, slip.vehicleRegNumber);
+        uniqueVehicles.push({ id: slip.vehicleId, regNumber: slip.vehicleRegNumber });
+      }
 
-    // Derive status
-    const status = getFuelSlipStatus(slip);
-    uniqueStatuses.add(status);
-  });
+      // Derive status for filter options
+      const status = getFuelSlipStatus(slip);
+      uniqueStatuses.add(status);
+    });
 
-  return { 
-    drivers: uniqueDrivers, 
-    vehicles: uniqueVehicles,
-    statuses: Array.from(uniqueStatuses),
-  };
-}, [slips]);
+    return { 
+      drivers: uniqueDrivers, 
+      vehicles: uniqueVehicles,
+      statuses: Array.from(uniqueStatuses),
+    };
+  }, [slips]);
 
   // Calculate summary stats with new metrics
   const summary = useMemo(() => {
@@ -328,12 +299,12 @@ const { drivers, vehicles, statuses } = useMemo(() => {
     const withTripAvg = withTripQuantity > 0 ? withTripAmount / withTripQuantity : 0;
     const withoutTripAvg = withoutTripQuantity > 0 ? withoutTripAmount / withoutTripQuantity : 0;
 
-    // Status counts
+    // Status counts - using derived status
     const statusCounts = {};
-      slips.forEach(slip => {
-        const status = getFuelSlipStatus(slip);
-        statusCounts[status] = (statusCounts[status] || 0) + 1;
-      });
+    slips.forEach(slip => {
+      const status = getFuelSlipStatus(slip);
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
 
     return {
       totalAmount,
@@ -355,11 +326,11 @@ const { drivers, vehicles, statuses } = useMemo(() => {
     };
   }, [slips]);
 
-  // Filter slips by status
-const filteredSlips = useMemo(() => {
-  if (statusFilter === 'all') return slips;
-  return slips.filter(slip => getFuelSlipStatus(slip) === statusFilter);
-}, [slips, statusFilter]);
+  // Filter slips by status - using derived status
+  const filteredSlips = useMemo(() => {
+    if (statusFilter === 'all') return slips;
+    return slips.filter(slip => getFuelSlipStatus(slip) === statusFilter);
+  }, [slips, statusFilter]);
 
   // Handle clear filters
   const handleClearFilters = () => {
@@ -618,8 +589,8 @@ const filteredSlips = useMemo(() => {
                         size="small"
                         color={
                           status === 'VERIFIED' ? 'success' :
+                          status === 'FINALIZED' ? 'info' :
                           status === 'PENDING' ? 'warning' :
-                          status === 'REJECTED' ? 'error' :
                           'default'
                         }
                         sx={{ height: 22, fontSize: '0.6rem' }}
@@ -762,142 +733,145 @@ const filteredSlips = useMemo(() => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredSlips.map(slip => (
-              <TableRow
-                key={slip.id}
-                hover
-                sx={{
-                  '&:last-child td, &:last-child th': { border: 0 },
-                  bgcolor: slip.status === 'VERIFIED' ? 'action.hover' : 'transparent'
-                }}
-              >
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-                    {slip.transactionDate
-                      ? new Date(slip.transactionDate).toLocaleDateString('en-ZA', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : '-'}
-                  </Typography>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
-                      {slip.driverName || '-'}
+            {filteredSlips.map(slip => {
+              const status = getFuelSlipStatus(slip);
+              return (
+                <TableRow
+                  key={slip.id}
+                  hover
+                  sx={{
+                    '&:last-child td, &:last-child th': { border: 0 },
+                    bgcolor: status === 'VERIFIED' ? 'success.light' : status === 'FINALIZED' ? 'info.light' : 'transparent'
+                  }}
+                >
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+                      {slip.transactionDate
+                        ? new Date(slip.transactionDate).toLocaleDateString('en-ZA', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : '-'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                      ID: {slip.driverId || 'N/A'}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
-                      {slip.vehicleRegNumber || '-'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                      ID: {slip.vehicleId || 'N/A'}
-                    </Typography>
-                    {slip.tripId && (
-                      <Chip
-                        label={`Trip #${slip.tripId}`}
-                        size="small"
-                        color="info"
-                        variant="outlined"
-                        sx={{ height: 14, fontSize: '0.45rem', mt: 0.25 }}
-                      />
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
-                      {slip.quantity ? `${formatNumber(slip.quantity)} L` : '-'}
-                    </Typography>
-                    {slip.unitPrice && (
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
+                        {slip.driverName || '-'}
+                      </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                        @ {formatCurrency(slip.unitPrice)}/L
+                        ID: {slip.driverId || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
+                        {slip.vehicleRegNumber || '-'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+                        ID: {slip.vehicleId || 'N/A'}
+                      </Typography>
+                      {slip.tripId && (
+                        <Chip
+                          label={`Trip #${slip.tripId}`}
+                          size="small"
+                          color="info"
+                          variant="outlined"
+                          sx={{ height: 14, fontSize: '0.45rem', mt: 0.25 }}
+                        />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
+                        {slip.quantity ? `${formatNumber(slip.quantity)} L` : '-'}
+                      </Typography>
+                      {slip.unitPrice && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+                          @ {formatCurrency(slip.unitPrice)}/L
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight="500" color="primary" sx={{ fontSize: '0.7rem' }}>
+                        {formatCurrency(slip.totalAmount)}
+                      </Typography>
+                      {slip.quantity && slip.totalAmount && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+                          {formatCurrency(parseFloat(slip.totalAmount) / parseFloat(slip.quantity))}/L
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+                      {slip.stationName || slip.location || '-'}
+                    </Typography>
+                    {slip.location && slip.stationName && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+                        {slip.location}
                       </Typography>
                     )}
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" color="primary" sx={{ fontSize: '0.7rem' }}>
-                      {formatCurrency(slip.totalAmount)}
-                    </Typography>
-                    {slip.quantity && slip.totalAmount && (
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                        {formatCurrency(parseFloat(slip.totalAmount) / parseFloat(slip.quantity))}/L
-                      </Typography>
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-                    {slip.stationName || slip.location || '-'}
-                  </Typography>
-                  {slip.location && slip.stationName && (
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                      {slip.location}
-                    </Typography>
-                  )}
-                </TableCell>
-               <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                <StatusChip slip={slip} />
-              </TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
-                  <Stack direction="row" spacing={0.5}>
-                    <Tooltip title="View Details">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleViewSlip(slip.id)}
-                        color="primary"
-                        sx={{ p: 0.5 }}
-                      >
-                        <Visibility sx={{ fontSize: '0.9rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditSlip(slip.id)}
-                        color="info"
-                        sx={{ p: 0.5 }}
-                      >
-                        <EditIcon sx={{ fontSize: '0.9rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    {{(slip.verifiedBy ? 'VERIFIED' : 'PENDING') !== 'VERIFIED' && (
-                      <Tooltip title="Verify">
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <StatusChip slip={slip} />
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                    <Stack direction="row" spacing={0.5}>
+                      <Tooltip title="View Details">
                         <IconButton
                           size="small"
-                          onClick={() => handleVerifyClick(slip.id)}
-                          color="success"
+                          onClick={() => handleViewSlip(slip.id)}
+                          color="primary"
                           sx={{ p: 0.5 }}
                         >
-                          <VerifiedIcon sx={{ fontSize: '0.9rem' }} />
+                          <Visibility sx={{ fontSize: '0.9rem' }} />
                         </IconButton>
                       </Tooltip>
-                    )}
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteClick(slip.id)}
-                        color="error"
-                        sx={{ p: 0.5 }}
-                      >
-                        <DeleteIcon sx={{ fontSize: '0.9rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditSlip(slip.id)}
+                          color="info"
+                          sx={{ p: 0.5 }}
+                        >
+                          <EditIcon sx={{ fontSize: '0.9rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                      {status !== 'VERIFIED' && status !== 'FINALIZED' && (
+                        <Tooltip title="Verify">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleVerifyClick(slip.id)}
+                            color="success"
+                            sx={{ p: 0.5 }}
+                          >
+                            <VerifiedIcon sx={{ fontSize: '0.9rem' }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteClick(slip.id)}
+                          color="error"
+                          sx={{ p: 0.5 }}
+                        >
+                          <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
