@@ -565,13 +565,7 @@ const Inventory = () => {
     damageNotes: '',
     issueType: 'vehicle',
   });
-  const [movementFormData, setMovementFormData] = useState({
-    itemId: '',
-    quantity: 0,
-    operation: 'ADD',
-    reason: '',
-    notes: '',
-  });
+ 
 
   // Load data
   useEffect(() => {
