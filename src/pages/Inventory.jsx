@@ -73,6 +73,8 @@ import {
   AddCircle as AddCircleIcon,
   RemoveCircle as RemoveCircleIcon,
   Adjust as AdjustIcon,
+  CompareArrows as CompareArrowsIcon, 
+  Undo as UndoIcon, 
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -235,20 +237,21 @@ const InventoryItemRow = ({
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
           <Tooltip title="View Details">
-            <IconButton size="small" color="primary" onClick={() => onView(item)} sx={{ p: 0.5 }}>
-              <Visibility sx={{ fontSize: '0.9rem' }} />
-            </IconButton>
-          </Tooltip>
+            <Tooltip title="View Details">
+              <IconButton size="small" color="primary" onClick={() => onView(item)} sx={{ p: 0.5 }}>
+                <Visibility sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Tooltip>
           <Tooltip title="Edit Item">
             <IconButton size="small" color="secondary" onClick={() => onEdit(item)} sx={{ p: 0.5 }}>
               <Edit sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
           
-          {/* MOVEMENT BUTTON - STOCK IN/OUT/ADJUST */}
-          <Tooltip title="Stock Movement">
+          {/* STOCK MOVEMENT - CompareArrows Icon (different from Receive Return) */}
+          <Tooltip title="Stock Movement (Add/Remove/Adjust)">
             <IconButton size="small" color="info" onClick={() => onMovement(item)} sx={{ p: 0.5 }}>
-              <SwapHoriz sx={{ fontSize: '0.9rem' }} />
+              <CompareArrowsIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
           
@@ -268,13 +271,14 @@ const InventoryItemRow = ({
                   </IconButton>
                 </Tooltip>
               )}
+              {/* RECEIVE RETURN - Undo Icon (different from Stock Movement) */}
+            {isConsumable && !item.isHeld && item.isActive && (
               <Tooltip title="Receive Return">
                 <IconButton size="small" color="success" onClick={() => onReceive(item)} sx={{ p: 0.5 }}>
-                  <SwapHoriz sx={{ fontSize: '0.9rem' }} />
+                  <UndoIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
-            </>
-          )}
+              )}
           <Tooltip title="Delete Item">
             <IconButton size="small" color="error" onClick={() => onDelete(item)} sx={{ p: 0.5 }}>
               <Delete sx={{ fontSize: '0.9rem' }} />
