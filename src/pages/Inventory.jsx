@@ -788,7 +788,7 @@ const Inventory = () => {
     }
 
     // Get current user from auth context
-    const currentUser = 'SYSTEM'; // Replace with actual user from auth context
+    const currentUser = 'SYSTEM';
 
     // Build the payload with all fields
     const payload = {
@@ -807,6 +807,27 @@ const Inventory = () => {
       approvedBy: movementFormData.requiresApproval ? movementFormData.approvedBy : currentUser,
       approvedAt: movementFormData.requiresApproval ? null : new Date().toISOString(),
     };
+
+    console.log('📦 Submitting movement payload:', JSON.stringify(payload, null, 2));
+    
+    // Use the existing inventoryMovementService
+    const response = await inventoryMovementService.recordMovement(payload);
+    
+    if (response && response.data) {
+      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
+    } else {
+      showSuccess('Stock movement recorded successfully');
+    }
+    
+    setShowMovementDialog(false);
+    resetForms();
+    await loadData();
+  } catch (err) {
+    console.error('Error updating stock:', err);
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
+    setError(errorMessage);
+  }
+};
 
     console.log('📦 Submitting movement payload:', JSON.stringify(payload, null, 2));
     
