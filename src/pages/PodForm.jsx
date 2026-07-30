@@ -17,17 +17,18 @@ import {
   Stack,
   Divider,
   Autocomplete,
+  Chip,
 } from '@mui/material';
-import { ArrowBack, Save, CloudUpload, Search as SearchIcon } from '@mui/icons-material';
+import { ArrowBack, Save, CloudUpload, Search as SearchIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
 
 const STATUS_OPTIONS = [
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'DELIVERED', label: 'Delivered' },
-  { value: 'VERIFIED', label: 'Verified' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'CANCELLED', label: 'Cancelled' },
+  { value: 'PENDING', label: 'Pending', color: 'warning' },
+  { value: 'DELIVERED', label: 'Delivered', color: 'success' },
+  { value: 'VERIFIED', label: 'Verified', color: 'info' },
+  { value: 'REJECTED', label: 'Rejected', color: 'error' },
+  { value: 'CANCELLED', label: 'Cancelled', color: 'default' },
 ];
 
 const PODForm = () => {
@@ -45,6 +46,8 @@ const PODForm = () => {
   const [trips, setTrips] = useState([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [searchTripTerm, setSearchTripTerm] = useState('');
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [existingFileUrl, setExistingFileUrl] = useState('');
 
   const [formData, setFormData] = useState({
     tripId: '',
@@ -54,6 +57,11 @@ const PODForm = () => {
     notes: '',
     documentType: '',
     fileSize: '',
+    receivedBy: '',
+    deliveryCondition: '',
+    qualityRating: 0,
+    issuesFound: '',
+    additionalInfo: '',
   });
 
   useEffect(() => {
@@ -64,53 +72,57 @@ const PODForm = () => {
   }, [id]);
 
   const loadTrips = async () => {
-  setLoadingTrips(true);
-  try {
-    // ✅ Get ALL trips first, then filter in the frontend
-    const response = await tripService.getAllTrips({ 
-      page: 0,
-      size: 100,
-      sortBy: 'id',
-      sortOrder: 'DESC'
-    });
-    
-    let tripsData = response?.content || response || [];
-    console.log('📦 All trips loaded:', tripsData.length);
-    
-    // ✅ For PODs, show COMPLETED and FINALIZED trips (for proof of delivery)
-    // Also include IN_PROGRESS trips that might have been delivered
-    const filteredTrips = tripsData.filter(trip => {
-      const status = trip.status?.toUpperCase() || '';
-      return ['COMPLETED', 'FINALIZED', 'IN_PROGRESS', 'DELIVERED'].includes(status);
-    });
-    
-    console.log('📦 Filtered trips for POD:', filteredTrips.length);
-    setTrips(filteredTrips);
-    
-  } catch (err) {
-    console.error('Error loading trips:', err);
-    // Fallback: try without params
+    setLoadingTrips(true);
     try {
-      const fallbackResponse = await tripService.getAllTrips();
-      const fallbackData = fallbackResponse?.content || fallbackResponse || [];
-      const filtered = fallbackData.filter(trip => {
-        const status = trip.status?.toUpperCase() || '';
-        return ['COMPLETED', 'FINALIZED', 'IN_PROGRESS', 'DELIVERED'].includes(status);
+      const response = await tripService.getAllTrips({ 
+        page: 0,
+        size: 100,
+        sortBy: 'id',
+        sortOrder: 'DESC'
       });
-      setTrips(filtered);
-    } catch (fallbackErr) {
-      console.error('Fallback error loading trips:', fallbackErr);
-      setTrips([]);
+      
+      let tripsData = response?.content || response || [];
+      
+      // For PODs, show trips that are completed or in progress
+      const filteredTrips = tripsData.filter(trip => {
+        const status = trip.status?.toUpperCase() || '';
+        return ['COMPLETED', 'FINALIZED', 'IN_PROGRESS', 'DELIVERED', 'ACTIVE'].includes(status);
+      });
+      
+      setTrips(filteredTrips);
+      
+      // If in edit mode, set the selected trip
+      if (isEditMode && formData.tripId) {
+        const foundTrip = filteredTrips.find(t => t.id === parseInt(formData.tripId));
+        if (foundTrip) {
+          setSelectedTrip(foundTrip);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading trips:', err);
+      try {
+        const fallbackResponse = await tripService.getAllTrips();
+        const fallbackData = fallbackResponse?.content || fallbackResponse || [];
+        const filtered = fallbackData.filter(trip => {
+          const status = trip.status?.toUpperCase() || '';
+          return ['COMPLETED', 'FINALIZED', 'IN_PROGRESS', 'DELIVERED', 'ACTIVE'].includes(status);
+        });
+        setTrips(filtered);
+      } catch (fallbackErr) {
+        console.error('Fallback error loading trips:', fallbackErr);
+        setTrips([]);
+      }
+    } finally {
+      setLoadingTrips(false);
     }
-  } finally {
-    setLoadingTrips(false);
-  }
-};
+  };
 
   const loadPod = async () => {
     try {
       setLoading(true);
       const pod = await podService.getPodById(id);
+      console.log('📦 Loaded POD:', pod);
+      
       setFormData({
         tripId: pod.tripId || '',
         customerName: pod.customerName || '',
@@ -119,8 +131,24 @@ const PODForm = () => {
         notes: pod.notes || '',
         documentType: pod.documentType || '',
         fileSize: pod.fileSize || '',
+        receivedBy: pod.receivedBy || '',
+        deliveryCondition: pod.deliveryCondition || '',
+        qualityRating: pod.qualityRating || 0,
+        issuesFound: pod.issuesFound || '',
+        additionalInfo: pod.additionalInfo || '',
       });
+      
       setFileName(pod.fileName || '');
+      setExistingFileUrl(pod.fileUrl || '');
+      
+      // Set selected trip
+      if (pod.tripId) {
+        const foundTrip = trips.find(t => t.id === parseInt(pod.tripId));
+        if (foundTrip) {
+          setSelectedTrip(foundTrip);
+        }
+      }
+      
       setError('');
     } catch (err) {
       setError('Failed to load POD data');
@@ -139,24 +167,22 @@ const PODForm = () => {
   };
 
   const handleTripSelect = (event, value) => {
-  if (value) {
-    const tripId = value.id;
-    console.log('🔄 Selected trip:', tripId);
-    
-    setFormData(prev => ({ 
-      ...prev, 
-      tripId: tripId,  // Store the ID directly
-      customerName: value.customerName || prev.customerName,
-    }));
-    
-    if (formErrors.tripId) {
-      setFormErrors(prev => ({ ...prev, tripId: '' }));
+    if (value) {
+      setSelectedTrip(value);
+      setFormData(prev => ({ 
+        ...prev, 
+        tripId: value.id,
+        customerName: value.customerName || prev.customerName,
+      }));
+      
+      if (formErrors.tripId) {
+        setFormErrors(prev => ({ ...prev, tripId: '' }));
+      }
+    } else {
+      setSelectedTrip(null);
+      setFormData(prev => ({ ...prev, tripId: '' }));
     }
-  } else {
-    // Clear selection
-    setFormData(prev => ({ ...prev, tripId: '' }));
-  }
-};
+  };
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -176,88 +202,118 @@ const PODForm = () => {
     }
   };
 
-  const validateForm = () => {
-  const errors = {};
-  
-  // Validate tripId - must be a valid number
-  const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
-  if (!tripIdValue || tripIdValue <= 0) {
-    errors.tripId = 'Please select a valid Trip';
-  }
-  
-  if (!formData.customerName.trim()) {
-    errors.customerName = 'Customer Name is required';
-  }
-  if (!formData.deliveryDate) {
-    errors.deliveryDate = 'Delivery Date is required';
-  }
-  if (!isEditMode && !file) {
-    errors.file = 'Please upload a document';
-  }
+  const handleRemoveFile = () => {
+    setFile(null);
+    setFileName('');
+    setExistingFileUrl('');
+  };
 
-  setFormErrors(errors);
-  return Object.keys(errors).length === 0;
-};
+  const validateForm = () => {
+    const errors = {};
+    
+    const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
+    if (!tripIdValue || tripIdValue <= 0) {
+      errors.tripId = 'Please select a valid Trip';
+    }
+    
+    if (!formData.customerName.trim()) {
+      errors.customerName = 'Customer Name is required';
+    }
+    if (!formData.deliveryDate) {
+      errors.deliveryDate = 'Delivery Date is required';
+    }
+    if (!isEditMode && !file && !existingFileUrl) {
+      errors.file = 'Please upload a document';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSuccess('');
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
-  if (!validateForm()) {
-    const firstErrorField = Object.keys(formErrors)[0];
-    const element = document.querySelector(`[name="${firstErrorField}"]`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.focus();
-    }
-    return;
-  }
-
-  setSubmitting(true);
-  try {
-    // CRITICAL: Ensure tripId is sent as a number
-    const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
-    
-    // Validate tripId is not null
-    if (!tripIdValue) {
-      setError('Please select a valid trip.');
-      setSubmitting(false);
+    if (!validateForm()) {
+      const firstErrorField = Object.keys(formErrors)[0];
+      const element = document.querySelector(`[name="${firstErrorField}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.focus();
+      }
       return;
     }
 
-    const podData = {
-      tripId: tripIdValue,
-      customerName: formData.customerName || 'Adhoc Customer',
-      deliveryDate: formData.deliveryDate || new Date().toISOString().split('T')[0],
-      status: formData.status || 'PENDING',
-      notes: formData.notes || '',
-    };
+    setSubmitting(true);
+    try {
+      const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
+      
+      if (!tripIdValue) {
+        setError('Please select a valid trip.');
+        setSubmitting(false);
+        return;
+      }
 
-    console.log('📤 Submitting POD data with tripId:', podData.tripId);
+      // Prepare base data
+      const podData = {
+        tripId: tripIdValue,
+        customerName: formData.customerName || 'Adhoc Customer',
+        deliveryDate: formData.deliveryDate || new Date().toISOString().split('T')[0],
+        status: formData.status || 'PENDING',
+        notes: formData.notes || '',
+        receivedBy: formData.receivedBy || '',
+        deliveryCondition: formData.deliveryCondition || '',
+        qualityRating: formData.qualityRating || 0,
+        issuesFound: formData.issuesFound || '',
+        additionalInfo: formData.additionalInfo || '',
+      };
 
-    let result;
-    if (isEditMode) {
-      result = await podService.updatePod(id, podData);
-      setSuccess('POD updated successfully!');
-    } else {
-      // Use the updated createPod method with individual fields
-      result = await podService.createPodWithFields(podData, file);
-      setSuccess('POD created successfully!');
+      console.log('📤 Submitting POD data:', podData);
+
+      let result;
+      if (isEditMode) {
+        // UPDATE: Use the correct method name
+        if (file) {
+          // If there's a new file, use FormData
+          const formDataPayload = new FormData();
+          Object.keys(podData).forEach(key => {
+            formDataPayload.append(key, podData[key]);
+          });
+          formDataPayload.append('file', file);
+          
+          result = await podService.updatePodWithFile(id, formDataPayload);
+        } else {
+          // No new file, just update the data
+          result = await podService.updatePod(id, podData);
+        }
+        setSuccess('POD updated successfully!');
+      } else {
+        // CREATE: Use FormData for file upload
+        const formDataPayload = new FormData();
+        Object.keys(podData).forEach(key => {
+          formDataPayload.append(key, podData[key]);
+        });
+        if (file) {
+          formDataPayload.append('file', file);
+        }
+        
+        result = await podService.createPod(formDataPayload);
+        setSuccess('POD created successfully!');
+      }
+
+      console.log('✅ POD saved:', result);
+
+      setTimeout(() => {
+        navigate('/pods');
+      }, 1500);
+    } catch (err) {
+      console.error('Error saving POD:', err);
+      setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`);
+    } finally {
+      setSubmitting(false);
     }
-
-    console.log('POD saved:', result);
-
-    setTimeout(() => {
-      navigate('/pods');
-    }, 1500);
-  } catch (err) {
-    console.error('Error saving POD:', err);
-    setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`);
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   // Filter trips for autocomplete
   const filteredTrips = trips.filter(trip => {
@@ -265,7 +321,8 @@ const PODForm = () => {
     return (
       (trip.tripNumber || '').toLowerCase().includes(search) ||
       (trip.id || '').toString().includes(search) ||
-      (trip.customerName || '').toLowerCase().includes(search)
+      (trip.customerName || '').toLowerCase().includes(search) ||
+      (trip.customer?.name || '').toLowerCase().includes(search)
     );
   });
 
@@ -280,7 +337,7 @@ const PODForm = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
@@ -314,16 +371,16 @@ const PODForm = () => {
           )}
 
           <Grid container spacing={2}>
-            {/* Trip Selection - Compact */}
+            {/* Trip Selection */}
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={filteredTrips}
                 loading={loadingTrips}
+                value={selectedTrip}
                 getOptionLabel={(option) => {
                   if (typeof option === 'string') return option;
-                  return `${option.tripNumber || option.id} - ${option.customerName || 'N/A'}`;
+                  return `${option.tripNumber || option.id} - ${option.customerName || option.customer?.name || 'N/A'}`;
                 }}
-                value={trips.find(t => t.id === parseInt(formData.tripId)) || null}
                 onChange={handleTripSelect}
                 onInputChange={(event, newInputValue) => {
                   setSearchTripTerm(newInputValue);
@@ -358,7 +415,7 @@ const PODForm = () => {
                         {option.tripNumber || `Trip #${option.id}`}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                        Customer: {option.customerName || 'N/A'} | 
+                        Customer: {option.customerName || option.customer?.name || 'N/A'} | 
                         Status: {option.status || 'N/A'} | 
                         Date: {option.plannedStartDate ? new Date(option.plannedStartDate).toLocaleDateString() : 'N/A'}
                       </Typography>
@@ -422,48 +479,75 @@ const PODForm = () => {
                 >
                   {STATUS_OPTIONS.map(option => (
                     <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
-                      {option.label}
+                      <Chip
+                        label={option.label}
+                        color={option.color}
+                        size="small"
+                        sx={{ height: 18, fontSize: '0.55rem' }}
+                      />
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
 
-            {!isEditMode && (
-              <Grid item xs={12}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  startIcon={<CloudUpload sx={{ fontSize: '0.9rem' }} />}
-                  fullWidth
-                  sx={{ 
-                    py: 1.5, 
-                    borderStyle: 'dashed',
-                    fontSize: '0.8rem',
-                    borderColor: formErrors.file ? 'error.main' : 'inherit'
-                  }}
-                >
-                  {file ? file.name : 'Upload Document *'}
-                  <input
-                    type="file"
-                    hidden
-                    onChange={handleFileChange}
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            {/* File Upload */}
+            <Grid item xs={12}>
+              {isEditMode && existingFileUrl && (
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    Current file: 
+                  </Typography>
+                  <Chip
+                    label={fileName || 'Uploaded file'}
+                    size="small"
+                    onDelete={handleRemoveFile}
+                    sx={{ ml: 1, fontSize: '0.6rem' }}
                   />
-                </Button>
-                {formErrors.file && (
-                  <Typography color="error" variant="caption" sx={{ fontSize: '0.7rem' }}>
-                    {formErrors.file}
-                  </Typography>
-                )}
-                {file && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.65rem' }}>
-                    File size: {(file.size / 1024).toFixed(2)} KB
-                  </Typography>
-                )}
-              </Grid>
-            )}
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={handleRemoveFile}
+                    sx={{ fontSize: '0.65rem', ml: 1 }}
+                  >
+                    Remove
+                  </Button>
+                </Box>
+              )}
+              
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<CloudUpload sx={{ fontSize: '0.9rem' }} />}
+                fullWidth
+                sx={{ 
+                  py: 1.5, 
+                  borderStyle: 'dashed',
+                  fontSize: '0.8rem',
+                  borderColor: formErrors.file ? 'error.main' : 'inherit'
+                }}
+              >
+                {file ? file.name : (isEditMode ? 'Replace Document' : 'Upload Document *')}
+                <input
+                  type="file"
+                  hidden
+                  onChange={handleFileChange}
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                />
+              </Button>
+              {formErrors.file && (
+                <Typography color="error" variant="caption" sx={{ fontSize: '0.7rem' }}>
+                  {formErrors.file}
+                </Typography>
+              )}
+              {file && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.65rem' }}>
+                  File size: {(file.size / 1024).toFixed(2)} KB
+                </Typography>
+              )}
+            </Grid>
 
+            {/* Edit Mode Additional Fields */}
             {isEditMode && (
               <>
                 <Grid item xs={12} md={6}>
@@ -474,7 +558,6 @@ const PODForm = () => {
                     value={formData.documentType}
                     onChange={handleChange}
                     size="small"
-                    disabled
                     sx={{
                       '& .MuiInputLabel-root': { fontSize: '0.75rem' },
                       '& .MuiInputBase-root': { fontSize: '0.8rem' }
@@ -484,12 +567,87 @@ const PODForm = () => {
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="File Size"
-                    name="fileSize"
-                    value={formData.fileSize}
+                    label="Received By"
+                    name="receivedBy"
+                    value={formData.receivedBy}
                     onChange={handleChange}
                     size="small"
-                    disabled
+                    placeholder="Person who received the delivery"
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Delivery Condition</InputLabel>
+                    <Select
+                      name="deliveryCondition"
+                      value={formData.deliveryCondition}
+                      label="Delivery Condition"
+                      onChange={handleChange}
+                      sx={{ fontSize: '0.8rem' }}
+                    >
+                      <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Condition</MenuItem>
+                      <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
+                      <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
+                      <MenuItem value="PARTIAL" sx={{ fontSize: '0.8rem' }}>Partial</MenuItem>
+                      <MenuItem value="REJECTED" sx={{ fontSize: '0.8rem' }}>Rejected</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Quality Rating</InputLabel>
+                    <Select
+                      name="qualityRating"
+                      value={formData.qualityRating}
+                      label="Quality Rating"
+                      onChange={handleChange}
+                      sx={{ fontSize: '0.8rem' }}
+                    >
+                      <MenuItem value={0} sx={{ fontSize: '0.8rem' }}>Not Rated</MenuItem>
+                      <MenuItem value={1} sx={{ fontSize: '0.8rem' }}>⭐ Poor</MenuItem>
+                      <MenuItem value={2} sx={{ fontSize: '0.8rem' }}>⭐⭐ Fair</MenuItem>
+                      <MenuItem value={3} sx={{ fontSize: '0.8rem' }}>⭐⭐⭐ Good</MenuItem>
+                      <MenuItem value={4} sx={{ fontSize: '0.8rem' }}>⭐⭐⭐⭐ Very Good</MenuItem>
+                      <MenuItem value={5} sx={{ fontSize: '0.8rem' }}>⭐⭐⭐⭐⭐ Excellent</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Issues Found"
+                    name="issuesFound"
+                    value={formData.issuesFound}
+                    onChange={handleChange}
+                    size="small"
+                    multiline
+                    rows={2}
+                    placeholder="Any issues found during delivery"
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Additional Information"
+                    name="additionalInfo"
+                    value={formData.additionalInfo}
+                    onChange={handleChange}
+                    size="small"
+                    multiline
+                    rows={2}
+                    placeholder="Any additional information"
                     sx={{
                       '& .MuiInputLabel-root': { fontSize: '0.75rem' },
                       '& .MuiInputBase-root': { fontSize: '0.8rem' }
