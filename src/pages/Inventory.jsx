@@ -2565,127 +2565,292 @@ const Inventory = () => {
       </Dialog>
 
       {/* Movement Dialog */}
-      <Dialog open={showMovementDialog} onClose={() => setShowMovementDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-            Stock Movement
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ p: 2.5 }}>
-          {selectedItem && (
-            <Stack spacing={2}>
-              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
-                <strong>{selectedItem.name}</strong>
-                <br />
-                Current Quantity: <strong>{selectedItem.quantity}</strong> {selectedItem.unitOfMeasure || 'EA'}
-                <br />
-                Min Level: {selectedItem.minLevel || 0}
-              </Alert>
+<Dialog open={showMovementDialog} onClose={() => setShowMovementDialog(false)} maxWidth="md" fullWidth>
+  <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+    <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+      Stock Movement
+    </Typography>
+  </DialogTitle>
+  <DialogContent sx={{ p: 2.5 }}>
+    {selectedItem && (
+      <Stack spacing={2}>
+        <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+          <strong>{selectedItem.name}</strong>
+          <br />
+          Current Quantity: <strong>{selectedItem.quantity}</strong> {selectedItem.unitOfMeasure || 'EA'}
+          <br />
+          Min Level: {selectedItem.minLevel || 0}
+        </Alert>
 
-              <FormControl fullWidth size="small" required>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Operation *</InputLabel>
+        {/* Operation Selection */}
+        <FormControl fullWidth size="small" required>
+          <InputLabel sx={{ fontSize: '0.75rem' }}>Operation *</InputLabel>
+          <Select
+            value={movementFormData.operation}
+            onChange={(e) => {
+              const operation = e.target.value;
+              let movementType = 'ADJUSTMENT';
+              let referenceType = 'ADJUSTMENT';
+              
+              switch (operation) {
+                case 'ADD':
+                  movementType = 'IN';
+                  referenceType = 'PURCHASE_ORDER';
+                  break;
+                case 'SUBTRACT':
+                  movementType = 'OUT';
+                  referenceType = 'ADJUSTMENT';
+                  break;
+                case 'SET':
+                  movementType = 'ADJUSTMENT';
+                  referenceType = 'ADJUSTMENT';
+                  break;
+                default:
+                  movementType = 'ADJUSTMENT';
+                  referenceType = 'ADJUSTMENT';
+              }
+              
+              setMovementFormData(prev => ({ 
+                ...prev, 
+                operation: operation,
+                movementType: movementType,
+                referenceType: referenceType
+              }));
+            }}
+            label="Operation *"
+            sx={{ fontSize: '0.8rem' }}
+          >
+            <MenuItem value="ADD" sx={{ fontSize: '0.8rem' }}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <AddCircleIcon sx={{ fontSize: '0.9rem', color: 'success.main' }} />
+                <span>Stock In (Add)</span>
+              </Stack>
+            </MenuItem>
+            <MenuItem value="SUBTRACT" sx={{ fontSize: '0.8rem' }}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <RemoveCircleIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
+                <span>Stock Out (Subtract)</span>
+              </Stack>
+            </MenuItem>
+            <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <AdjustIcon sx={{ fontSize: '0.9rem', color: 'warning.main' }} />
+                <span>Adjust (Set)</span>
+              </Stack>
+            </MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Quantity */}
+        <TextField
+          label="Quantity *"
+          type="number"
+          value={movementFormData.quantity}
+          onChange={(e) => setMovementFormData(prev => ({ ...prev, quantity: e.target.value }))}
+          fullWidth
+          size="small"
+          InputProps={{
+            inputProps: {
+              min: movementFormData.operation === 'SUBTRACT' ? 0.01 : 0,
+              max: movementFormData.operation === 'SUBTRACT' ? selectedItem.quantity : undefined,
+              step: 0.01
+            }
+          }}
+          helperText={
+            movementFormData.operation === 'SUBTRACT' 
+              ? `Max: ${selectedItem.quantity}` 
+              : movementFormData.operation === 'SET'
+              ? `Set to new quantity`
+              : 'Enter quantity to add'
+          }
+        />
+
+        {/* Reason */}
+        <TextField
+          label="Reason *"
+          value={movementFormData.reason}
+          onChange={(e) => setMovementFormData(prev => ({ ...prev, reason: e.target.value }))}
+          fullWidth
+          size="small"
+          multiline
+          rows={2}
+          placeholder="e.g., New stock received, Damaged items, Inventory adjustment"
+        />
+
+        {/* Notes */}
+        <TextField
+          label="Notes"
+          value={movementFormData.notes}
+          onChange={(e) => setMovementFormData(prev => ({ ...prev, notes: e.target.value }))}
+          fullWidth
+          size="small"
+          multiline
+          rows={2}
+          placeholder="Additional notes about this movement"
+        />
+
+        <Divider sx={{ my: 1 }} />
+
+        {/* Reference Information */}
+        <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+          Reference Information
+        </Typography>
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Reference Number"
+              value={movementFormData.referenceNumber}
+              onChange={(e) => setMovementFormData(prev => ({ ...prev, referenceNumber: e.target.value }))}
+              fullWidth
+              size="small"
+              placeholder="e.g., PO-12345, INV-67890"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Reference Type</InputLabel>
+              <Select
+                value={movementFormData.referenceType}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, referenceType: e.target.value }))}
+                label="Reference Type"
+                sx={{ fontSize: '0.8rem' }}
+              >
+                <MenuItem value="PURCHASE_ORDER" sx={{ fontSize: '0.8rem' }}>Purchase Order</MenuItem>
+                <MenuItem value="INVOICE" sx={{ fontSize: '0.8rem' }}>Invoice</MenuItem>
+                <MenuItem value="RETURN" sx={{ fontSize: '0.8rem' }}>Return</MenuItem>
+                <MenuItem value="ADJUSTMENT" sx={{ fontSize: '0.8rem' }}>Adjustment</MenuItem>
+                <MenuItem value="TRANSFER" sx={{ fontSize: '0.8rem' }}>Transfer</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Trip ID (Optional)"
+              type="number"
+              value={movementFormData.tripId || ''}
+              onChange={(e) => setMovementFormData(prev => ({ ...prev, tripId: e.target.value }))}
+              fullWidth
+              size="small"
+              placeholder="Associated trip ID"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Fuel Slip ID (Optional)"
+              type="number"
+              value={movementFormData.fuelSlipId || ''}
+              onChange={(e) => setMovementFormData(prev => ({ ...prev, fuelSlipId: e.target.value }))}
+              fullWidth
+              size="small"
+              placeholder="Associated fuel slip ID"
+            />
+          </Grid>
+        </Grid>
+
+        <Divider sx={{ my: 1 }} />
+
+        {/* Approval Settings */}
+        <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+          Approval Settings
+        </Typography>
+
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={movementFormData.requiresApproval}
+              onChange={(e) => {
+                setMovementFormData(prev => ({ 
+                  ...prev, 
+                  requiresApproval: e.target.checked,
+                  approvalStatus: e.target.checked ? 'PENDING' : 'APPROVED'
+                }));
+              }}
+              size="small"
+            />
+          }
+          label="Requires Approval"
+          sx={{ fontSize: '0.8rem' }}
+        />
+
+        {movementFormData.requiresApproval && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Approved By"
+                value={movementFormData.approvedBy || ''}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, approvedBy: e.target.value }))}
+                fullWidth
+                size="small"
+                placeholder="Name of approver"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
                 <Select
-                  value={movementFormData.operation}
-                  onChange={(e) => setMovementFormData(prev => ({ ...prev, operation: e.target.value }))}
-                  label="Operation *"
+                  value={movementFormData.approvalStatus}
+                  onChange={(e) => setMovementFormData(prev => ({ ...prev, approvalStatus: e.target.value }))}
+                  label="Approval Status"
                   sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="ADD" sx={{ fontSize: '0.8rem' }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <AddCircleIcon sx={{ fontSize: '0.9rem', color: 'success.main' }} />
-                      <span>Stock In (Add)</span>
-                    </Stack>
-                  </MenuItem>
-                  <MenuItem value="SUBTRACT" sx={{ fontSize: '0.8rem' }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <RemoveCircleIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
-                      <span>Stock Out (Subtract)</span>
-                    </Stack>
-                  </MenuItem>
-                  <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <AdjustIcon sx={{ fontSize: '0.9rem', color: 'warning.main' }} />
-                      <span>Adjust (Set)</span>
-                    </Stack>
-                  </MenuItem>
+                  <MenuItem value="PENDING" sx={{ fontSize: '0.8rem' }}>Pending</MenuItem>
+                  <MenuItem value="APPROVED" sx={{ fontSize: '0.8rem' }}>Approved</MenuItem>
+                  <MenuItem value="REJECTED" sx={{ fontSize: '0.8rem' }}>Rejected</MenuItem>
                 </Select>
               </FormControl>
-
+            </Grid>
+            <Grid item xs={12}>
               <TextField
-                label="Quantity *"
-                type="number"
-                value={movementFormData.quantity}
-                onChange={(e) => setMovementFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                label="Performed By"
+                value={movementFormData.performedBy}
+                onChange={(e) => setMovementFormData(prev => ({ ...prev, performedBy: e.target.value }))}
                 fullWidth
                 size="small"
-                InputProps={{
-                  inputProps: {
-                    min: movementFormData.operation === 'SUBTRACT' ? 0.01 : 0,
-                    max: movementFormData.operation === 'SUBTRACT' ? selectedItem.quantity : undefined,
-                    step: 0.01
-                  }
-                }}
-                helperText={
-                  movementFormData.operation === 'SUBTRACT' 
-                    ? `Max: ${selectedItem.quantity}` 
-                    : movementFormData.operation === 'SET'
-                    ? `Set to new quantity`
-                    : 'Enter quantity to add'
-                }
+                placeholder="Who performed this movement"
               />
+            </Grid>
+          </Grid>
+        )}
 
-              <TextField
-                label="Reason *"
-                value={movementFormData.reason}
-                onChange={(e) => setMovementFormData(prev => ({ ...prev, reason: e.target.value }))}
-                fullWidth
-                size="small"
-                multiline
-                rows={2}
-                placeholder="e.g., New stock received, Damaged items, Inventory adjustment"
-              />
+        {/* Validation Alert */}
+        {movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem.quantity && (
+          <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
+            Insufficient stock! Available: {selectedItem.quantity}
+          </Alert>
+        )}
 
-              <TextField
-                label="Notes"
-                value={movementFormData.notes}
-                onChange={(e) => setMovementFormData(prev => ({ ...prev, notes: e.target.value }))}
-                fullWidth
-                size="small"
-                multiline
-                rows={2}
-                placeholder="Additional notes about this movement"
-              />
-
-              {movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem.quantity && (
-                <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
-                  Insufficient stock! Available: {selectedItem.quantity}
-                </Alert>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowMovementDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleSubmitMovement}
-            sx={{ fontSize: '0.8rem' }}
-            disabled={
-              !movementFormData.itemId || 
-              movementFormData.quantity <= 0 || 
-              !movementFormData.reason ||
-              (movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem?.quantity)
-            }
-          >
-            {movementFormData.operation === 'ADD' && 'Add Stock'}
-            {movementFormData.operation === 'SUBTRACT' && 'Remove Stock'}
-            {movementFormData.operation === 'SET' && 'Set Quantity'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {movementFormData.requiresApproval && !movementFormData.approvedBy && (
+          <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>
+            This movement requires approval. Please specify who will approve it.
+          </Alert>
+        )}
+      </Stack>
+    )}
+  </DialogContent>
+  <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+    <Button onClick={() => setShowMovementDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+      Cancel
+    </Button>
+    <Button
+      variant="contained"
+      size="small"
+      onClick={handleSubmitMovement}
+      sx={{ fontSize: '0.8rem' }}
+      disabled={
+        !movementFormData.itemId || 
+        movementFormData.quantity <= 0 || 
+        !movementFormData.reason ||
+        (movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem?.quantity) ||
+        (movementFormData.requiresApproval && !movementFormData.approvedBy)
+      }
+    >
+      {movementFormData.operation === 'ADD' && 'Add Stock'}
+      {movementFormData.operation === 'SUBTRACT' && 'Remove Stock'}
+      {movementFormData.operation === 'SET' && 'Set Quantity'}
+    </Button>
+  </DialogActions>
+</Dialog>
     </Box>
   );
 };
