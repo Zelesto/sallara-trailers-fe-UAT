@@ -79,6 +79,7 @@ import { vehicleIssueService } from '../services/vehicleIssueService';
 import { vehicleService } from '../services/vehicleService';
 import { driverService } from '../services/driverService';
 import MovementHistory from './MovementHistory';
+import { inventoryMovementService } from '../services/inventoryMovementService';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
@@ -731,55 +732,123 @@ const Inventory = () => {
 
   // Movement Operations
   const handleMovement = (item) => {
-    setSelectedItem(item);
-    setMovementFormData({
-      itemId: item.id,
-      quantity: 0,
-      operation: 'ADD',
-      reason: '',
-      notes: '',
-    });
-    setShowMovementDialog(true);
-  };
+  setSelectedItem(item);
+  setMovementFormData({
+    itemId: item.id,
+    quantity: 1,
+    operation: 'ADD',
+    movementType: 'IN',
+    reason: '',
+    notes: '',
+    referenceNumber: `MOV-${Date.now()}`,
+    referenceType: 'PURCHASE_ORDER',
+    requiresApproval: false,
+    approvalStatus: 'APPROVED',
+    performedBy: 'SYSTEM', // You can get this from auth context
+    tripId: null,
+    fuelSlipId: null,
+    approvedBy: null,
+    approvedAt: null,
+  });
+  setShowMovementDialog(true);
+};
 
   const handleSubmitMovement = async () => {
-    try {
-      if (!movementFormData.itemId || movementFormData.quantity <= 0) {
-        setError('Please select an item and enter a valid quantity');
-        return;
-      }
-
-      if (!movementFormData.reason) {
-        setError('Please provide a reason for the movement');
-        return;
-      }
-
-      const payload = {
-        itemId: parseInt(movementFormData.itemId),
-        quantity: parseFloat(movementFormData.quantity),
-        operation: movementFormData.operation,
-        reason: movementFormData.reason,
-        notes: movementFormData.notes,
-      };
-
-      console.log('📦 Submitting movement:', payload);
-      
-      await inventoryService.updateQuantity(
-        payload.itemId,
-        payload.quantity,
-        payload.operation
-      );
-
-      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
-      setShowMovementDialog(false);
-      resetForms();
-      await loadData();
-    } catch (err) {
-      console.error('Error updating stock:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
-      setError(errorMessage);
+  try {
+    if (!movementFormData.itemId || movementFormData.quantity <= 0) {
+      setError('Please select an item and enter a valid quantity');
+      return;
     }
-  };
+
+    if (!movementFormData.reason) {
+      setError('Please provide a reason for the movement');
+      return;
+    }
+
+    // Map operation to movementType
+    let movementType = 'ADJUSTMENT';
+    let referenceType = 'ADJUSTMENT';
+    
+    switch (movementFormData.operation) {
+      case 'ADD':
+        movementType = 'IN';
+        referenceType = 'PURCHASE_ORDER';
+        break;
+      case 'SUBTRACT':
+        movementType = 'OUT';
+        referenceType = 'ADJUSTMENT';
+        break;
+      case 'SET':
+        movementType = 'ADJUSTMENT';
+        referenceType = 'ADJUSTMENT';
+        break;
+      default:
+        movementType = 'ADJUSTMENT';
+        referenceType = 'ADJUSTMENT';
+    }
+
+    // Get current user from auth context
+    const currentUser = 'SYSTEM'; // Replace with actual user from auth context
+
+    // Build the payload with all fields
+    const payload = {
+      itemId: parseInt(movementFormData.itemId),
+      quantity: parseFloat(movementFormData.quantity),
+      movementType: movementType,
+      reason: movementFormData.reason,
+      notes: movementFormData.notes || '',
+      referenceNumber: movementFormData.referenceNumber || `MOV-${Date.now()}`,
+      referenceType: referenceType,
+      requiresApproval: movementFormData.requiresApproval || false,
+      approvalStatus: movementFormData.requiresApproval ? 'PENDING' : 'APPROVED',
+      performedBy: currentUser,
+      tripId: movementFormData.tripId ? parseInt(movementFormData.tripId) : null,
+      fuelSlipId: movementFormData.fuelSlipId ? parseInt(movementFormData.fuelSlipId) : null,
+      approvedBy: movementFormData.requiresApproval ? movementFormData.approvedBy : currentUser,
+      approvedAt: movementFormData.requiresApproval ? null : new Date().toISOString(),
+    };
+
+    console.log('📦 Submitting movement payload:', JSON.stringify(payload, null, 2));
+    
+    // Use the existing inventoryMovementService
+    const response = await inventoryMovementService.recordMovement(payload);
+    
+    if (response && response.data) {
+      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
+    } else {
+      showSuccess('Stock movement recorded successfully');
+    }
+    
+    setShowMovementDialog(false);
+    resetForms();
+    await loadData();
+  } catch (err) {
+    console.error('Error updating stock:', err);
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
+    setError(errorMessage);
+  }
+};
+
+    console.log('📦 Submitting movement:', payload);
+    
+    // Use the existing inventoryMovementService
+    const response = await inventoryMovementService.recordMovement(payload);
+    
+    if (response && response.data) {
+      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
+    } else {
+      showSuccess('Stock movement recorded successfully');
+    }
+    
+    setShowMovementDialog(false);
+    resetForms();
+    await loadData();
+  } catch (err) {
+    console.error('Error updating stock:', err);
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
+    setError(errorMessage);
+  }
+};
 
   // CRUD Operations
   const handleView = (item) => {
