@@ -134,7 +134,7 @@ const TabPanel = ({ children, value, index, ...other }) => (
 );
 
 // Inventory Item Component - UPDATED with onMovement
-const InventoryItemRow = ({ 
+InventoryItemRow = ({ 
   item, 
   onView, 
   onEdit, 
@@ -143,7 +143,7 @@ const InventoryItemRow = ({
   onIssue, 
   onReceive, 
   onIssueToDriver,
-  onMovement // Added this
+  onMovement
 }) => {
   const getStatusConfig = (quantity, minLevel) => {
     if (quantity <= 0) {
@@ -160,6 +160,7 @@ const InventoryItemRow = ({
 
   return (
     <TableRow hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+      {/* Item Name */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Avatar sx={{ width: 24, height: 24, fontSize: '0.6rem', bgcolor: 'primary.light' }}>
@@ -175,6 +176,8 @@ const InventoryItemRow = ({
           </Box>
         </Stack>
       </TableCell>
+
+      {/* Category */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Chip
           label={item.category || 'Uncategorized'}
@@ -183,6 +186,8 @@ const InventoryItemRow = ({
           sx={{ height: 18, fontSize: '0.55rem' }}
         />
       </TableCell>
+
+      {/* Quantity */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
           {item.quantity} {item.unitOfMeasure || 'EA'}
@@ -191,6 +196,8 @@ const InventoryItemRow = ({
           Unit Cost: R {item.unitCost?.toFixed(2) || '0.00'}
         </Typography>
       </TableCell>
+
+      {/* Min Level */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
@@ -206,6 +213,8 @@ const InventoryItemRow = ({
           )}
         </Box>
       </TableCell>
+
+      {/* Location */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <LocationOn sx={{ fontSize: '0.7rem', color: 'text.secondary' }} />
@@ -214,6 +223,8 @@ const InventoryItemRow = ({
           </Typography>
         </Stack>
       </TableCell>
+
+      {/* Status */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack spacing={0.25}>
           <Chip
@@ -233,7 +244,7 @@ const InventoryItemRow = ({
             />
           )}
         </Stack>
-      <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+      </TableCell>mRow 
         
           {/* Actions - FIXED: Properly closed TableCell */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
