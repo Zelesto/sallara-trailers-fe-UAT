@@ -54,7 +54,7 @@ import {
   Verified as VerifiedIcon,
   Pending as PendingIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from './context/AuthContext';
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
