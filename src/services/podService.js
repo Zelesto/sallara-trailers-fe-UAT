@@ -521,7 +521,7 @@ downloadPod: async (id, onProgress = null) => {
    * @returns {string} URL for the document
    */
   getPodDocumentUrl: (id, download = false) => {
-    const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
+    const baseUrl = process.env.REACT_APP_API_URL || 'https://sallara-trailers-fe-uat.onrender.com/api';
     const action = download ? 'download' : 'view';
     const timestamp = new Date().getTime();
     return `${baseUrl}/pods/${id}/${action}?_t=${timestamp}`;
