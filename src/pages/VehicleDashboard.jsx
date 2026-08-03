@@ -40,6 +40,7 @@ import {
   Switch,
   FormControlLabel,
   InputAdornment,
+  Input,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -99,324 +100,29 @@ import {
 } from '@mui/icons-material';
 import { vehicleService } from '../services/vehicleService';
 
-// Navigation Tabs Component
-const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
-  const handleChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  const tabs = [
-    'Overview',
-    'Fuel Management',
-    'Service History',
-    'Certificates & Permits',
-    'Maintenance',
-    'Documents',
-    'Notes'
-  ];
-
-  return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, overflowX: 'auto' }}>
-      <Tabs
-        value={activeTab}
-        onChange={handleChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{
-          '& .MuiTab-root': {
-            fontWeight: 500,
-            fontSize: '0.875rem',
-            textTransform: 'capitalize',
-            minWidth: 'auto',
-            px: 2,
-            py: 1.5,
-            color: '#6B7280',
-            '&.Mui-selected': {
-              color: '#4F46E5',
-              fontWeight: 600,
-            },
-          },
-          '& .MuiTabs-indicator': {
-            backgroundColor: '#4F46E5',
-            height: 3,
-            borderRadius: '3px 3px 0 0',
-          },
-        }}
-      >
-        {tabs.map((label) => (
-          <Tab key={label} label={label} />
-        ))}
-      </Tabs>
-    </Box>
-  );
-};
-
-// Fuel Tank Component
-const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F46E5', onReset }) => {
-  const percentage = (currentLevel / capacity) * 100;
-  const getColor = () => {
-    if (percentage > 60) return '#22C55E';
-    if (percentage > 25) return '#F59E0B';
-    return '#EF4444';
-  };
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        borderRadius: '16px',
-        border: '1px solid #ECECEC',
-        backgroundColor: '#FFFFFF',
-        height: '100%',
-      }}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', mb: 2 }}>
-        {title}
-      </Typography>
-      
-      {/* Fuel Gauge */}
-      <Box sx={{ position: 'relative', mb: 2 }}>
-        <Box
-          sx={{
-            width: '100%',
-            height: 20,
-            bgcolor: '#F3F4F6',
-            borderRadius: 10,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          <Box
-            sx={{
-              width: `${percentage}%`,
-              height: '100%',
-              bgcolor: getColor(),
-              borderRadius: 10,
-              transition: 'width 0.5s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          />
-        </Box>
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -12,
-            right: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 600, color: '#111827' }}>
-            {percentage.toFixed(0)}%
-          </Typography>
-        </Box>
-      </Box>
-
-      <Stack spacing={1}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>
-            Current Level
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
-            {currentLevel} {unit}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>
-            Capacity
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
-            {capacity} {unit}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>
-            Range
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
-            {(currentLevel * 0.1).toFixed(0)} km
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<RefreshIcon />}
-          onClick={() => onReset()}
-          sx={{ mt: 1, fontSize: '0.7rem' }}
-        >
-          Reset to Full
-        </Button>
-      </Stack>
-    </Paper>
-  );
-};
-
-// Service Record Component
-const ServiceRecordCard = ({ service, onEdit, onDelete }) => {
-  const statusMap = {
-    COMPLETED: { color: '#22C55E', label: 'Completed', icon: CheckCircleIcon },
-    SCHEDULED: { color: '#3B82F6', label: 'Scheduled', icon: ScheduleIcon },
-    PENDING: { color: '#F59E0B', label: 'Pending', icon: PendingIcon },
-    CANCELLED: { color: '#EF4444', label: 'Cancelled', icon: CancelIcon },
-  };
-  const status = statusMap[service.status] || statusMap.PENDING;
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        borderRadius: '12px',
-        border: '1px solid #ECECEC',
-        mb: 2,
-        '&:last-child': { mb: 0 },
-      }}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            {service.type}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-            {service.date ? new Date(service.date).toLocaleDateString() : 'Date TBD'}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-            Odometer: {service.odometer ? `${service.odometer.toLocaleString()} km` : 'N/A'}
-          </Typography>
-          {service.cost && (
-            <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-              Cost: R{service.cost.toLocaleString()}
-            </Typography>
-          )}
-        </Box>
-        <Box sx={{ textAlign: 'right' }}>
-          <Chip
-            label={status.label}
-            size="small"
-            sx={{
-              fontSize: '0.6rem',
-              height: 20,
-              bgcolor: `${status.color}15`,
-              color: status.color,
-              fontWeight: 600,
-            }}
-            icon={React.createElement(status.icon, { sx: { fontSize: '0.6rem' } })}
-          />
-          <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
-            <IconButton size="small" onClick={() => onEdit(service)}>
-              <EditIcon sx={{ fontSize: '0.8rem' }} />
-            </IconButton>
-            <IconButton size="small" onClick={() => onDelete(service.id)} color="error">
-              <DeleteIcon sx={{ fontSize: '0.8rem' }} />
-            </IconButton>
-          </Stack>
-        </Box>
-      </Stack>
-    </Paper>
-  );
-};
-
-// Certificate/Permit Component
-const CertificateCard = ({ certificate, onDownload, onVerify }) => {
-  const getStatusColor = () => {
-    if (certificate.status === 'ACTIVE') return '#22C55E';
-    if (certificate.status === 'EXPIRING') return '#F59E0B';
-    if (certificate.status === 'EXPIRED') return '#EF4444';
-    return '#6B7280';
-  };
-
-  const getStatusLabel = () => {
-    if (certificate.status === 'ACTIVE') return 'Active';
-    if (certificate.status === 'EXPIRING') return 'Expiring Soon';
-    if (certificate.status === 'EXPIRED') return 'Expired';
-    return 'Unknown';
-  };
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        borderRadius: '12px',
-        border: '1px solid #ECECEC',
-        mb: 2,
-        '&:last-child': { mb: 0 },
-      }}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
-            sx={{
-              bgcolor: `${getStatusColor()}15`,
-              borderRadius: '8px',
-              p: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <VerifiedIcon sx={{ color: getStatusColor(), fontSize: '1.2rem' }} />
-          </Box>
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {certificate.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-              {certificate.number || 'No number'}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-              Expires: {certificate.expiryDate ? new Date(certificate.expiryDate).toLocaleDateString() : 'N/A'}
-            </Typography>
-          </Box>
-        </Box>
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Chip
-            label={getStatusLabel()}
-            size="small"
-            sx={{
-              fontSize: '0.6rem',
-              height: 20,
-              bgcolor: `${getStatusColor()}15`,
-              color: getStatusColor(),
-              fontWeight: 600,
-            }}
-          />
-          <Tooltip title="Download">
-            <IconButton size="small" onClick={() => onDownload(certificate)}>
-              <DownloadIcon sx={{ fontSize: '0.8rem' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Verify">
-            <IconButton size="small" onClick={() => onVerify(certificate)}>
-              <VerifiedIcon sx={{ fontSize: '0.8rem' }} />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </Stack>
-    </Paper>
-  );
-};
-
-// Main Vehicle Dashboard Component
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 const VehicleDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  
+  // ALL state declarations at the top level - NO DUPLICATES
   const [activeTab, setActiveTab] = useState(0);
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  
+  // Service records state - declared ONCE
   const [serviceRecords, setServiceRecords] = useState([]);
   const [certificates, setCertificates] = useState([]);
   const [openServiceDialog, setOpenServiceDialog] = useState(false);
   const [openCertificateDialog, setOpenCertificateDialog] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [editingCertificate, setEditingCertificate] = useState(null);
-
+  
+  // Fuel data state
   const [fuelData, setFuelData] = useState({
     tank1Capacity: 400,
     tank1Current: 320,
@@ -425,16 +131,6 @@ const VehicleDashboard = () => {
     avgConsumption: 12.5,
     virtualConsumption: 11.8,
   });
-
-  
-
-  // Service records state
-  const [serviceRecords, setServiceRecords] = useState([]);
-  const [certificates, setCertificates] = useState([]);
-  const [openServiceDialog, setOpenServiceDialog] = useState(false);
-  const [openCertificateDialog, setOpenCertificateDialog] = useState(false);
-  const [editingService, setEditingService] = useState(null);
-  const [editingCertificate, setEditingCertificate] = useState(null);
 
   // Fetch vehicle data
   useEffect(() => {
@@ -468,7 +164,7 @@ const VehicleDashboard = () => {
       // Generate notifications
       const newNotifications = [];
       
-      // Check license/roadworthy expiry
+      // Check roadworthy expiry
       if (data.roadworthyExpiry) {
         const expiryDate = new Date(data.roadworthyExpiry);
         const daysUntilExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
@@ -489,32 +185,11 @@ const VehicleDashboard = () => {
         }
       }
 
-      // Check service due
-      if (data.nextServiceDue) {
-        const serviceDate = new Date(data.nextServiceDue);
-        const daysUntilService = Math.ceil((serviceDate - new Date()) / (1000 * 60 * 60 * 24));
-        if (daysUntilService < 0) {
-          newNotifications.push({
-            id: 2,
-            icon: <WarningIcon />,
-            message: `Service is overdue. Please schedule maintenance.`,
-            severity: 'error',
-          });
-        } else if (daysUntilService < 14) {
-          newNotifications.push({
-            id: 2,
-            icon: <ScheduleIcon />,
-            message: `Service due in ${daysUntilService} days. Schedule maintenance.`,
-            severity: 'info',
-          });
-        }
-      }
-
       // Check fuel level
       const fuelPercentage = (fuelData.tank1Current / fuelData.tank1Capacity) * 100;
       if (fuelPercentage < 15) {
         newNotifications.push({
-          id: 3,
+          id: 2,
           icon: <FuelIcon />,
           message: `Fuel level is low (${fuelPercentage.toFixed(0)}%). Please refuel soon.`,
           severity: 'warning',
@@ -608,7 +283,7 @@ const VehicleDashboard = () => {
     navigate(`/vehicles/${id}/edit`);
   };
 
- const handleResetFuel = (tank) => {
+  const handleResetFuel = (tank) => {
     setFuelData(prev => {
       if (tank === 1) {
         return { ...prev, tank1Current: prev.tank1Capacity };
@@ -630,7 +305,6 @@ const VehicleDashboard = () => {
 
   const handleDeleteService = async (serviceId) => {
     if (!window.confirm('Are you sure you want to delete this service record?')) return;
-    // Implement delete
     setServiceRecords(serviceRecords.filter(s => s.id !== serviceId));
   };
 
@@ -640,12 +314,10 @@ const VehicleDashboard = () => {
   };
 
   const handleDownloadCertificate = (certificate) => {
-    // Implement download
     console.log('Download certificate:', certificate);
   };
 
   const handleVerifyCertificate = (certificate) => {
-    // Implement verification
     console.log('Verify certificate:', certificate);
   };
 
@@ -677,9 +349,9 @@ const VehicleDashboard = () => {
   // Calculate derived data
   const totalFuelCapacity = fuelData.tank1Capacity + fuelData.tank2Capacity;
   const totalFuelCurrent = fuelData.tank1Current + fuelData.tank2Current;
-  const fuelPercentage = (totalFuelCurrent / totalFuelCapacity) * 100;
+  const fuelPercentage = totalFuelCapacity > 0 ? (totalFuelCurrent / totalFuelCapacity) * 100 : 0;
 
- return (
+  return (
     <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
       <Box sx={{ maxWidth: '1440px', margin: '0 auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, gap: 3 }}>
         
@@ -892,7 +564,7 @@ const VehicleDashboard = () => {
               onClose={() => handleNotificationClose(notification.id)}
             />
           ))}
-          
+
           {/* Tab Content */}
           {activeTab === 0 && (
             <OverviewTab
@@ -982,61 +654,224 @@ const VehicleDashboard = () => {
   );
 };
 
-// Overview Tab
-const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => (
- // Ensure handleResetFuel is a function before using
+// ============================================================
+// HELPER COMPONENTS - Navigation Tabs
+// ============================================================
+const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
+  const handleChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const tabs = [
+    'Overview',
+    'Fuel Management',
+    'Service History',
+    'Certificates & Permits',
+    'Maintenance',
+    'Documents',
+    'Notes'
+  ];
+
+  return (
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, overflowX: 'auto' }}>
+      <Tabs
+        value={activeTab}
+        onChange={handleChange}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{
+          '& .MuiTab-root': {
+            fontWeight: 500,
+            fontSize: '0.875rem',
+            textTransform: 'capitalize',
+            minWidth: 'auto',
+            px: 2,
+            py: 1.5,
+            color: '#6B7280',
+            '&.Mui-selected': {
+              color: '#4F46E5',
+              fontWeight: 600,
+            },
+          },
+          '& .MuiTabs-indicator': {
+            backgroundColor: '#4F46E5',
+            height: 3,
+            borderRadius: '3px 3px 0 0',
+          },
+        }}
+      >
+        {tabs.map((label) => (
+          <Tab key={label} label={label} />
+        ))}
+      </Tabs>
+    </Box>
+  );
+};
+
+// ============================================================
+// HELPER COMPONENTS - Fuel Tank Card
+// ============================================================
+const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F46E5', onReset }) => {
+  const percentage = capacity > 0 ? (currentLevel / capacity) * 100 : 0;
+  const getColor = () => {
+    if (percentage > 60) return '#22C55E';
+    if (percentage > 25) return '#F59E0B';
+    return '#EF4444';
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 3,
+        borderRadius: '16px',
+        border: '1px solid #ECECEC',
+        backgroundColor: '#FFFFFF',
+        height: '100%',
+      }}
+    >
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', mb: 2 }}>
+        {title}
+      </Typography>
+      
+      {/* Fuel Gauge */}
+      <Box sx={{ position: 'relative', mb: 2 }}>
+        <Box
+          sx={{
+            width: '100%',
+            height: 20,
+            bgcolor: '#F3F4F6',
+            borderRadius: 10,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
+          <Box
+            sx={{
+              width: `${Math.min(percentage, 100)}%`,
+              height: '100%',
+              bgcolor: getColor(),
+              borderRadius: 10,
+              transition: 'width 0.5s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          />
+        </Box>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -12,
+            right: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#111827' }}>
+            {percentage.toFixed(0)}%
+          </Typography>
+        </Box>
+      </Box>
+
+      <Stack spacing={1}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+            Current Level
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
+            {currentLevel} {unit}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+            Capacity
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
+            {capacity} {unit}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+            Range
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
+            {(currentLevel * 0.1).toFixed(0)} km
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={() => {
+            if (typeof onReset === 'function') {
+              onReset();
+            }
+          }}
+          sx={{ mt: 1, fontSize: '0.7rem' }}
+        >
+          Reset to Full
+        </Button>
+      </Stack>
+    </Paper>
+  );
+};
+
+// ============================================================
+// HELPER COMPONENTS - Overview Tab
+// ============================================================
+const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => {
   const safeResetFuel = (tank) => {
     if (typeof handleResetFuel === 'function') {
       handleResetFuel(tank);
-    } else {
-      console.warn('handleResetFuel is not a function');
     }
   };
 
   return (
-  <Box>
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      <Grid item xs={12} md={4}>
-        <VehicleStatCard
-          title="Total Distance"
-          value={vehicle.currentOdometer ? `${vehicle.currentOdometer.toLocaleString()} km` : 'N/A'}
-          subtitle="Lifetime distance"
-          icon={RouteIcon}
-          color="#4F46E5"
-          loading={loading}
-        />
+    <Box>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={4}>
+          <VehicleStatCard
+            title="Total Distance"
+            value={vehicle.currentOdometer ? `${vehicle.currentOdometer.toLocaleString()} km` : 'N/A'}
+            subtitle="Lifetime distance"
+            icon={RouteIcon}
+            color="#4F46E5"
+            loading={loading}
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <VehicleStatCard
+            title="Fuel Efficiency"
+            value={vehicle.avgConsumption ? `${vehicle.avgConsumption} L/100km` : 'N/A'}
+            subtitle="Average consumption"
+            icon={FuelIcon}
+            color="#F59E0B"
+            loading={loading}
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <VehicleStatCard
+            title="Service Status"
+            value={serviceRecords.filter(s => s.status === 'COMPLETED').length > 0 ? 'Up to date' : 'Due'}
+            subtitle={`${serviceRecords.filter(s => s.status === 'SCHEDULED').length} scheduled`}
+            icon={BuildIcon}
+            color="#22C55E"
+            loading={loading}
+          />
+        </Grid>
       </Grid>
-      <Grid item xs={12} md={4}>
-        <VehicleStatCard
-          title="Fuel Efficiency"
-          value={vehicle.avgConsumption ? `${vehicle.avgConsumption} L/100km` : 'N/A'}
-          subtitle="Average consumption"
-          icon={FuelIcon}
-          color="#F59E0B"
-          loading={loading}
-        />
-      </Grid>
-      <Grid item xs={12} md={4}>
-        <VehicleStatCard
-          title="Service Status"
-          value={serviceRecords.filter(s => s.status === 'COMPLETED').length > 0 ? 'Up to date' : 'Due'}
-          subtitle={`${serviceRecords.filter(s => s.status === 'SCHEDULED').length} scheduled`}
-          icon={BuildIcon}
-          color="#22C55E"
-          loading={loading}
-        />
-      </Grid>
-    </Grid>
 
-    {/* Fuel Tanks */}
-   <Grid container spacing={2} sx={{ mb: 3 }}>
+      {/* Fuel Tanks */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <FuelTankCard
             title="Main Tank"
             capacity={fuelData.tank1Capacity}
             currentLevel={fuelData.tank1Current}
             color="#4F46E5"
-            onReset={() => safeResetFuel(1)} 
+            onReset={() => safeResetFuel(1)}
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -1045,64 +880,317 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
             capacity={fuelData.tank2Capacity}
             currentLevel={fuelData.tank2Current}
             color="#8B5CF6"
-            onReset={() => safeResetFuel(2)} 
+            onReset={() => safeResetFuel(2)}
           />
         </Grid>
       </Grid>
 
-    {/* Recent Services & Certificates */}
-    <Grid container spacing={2}>
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-            Recent Services
-          </Typography>
-          {serviceRecords.slice(0, 3).map(service => (
-            <ServiceRecordCard
-              key={service.id}
-              service={service}
-              onEdit={() => {}}
-              onDelete={() => {}}
-            />
-          ))}
-          {serviceRecords.length === 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-              No service records
+      {/* Recent Services & Certificates */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+              Recent Services
             </Typography>
-          )}
-          <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
-            View All Services
-          </Button>
-        </Paper>
-      </Grid>
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-            Active Certificates
-          </Typography>
-          {certificates.filter(c => c.status === 'ACTIVE' || c.status === 'EXPIRING').slice(0, 3).map(cert => (
-            <CertificateCard
-              key={cert.id}
-              certificate={cert}
-              onDownload={() => {}}
-              onVerify={() => {}}
-            />
-          ))}
-          {certificates.filter(c => c.status === 'ACTIVE').length === 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-              No active certificates
+            {serviceRecords.slice(0, 3).map(service => (
+              <ServiceRecordCard
+                key={service.id}
+                service={service}
+                onEdit={() => {}}
+                onDelete={() => {}}
+              />
+            ))}
+            {serviceRecords.length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                No service records
+              </Typography>
+            )}
+            <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
+              View All Services
+            </Button>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+              Active Certificates
             </Typography>
-          )}
-          <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
-            View All Certificates
-          </Button>
-        </Paper>
+            {certificates.filter(c => c.status === 'ACTIVE' || c.status === 'EXPIRING').slice(0, 3).map(cert => (
+              <CertificateCard
+                key={cert.id}
+                certificate={cert}
+                onDownload={() => {}}
+                onVerify={() => {}}
+              />
+            ))}
+            {certificates.filter(c => c.status === 'ACTIVE').length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                No active certificates
+              </Typography>
+            )}
+            <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
+              View All Certificates
+            </Button>
+          </Paper>
+        </Grid>
       </Grid>
-    </Grid>
-  </Box>
+    </Box>
+  );
+};
+
+// ============================================================
+// HELPER COMPONENTS - Vehicle Stat Card
+// ============================================================
+const VehicleStatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 3,
+      borderRadius: '16px',
+      border: '1px solid #ECECEC',
+      backgroundColor: '#FFFFFF',
+      height: '100%',
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        transform: 'translateY(-2px)',
+      },
+    }}
+  >
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+      <Typography variant="body2" sx={{ color: '#6B7280', fontWeight: 500 }}>
+        {title}
+      </Typography>
+      {Icon && (
+        <Box sx={{ bgcolor: `${color}15`, borderRadius: '10px', p: 0.75, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon sx={{ color: color, fontSize: '1.25rem' }} />
+        </Box>
+      )}
+    </Box>
+    {loading ? (
+      <CircularProgress size={24} />
+    ) : (
+      <>
+        <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
+          {value || 'N/A'}
+        </Typography>
+        {subtitle && (
+          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+            {subtitle}
+          </Typography>
+        )}
+      </>
+    )}
+  </Paper>
 );
 
-// Fuel Management Tab
+// ============================================================
+// HELPER COMPONENTS - Service Record Card
+// ============================================================
+const ServiceRecordCard = ({ service, onEdit, onDelete }) => {
+  const statusMap = {
+    COMPLETED: { color: '#22C55E', label: 'Completed', icon: CheckCircleIcon },
+    SCHEDULED: { color: '#3B82F6', label: 'Scheduled', icon: ScheduleIcon },
+    PENDING: { color: '#F59E0B', label: 'Pending', icon: PendingIcon },
+    CANCELLED: { color: '#EF4444', label: 'Cancelled', icon: CancelIcon },
+  };
+  const status = statusMap[service.status] || statusMap.PENDING;
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        borderRadius: '12px',
+        border: '1px solid #ECECEC',
+        mb: 2,
+        '&:last-child': { mb: 0 },
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+            {service.type}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+            {service.date ? new Date(service.date).toLocaleDateString() : 'Date TBD'}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+            Odometer: {service.odometer ? `${service.odometer.toLocaleString()} km` : 'N/A'}
+          </Typography>
+          {service.cost && (
+            <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+              Cost: R{service.cost.toLocaleString()}
+            </Typography>
+          )}
+        </Box>
+        <Box sx={{ textAlign: 'right' }}>
+          <Chip
+            label={status.label}
+            size="small"
+            sx={{
+              fontSize: '0.6rem',
+              height: 20,
+              bgcolor: `${status.color}15`,
+              color: status.color,
+              fontWeight: 600,
+            }}
+            icon={React.createElement(status.icon, { sx: { fontSize: '0.6rem' } })}
+          />
+          <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
+            <IconButton size="small" onClick={() => onEdit(service)}>
+              <EditIcon sx={{ fontSize: '0.8rem' }} />
+            </IconButton>
+            <IconButton size="small" onClick={() => onDelete(service.id)} color="error">
+              <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+            </IconButton>
+          </Stack>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+};
+
+// ============================================================
+// HELPER COMPONENTS - Certificate Card
+// ============================================================
+const CertificateCard = ({ certificate, onDownload, onVerify }) => {
+  const getStatusColor = () => {
+    if (certificate.status === 'ACTIVE') return '#22C55E';
+    if (certificate.status === 'EXPIRING') return '#F59E0B';
+    if (certificate.status === 'EXPIRED') return '#EF4444';
+    return '#6B7280';
+  };
+
+  const getStatusLabel = () => {
+    if (certificate.status === 'ACTIVE') return 'Active';
+    if (certificate.status === 'EXPIRING') return 'Expiring Soon';
+    if (certificate.status === 'EXPIRED') return 'Expired';
+    return 'Unknown';
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        borderRadius: '12px',
+        border: '1px solid #ECECEC',
+        mb: 2,
+        '&:last-child': { mb: 0 },
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              bgcolor: `${getStatusColor()}15`,
+              borderRadius: '8px',
+              p: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <VerifiedIcon sx={{ color: getStatusColor(), fontSize: '1.2rem' }} />
+          </Box>
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {certificate.name}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+              {certificate.number || 'No number'}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+              Expires: {certificate.expiryDate ? new Date(certificate.expiryDate).toLocaleDateString() : 'N/A'}
+            </Typography>
+          </Box>
+        </Box>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Chip
+            label={getStatusLabel()}
+            size="small"
+            sx={{
+              fontSize: '0.6rem',
+              height: 20,
+              bgcolor: `${getStatusColor()}15`,
+              color: getStatusColor(),
+              fontWeight: 600,
+            }}
+          />
+          <Tooltip title="Download">
+            <IconButton size="small" onClick={() => onDownload(certificate)}>
+              <DownloadIcon sx={{ fontSize: '0.8rem' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Verify">
+            <IconButton size="small" onClick={() => onVerify(certificate)}>
+              <VerifiedIcon sx={{ fontSize: '0.8rem' }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+};
+
+// ============================================================
+// HELPER COMPONENTS - Notification Banner
+// ============================================================
+const DriverNotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
+  const getBackgroundColor = () => {
+    switch (severity) {
+      case 'warning': return '#FEF3C7';
+      case 'error': return '#FEE2E2';
+      case 'success': return '#D1FAE5';
+      default: return '#DBEAFE';
+    }
+  };
+
+  const getIconColor = () => {
+    switch (severity) {
+      case 'warning': return '#F59E0B';
+      case 'error': return '#EF4444';
+      case 'success': return '#10B981';
+      default: return '#3B82F6';
+    }
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        mb: 1.5,
+        borderRadius: '14px',
+        border: '1px solid #ECECEC',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: '70px',
+        backgroundColor: '#FFFFFF',
+        transition: 'all 0.2s ease',
+        '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+        <Box sx={{ bgcolor: getBackgroundColor(), borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: '1.25rem' } })}
+        </Box>
+        <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.875rem' }}>
+          {message}
+        </Typography>
+      </Box>
+      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0 }}>
+        <CloseIcon sx={{ fontSize: '1rem' }} />
+      </IconButton>
+    </Paper>
+  );
+};
+
+// ============================================================
+// HELPER COMPONENTS - Fuel Management Tab
+// ============================================================
 const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel }) => {
   const handleConsumptionChange = (type, value) => {
     setFuelData(prev => ({
@@ -1213,7 +1301,9 @@ const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel }) => {
   );
 };
 
-// Service History Tab
+// ============================================================
+// HELPER COMPONENTS - Service History Tab
+// ============================================================
 const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete }) => {
   if (loading) {
     return (
@@ -1263,7 +1353,9 @@ const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete })
   );
 };
 
-// Certificates Tab
+// ============================================================
+// HELPER COMPONENTS - Certificates Tab
+// ============================================================
 const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify }) => {
   if (loading) {
     return (
@@ -1313,103 +1405,36 @@ const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify })
   );
 };
 
-// Helper Components
-const VehicleStatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 3,
-      borderRadius: '16px',
-      border: '1px solid #ECECEC',
-      backgroundColor: '#FFFFFF',
-      height: '100%',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        transform: 'translateY(-2px)',
-      },
-    }}
-  >
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-      <Typography variant="body2" sx={{ color: '#6B7280', fontWeight: 500 }}>
-        {title}
-      </Typography>
-      {Icon && (
-        <Box sx={{ bgcolor: `${color}15`, borderRadius: '10px', p: 0.75, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon sx={{ color: color, fontSize: '1.25rem' }} />
-        </Box>
-      )}
-    </Box>
-    {loading ? (
-      <CircularProgress size={24} />
-    ) : (
-      <>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
-          {value || 'N/A'}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-            {subtitle}
-          </Typography>
-        )}
-      </>
-    )}
-  </Paper>
+// ============================================================
+// HELPER COMPONENTS - Placeholder Tabs
+// ============================================================
+const MaintenanceTab = ({ vehicle }) => (
+  <Box>
+    <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+      Maintenance schedule and history will be displayed here
+    </Typography>
+  </Box>
 );
 
-// DriverNotificationBanner (reused from DriverDashboard)
-const DriverNotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
-  const getBackgroundColor = () => {
-    switch (severity) {
-      case 'warning': return '#FEF3C7';
-      case 'error': return '#FEE2E2';
-      case 'success': return '#D1FAE5';
-      default: return '#DBEAFE';
-    }
-  };
+const DocumentsTab = ({ vehicle }) => (
+  <Box>
+    <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+      Vehicle documents will be displayed here
+    </Typography>
+  </Box>
+);
 
-  const getIconColor = () => {
-    switch (severity) {
-      case 'warning': return '#F59E0B';
-      case 'error': return '#EF4444';
-      case 'success': return '#10B981';
-      default: return '#3B82F6';
-    }
-  };
+const NotesTab = ({ vehicle }) => (
+  <Box>
+    <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+      Vehicle notes will be displayed here
+    </Typography>
+  </Box>
+);
 
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        mb: 1.5,
-        borderRadius: '14px',
-        border: '1px solid #ECECEC',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        minHeight: '70px',
-        backgroundColor: '#FFFFFF',
-        transition: 'all 0.2s ease',
-        '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
-        <Box sx={{ bgcolor: getBackgroundColor(), borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: '1.25rem' } })}
-        </Box>
-        <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.875rem' }}>
-          {message}
-        </Typography>
-      </Box>
-      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0 }}>
-        <CloseIcon sx={{ fontSize: '1rem' }} />
-      </IconButton>
-    </Paper>
-  );
-};
-
-// Service Dialog
+// ============================================================
+// HELPER COMPONENTS - Service Dialog
+// ============================================================
 const ServiceDialog = ({ open, onClose, service, onSave }) => {
   const [formData, setFormData] = useState({
     type: '',
@@ -1519,7 +1544,9 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
   );
 };
 
-// Certificate Dialog
+// ============================================================
+// HELPER COMPONENTS - Certificate Dialog
+// ============================================================
 const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -1617,30 +1644,5 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
     </Dialog>
   );
 };
-
-// Placeholder tabs for remaining sections
-const MaintenanceTab = ({ vehicle }) => (
-  <Box>
-    <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-      Maintenance schedule and history will be displayed here
-    </Typography>
-  </Box>
-);
-
-const DocumentsTab = ({ vehicle }) => (
-  <Box>
-    <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-      Vehicle documents will be displayed here
-    </Typography>
-  </Box>
-);
-
-const NotesTab = ({ vehicle }) => (
-  <Box>
-    <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-      Vehicle notes will be displayed here
-    </Typography>
-  </Box>
-);
 
 export default VehicleDashboard;
