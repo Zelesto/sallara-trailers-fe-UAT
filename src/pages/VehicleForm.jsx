@@ -44,6 +44,7 @@ import {
   Warning as WarningIcon,
   Info as InfoIcon,
   PersonAdd as PersonAddIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { vehicleService } from '../services/vehicleService';
 
