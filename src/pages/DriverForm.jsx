@@ -41,7 +41,8 @@ import {
 } from '@mui/icons-material';
 import driverService from '../services/driverService';
 
-// Form Section Header Component
+// Replace the FormSectionHeader component with this fixed version:
+
 const FormSectionHeader = ({ icon, title, subtitle }) => (
   <Box sx={{ mb: 2 }}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -394,12 +395,12 @@ const DriverForm = () => {
             <Grid container spacing={3}>
               {/* Personal Information Section */}
               <Grid item xs={12}>
-                <FormSectionHeader
-                  icon={<Person sx={{ fontSize: '1.1rem' }} />}
-                  title="Personal Information"
-                  subtitle="Basic personal details of the driver"
-                />
-              </Grid>
+  <FormSectionHeader
+    icon={<Person sx={{ fontSize: '1.1rem' }} />}
+    title="Personal Information"
+    subtitle="Basic personal details of the driver"
+  />
+</Grid>
 
               <Grid item xs={12} md={6}>
                 <TextField
