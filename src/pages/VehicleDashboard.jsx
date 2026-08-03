@@ -410,7 +410,13 @@ const VehicleDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  const [openFuelDialog, setOpenFuelDialog] = useState(false);
+  const [serviceRecords, setServiceRecords] = useState([]);
+  const [certificates, setCertificates] = useState([]);
+  const [openServiceDialog, setOpenServiceDialog] = useState(false);
+  const [openCertificateDialog, setOpenCertificateDialog] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+  const [editingCertificate, setEditingCertificate] = useState(null);
+
   const [fuelData, setFuelData] = useState({
     tank1Capacity: 400,
     tank1Current: 320,
@@ -603,11 +609,13 @@ const VehicleDashboard = () => {
   };
 
  const handleResetFuel = (tank) => {
-    setFuelData(prev => ({
-      ...prev,
-      [tank === 1 ? 'tank1Current' : 'tank2Current']: 
-        tank === 1 ? prev.tank1Capacity : prev.tank2Capacity,
-    }));
+    setFuelData(prev => {
+      if (tank === 1) {
+        return { ...prev, tank1Current: prev.tank1Capacity };
+      } else {
+        return { ...prev, tank2Current: prev.tank2Capacity };
+      }
+    });
   };
 
   const handleAddService = () => {
@@ -671,7 +679,7 @@ const VehicleDashboard = () => {
   const totalFuelCurrent = fuelData.tank1Current + fuelData.tank2Current;
   const fuelPercentage = (totalFuelCurrent / totalFuelCapacity) * 100;
 
-  return (
+ return (
     <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
       <Box sx={{ maxWidth: '1440px', margin: '0 auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, gap: 3 }}>
         
@@ -884,7 +892,7 @@ const VehicleDashboard = () => {
               onClose={() => handleNotificationClose(notification.id)}
             />
           ))}
-
+          
           {/* Tab Content */}
           {activeTab === 0 && (
             <OverviewTab
@@ -895,6 +903,7 @@ const VehicleDashboard = () => {
               loading={loading}
               navigate={navigate}
               id={id}
+              handleResetFuel={handleResetFuel}
             />
           )}
 
@@ -975,6 +984,16 @@ const VehicleDashboard = () => {
 
 // Overview Tab
 const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => (
+ // Ensure handleResetFuel is a function before using
+  const safeResetFuel = (tank) => {
+    if (typeof handleResetFuel === 'function') {
+      handleResetFuel(tank);
+    } else {
+      console.warn('handleResetFuel is not a function');
+    }
+  };
+
+  return (
   <Box>
     <Grid container spacing={2} sx={{ mb: 3 }}>
       <Grid item xs={12} md={4}>
@@ -1010,26 +1029,26 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
     </Grid>
 
     {/* Fuel Tanks */}
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      <Grid item xs={12} md={6}>
-        <FuelTankCard
-          title="Main Tank"
-          capacity={fuelData.tank1Capacity}
-          currentLevel={fuelData.tank1Current}
-          color="#4F46E5"
-          onReset={() => handleResetFuel(1)}
-        />
+   <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <FuelTankCard
+            title="Main Tank"
+            capacity={fuelData.tank1Capacity}
+            currentLevel={fuelData.tank1Current}
+            color="#4F46E5"
+            onReset={() => safeResetFuel(1)} 
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <FuelTankCard
+            title="Reserve Tank"
+            capacity={fuelData.tank2Capacity}
+            currentLevel={fuelData.tank2Current}
+            color="#8B5CF6"
+            onReset={() => safeResetFuel(2)} 
+          />
+        </Grid>
       </Grid>
-      <Grid item xs={12} md={6}>
-        <FuelTankCard
-          title="Reserve Tank"
-          capacity={fuelData.tank2Capacity}
-          currentLevel={fuelData.tank2Current}
-          color="#8B5CF6"
-          onReset={() => handleResetFuel(2)}
-        />
-      </Grid>
-    </Grid>
 
     {/* Recent Services & Certificates */}
     <Grid container spacing={2}>
