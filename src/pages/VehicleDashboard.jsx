@@ -420,13 +420,7 @@ const VehicleDashboard = () => {
     virtualConsumption: 11.8,
   });
 
-  const handleResetFuel = (tank) => {
-    setFuelData(prev => ({
-      ...prev,
-      [tank === 1 ? 'tank1Current' : 'tank2Current']: 
-        tank === 1 ? prev.tank1Capacity : prev.tank2Capacity,
-    }));
-  };
+  
 
   // Service records state
   const [serviceRecords, setServiceRecords] = useState([]);
@@ -608,7 +602,7 @@ const VehicleDashboard = () => {
     navigate(`/vehicles/${id}/edit`);
   };
 
-  const handleResetFuel = (tank) => {
+ const handleResetFuel = (tank) => {
     setFuelData(prev => ({
       ...prev,
       [tank === 1 ? 'tank1Current' : 'tank2Current']: 
