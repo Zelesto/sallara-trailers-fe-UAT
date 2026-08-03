@@ -110,7 +110,7 @@ import {
   Scale as ScaleIcon,
   Engineering as EngineeringIcon,
 } from '@mui/icons-material';
-import { vehicleService } from '../../services/vehicleService';
+import { vehicleService } from '../services/vehicleService';
 
 // ============================================================
 // NAVIGATION TABS
