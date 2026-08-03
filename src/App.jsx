@@ -28,6 +28,7 @@ const UserForm = lazy(() => import("./pages/UserForm"));
 const DriverList = lazy(() => import("./pages/DriverList"));
 const DriverDetails = lazy(() => import("./pages/DriverDetails"));
 const DriverForm = lazy(() => import("./pages/DriverForm"));
+const DriverManagement = lazy(() => import("./pages/DriverManagement"));
 
 const VehicleList = lazy(() => import("./pages/VehicleList"));
 const VehicleDetails = lazy(() => import("./pages/VehicleDetails"));
@@ -214,6 +215,7 @@ function App() {
                     <Route path="drivers/new" element={<DriverForm />} />
                     <Route path="drivers/:id" element={<DriverDetails />} />
                     <Route path="drivers/:id/edit" element={<DriverForm />} />
+                    <Route path="driverManagement" element={<Drivermanagement />} />
 
                     {/* Vehicles */}
                     <Route path="vehicles" element={<VehicleList />} />
