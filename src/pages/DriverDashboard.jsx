@@ -57,7 +57,7 @@ import {
   Instagram as InstagramIcon,
   LinkedIn as LinkedInIcon,
 } from '@mui/icons-material';
-import driverService from '../../services/driverService';
+import driverService from '../services/driverService';
 
 // Navigation Tabs Component
 const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
