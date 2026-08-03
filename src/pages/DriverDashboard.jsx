@@ -11,12 +11,6 @@ import {
   Paper,
   Stack,
   Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Tab,
   Tabs,
   LinearProgress,
@@ -36,6 +30,7 @@ import {
   Support as SupportIcon,
   ArrowBack as ArrowBackIcon,
   Star as StarIcon,
+  StarBorder as StarBorderIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
   LocationOn as LocationOnIcon,
@@ -59,6 +54,9 @@ import {
   PersonAdd as PersonAddIcon,
   Edit as EditIcon,
   MoreVert as MoreVertIcon,
+  Facebook as FacebookIcon,
+  Instagram as InstagramIcon,
+  LinkedIn as LinkedInIcon,
 } from '@mui/icons-material';
 
 // Navigation Tabs Component
@@ -604,9 +602,14 @@ const DriverDashboard = () => {
 
             {/* Social Buttons */}
             <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2.5 }}>
-              {['Facebook', 'Instagram', 'LinkedIn', 'Email'].map((social) => (
+              {[
+                { name: 'Facebook', icon: FacebookIcon, color: '#1877F2' },
+                { name: 'Instagram', icon: InstagramIcon, color: '#E4405F' },
+                { name: 'LinkedIn', icon: LinkedInIcon, color: '#0A66C2' },
+                { name: 'Email', icon: EmailIcon, color: '#EA4335' },
+              ].map((social) => (
                 <IconButton
-                  key={social}
+                  key={social.name}
                   size="small"
                   sx={{
                     border: '1px solid #ECECEC',
@@ -616,10 +619,7 @@ const DriverDashboard = () => {
                     '&:hover': { bgcolor: '#F7F7FC' },
                   }}
                 >
-                  {social === 'Facebook' && <FacebookIcon sx={{ fontSize: '1.1rem', color: '#1877F2' }} />}
-                  {social === 'Instagram' && <InstagramIcon sx={{ fontSize: '1.1rem', color: '#E4405F' }} />}
-                  {social === 'LinkedIn' && <LinkedInIcon sx={{ fontSize: '1.1rem', color: '#0A66C2' }} />}
-                  {social === 'Email' && <EmailIcon sx={{ fontSize: '1.1rem', color: '#EA4335' }} />}
+                  <social.icon sx={{ fontSize: '1.1rem', color: social.color }} />
                 </IconButton>
               ))}
             </Stack>
