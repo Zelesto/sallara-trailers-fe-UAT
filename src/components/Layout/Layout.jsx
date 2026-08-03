@@ -49,7 +49,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  Notifications,  // Add this - it was missing
+  Notifications,
   Search,
   AdminPanelSettings,
   People,
@@ -68,10 +68,14 @@ import {
   PersonAdd as PersonAddIcon,
   LocalShipping as LocalShippingIcon,
   Merge as MergeIcon,
+  ManageAccounts as ManageAccountsIcon,
+  Dashboard as DashboardOutlinedIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
 import { inventoryMovementService } from '../../services/inventoryMovementService';
+
+// Import FleetManagementIcon - FIXED PATH
 import FleetManagementIcon from './FleetManagementIcon';
 
 // Import your logo images
@@ -211,13 +215,13 @@ const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
   }),
 }));
 
-// Responsive menu sections
+// Responsive menu sections - UPDATED
 const menuSections = [
   {
     title: 'Operations',
     icon: <CarIcon />,
     items: [
-      { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+      { text: 'Dashboard', icon: <DashboardOutlinedIcon />, path: '/dashboard' },
       {
         text: 'Trips',
         icon: <RouteIcon />,
@@ -229,7 +233,7 @@ const menuSections = [
       },
       {
         text: 'Load Management',
-        icon: <LocalShippingIcon />,  // Use LocalShippingIcon
+        icon: <LocalShippingIcon />,
         path: '/loads',
         subItems: [
           { text: 'All Loads', path: '/loads', icon: <LocalShippingIcon /> },
@@ -262,18 +266,31 @@ const menuSections = [
     icon: <InventoryIcon />,
     items: [
       { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
-      //{ text: 'Stock Movements', icon: <FuelIcon />, path: '/inventory/movements' },
-      //{ text: 'New Movement', icon: <AddLocationIcon />, path: '/inventory/movements/new' },
       { text: 'Pending Approvals', icon: <PendingIcon />, path: '/inventory/movements?status=PENDING' },
     ],
   },
   {
     title: 'Assets',
-    icon: <DirectionsCar />,
+    icon: <CarIcon />,
     items: [
-      { text: 'Vehicles', icon: <DirectionsCar />, path: '/vehicles' },
-      { text: 'Drivers', icon: <Person />, path: '/drivers' },
-      { text: 'Driver Management', icon: <FleetManagementIcon />, path: '/driverManagement' },
+      { 
+        text: 'Vehicles', 
+        icon: <CarIcon />, 
+        path: '/vehicles',
+        subItems: [
+          { text: 'All Vehicles', path: '/vehicles', icon: <CarIcon /> },
+          { text: 'Vehicle Management', path: '/vehicleManagement', icon: <CarIcon /> },
+        ],
+      },
+      { 
+        text: 'Drivers', 
+        icon: <Person />, 
+        path: '/drivers',
+        subItems: [
+          { text: 'All Drivers', path: '/drivers', icon: <Person /> },
+          { text: 'Driver Management', path: '/driverManagement', icon: <FleetManagementIcon /> },
+        ],
+      },
     ],
   },
   {
@@ -288,7 +305,7 @@ const menuSections = [
     title: 'Finance',
     icon: <MoneyIcon />,
     items: [
-      { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance' },
+      { text: 'Finance Dashboard', icon: <DashboardOutlinedIcon />, path: '/finance' },
       { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/finance/expenses' },
       { text: 'Accounts', icon: <AccountBalanceIcon />, path: '/finance/accounts' },
       { text: 'Invoices', icon: <DescriptionIcon />, path: '/finance/invoices' },
@@ -344,7 +361,6 @@ const MainLayout = () => {
       setPendingApprovals(pendingList.length);
     } catch (error) {
       console.error('Error fetching pending approvals:', error);
-      // Don't show error to user, just set to 0
       setPendingApprovals(0);
       setPendingApprovalItems([]);
     }
@@ -361,14 +377,36 @@ const MainLayout = () => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
-  // Fetch pending approvals on mount and periodically
   useEffect(() => {
     if (user) {
       fetchPendingApprovals();
-      const interval = setInterval(fetchPendingApprovals, 30000); // Refresh every 30 seconds
+      const interval = setInterval(fetchPendingApprovals, 30000);
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  // Auto-expand sections based on current path
+  useEffect(() => {
+    const path = location.pathname;
+    const newExpandedSections = {};
+    
+    menuSections.forEach((section, index) => {
+      const hasMatchingItem = section.items.some(item => {
+        if (item.subItems) {
+          return item.subItems.some(sub => path.startsWith(sub.path.split('?')[0]));
+        }
+        return path.startsWith(item.path.split('?')[0]);
+      });
+      if (hasMatchingItem) {
+        newExpandedSections[index] = true;
+      }
+    });
+    
+    setExpandedSections(prev => ({
+      ...prev,
+      ...newExpandedSections,
+    }));
+  }, [location.pathname]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -525,7 +563,6 @@ const MainLayout = () => {
                                                   location.pathname.startsWith(sub.path)
                                                 ));
 
-                      // Add badge for pending approvals in inventory menu
                       const showBadge = item.text === 'Pending Approvals' && pendingApprovals > 0;
 
                       return (
@@ -831,7 +868,6 @@ const MainLayout = () => {
               <Search sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
             </IconButton>
             
-            {/* Notification Bell with Pending Approvals */}
             <IconButton 
               size="small" 
               sx={{ borderRadius: 1 }}
@@ -846,7 +882,6 @@ const MainLayout = () => {
               </Badge>
             </IconButton>
 
-            {/* Notification Popover */}
             <Popper
               open={Boolean(notificationAnchorEl)}
               anchorEl={notificationAnchorEl}
