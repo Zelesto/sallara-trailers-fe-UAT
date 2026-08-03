@@ -139,7 +139,7 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
   );
 };
 
-// Timesheet Component
+// Timesheet Component - FIXED
 const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEntry }) => {
   const [openDialog, setOpenDialog] = useState(false);
   const [newEntry, setNewEntry] = useState({
@@ -150,6 +150,14 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
     activityType: 'DRIVING',
     notes: '',
   });
+
+  // Helper function to get week number
+  const getWeekNumber = (date) => {
+    const d = new Date(date);
+    const startOfYear = new Date(d.getFullYear(), 0, 1);
+    const days = Math.floor((d - startOfYear) / (24 * 60 * 60 * 1000));
+    return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  };
 
   const handleAddEntry = () => {
     onAddEntry(newEntry);
@@ -172,14 +180,18 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
     return diff.toFixed(1);
   };
 
-  // Calculate weekly summary
+  // Calculate weekly summary - FIXED
   const weeklySummary = timesheetData?.reduce((acc, entry) => {
-    const week = new Date(entry.date).getWeek();
-    if (!acc[week]) {
-      acc[week] = { totalHours: 0, entries: 0, weekStart: entry.date };
+    const weekNumber = getWeekNumber(entry.date);
+    if (!acc[weekNumber]) {
+      acc[weekNumber] = { 
+        totalHours: 0, 
+        entries: 0, 
+        weekStart: entry.date 
+      };
     }
-    acc[week].totalHours += parseFloat(calculateHours(entry.startTime, entry.endTime));
-    acc[week].entries += 1;
+    acc[weekNumber].totalHours += parseFloat(calculateHours(entry.startTime, entry.endTime));
+    acc[weekNumber].entries += 1;
     return acc;
   }, {});
 
@@ -227,7 +239,7 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
         </Stack>
       </Box>
 
-      {/* Weekly Summary Cards */}
+      {/* Weekly Summary Cards - FIXED */}
       {weeklySummary && Object.keys(weeklySummary).length > 0 && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {Object.values(weeklySummary).slice(0, 4).map((week, index) => (
