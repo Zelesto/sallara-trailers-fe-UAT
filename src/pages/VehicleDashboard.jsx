@@ -420,6 +420,14 @@ const VehicleDashboard = () => {
     virtualConsumption: 11.8,
   });
 
+  const handleResetFuel = (tank) => {
+    setFuelData(prev => ({
+      ...prev,
+      [tank === 1 ? 'tank1Current' : 'tank2Current']: 
+        tank === 1 ? prev.tank1Capacity : prev.tank2Capacity,
+    }));
+  };
+
   // Service records state
   const [serviceRecords, setServiceRecords] = useState([]);
   const [certificates, setCertificates] = useState([]);
@@ -972,7 +980,7 @@ const VehicleDashboard = () => {
 };
 
 // Overview Tab
-const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id }) => (
+const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => (
   <Box>
     <Grid container spacing={2} sx={{ mb: 3 }}>
       <Grid item xs={12} md={4}>
