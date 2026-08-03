@@ -274,7 +274,7 @@ const DriverList = () => {
             <IconButton
               size="small"
               color="primary"
-              onClick={() => navigate(`/drivers/${params.row.id}`)}
+              onClick={() => navigate(`/driversManagement/${params.row.id}`)}
               sx={{ p: 0.5 }}
             >
               <ViewIcon sx={{ fontSize: '0.9rem' }} />
