@@ -215,7 +215,7 @@ function App() {
                     <Route path="drivers/new" element={<DriverForm />} />
                     <Route path="drivers/:id" element={<DriverDetails />} />
                     <Route path="drivers/:id/edit" element={<DriverForm />} />
-                    <Route path="driverManagement" element={<DriverDashboard />} />
+                    <Route path="driverManagement/:id" element={<DriverDashboard />} />
 
                     {/* Vehicles */}
                     <Route path="vehicles" element={<VehicleList />} />
