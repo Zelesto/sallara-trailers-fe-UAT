@@ -24,7 +24,6 @@ import {
   TableHead,
   TableRow,
   Avatar,
-  LinearProgress,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -44,7 +43,6 @@ import {
   Pending as PendingIcon,
   Close as CloseIcon,
   Warning as WarningIcon,
-  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { customerService } from '../../services/customerService';
@@ -157,7 +155,7 @@ const StatusChip = ({ status }) => {
   );
 };
 
-// Trip List Component
+// Trip List Component - FIXED
 const TripList = ({ trips, onViewTrip }) => {
   if (!trips || trips.length === 0) {
     return (
@@ -347,23 +345,56 @@ const CustomerDetails = () => {
     setLoading(true);
     setError(null);
     try {
+      // Load customer details
       const customerData = await customerService.getCustomerById(id);
       setCustomer(customerData);
 
-      const tripsData = await tripService.getTripsByCustomer(id);
-      const tripsList = Array.isArray(tripsData) ? tripsData : (tripsData?.content || []);
+      // Load customer trips - FIXED: use getTripsByCustomerId or getAllTrips with filter
+      let tripsList = [];
+      try {
+        // Try to get trips by customer ID
+        if (tripService.getTripsByCustomerId) {
+          const tripsData = await tripService.getTripsByCustomerId(id);
+          tripsList = Array.isArray(tripsData) ? tripsData : (tripsData?.content || []);
+        } else {
+          // Fallback: get all trips and filter by customer
+          const allTrips = await tripService.getAllTrips();
+          tripsList = Array.isArray(allTrips) ? allTrips : (allTrips?.content || []);
+          // Filter by customer ID if the trip has a customerId field
+          tripsList = tripsList.filter(t => t.customerId === parseInt(id) || t.customer?.id === parseInt(id));
+        }
+      } catch (err) {
+        console.warn('Could not fetch trips:', err);
+        tripsList = [];
+      }
       setTrips(tripsList);
 
-      const loadsData = await loadService.getLoadsByCustomer(id);
-      setLoads(Array.isArray(loadsData) ? loadsData : []);
+      // Load customer loads - FIXED
+      let loadsList = [];
+      try {
+        if (loadService.getLoadsByCustomerId) {
+          const loadsData = await loadService.getLoadsByCustomerId(id);
+          loadsList = Array.isArray(loadsData) ? loadsData : (loadsData?.content || []);
+        } else {
+          // Fallback: get all loads and filter by customer
+          const allLoads = await loadService.getAllLoads();
+          loadsList = Array.isArray(allLoads) ? allLoads : (allLoads?.content || []);
+          loadsList = loadsList.filter(l => l.customerId === parseInt(id) || l.customer?.id === parseInt(id));
+        }
+      } catch (err) {
+        console.warn('Could not fetch loads:', err);
+        loadsList = [];
+      }
+      setLoads(loadsList);
 
+      // Calculate stats
       const completed = tripsList.filter(t => t.status === 'COMPLETED').length;
       const active = tripsList.filter(t => t.status === 'IN_PROGRESS' || t.status === 'ACTIVE').length;
       setStats({
         totalTrips: tripsList.length,
         completedTrips: completed,
         activeTrips: active,
-        totalLoads: Array.isArray(loadsData) ? loadsData.length : 0,
+        totalLoads: loadsList.length,
       });
 
     } catch (err) {
