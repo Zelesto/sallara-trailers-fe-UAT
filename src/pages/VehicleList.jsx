@@ -345,7 +345,7 @@ const VehicleList = () => {
           <Tooltip title="View Dashboard" arrow>
             <IconButton
               size="small"
-              onClick={() => navigate(`/vehicles/${params.row.id}/dashboard`)}
+              onClick={() => navigate(`/vehicleManagement/${params.row.id}`)}
               sx={{
                 p: 0.5,
                 color: '#4F46E5',
