@@ -48,8 +48,9 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import driverService from '../services/driverService';
 
-// Enhanced Stat Card Component
-const StatCard = ({ title, value, color = 'primary', icon: Icon, subtitle, trend }) => (
+// Replace the StatCard component with this fixed version:
+
+const StatCard = ({ title, value, color = '#4F46E5', icon: Icon, subtitle, trend }) => (
   <Card
     elevation={0}
     sx={{
@@ -463,45 +464,45 @@ const DriverList = () => {
           </Alert>
         )}
 
-        {/* Stats Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Total Drivers"
-              value={stats.total}
-              color="#4F46E5"
-              icon={<PersonAddIcon />}
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Active"
-              value={stats.active}
-              color="#22C55E"
-              icon={<CheckCircleIcon />}
-              subtitle={`${stats.active > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% of total`}
-              trend="up"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Available"
-              value={stats.available}
-              color="#3B82F6"
-              icon={<InfoIcon />}
-              subtitle={`${stats.available > 0 ? Math.round((stats.available / stats.total) * 100) : 0}% of total`}
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="On Leave"
-              value={stats.onLeave}
-              color="#F59E0B"
-              icon={<WarningIcon />}
-              subtitle={`${stats.onLeave > 0 ? Math.round((stats.onLeave / stats.total) * 100) : 0}% of total`}
-            />
-          </Grid>
-        </Grid>
+        {/* Stats Cards - Change from color="..." to color="#..." */}
+<Grid container spacing={2} sx={{ mb: 3 }}>
+  <Grid item xs={6} sm={3}>
+    <StatCard
+      title="Total Drivers"
+      value={stats.total}
+      color="#4F46E5"
+      icon={PersonAddIcon}
+    />
+  </Grid>
+  <Grid item xs={6} sm={3}>
+    <StatCard
+      title="Active"
+      value={stats.active}
+      color="#22C55E"
+      icon={CheckCircleIcon}
+      subtitle={`${stats.active > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% of total`}
+      trend="up"
+    />
+  </Grid>
+  <Grid item xs={6} sm={3}>
+    <StatCard
+      title="Available"
+      value={stats.available}
+      color="#3B82F6"
+      icon={InfoIcon}
+      subtitle={`${stats.available > 0 ? Math.round((stats.available / stats.total) * 100) : 0}% of total`}
+    />
+  </Grid>
+  <Grid item xs={6} sm={3}>
+    <StatCard
+      title="On Leave"
+      value={stats.onLeave}
+      color="#F59E0B"
+      icon={WarningIcon}
+      subtitle={`${stats.onLeave > 0 ? Math.round((stats.onLeave / stats.total) * 100) : 0}% of total`}
+    />
+  </Grid>
+</Grid>
 
         {/* Expiring Licenses Alert */}
         {stats.expiringLicenses > 0 && (
