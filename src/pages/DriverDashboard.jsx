@@ -1597,7 +1597,7 @@ const DocumentsTab = () => (
 );
 
 const NotesTab = ({ driver }) => (
-  <Box sx={{ py: 4, text-align: 'center' }}>
+  <Box sx={{ py: 4, textAlign: 'center' }}>
     <InfoIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
     <Typography variant="body1" color="text.secondary">
       Driver notes will be displayed here
