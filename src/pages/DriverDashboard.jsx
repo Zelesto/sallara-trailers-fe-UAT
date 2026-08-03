@@ -132,7 +132,7 @@ import {
   Fingerprint as FingerprintIcon,
   QrCode as QrCodeIcon,
 } from '@mui/icons-material';
-import driverService from '../../services/driverService';
+import driverService from '../services/driverService';
 
 // ============================================================
 // NAVIGATION TABS
