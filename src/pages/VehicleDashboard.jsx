@@ -106,7 +106,7 @@ import {
   GpsFixed as GpsFixedIcon,
   Speed as SpeedIconAlt,
   Timer as TimerIcon,
-  Weight as WeightIcon,
+  Scale as WeightIcon,
   Scale as ScaleIcon,
   Engineering as EngineeringIcon,
 } from '@mui/icons-material';
