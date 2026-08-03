@@ -31,6 +31,7 @@ import {
   ClickAwayListener,
   MenuList,
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
 
 import {
   Menu as MenuIcon,
@@ -68,14 +69,9 @@ import {
   PersonAdd as PersonAddIcon,
   LocalShipping as LocalShippingIcon,
   Merge as MergeIcon,
-  ManageAccounts as ManageAccountsIcon,
-  Dashboard as DashboardOutlinedIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { styled } from '@mui/material/styles';
 import { inventoryMovementService } from '../../services/inventoryMovementService';
-
-// Import FleetManagementIcon - FIXED PATH
 import FleetManagementIcon from './FleetManagementIcon';
 
 // Import your logo images
@@ -88,15 +84,15 @@ import TripForm from '../../pages/TripForm';
 const drawerWidth = 240;
 const collapsedDrawerWidth = 64;
 
-// Styled components...
+// Styled components with modern design
 const LogoContainer = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'collapsed',
 })(({ theme, collapsed }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: collapsed ? theme.spacing(1, 0.5) : theme.spacing(1.5, 2),
-  borderBottom: `1px solid ${theme.palette.divider}`,
+  padding: collapsed ? theme.spacing(1, 0.5) : theme.spacing(2, 2),
+  borderBottom: '1px solid #ECECEC',
   minHeight: collapsed ? 64 : 80,
   position: 'relative',
   overflow: 'hidden',
@@ -104,6 +100,7 @@ const LogoContainer = styled(Box, {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.enteringScreen,
   }),
+  backgroundColor: '#FFFFFF',
 }));
 
 const LogoWrapper = styled(Box, {
@@ -151,45 +148,56 @@ const ToggleButton = styled(IconButton)(({ theme }) => ({
   right: -12,
   top: '50%',
   transform: 'translateY(-50%)',
-  backgroundColor: theme.palette.background.paper,
-  border: `1px solid ${theme.palette.divider}`,
+  backgroundColor: '#FFFFFF',
+  border: '1px solid #ECECEC',
   '&:hover': {
-    backgroundColor: theme.palette.grey[100],
+    backgroundColor: '#F7F7FC',
   },
   zIndex: 11,
-  boxShadow: theme.shadows[2],
+  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
   width: 24,
   height: 24,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   padding: 0,
+  color: '#6B7280',
 }));
 
 const SidebarItem = styled(ListItemButton)(({ theme, selected }) => ({
-  borderRadius: theme.spacing(0.75),
+  borderRadius: '10px',
   margin: theme.spacing(0.25, 0.75),
   paddingLeft: theme.spacing(2),
   paddingTop: theme.spacing(0.5),
   paddingBottom: theme.spacing(0.5),
   '&.Mui-selected': {
-    backgroundColor: theme.palette.primary.light + '20',
-    color: theme.palette.primary.main,
+    backgroundColor: '#EEF2FF',
+    color: '#4F46E5',
     '&:hover': {
-      backgroundColor: theme.palette.primary.light + '30',
+      backgroundColor: '#EEF2FF',
     },
+    '& .MuiListItemIcon-root': {
+      color: '#4F46E5',
+    },
+  },
+  '&:hover': {
+    backgroundColor: '#F7F7FC',
   },
 }));
 
 const SectionHeader = styled(ListItemButton)(({ theme }) => ({
-  borderRadius: theme.spacing(0.75),
+  borderRadius: '10px',
   margin: theme.spacing(0.25, 0.75),
   marginTop: theme.spacing(1.5),
   backgroundColor: 'transparent',
   paddingTop: theme.spacing(0.5),
   paddingBottom: theme.spacing(0.5),
   '&:hover': {
-    backgroundColor: theme.palette.grey[100],
+    backgroundColor: '#F7F7FC',
+  },
+  '& .MuiTypography-root': {
+    color: '#6B7280',
+    fontWeight: 600,
   },
 }));
 
@@ -197,17 +205,27 @@ const MainContentWrapper = styled(Box)(({ theme }) => ({
   flex: 1,
   overflowY: 'auto',
   paddingBottom: '70px',
+  '&::-webkit-scrollbar': {
+    width: '4px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#F7F7FC',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#E5E7EB',
+    borderRadius: '4px',
+  },
 }));
 
 const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
-  borderTop: `1px solid ${theme.palette.divider}`,
-  padding: collapsed ? theme.spacing(1, 0.75) : theme.spacing(1.5),
+  borderTop: '1px solid #ECECEC',
+  padding: collapsed ? theme.spacing(1, 0.75) : theme.spacing(1.5, 2),
   position: 'fixed',
   bottom: 0,
   left: 0,
   right: 0,
   width: collapsed ? collapsedDrawerWidth : drawerWidth,
-  backgroundColor: theme.palette.background.paper,
+  backgroundColor: '#FFFFFF',
   zIndex: 10,
   transition: theme.transitions.create(['width', 'transform'], {
     easing: theme.transitions.easing.sharp,
@@ -215,119 +233,119 @@ const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
   }),
 }));
 
-// Responsive menu sections - UPDATED
+// Responsive menu sections
 const menuSections = [
   {
     title: 'Operations',
-    icon: <CarIcon />,
+    icon: <CarIcon sx={{ color: '#6B7280' }} />,
     items: [
-      { text: 'Dashboard', icon: <DashboardOutlinedIcon />, path: '/dashboard' },
+      { text: 'Dashboard', icon: <DashboardIcon sx={{ color: '#6B7280' }} />, path: '/dashboard' },
       {
         text: 'Trips',
-        icon: <RouteIcon />,
+        icon: <RouteIcon sx={{ color: '#6B7280' }} />,
         path: '/trips',
         subItems: [
-          { text: 'All Trips', path: '/trips', icon: <RouteIcon /> },
-          { text: 'Active Trips', path: '/trips?status=ACTIVE', icon: <Timeline /> },
+          { text: 'All Trips', path: '/trips', icon: <RouteIcon sx={{ color: '#6B7280' }} /> },
+          { text: 'Active Trips', path: '/trips?status=ACTIVE', icon: <Timeline sx={{ color: '#6B7280' }} /> },
         ],
       },
       {
         text: 'Load Management',
-        icon: <LocalShippingIcon />,
+        icon: <LocalShippingIcon sx={{ color: '#6B7280' }} />,
         path: '/loads',
         subItems: [
-          { text: 'All Loads', path: '/loads', icon: <LocalShippingIcon /> },
-          { text: 'New Load', path: '/loads/new', icon: <AddLocationIcon /> },
-          { text: 'Smart Merge', path: '/loads/merge', icon: <MergeIcon /> },
+          { text: 'All Loads', path: '/loads', icon: <LocalShippingIcon sx={{ color: '#6B7280' }} /> },
+          { text: 'New Load', path: '/loads/new', icon: <AddLocationIcon sx={{ color: '#6B7280' }} /> },
+          { text: 'Smart Merge', path: '/loads/merge', icon: <MergeIcon sx={{ color: '#6B7280' }} /> },
         ],
       },
       {
         text: 'POD Management',
-        icon: <PodIcon />,
+        icon: <PodIcon sx={{ color: '#6B7280' }} />,
         path: '/pods',
         subItems: [
-          { text: 'All PODs', path: '/pods', icon: <PodIcon /> },
-          { text: 'Create POD', path: '/pods/new', icon: <AddLocationIcon /> },
+          { text: 'All PODs', path: '/pods', icon: <PodIcon sx={{ color: '#6B7280' }} /> },
+          { text: 'Create POD', path: '/pods/new', icon: <AddLocationIcon sx={{ color: '#6B7280' }} /> },
         ],
       },
       {
         text: 'Fuel Management',
-        icon: <FuelIcon />,
+        icon: <FuelIcon sx={{ color: '#6B7280' }} />,
         path: '/fuel/slips',
         subItems: [
-          { text: 'All Fuel Slips', path: '/fuel/slips', icon: <FuelIcon /> },
-          { text: 'Add Fuel Slip', path: '/fuel/slips/add', icon: <AddLocationIcon /> },
+          { text: 'All Fuel Slips', path: '/fuel/slips', icon: <FuelIcon sx={{ color: '#6B7280' }} /> },
+          { text: 'Add Fuel Slip', path: '/fuel/slips/add', icon: <AddLocationIcon sx={{ color: '#6B7280' }} /> },
         ],
       },
     ],
   },
   {
     title: 'Inventory',
-    icon: <InventoryIcon />,
+    icon: <InventoryIcon sx={{ color: '#6B7280' }} />,
     items: [
-      { text: 'Inventory Items', icon: <InventoryIcon />, path: '/inventory' },
-      { text: 'Pending Approvals', icon: <PendingIcon />, path: '/inventory/movements?status=PENDING' },
+      { text: 'Inventory Items', icon: <InventoryIcon sx={{ color: '#6B7280' }} />, path: '/inventory' },
+      { text: 'Pending Approvals', icon: <PendingIcon sx={{ color: '#6B7280' }} />, path: '/inventory/movements?status=PENDING' },
     ],
   },
   {
     title: 'Assets',
-    icon: <CarIcon />,
+    icon: <DirectionsCar sx={{ color: '#6B7280' }} />,
     items: [
       { 
         text: 'Vehicles', 
-        icon: <CarIcon />, 
+        icon: <CarIcon sx={{ color: '#6B7280' }} />, 
         path: '/vehicles',
         subItems: [
-          { text: 'All Vehicles', path: '/vehicles', icon: <CarIcon /> },
-          { text: 'Vehicle Management', path: '/vehicleManagement', icon: <CarIcon /> },
+          { text: 'All Vehicles', path: '/vehicles', icon: <CarIcon sx={{ color: '#6B7280' }} /> },
+          { text: 'Vehicle Management', path: '/vehicleManagement', icon: <CarIcon sx={{ color: '#6B7280' }} /> },
         ],
       },
       { 
         text: 'Drivers', 
-        icon: <Person />, 
+        icon: <Person sx={{ color: '#6B7280' }} />, 
         path: '/drivers',
         subItems: [
-          { text: 'All Drivers', path: '/drivers', icon: <Person /> },
-          { text: 'Driver Management', path: '/driverManagement', icon: <FleetManagementIcon /> },
+          { text: 'All Drivers', path: '/drivers', icon: <Person sx={{ color: '#6B7280' }} /> },
+          { text: 'Driver Management', path: '/driverManagement', icon: <FleetManagementIcon sx={{ color: '#6B7280' }} /> },
         ],
       },
     ],
   },
   {
     title: 'Customers',
-    icon: <People />,
+    icon: <People sx={{ color: '#6B7280' }} />,
     items: [
-      { text: 'All Customers', icon: <People />, path: '/customers' },
-      { text: 'Add Customer', icon: <PersonAddIcon />, path: '/customers/new' },
+      { text: 'All Customers', icon: <People sx={{ color: '#6B7280' }} />, path: '/customers' },
+      { text: 'Add Customer', icon: <PersonAddIcon sx={{ color: '#6B7280' }} />, path: '/customers/new' },
     ],
   },
   {
     title: 'Finance',
-    icon: <MoneyIcon />,
+    icon: <MoneyIcon sx={{ color: '#6B7280' }} />,
     items: [
-      { text: 'Finance Dashboard', icon: <DashboardOutlinedIcon />, path: '/finance' },
-      { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/finance/expenses' },
-      { text: 'Accounts', icon: <AccountBalanceIcon />, path: '/finance/accounts' },
-      { text: 'Invoices', icon: <DescriptionIcon />, path: '/finance/invoices' },
-      { text: 'Receivables', icon: <ReceiptLongIcon />, path: '/finance/receivables' },
-      { text: 'Payables', icon: <DescriptionIcon />, path: '/finance/payables' },
+      { text: 'Finance Dashboard', icon: <DashboardIcon sx={{ color: '#6B7280' }} />, path: '/finance' },
+      { text: 'Expenses', icon: <ReceiptLongIcon sx={{ color: '#6B7280' }} />, path: '/finance/expenses' },
+      { text: 'Accounts', icon: <AccountBalanceIcon sx={{ color: '#6B7280' }} />, path: '/finance/accounts' },
+      { text: 'Invoices', icon: <DescriptionIcon sx={{ color: '#6B7280' }} />, path: '/finance/invoices' },
+      { text: 'Receivables', icon: <ReceiptLongIcon sx={{ color: '#6B7280' }} />, path: '/finance/receivables' },
+      { text: 'Payables', icon: <DescriptionIcon sx={{ color: '#6B7280' }} />, path: '/finance/payables' },
     ],
   },
   {
     title: 'Reports & Analytics',
-    icon: <AnalyticsIcon />,
+    icon: <AnalyticsIcon sx={{ color: '#6B7280' }} />,
     items: [
-      { text: 'Trip Analytics', icon: <AnalyticsIcon />, path: '/analytics/trips' },
-      { text: 'Trip Reports', icon: <ReportsIcon />, path: '/reports/trips' },
+      { text: 'Trip Analytics', icon: <AnalyticsIcon sx={{ color: '#6B7280' }} />, path: '/analytics/trips' },
+      { text: 'Trip Reports', icon: <ReportsIcon sx={{ color: '#6B7280' }} />, path: '/reports/trips' },
     ],
   },
   {
     title: 'Administration',
-    icon: <AdminPanelSettings />,
+    icon: <AdminPanelSettings sx={{ color: '#6B7280' }} />,
     items: [
-      { text: 'Users Management', icon: <People />, path: '/users' },
-      { text: 'System Settings', icon: <Settings />, path: '/settings' },
-      { text: 'Logs & Audits', icon: <Timeline />, path: '/logs' },
+      { text: 'Users Management', icon: <People sx={{ color: '#6B7280' }} />, path: '/users' },
+      { text: 'System Settings', icon: <Settings sx={{ color: '#6B7280' }} />, path: '/settings' },
+      { text: 'Logs & Audits', icon: <Timeline sx={{ color: '#6B7280' }} />, path: '/logs' },
     ],
   },
 ];
@@ -377,6 +395,7 @@ const MainLayout = () => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
+  // Fetch pending approvals on mount and periodically
   useEffect(() => {
     if (user) {
       fetchPendingApprovals();
@@ -469,7 +488,7 @@ const MainLayout = () => {
   };
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#FFFFFF' }}>
       <LogoContainer collapsed={sidebarCollapsed ? 1 : 0}>
         <LogoWrapper collapsed={sidebarCollapsed ? 1 : 0}>
           <LogoImage
@@ -482,8 +501,8 @@ const MainLayout = () => {
                 <div style="
                   width: ${sidebarCollapsed ? '36px' : '48px'};
                   height: ${sidebarCollapsed ? '36px' : '48px'};
-                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                  border-radius: ${sidebarCollapsed ? '8px' : '8px'};
+                  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);
+                  border-radius: ${sidebarCollapsed ? '8px' : '12px'};
                   display: flex;
                   align-items: center;
                   justify-content: center;
@@ -501,9 +520,10 @@ const MainLayout = () => {
               variant="h6"
               sx={{
                 fontWeight: 700,
-                color: 'text.primary',
+                color: '#111827',
                 lineHeight: 1.1,
                 mb: 0.25,
+                fontSize: '1.1rem',
               }}
             >
               Trailers
@@ -511,9 +531,10 @@ const MainLayout = () => {
             <Typography
               variant="caption"
               sx={{
-                color: 'text.secondary',
+                color: '#6B7280',
                 display: 'block',
-                fontSize: '0.7rem',
+                fontSize: '0.6rem',
+                fontWeight: 500,
               }}
             >
               v1.0.4 - 30 JULY 2026
@@ -523,9 +544,9 @@ const MainLayout = () => {
 
         <ToggleButton onClick={toggleSidebar} size="small">
           {sidebarCollapsed ? (
-            <ChevronRight sx={{ fontSize: '1rem' }} />
+            <ChevronRight sx={{ fontSize: '0.8rem' }} />
           ) : (
-            <ChevronLeft sx={{ fontSize: '1rem' }} />
+            <ChevronLeft sx={{ fontSize: '0.8rem' }} />
           )}
         </ToggleButton>
       </LogoContainer>
@@ -536,17 +557,24 @@ const MainLayout = () => {
             {!sidebarCollapsed ? (
               <>
                 <SectionHeader onClick={() => toggleSection(index)}>
-                  <ListItemIcon sx={{ minWidth: 36 }}>
+                  <ListItemIcon sx={{ minWidth: 36, color: '#6B7280' }}>
                     {section.icon}
                   </ListItemIcon>
                   <ListItemText
                     primary={section.title}
                     primaryTypographyProps={{
-                      fontSize: '0.8rem',
+                      fontSize: '0.75rem',
                       fontWeight: 600,
+                      color: '#6B7280',
+                      letterSpacing: '0.3px',
+                      textTransform: 'uppercase',
                     }}
                   />
-                  {expandedSections[index] ? <ExpandLess sx={{ fontSize: '1rem' }} /> : <ExpandMore sx={{ fontSize: '1rem' }} />}
+                  {expandedSections[index] ? (
+                    <ExpandLess sx={{ fontSize: '1rem', color: '#6B7280' }} />
+                  ) : (
+                    <ExpandMore sx={{ fontSize: '1rem', color: '#6B7280' }} />
+                  )}
                 </SectionHeader>
 
                 <Collapse in={expandedSections[index]} timeout="auto" unmountOnExit>
@@ -573,18 +601,19 @@ const MainLayout = () => {
                             sx={{
                               py: theme.spacing(0.5),
                               backgroundColor: hasSubItems && location.pathname.startsWith(item.path + '/')
-                                ? theme.palette.primary.light + '20'
+                                ? '#EEF2FF'
                                 : 'inherit',
                             }}
                           >
-                            <ListItemIcon sx={{ minWidth: 36 }}>
+                            <ListItemIcon sx={{ minWidth: 36, color: isSelected ? '#4F46E5' : '#6B7280' }}>
                               {item.icon}
                             </ListItemIcon>
                             <ListItemText
                               primary={item.text}
                               primaryTypographyProps={{
                                 fontSize: '0.8rem',
-                                fontWeight: 500,
+                                fontWeight: isSelected ? 600 : 500,
+                                color: isSelected ? '#4F46E5' : '#111827',
                               }}
                             />
                             {showBadge && (
@@ -596,8 +625,8 @@ const MainLayout = () => {
                             )}
                             {hasSubItems && (
                               isMenuItemExpanded
-                                ? <ExpandLess sx={{ fontSize: '0.9rem' }} />
-                                : <ExpandMore sx={{ fontSize: '0.9rem' }} />
+                                ? <ExpandLess sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
+                                : <ExpandMore sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
                             )}
                           </SidebarItem>
 
@@ -618,14 +647,15 @@ const MainLayout = () => {
                                       pl: theme.spacing(3.5),
                                     }}
                                   >
-                                    <ListItemIcon sx={{ minWidth: 32 }}>
+                                    <ListItemIcon sx={{ minWidth: 32, color: isSubSelected ? '#4F46E5' : '#6B7280' }}>
                                       {subItem.icon}
                                     </ListItemIcon>
                                     <ListItemText
                                       primary={subItem.text}
                                       primaryTypographyProps={{
                                         fontSize: '0.75rem',
-                                        fontWeight: 500,
+                                        fontWeight: isSubSelected ? 600 : 500,
+                                        color: isSubSelected ? '#4F46E5' : '#111827',
                                       }}
                                     />
                                   </SidebarItem>
@@ -652,7 +682,7 @@ const MainLayout = () => {
                   <Typography
                     variant="caption"
                     sx={{
-                      color: 'text.secondary',
+                      color: '#6B7280',
                       fontWeight: 600,
                       fontSize: '0.5rem',
                       letterSpacing: '0.5px',
@@ -677,11 +707,11 @@ const MainLayout = () => {
                           sx={{
                             justifyContent: 'center',
                             py: 0.75,
-                            borderRadius: 1,
+                            borderRadius: '10px',
                             margin: 0.25,
                             minHeight: 36,
                             '&.Mui-selected': {
-                              backgroundColor: theme.palette.primary.light + '20',
+                              backgroundColor: '#EEF2FF',
                               position: 'relative',
                               '&::after': {
                                 content: '""',
@@ -691,7 +721,7 @@ const MainLayout = () => {
                                 transform: 'translateY(-50%)',
                                 width: 3,
                                 height: 16,
-                                backgroundColor: theme.palette.primary.main,
+                                backgroundColor: '#4F46E5',
                                 borderRadius: '0 3px 3px 0',
                               },
                             },
@@ -700,7 +730,7 @@ const MainLayout = () => {
                           <ListItemIcon sx={{
                             minWidth: 'auto',
                             justifyContent: 'center',
-                            color: isSelected ? theme.palette.primary.main : 'inherit'
+                            color: isSelected ? '#4F46E5' : '#6B7280'
                           }}>
                             {item.icon}
                           </ListItemIcon>
@@ -729,7 +759,7 @@ const MainLayout = () => {
               </Box>
             )}
             {!sidebarCollapsed && index < menuSections.length - 1 && (
-              <Divider sx={{ my: 1.5, mx: 2 }} />
+              <Divider sx={{ my: 1.5, mx: 2, borderColor: '#ECECEC' }} />
             )}
           </React.Fragment>
         ))}
@@ -742,9 +772,10 @@ const MainLayout = () => {
               sx={{
                 width: 34,
                 height: 34,
-                bgcolor: 'primary.main',
+                bgcolor: '#4F46E5',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
+                fontWeight: 600,
               }}
               onClick={handleUserMenuOpen}
             >
@@ -756,7 +787,7 @@ const MainLayout = () => {
                 variant="subtitle2"
                 fontWeight={600}
                 noWrap
-                sx={{ fontSize: '0.8rem' }}
+                sx={{ fontSize: '0.8rem', color: '#111827' }}
               >
                 {user?.username}
               </Typography>
@@ -765,7 +796,7 @@ const MainLayout = () => {
                 variant="caption"
                 color="text.secondary"
                 noWrap
-                sx={{ fontSize: '0.65rem' }}
+                sx={{ fontSize: '0.6rem', color: '#6B7280' }}
               >
                 {user?.roles?.map(r => r.name).join(', ')}
               </Typography>
@@ -777,7 +808,7 @@ const MainLayout = () => {
               onClick={handleUserMenuOpen}
               sx={{
                 justifyContent: 'center',
-                borderRadius: 1,
+                borderRadius: '10px',
                 py: 1,
                 px: 0,
               }}
@@ -786,8 +817,9 @@ const MainLayout = () => {
                 sx={{
                   width: 28,
                   height: 28,
-                  bgcolor: 'primary.main',
+                  bgcolor: '#4F46E5',
                   fontSize: '0.75rem',
+                  fontWeight: 600,
                 }}
               >
                 {user?.username?.charAt(0).toUpperCase() || <Person />}
@@ -800,7 +832,7 @@ const MainLayout = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', backgroundColor: '#F7F7FC' }}>
       <CssBaseline />
 
       <AppBar
@@ -808,10 +840,10 @@ const MainLayout = () => {
         sx={{
           width: { md: `calc(100% - ${sidebarCollapsed ? collapsedDrawerWidth : drawerWidth}px)` },
           ml: { md: sidebarCollapsed ? collapsedDrawerWidth : drawerWidth },
-          backgroundColor: 'background.paper',
-          color: 'text.primary',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-          borderBottom: `1px solid ${theme.palette.divider}`,
+          backgroundColor: '#FFFFFF',
+          color: '#111827',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          borderBottom: '1px solid #ECECEC',
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -823,7 +855,7 @@ const MainLayout = () => {
           flexWrap: 'nowrap',
           overflow: 'hidden',
           minHeight: { xs: 48, sm: 52 },
-          px: { xs: 1, sm: 1.5 },
+          px: { xs: 1.5, sm: 2 },
         }}>
           <Box sx={{ 
             display: 'flex', 
@@ -835,7 +867,7 @@ const MainLayout = () => {
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 1, display: { md: 'none' } }}
+              sx={{ mr: 1, display: { md: 'none' }, color: '#6B7280' }}
             >
               <MenuIcon sx={{ fontSize: '1.2rem' }} />
             </IconButton>
@@ -847,6 +879,7 @@ const MainLayout = () => {
                 fontWeight: 600,
                 fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' },
                 whiteSpace: 'nowrap',
+                color: '#111827',
               }}
             >
               Fleet Management
@@ -861,16 +894,20 @@ const MainLayout = () => {
               flexShrink: 0,
               '& .MuiIconButton-root': {
                 padding: { xs: 0.5, sm: 0.75 },
+                color: '#6B7280',
+                '&:hover': {
+                  backgroundColor: '#F7F7FC',
+                },
               },
             }}
           >
-            <IconButton size="small" sx={{ borderRadius: 1 }}>
+            <IconButton size="small" sx={{ borderRadius: '8px' }}>
               <Search sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
             </IconButton>
             
             <IconButton 
               size="small" 
-              sx={{ borderRadius: 1 }}
+              sx={{ borderRadius: '8px' }}
               onClick={handleNotificationOpen}
             >
               <Badge 
@@ -894,11 +931,12 @@ const MainLayout = () => {
                   maxHeight: 400, 
                   overflow: 'auto',
                   mt: 1,
-                  boxShadow: 3,
-                  borderRadius: 1.5,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                  borderRadius: '12px',
+                  border: '1px solid #ECECEC',
                 }}>
-                  <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                  <Box sx={{ p: 1.5, borderBottom: '1px solid #ECECEC' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.8rem', color: '#111827' }}>
                       Pending Approvals ({pendingApprovals})
                     </Typography>
                   </Box>
@@ -916,14 +954,13 @@ const MainLayout = () => {
                           onClick={() => handleNavigation('/inventory/movements')}
                           sx={{ 
                             py: 1.5,
-                            borderBottom: '1px solid',
-                            borderColor: 'divider',
+                            borderBottom: '1px solid #ECECEC',
                             '&:last-child': { borderBottom: 'none' }
                           }}
                         >
                           <Box sx={{ width: '100%' }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
-                              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500, color: '#111827' }}>
                                 {item.itemName || `Item #${item.itemId}`}
                               </Typography>
                               <Chip
@@ -955,7 +992,7 @@ const MainLayout = () => {
               </ClickAwayListener>
             </Popper>
 
-            <IconButton size="small" sx={{ borderRadius: 1 }}>
+            <IconButton size="small" sx={{ borderRadius: '8px' }}>
               <Settings sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} />
             </IconButton>
 
@@ -964,14 +1001,15 @@ const MainLayout = () => {
               size="small"
               onClick={handleNewTrip}
               sx={{
-                borderRadius: 1.5,
+                borderRadius: '10px',
                 textTransform: 'none',
                 fontWeight: 600,
                 px: { xs: 1, sm: 1.5 },
                 py: { xs: 0.4, sm: 0.5 },
-                backgroundColor: theme.palette.success.main,
+                backgroundColor: '#22C55E',
                 '&:hover': {
-                  backgroundColor: theme.palette.success.dark,
+                  backgroundColor: '#16A34A',
+                  boxShadow: '0 4px 12px rgba(34,197,94,0.3)',
                 },
                 fontSize: { xs: '0.65rem', sm: '0.75rem' },
                 minWidth: 'auto',
@@ -992,10 +1030,13 @@ const MainLayout = () => {
         open={Boolean(anchorEl)}
         onClose={handleUserMenuClose}
         PaperProps={{
-          elevation: 3,
+          elevation: 0,
           sx: {
             mt: 1.5,
             minWidth: 200,
+            borderRadius: '12px',
+            border: '1px solid #ECECEC',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
           }
         }}
       >
@@ -1004,9 +1045,9 @@ const MainLayout = () => {
           navigate('/me');
         }}>
           <ListItemIcon>
-            <Person fontSize="small" />
+            <Person fontSize="small" sx={{ color: '#6B7280' }} />
           </ListItemIcon>
-          <ListItemText>My Profile</ListItemText>
+          <ListItemText sx={{ color: '#111827' }}>My Profile</ListItemText>
         </MenuItem>
 
         <MenuItem onClick={() => {
@@ -1014,18 +1055,18 @@ const MainLayout = () => {
           navigate('/settings');
         }}>
           <ListItemIcon>
-            <Settings fontSize="small" />
+            <Settings fontSize="small" sx={{ color: '#6B7280' }} />
           </ListItemIcon>
-          <ListItemText>Settings</ListItemText>
+          <ListItemText sx={{ color: '#111827' }}>Settings</ListItemText>
         </MenuItem>
 
-        <Divider />
+        <Divider sx={{ borderColor: '#ECECEC' }} />
 
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
-            <LogoutIcon fontSize="small" />
+            <LogoutIcon fontSize="small" sx={{ color: '#EF4444' }} />
           </ListItemIcon>
-          <ListItemText>Logout</ListItemText>
+          <ListItemText sx={{ color: '#EF4444' }}>Logout</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -1048,6 +1089,8 @@ const MainLayout = () => {
                 width: drawerWidth,
                 display: 'flex',
                 flexDirection: 'column',
+                border: 'none',
+                boxShadow: '2px 0 8px rgba(0,0,0,0.05)',
               },
             }}
           >
@@ -1059,7 +1102,7 @@ const MainLayout = () => {
             sx={{
               '& .MuiDrawer-paper': {
                 width: sidebarCollapsed ? collapsedDrawerWidth : drawerWidth,
-                borderRight: `1px solid ${theme.palette.divider}`,
+                borderRight: '1px solid #ECECEC',
                 transition: theme.transitions.create('width', {
                   easing: theme.transitions.easing.sharp,
                   duration: theme.transitions.duration.enteringScreen,
@@ -1068,6 +1111,8 @@ const MainLayout = () => {
                 position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
+                backgroundColor: '#FFFFFF',
+                boxShadow: '2px 0 8px rgba(0,0,0,0.02)',
               },
             }}
             open
@@ -1087,7 +1132,7 @@ const MainLayout = () => {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
-          backgroundColor: theme.palette.grey[50],
+          backgroundColor: '#F7F7FC',
           minHeight: '100vh',
           overflowX: 'hidden',
         }}
