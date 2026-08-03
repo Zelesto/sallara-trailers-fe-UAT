@@ -34,9 +34,34 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  DatePicker,
-  LocalizationProvider,
-  AdapterDateFns,
+  Tooltip,
+  Badge,
+  Slider,
+  Switch,
+  FormControlLabel,
+  InputAdornment,
+  Input,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemAvatar,
+  Avatar as MuiAvatar,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  Fab,
+  SpeedDial,
+  SpeedDialAction,
+  SpeedDialIcon,
+  ToggleButton,
+  ToggleButtonGroup,
+  useTheme,
+  useMediaQuery,
+  Snackbar,
+  LinearProgress as MuiLinearProgress,
+  Chip as MuiChip,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -82,25 +107,49 @@ import {
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Print as PrintIcon,
+  Speed as SpeedIcon,
+  LocalGasStation as FuelIcon,
+  Build as BuildIcon,
+  Receipt as ReceiptIcon,
+  Description as DescriptionIcon,
+  FileCopy as FileCopyIcon,
+  Verified as VerifiedIcon,
+  Pending as PendingIcon,
+  Cancel as CancelIcon,
+  Refresh as RefreshIcon,
+  Save as SaveIcon,
+  GpsFixed as GpsFixedIcon,
+  Timer as TimerIcon,
+  PlayArrow as PlayArrowIcon,
+  Pause as PauseIcon,
+  Stop as StopIcon,
+  Coffee as CoffeeIcon,
+  LunchDining as LunchDiningIcon,
+  Security as SecurityIcon,
+  Upload as UploadIcon,
+  FileUpload as FileUploadIcon,
+  CloudUpload as CloudUploadIcon,
+  Fingerprint as FingerprintIcon,
+  QrCode as QrCodeIcon,
 } from '@mui/icons-material';
-import driverService from '../services/driverService';
-import { LocalizationProvider as MuiLocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns as MuiAdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import driverService from '../../services/driverService';
 
-// Navigation Tabs Component
+// ============================================================
+// NAVIGATION TABS
+// ============================================================
 const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
   const handleChange = (event, newValue) => {
     setActiveTab(newValue);
   };
 
   const tabs = [
-    'Overview', 
-    'Trips', 
-    'Timesheet', 
-    'Leave', 
-    'Performance', 
-    'Documents', 
-    'Notes'
+    { label: 'Overview', icon: <DashboardIcon /> },
+    { label: 'Timesheet', icon: <AccessTimeIcon /> },
+    { label: 'Leave', icon: <BeachAccessIcon /> },
+    { label: 'Trips', icon: <RouteIcon /> },
+    { label: 'Performance', icon: <AssessmentIcon /> },
+    { label: 'Documents', icon: <DescriptionIcon /> },
+    { label: 'Notes', icon: <InfoIcon /> },
   ];
 
   return (
@@ -113,7 +162,7 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
         sx={{
           '& .MuiTab-root': {
             fontWeight: 500,
-            fontSize: '0.875rem',
+            fontSize: '0.8rem',
             textTransform: 'capitalize',
             minWidth: 'auto',
             px: 2,
@@ -131,19 +180,214 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
           },
         }}
       >
-        {tabs.map((label) => (
-          <Tab key={label} label={label} />
+        {tabs.map((tab) => (
+          <Tab 
+            key={tab.label} 
+            label={tab.label} 
+            icon={tab.icon} 
+            iconPosition="start"
+          />
         ))}
       </Tabs>
     </Box>
   );
 };
 
-// Timesheet Component - FIXED
-const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEntry }) => {
+// ============================================================
+// PUNCH CLOCK COMPONENT
+// ============================================================
+const PunchClock = ({ onPunch, currentStatus, loading }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [punchType, setPunchType] = useState('CLOCK_IN');
+
+  const getStatusColor = () => {
+    switch(currentStatus) {
+      case 'CLOCKED_IN': return '#22C55E';
+      case 'ON_BREAK': return '#F59E0B';
+      case 'CLOCKED_OUT': return '#6B7280';
+      default: return '#4F46E5';
+    }
+  };
+
+  const getStatusLabel = () => {
+    switch(currentStatus) {
+      case 'CLOCKED_IN': return 'Clocked In';
+      case 'ON_BREAK': return 'On Break';
+      case 'CLOCKED_OUT': return 'Clocked Out';
+      default: return 'Not Clocked In';
+    }
+  };
+
+  const punchOptions = [
+    { value: 'CLOCK_IN', label: 'Clock In', icon: <PlayArrowIcon />, color: '#22C55E' },
+    { value: 'BREAK_START', label: 'Start Break', icon: <CoffeeIcon />, color: '#F59E0B' },
+    { value: 'BREAK_END', label: 'End Break', icon: <LunchDiningIcon />, color: '#3B82F6' },
+    { value: 'CLOCK_OUT', label: 'Clock Out', icon: <StopIcon />, color: '#EF4444' },
+  ];
+
+  const handlePunch = () => {
+    if (onPunch) {
+      onPunch(punchType);
+    }
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 3,
+        borderRadius: '16px',
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        textAlign: 'center',
+      }}
+    >
+      <Stack spacing={2} alignItems="center">
+        {/* Status Indicator */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
+              bgcolor: getStatusColor(),
+              animation: currentStatus === 'CLOCKED_IN' ? 'pulse 2s infinite' : 'none',
+              '@keyframes pulse': {
+                '0%': { opacity: 1 },
+                '50%': { opacity: 0.5 },
+                '100%': { opacity: 1 },
+              },
+            }}
+          />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
+            {getStatusLabel()}
+          </Typography>
+        </Box>
+
+        {/* Big Clock Display */}
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="h2" sx={{ fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+            {new Date().toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </Typography>
+        </Box>
+
+        {/* Punch Type Selection */}
+        <ToggleButtonGroup
+          value={punchType}
+          exclusive
+          onChange={(e, value) => value && setPunchType(value)}
+          sx={{ 
+            flexWrap: 'wrap', 
+            gap: 1,
+            '& .MuiToggleButton-root': {
+              borderRadius: '8px !important',
+              border: '1px solid #ECECEC',
+              px: 2,
+              py: 1,
+              '&.Mui-selected': {
+                backgroundColor: '#EEF2FF',
+                borderColor: '#4F46E5',
+                color: '#4F46E5',
+              },
+            },
+          }}
+        >
+          {punchOptions.map((option) => (
+            <ToggleButton key={option.value} value={option.value}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                {option.icon}
+                <Typography variant="body2">{option.label}</Typography>
+              </Stack>
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+
+        {/* Punch Button */}
+        <Button
+          variant="contained"
+          size="large"
+          onClick={handlePunch}
+          disabled={loading}
+          sx={{
+            minWidth: 200,
+            py: 1.5,
+            borderRadius: '12px',
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '1rem',
+            background: `linear-gradient(135deg, ${punchOptions.find(o => o.value === punchType)?.color || '#4F46E5'} 0%, ${punchOptions.find(o => o.value === punchType)?.color || '#4F46E5'} 100%)`,
+            '&:hover': {
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              opacity: 0.9,
+            },
+          }}
+          startIcon={punchOptions.find(o => o.value === punchType)?.icon}
+        >
+          {loading ? <CircularProgress size={24} color="inherit" /> : punchOptions.find(o => o.value === punchType)?.label}
+        </Button>
+
+        {/* Recent Punches */}
+        <Box sx={{ width: '100%', mt: 1 }}>
+          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1 }}>
+            Today's Activity
+          </Typography>
+          <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
+            <Chip
+              icon={<PlayArrowIcon />}
+              label="Clock In"
+              size="small"
+              sx={{ bgcolor: '#D1FAE5', color: '#065F46' }}
+            />
+            <Chip
+              icon={<CoffeeIcon />}
+              label="Break Start"
+              size="small"
+              sx={{ bgcolor: '#FEF3C7', color: '#92400E' }}
+            />
+            <Chip
+              icon={<LunchDiningIcon />}
+              label="Break End"
+              size="small"
+              sx={{ bgcolor: '#DBEAFE', color: '#1E40AF' }}
+            />
+            <Chip
+              icon={<StopIcon />}
+              label="Clock Out"
+              size="small"
+              sx={{ bgcolor: '#FEE2E2', color: '#991B1B' }}
+            />
+          </Stack>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+};
+
+// ============================================================
+// TIMESHEET TAB
+// ============================================================
+const TimesheetTab = ({ 
+  timesheetData, 
+  loading, 
+  onAddEntry, 
+  onDeleteEntry, 
+  onPunch,
+  punchStatus,
+  punchLoading,
+  onImportTimesheet,
+  onExportTimesheet,
+}) => {
   const [openDialog, setOpenDialog] = useState(false);
+  const [openImportDialog, setOpenImportDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importing, setImporting] = useState(false);
   const [newEntry, setNewEntry] = useState({
-    date: new Date(),
+    date: new Date().toISOString().split('T')[0],
     startTime: '09:00',
     endTime: '17:00',
     breakDuration: 60,
@@ -151,7 +395,19 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
     notes: '',
   });
 
-  // Helper function to get week number
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  // Calculate hours worked
+  const calculateHours = (start, end) => {
+    if (!start || !end) return '0';
+    const startTime = new Date(`1970-01-01T${start}`);
+    const endTime = new Date(`1970-01-01T${end}`);
+    const diff = (endTime - startTime) / (1000 * 60 * 60);
+    return diff.toFixed(1);
+  };
+
+  // Calculate weekly summary
   const getWeekNumber = (date) => {
     const d = new Date(date);
     const startOfYear = new Date(d.getFullYear(), 0, 1);
@@ -159,28 +415,6 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
     return Math.ceil((days + startOfYear.getDay() + 1) / 7);
   };
 
-  const handleAddEntry = () => {
-    onAddEntry(newEntry);
-    setOpenDialog(false);
-    setNewEntry({
-      date: new Date(),
-      startTime: '09:00',
-      endTime: '17:00',
-      breakDuration: 60,
-      activityType: 'DRIVING',
-      notes: '',
-    });
-  };
-
-  // Calculate hours worked
-  const calculateHours = (start, end) => {
-    const startTime = new Date(`1970-01-01T${start}`);
-    const endTime = new Date(`1970-01-01T${end}`);
-    const diff = (endTime - startTime) / (1000 * 60 * 60);
-    return diff.toFixed(1);
-  };
-
-  // Calculate weekly summary - FIXED
   const weeklySummary = timesheetData?.reduce((acc, entry) => {
     const weekNumber = getWeekNumber(entry.date);
     if (!acc[weekNumber]) {
@@ -195,6 +429,71 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
     return acc;
   }, {});
 
+  // Monthly summary
+  const monthlySummary = timesheetData?.reduce((acc, entry) => {
+    const month = new Date(entry.date).getMonth();
+    const year = new Date(entry.date).getFullYear();
+    const key = `${year}-${month}`;
+    if (!acc[key]) {
+      acc[key] = { 
+        totalHours: 0, 
+        entries: 0, 
+        month: new Date(entry.date).toLocaleDateString([], { month: 'long', year: 'numeric' })
+      };
+    }
+    acc[key].totalHours += parseFloat(calculateHours(entry.startTime, entry.endTime));
+    acc[key].entries += 1;
+    return acc;
+  }, {});
+
+  const handleAddEntry = () => {
+    onAddEntry(newEntry);
+    setOpenDialog(false);
+    setNewEntry({
+      date: new Date().toISOString().split('T')[0],
+      startTime: '09:00',
+      endTime: '17:00',
+      breakDuration: 60,
+      activityType: 'DRIVING',
+      notes: '',
+    });
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleImport = () => {
+    if (selectedFile) {
+      setImporting(true);
+      // Simulate import progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        setImportProgress(progress);
+        if (progress >= 100) {
+          clearInterval(interval);
+          setImporting(false);
+          setOpenImportDialog(false);
+          setSelectedFile(null);
+          setImportProgress(0);
+          if (onImportTimesheet) {
+            onImportTimesheet(selectedFile);
+          }
+        }
+      }, 300);
+    }
+  };
+
+  const handleExport = () => {
+    if (onExportTimesheet) {
+      onExportTimesheet();
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
@@ -205,17 +504,36 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
 
   return (
     <Box>
+      {/* Punch Clock Section */}
+      <Box sx={{ mb: 3 }}>
+        <PunchClock 
+          onPunch={onPunch}
+          currentStatus={punchStatus}
+          loading={punchLoading}
+        />
+      </Box>
+
       {/* Timesheet Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Timesheet
+          Timesheet Entries
         </Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<UploadIcon />}
+            onClick={() => setOpenImportDialog(true)}
+            sx={{ fontSize: '0.75rem', borderRadius: '8px' }}
+          >
+            Import
+          </Button>
           <Button
             variant="outlined"
             size="small"
             startIcon={<DownloadIcon />}
-            sx={{ fontSize: '0.75rem' }}
+            onClick={handleExport}
+            sx={{ fontSize: '0.75rem', borderRadius: '8px' }}
           >
             Export
           </Button>
@@ -223,7 +541,7 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
             variant="outlined"
             size="small"
             startIcon={<PrintIcon />}
-            sx={{ fontSize: '0.75rem' }}
+            sx={{ fontSize: '0.75rem', borderRadius: '8px' }}
           >
             Print
           </Button>
@@ -232,55 +550,100 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
             size="small"
             startIcon={<AddIcon />}
             onClick={() => setOpenDialog(true)}
-            sx={{ fontSize: '0.75rem' }}
+            sx={{ 
+              fontSize: '0.75rem', 
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            }}
           >
             Add Entry
           </Button>
         </Stack>
       </Box>
 
-      {/* Weekly Summary Cards - FIXED */}
+      {/* Weekly Summary Cards */}
       {weeklySummary && Object.keys(weeklySummary).length > 0 && (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {Object.values(weeklySummary).slice(0, 4).map((week, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2,
-                  borderRadius: '12px',
-                  border: '1px solid #ECECEC',
-                  bgcolor: '#F9FAFB',
-                }}
-              >
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-                  Week of {new Date(week.weekStart).toLocaleDateString()}
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 600, mt: 0.5 }}>
-                  {week.totalHours}h
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                  {week.entries} entries
-                </Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+            Weekly Summary
+          </Typography>
+          <Grid container spacing={2}>
+            {Object.values(weeklySummary).slice(0, 4).map((week, index) => (
+              <Grid item xs={6} sm={3} key={index}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    borderRadius: '12px',
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#F9FAFB',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                    Week {index + 1}
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#4F46E5', mt: 0.5 }}>
+                    {week.totalHours}h
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                    {week.entries} entries
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
+
+      {/* Monthly Summary */}
+      {monthlySummary && Object.keys(monthlySummary).length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+            Monthly Summary
+          </Typography>
+          <Grid container spacing={2}>
+            {Object.values(monthlySummary).slice(0, 3).map((month, index) => (
+              <Grid item xs={4} sm={3} key={index}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    borderRadius: '12px',
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#F9FAFB',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                    {month.month}
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#8B5CF6', mt: 0.5 }}>
+                    {month.totalHours}h
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                    {month.entries} entries
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       )}
 
       {/* Timesheet Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
         <Table>
           <TableHead sx={{ bgcolor: '#F9FAFB' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Start</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>End</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Break (min)</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Hours</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Activity</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Notes</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Start</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>End</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Break (min)</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Hours</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Activity</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Notes</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -293,7 +656,7 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
                   <TableCell sx={{ fontSize: '0.8rem' }}>{entry.startTime}</TableCell>
                   <TableCell sx={{ fontSize: '0.8rem' }}>{entry.endTime}</TableCell>
                   <TableCell sx={{ fontSize: '0.8rem' }}>{entry.breakDuration}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                  <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#4F46E5' }}>
                     {calculateHours(entry.startTime, entry.endTime)}h
                   </TableCell>
                   <TableCell>
@@ -304,9 +667,11 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
                         fontSize: '0.6rem',
                         height: 20,
                         bgcolor: entry.activityType === 'DRIVING' ? '#DBEAFE' : 
-                                entry.activityType === 'REST' ? '#D1FAE5' : '#FEF3C7',
+                                entry.activityType === 'REST' ? '#D1FAE5' : 
+                                entry.activityType === 'LOADING' ? '#FEF3C7' : '#EDE9FE',
                         color: entry.activityType === 'DRIVING' ? '#1E40AF' : 
-                               entry.activityType === 'REST' ? '#065F46' : '#92400E',
+                               entry.activityType === 'REST' ? '#065F46' : 
+                               entry.activityType === 'LOADING' ? '#92400E' : '#5B21B6',
                       }}
                     />
                   </TableCell>
@@ -340,17 +705,18 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
 
       {/* Add Entry Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Timesheet Entry</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Add Timesheet Entry</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
               label="Date"
               type="date"
-              value={newEntry.date instanceof Date ? newEntry.date.toISOString().split('T')[0] : ''}
-              onChange={(e) => setNewEntry({ ...newEntry, date: new Date(e.target.value) })}
+              value={newEntry.date}
+              onChange={(e) => setNewEntry({ ...newEntry, date: e.target.value })}
               InputLabelProps={{ shrink: true }}
               fullWidth
-              size="small"
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <Grid container spacing={2}>
               <Grid item xs={6}>
@@ -361,7 +727,8 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
                   onChange={(e) => setNewEntry({ ...newEntry, startTime: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
-                  size="small"
+                  size="medium"
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -372,7 +739,8 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
                   onChange={(e) => setNewEntry({ ...newEntry, endTime: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
-                  size="small"
+                  size="medium"
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
                 />
               </Grid>
             </Grid>
@@ -382,14 +750,19 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
               value={newEntry.breakDuration}
               onChange={(e) => setNewEntry({ ...newEntry, breakDuration: parseInt(e.target.value) })}
               fullWidth
-              size="small"
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">min</InputAdornment>,
+              }}
             />
-            <FormControl fullWidth size="small">
-              <InputLabel>Activity Type</InputLabel>
+            <FormControl fullWidth size="medium">
+              <InputLabel sx={{ fontSize: '0.8rem' }}>Activity Type</InputLabel>
               <Select
                 value={newEntry.activityType}
                 onChange={(e) => setNewEntry({ ...newEntry, activityType: e.target.value })}
                 label="Activity Type"
+                sx={{ fontSize: '0.85rem' }}
               >
                 <MenuItem value="DRIVING">Driving</MenuItem>
                 <MenuItem value="REST">Rest</MenuItem>
@@ -407,14 +780,116 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
               value={newEntry.notes}
               onChange={(e) => setNewEntry({ ...newEntry, notes: e.target.value })}
               fullWidth
-              size="small"
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button onClick={handleAddEntry} variant="contained" color="primary">
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+          <Button 
+            onClick={handleAddEntry} 
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              textTransform: 'none',
+              borderRadius: '10px',
+              px: 3,
+            }}
+          >
             Add Entry
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={openImportDialog} onClose={() => setOpenImportDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Import Timesheet</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <Box
+              sx={{
+                border: '2px dashed #ECECEC',
+                borderRadius: '12px',
+                p: 4,
+                textAlign: 'center',
+                bgcolor: '#F9FAFB',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  borderColor: '#4F46E5',
+                  bgcolor: '#EEF2FF',
+                },
+              }}
+            >
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                style={{ display: 'none' }}
+                id="file-upload"
+                onChange={handleFileUpload}
+              />
+              <label htmlFor="file-upload">
+                <IconButton component="span" sx={{ bgcolor: '#EEF2FF', color: '#4F46E5', mb: 2 }}>
+                  <CloudUploadIcon sx={{ fontSize: 40 }} />
+                </IconButton>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827' }}>
+                  {selectedFile ? selectedFile.name : 'Upload timesheet file'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                  Supported formats: CSV, Excel (.xlsx, .xls)
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                  Max file size: 5MB
+                </Typography>
+                {selectedFile && (
+                  <Chip
+                    label={`${(selectedFile.size / 1024).toFixed(1)} KB`}
+                    size="small"
+                    sx={{ mt: 1 }}
+                  />
+                )}
+              </label>
+            </Box>
+
+            {importing && (
+              <Box>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1 }}>
+                  Importing... {importProgress}%
+                </Typography>
+                <LinearProgress variant="determinate" value={importProgress} sx={{ height: 8, borderRadius: 4 }} />
+              </Box>
+            )}
+
+            <Alert severity="info" sx={{ borderRadius: '8px' }}>
+              <Typography variant="caption" sx={{ display: 'block' }}>
+                <strong>Format Requirements:</strong>
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                • Columns: Date, Start Time, End Time, Break Duration, Activity Type, Notes
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                • Date format: YYYY-MM-DD
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                • Time format: HH:mm (24-hour)
+              </Typography>
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenImportDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+          <Button 
+            onClick={handleImport} 
+            variant="contained"
+            disabled={!selectedFile || importing}
+            sx={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              textTransform: 'none',
+              borderRadius: '10px',
+              px: 3,
+            }}
+          >
+            {importing ? 'Importing...' : 'Import'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -422,13 +897,15 @@ const TimesheetTab = ({ driverId, timesheetData, loading, onAddEntry, onDeleteEn
   );
 };
 
-// Leave Management Component
-const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave }) => {
+// ============================================================
+// LEAVE TAB
+// ============================================================
+const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
   const [openDialog, setOpenDialog] = useState(false);
   const [newLeave, setNewLeave] = useState({
     type: 'ANNUAL',
-    startDate: new Date(),
-    endDate: new Date(),
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
     reason: '',
     notes: '',
   });
@@ -446,8 +923,8 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
     setOpenDialog(false);
     setNewLeave({
       type: 'ANNUAL',
-      startDate: new Date(),
-      endDate: new Date(),
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
       reason: '',
       notes: '',
     });
@@ -464,7 +941,7 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
   return (
     <Box>
       {/* Leave Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Leave Management
         </Typography>
@@ -473,7 +950,11 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
           size="small"
           startIcon={<AddIcon />}
           onClick={() => setOpenDialog(true)}
-          sx={{ fontSize: '0.75rem' }}
+          sx={{
+            fontSize: '0.75rem',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+          }}
         >
           Request Leave
         </Button>
@@ -485,21 +966,26 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
       </Typography>
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {Object.entries(leaveBalances).map(([key, balance]) => (
-          <Grid item xs={12} sm={6} md={3} key={key}>
+          <Grid item xs={6} sm={3} key={key}>
             <Paper
               elevation={0}
               sx={{
-                p: 2,
+                p: 2.5,
                 borderRadius: '12px',
                 border: '1px solid #ECECEC',
                 textAlign: 'center',
                 bgcolor: '#FFFFFF',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  transform: 'translateY(-2px)',
+                },
               }}
             >
-              <Typography variant="caption" sx={{ color: '#6B7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.6rem' }}>
                 {key} Leave
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 1, mt: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 0.5, mt: 1 }}>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5' }}>
                   {balance.remaining}
                 </Typography>
@@ -507,20 +993,23 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
                   / {balance.total}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                <Typography variant="caption" sx={{ color: '#22C55E' }}>
-                  Used: {balance.used}
-                </Typography>
+              <Box sx={{ mt: 1 }}>
                 <LinearProgress
                   variant="determinate"
                   value={(balance.used / balance.total) * 100}
                   sx={{
-                    width: 40,
                     height: 4,
                     borderRadius: 2,
-                    alignSelf: 'center',
+                    bgcolor: '#F3F4F6',
+                    '& .MuiLinearProgress-bar': {
+                      bgcolor: '#4F46E5',
+                      borderRadius: 2,
+                    },
                   }}
                 />
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: '0.6rem' }}>
+                  Used: {balance.used} / Remaining: {balance.remaining}
+                </Typography>
               </Box>
             </Paper>
           </Grid>
@@ -531,17 +1020,17 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
         Leave Requests
       </Typography>
-      <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
         <Table>
           <TableHead sx={{ bgcolor: '#F9FAFB' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Start Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>End Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Duration</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Reason</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Type</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Start Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>End Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Duration</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Reason</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -626,15 +1115,16 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
 
       {/* Request Leave Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Request Leave</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Request Leave</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Leave Type</InputLabel>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <FormControl fullWidth size="medium">
+              <InputLabel sx={{ fontSize: '0.8rem' }}>Leave Type</InputLabel>
               <Select
                 value={newLeave.type}
                 onChange={(e) => setNewLeave({ ...newLeave, type: e.target.value })}
                 label="Leave Type"
+                sx={{ fontSize: '0.85rem' }}
               >
                 <MenuItem value="ANNUAL">Annual Leave</MenuItem>
                 <MenuItem value="SICK">Sick Leave</MenuItem>
@@ -646,28 +1136,31 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
             <TextField
               label="Start Date"
               type="date"
-              value={newLeave.startDate instanceof Date ? newLeave.startDate.toISOString().split('T')[0] : ''}
-              onChange={(e) => setNewLeave({ ...newLeave, startDate: new Date(e.target.value) })}
+              value={newLeave.startDate}
+              onChange={(e) => setNewLeave({ ...newLeave, startDate: e.target.value })}
               InputLabelProps={{ shrink: true }}
               fullWidth
-              size="small"
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <TextField
               label="End Date"
               type="date"
-              value={newLeave.endDate instanceof Date ? newLeave.endDate.toISOString().split('T')[0] : ''}
-              onChange={(e) => setNewLeave({ ...newLeave, endDate: new Date(e.target.value) })}
+              value={newLeave.endDate}
+              onChange={(e) => setNewLeave({ ...newLeave, endDate: e.target.value })}
               InputLabelProps={{ shrink: true }}
               fullWidth
-              size="small"
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <TextField
               label="Reason"
               value={newLeave.reason}
               onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })}
               fullWidth
-              size="small"
+              size="medium"
               placeholder="Reason for leave request"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <TextField
               label="Additional Notes"
@@ -676,13 +1169,23 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
               value={newLeave.notes}
               onChange={(e) => setNewLeave({ ...newLeave, notes: e.target.value })}
               fullWidth
-              size="small"
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button onClick={handleRequestLeave} variant="contained" color="primary">
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+          <Button 
+            onClick={handleRequestLeave} 
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              textTransform: 'none',
+              borderRadius: '10px',
+              px: 3,
+            }}
+          >
             Submit Request
           </Button>
         </DialogActions>
@@ -691,7 +1194,427 @@ const LeaveTab = ({ driverId, leaveData, loading, onRequestLeave, onCancelLeave 
   );
 };
 
-// Main Driver Dashboard Component
+// ============================================================
+// PERFORMANCE TAB
+// ============================================================
+const PerformanceTab = ({ driver, performance, loading }) => {
+  const defaultMetrics = [
+    { label: 'On-Time Rate', value: '94%', color: '#22C55E', icon: <TimerIcon /> },
+    { label: 'Avg Rating', value: '4.8 ★', color: '#F59E0B', icon: <StarIcon /> },
+    { label: 'Safety Score', value: '96%', color: '#4F46E5', icon: <SecurityIcon /> },
+    { label: 'Efficiency', value: '88%', color: '#8B5CF6', icon: <TrendingUpIcon /> },
+  ];
+
+  const metrics = performance || defaultMetrics;
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  return (
+    <Grid container spacing={3}>
+      {/* Performance Score Overview */}
+      <Grid item xs={12}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: '16px',
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Performance Score
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
+            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+              <CircularProgress
+                variant="determinate"
+                value={driver?.performanceScore || 0}
+                size={120}
+                thickness={8}
+                sx={{
+                  color: '#4F46E5',
+                }}
+              />
+              <Box
+                sx={{
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  right: 0,
+                  position: 'absolute',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography
+                  variant="h3"
+                  component="div"
+                  sx={{ fontWeight: 700, color: '#111827' }}
+                >
+                  {driver?.performanceScore || 0}%
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
+                Overall performance rating based on multiple metrics
+              </Typography>
+              <Grid container spacing={1}>
+                <Grid item xs={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CheckCircleIcon sx={{ color: '#22C55E', fontSize: '1rem' }} />
+                    <Typography variant="caption" sx={{ color: '#111827' }}>
+                      {driver?.totalTrips || 0} Trips Completed
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <StarIcon sx={{ color: '#F59E0B', fontSize: '1rem' }} />
+                    <Typography variant="caption" sx={{ color: '#111827' }}>
+                      {driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0'} ★ Rating
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          </Stack>
+        </Paper>
+      </Grid>
+
+      {/* Performance Metrics */}
+      {metrics.map((metric, index) => (
+        <Grid item xs={12} sm={6} key={index}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: '12px',
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Box sx={{ color: metric.color }}>{metric.icon}</Box>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: '#111827' }}>
+                  {metric.label}
+                </Typography>
+              </Stack>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: metric.color }}>
+                {metric.value}
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={parseInt(metric.value)}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                bgcolor: '#F3F4F6',
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: metric.color,
+                  borderRadius: 3,
+                },
+              }}
+            />
+          </Paper>
+        </Grid>
+      ))}
+    </Grid>
+  );
+};
+
+// ============================================================
+// OVERVIEW TAB
+// ============================================================
+const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
+  const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
+  const rating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
+  const totalTrips = driver?.totalTrips || 0;
+  const hireDate = driver?.hireDate ? new Date(driver.hireDate) : null;
+  const yearsWithCompany = hireDate ? Math.floor((new Date() - hireDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
+
+  // Calculate this week's hours from timesheet
+  const thisWeekHours = timesheetData?.reduce((acc, entry) => {
+    const entryDate = new Date(entry.date);
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    if (entryDate >= startOfWeek && entryDate <= today) {
+      const start = new Date(`1970-01-01T${entry.startTime}`);
+      const end = new Date(`1970-01-01T${entry.endTime}`);
+      acc += (end - start) / (1000 * 60 * 60);
+    }
+    return acc;
+  }, 0);
+
+  return (
+    <Grid container spacing={3}>
+      {/* Quick Stats */}
+      <Grid item xs={12} sm={6} md={3}>
+        <StatCard
+          title="Total Trips"
+          value={totalTrips}
+          subtitle={`${driver?.monthlyTrips || 0} this month`}
+          icon={<RouteIcon />}
+          color="#4F46E5"
+          loading={loading}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6} md={3}>
+        <StatCard
+          title="Rating"
+          value={`${rating} ★`}
+          subtitle={`${driver?.performanceScore || 0}% performance`}
+          icon={<StarIcon />}
+          color="#F59E0B"
+          loading={loading}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6} md={3}>
+        <StatCard
+          title="This Week"
+          value={`${thisWeekHours.toFixed(1)}h`}
+          subtitle={`${timesheetData?.filter(e => {
+            const d = new Date(e.date);
+            const today = new Date();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - today.getDay());
+            return d >= startOfWeek && d <= today;
+          }).length || 0} entries`}
+          icon={<AccessTimeIcon />}
+          color="#8B5CF6"
+          loading={loading}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6} md={3}>
+        <StatCard
+          title="Leave Balance"
+          value="13 days"
+          subtitle={`${leaveData?.filter(l => l.status === 'PENDING').length || 0} pending requests`}
+          icon={<BeachAccessIcon />}
+          color="#22C55E"
+          loading={loading}
+        />
+      </Grid>
+
+      {/* Driver Information Card */}
+      <Grid item xs={12}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: '16px',
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Driver Information
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <InfoRow label="Full Name" value={fullName || 'N/A'} />
+              <InfoRow label="License Number" value={driver?.licenseNumber || 'N/A'} />
+              <InfoRow label="License Type" value={driver?.licenseType || 'N/A'} />
+              <InfoRow label="License Expiry" value={driver?.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <InfoRow label="Phone" value={driver?.phoneNumber || 'N/A'} />
+              <InfoRow label="Email" value={driver?.email || 'N/A'} />
+              <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
+              <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
+            </Grid>
+          </Grid>
+        </Paper>
+      </Grid>
+    </Grid>
+  );
+};
+
+// ============================================================
+// STAT CARD
+// ============================================================
+const StatCard = ({ title, value, subtitle, icon, color = '#4F46E5', loading }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2.5,
+      borderRadius: '12px',
+      border: '1px solid #ECECEC',
+      backgroundColor: '#FFFFFF',
+      height: '100%',
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        transform: 'translateY(-2px)',
+      },
+    }}
+  >
+    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+      <Box>
+        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.5px' }}>
+          {title}
+        </Typography>
+        {loading ? (
+          <CircularProgress size={20} sx={{ mt: 1 }} />
+        ) : (
+          <>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mt: 0.5 }}>
+              {value || 'N/A'}
+            </Typography>
+            {subtitle && (
+              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5 }}>
+                {subtitle}
+              </Typography>
+            )}
+          </>
+        )}
+      </Box>
+      <Box
+        sx={{
+          bgcolor: `${color}15`,
+          borderRadius: '10px',
+          p: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {icon}
+      </Box>
+    </Stack>
+  </Paper>
+);
+
+// ============================================================
+// INFO ROW
+// ============================================================
+const InfoRow = ({ label, value }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
+    <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.8rem', fontWeight: 500 }}>
+      {value}
+    </Typography>
+  </Box>
+);
+
+// ============================================================
+// NOTIFICATION BANNER
+// ============================================================
+const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
+  const getBackgroundColor = () => {
+    switch (severity) {
+      case 'warning': return '#FEF3C7';
+      case 'error': return '#FEE2E2';
+      case 'success': return '#D1FAE5';
+      default: return '#DBEAFE';
+    }
+  };
+
+  const getIconColor = () => {
+    switch (severity) {
+      case 'warning': return '#F59E0B';
+      case 'error': return '#EF4444';
+      case 'success': return '#10B981';
+      default: return '#3B82F6';
+    }
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        mb: 1.5,
+        borderRadius: '12px',
+        border: '1px solid #ECECEC',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: '60px',
+        backgroundColor: '#FFFFFF',
+        transition: 'all 0.2s ease',
+        '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+        <Box
+          sx={{
+            bgcolor: getBackgroundColor(),
+            borderRadius: '50%',
+            width: 36,
+            height: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: '1.2rem' } })}
+        </Box>
+        <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.85rem' }}>
+          {message}
+        </Typography>
+      </Box>
+      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0 }}>
+        <CloseIcon sx={{ fontSize: '1rem' }} />
+      </IconButton>
+    </Paper>
+  );
+};
+
+// ============================================================
+// PLACEHOLDER TABS
+// ============================================================
+const TripsTab = ({ driverId }) => (
+  <Box sx={{ py: 4, textAlign: 'center' }}>
+    <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+    <Typography variant="body1" color="text.secondary">
+      Trip history will be displayed here
+    </Typography>
+  </Box>
+);
+
+const DocumentsTab = () => (
+  <Box sx={{ py: 4, textAlign: 'center' }}>
+    <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+    <Typography variant="body1" color="text.secondary">
+      Driver documents will be displayed here
+    </Typography>
+  </Box>
+);
+
+const NotesTab = ({ driver }) => (
+  <Box sx={{ py: 4, text-align: 'center' }}>
+    <InfoIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+    <Typography variant="body1" color="text.secondary">
+      Driver notes will be displayed here
+    </Typography>
+    {driver?.notes && (
+      <Paper sx={{ mt: 2, p: 3, textAlign: 'left', borderRadius: '12px', border: '1px solid #ECECEC' }}>
+        <Typography variant="body2" sx={{ color: '#111827' }}>
+          {driver.notes}
+        </Typography>
+      </Paper>
+    )}
+  </Box>
+);
+
+// ============================================================
+// MAIN DRIVER DASHBOARD
+// ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -702,8 +1625,9 @@ const DriverDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [timesheetData, setTimesheetData] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
+  const [punchStatus, setPunchStatus] = useState('CLOCKED_OUT');
+  const [punchLoading, setPunchLoading] = useState(false);
 
-  // Fetch driver data on component mount
   useEffect(() => {
     if (id) {
       fetchDriverData(id);
@@ -717,12 +1641,11 @@ const DriverDashboard = () => {
 
   const fetchDriverData = async (driverId) => {
     setLoading(true);
-    setError(null);
     try {
       const data = await driverService.getDriverById(driverId);
       setDriver(data);
       
-      // Generate notifications based on driver data
+      // Generate notifications
       const newNotifications = [];
       
       // Check license expiry
@@ -769,27 +1692,64 @@ const DriverDashboard = () => {
       setNotifications(newNotifications);
     } catch (err) {
       console.error('Error fetching driver data:', err);
-      setError('Failed to load driver data. Please try again.');
-      setDriver(null);
+      setError('Failed to load driver data');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchTimesheetData = async (driverId) => {
+  const fetchTimesheetData = async () => {
     // Mock data - replace with actual API call
     setTimesheetData([
-      { id: 1, date: new Date().toISOString(), startTime: '08:00', endTime: '16:30', breakDuration: 30, activityType: 'DRIVING', notes: 'Regular shift' },
-      { id: 2, date: new Date(Date.now() - 86400000).toISOString(), startTime: '09:00', endTime: '17:00', breakDuration: 45, activityType: 'REST', notes: 'Rest day' },
-      { id: 3, date: new Date(Date.now() - 172800000).toISOString(), startTime: '07:30', endTime: '18:00', breakDuration: 60, activityType: 'DRIVING', notes: 'Long haul' },
+      { 
+        id: 1, 
+        date: new Date().toISOString().split('T')[0], 
+        startTime: '08:00', 
+        endTime: '16:30', 
+        breakDuration: 30, 
+        activityType: 'DRIVING', 
+        notes: 'Regular shift' 
+      },
+      { 
+        id: 2, 
+        date: new Date(Date.now() - 86400000).toISOString().split('T')[0], 
+        startTime: '09:00', 
+        endTime: '17:00', 
+        breakDuration: 45, 
+        activityType: 'REST', 
+        notes: 'Rest day' 
+      },
+      { 
+        id: 3, 
+        date: new Date(Date.now() - 172800000).toISOString().split('T')[0], 
+        startTime: '07:30', 
+        endTime: '18:00', 
+        breakDuration: 60, 
+        activityType: 'DRIVING', 
+        notes: 'Long haul' 
+      },
     ]);
   };
 
-  const fetchLeaveData = async (driverId) => {
+  const fetchLeaveData = async () => {
     // Mock data - replace with actual API call
     setLeaveData([
-      { id: 1, type: 'ANNUAL', startDate: new Date(Date.now() + 86400000 * 7).toISOString(), endDate: new Date(Date.now() + 86400000 * 10).toISOString(), status: 'PENDING', reason: 'Family vacation' },
-      { id: 2, type: 'SICK', startDate: new Date(Date.now() - 86400000 * 30).toISOString(), endDate: new Date(Date.now() - 86400000 * 28).toISOString(), status: 'APPROVED', reason: 'Medical appointment' },
+      { 
+        id: 1, 
+        type: 'ANNUAL', 
+        startDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0], 
+        endDate: new Date(Date.now() + 86400000 * 10).toISOString().split('T')[0], 
+        status: 'PENDING', 
+        reason: 'Family vacation' 
+      },
+      { 
+        id: 2, 
+        type: 'SICK', 
+        startDate: new Date(Date.now() - 86400000 * 30).toISOString().split('T')[0], 
+        endDate: new Date(Date.now() - 86400000 * 28).toISOString().split('T')[0], 
+        status: 'APPROVED', 
+        reason: 'Medical appointment' 
+      },
     ]);
   };
 
@@ -805,31 +1765,97 @@ const DriverDashboard = () => {
     navigate(`/drivers/${id}/edit`);
   };
 
-  const handleViewAllTrips = () => {
-    navigate(`/trips?driverId=${id}`);
+  const handlePunch = (type) => {
+    setPunchLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      const statusMap = {
+        'CLOCK_IN': 'CLOCKED_IN',
+        'BREAK_START': 'ON_BREAK',
+        'BREAK_END': 'CLOCKED_IN',
+        'CLOCK_OUT': 'CLOCKED_OUT',
+      };
+      setPunchStatus(statusMap[type] || 'CLOCKED_OUT');
+      setPunchLoading(false);
+      
+      // Add to timesheet
+      const now = new Date();
+      const entry = {
+        id: Date.now(),
+        date: now.toISOString().split('T')[0],
+        startTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        endTime: '',
+        breakDuration: 0,
+        activityType: type === 'CLOCK_IN' ? 'DRIVING' : 
+                     type === 'BREAK_START' ? 'REST' : 
+                     type === 'BREAK_END' ? 'DRIVING' : 'OTHER',
+        notes: `Punched ${type.replace('_', ' ')} at ${now.toLocaleTimeString()}`,
+      };
+      setTimesheetData([entry, ...timesheetData]);
+    }, 1000);
   };
 
   const handleAddTimesheetEntry = async (entry) => {
-    // Implement API call to add timesheet entry
-    console.log('Add timesheet entry:', entry);
     setTimesheetData([...timesheetData, { ...entry, id: Date.now() }]);
   };
 
   const handleDeleteTimesheetEntry = async (entryId) => {
-    // Implement API call to delete timesheet entry
-    console.log('Delete timesheet entry:', entryId);
     setTimesheetData(timesheetData.filter(entry => entry.id !== entryId));
   };
 
+  const handleImportTimesheet = async (file) => {
+    console.log('Importing file:', file);
+    // Simulate import - in real implementation, parse the file and add entries
+    const newEntries = [
+      { 
+        id: Date.now() + 1, 
+        date: new Date().toISOString().split('T')[0], 
+        startTime: '10:00', 
+        endTime: '18:00', 
+        breakDuration: 30, 
+        activityType: 'DRIVING', 
+        notes: 'Imported entry 1' 
+      },
+      { 
+        id: Date.now() + 2, 
+        date: new Date().toISOString().split('T')[0], 
+        startTime: '11:00', 
+        endTime: '19:00', 
+        breakDuration: 45, 
+        activityType: 'DRIVING', 
+        notes: 'Imported entry 2' 
+      },
+    ];
+    setTimesheetData([...timesheetData, ...newEntries]);
+  };
+
+  const handleExportTimesheet = () => {
+    // Generate CSV data
+    const headers = ['Date', 'Start Time', 'End Time', 'Break Duration', 'Activity Type', 'Notes'];
+    const rows = timesheetData.map(entry => [
+      entry.date,
+      entry.startTime,
+      entry.endTime || '',
+      entry.breakDuration,
+      entry.activityType,
+      entry.notes || '',
+    ]);
+    
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `timesheet_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleRequestLeave = async (leave) => {
-    // Implement API call to request leave
-    console.log('Request leave:', leave);
     setLeaveData([...leaveData, { ...leave, id: Date.now(), status: 'PENDING' }]);
   };
 
   const handleCancelLeave = async (leaveId) => {
-    // Implement API call to cancel leave
-    console.log('Cancel leave:', leaveId);
     setLeaveData(leaveData.filter(leave => leave.id !== leaveId));
   };
 
@@ -858,42 +1884,15 @@ const DriverDashboard = () => {
     );
   }
 
-  // Calculate derived data
   const fullName = `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
   const initials = `${driver.firstName?.charAt(0) || ''}${driver.lastName?.charAt(0) || ''}`.toUpperCase();
   const rating = driver.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
-  const totalTrips = driver.totalTrips || 0;
-  const hireDate = driver.hireDate ? new Date(driver.hireDate) : null;
-  const yearsWithCompany = hireDate ? Math.floor((new Date() - hireDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
-
-  // Performance metrics
-  const performanceMetrics = [
-    { label: 'On-Time Rate', value: `${driver.performanceScore || 0}%`, color: '#22C55E' },
-    { label: 'Avg Rating', value: `${rating} ★`, color: '#F59E0B' },
-    { label: 'Safety Score', value: `${Math.min(driver.safetyScore || 0, 100)}%`, color: '#4F46E5' },
-    { label: 'Efficiency', value: `${Math.min(driver.efficiencyScore || 0, 100)}%`, color: '#8B5CF6' },
-  ];
-
-  // Demo upcoming trips (replace with real data from API)
-  const upcomingTrips = [
-    { id: 1, route: 'City Center → Airport', date: new Date().toISOString(), status: 'SCHEDULED', vehicle: 'Toyota Camry' },
-    { id: 2, route: 'Airport → Downtown', date: new Date(Date.now() + 3600000 * 3).toISOString(), status: 'CONFIRMED', vehicle: 'Honda Accord' },
-    { id: 3, route: 'City Center → North Suburbs', date: new Date(Date.now() + 86400000).toISOString(), status: 'PENDING', vehicle: 'Tesla Model 3' },
-  ];
 
   return (
     <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
-      {/* Dashboard Container */}
-      <Box
-        sx={{
-          maxWidth: '1440px',
-          margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' },
-          gap: 3,
-        }}
-      >
-        {/* Driver Profile Panel - Left Side */}
+      <Box sx={{ maxWidth: '1440px', margin: '0 auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, gap: 3 }}>
+        
+        {/* LEFT PANEL - Driver Profile */}
         <Paper
           elevation={0}
           sx={{
@@ -906,22 +1905,15 @@ const DriverDashboard = () => {
             backgroundColor: '#FFFFFF',
           }}
         >
-          {/* Back Button */}
           <Button
             startIcon={<ArrowBackIcon sx={{ fontSize: '0.9rem' }} />}
             size="small"
             onClick={handleBack}
-            sx={{
-              mb: 2.5,
-              fontSize: '0.75rem',
-              color: '#6B7280',
-              '&:hover': { bgcolor: 'transparent' },
-            }}
+            sx={{ mb: 2.5, fontSize: '0.75rem', color: '#6B7280', '&:hover': { bgcolor: 'transparent' } }}
           >
             Back to Drivers
           </Button>
 
-          {/* Profile Section */}
           <Box sx={{ textAlign: 'center' }}>
             <Box sx={{ position: 'relative', display: 'inline-block' }}>
               <Avatar
@@ -972,54 +1964,12 @@ const DriverDashboard = () => {
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827' }}>
               {fullName || 'Unknown Driver'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
-              {driver.age || 'N/A'} • {driver.gender || 'N/A'} • {driver.country || 'N/A'}
+            <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
+              {driver.licenseNumber || 'No license'} • {driver.licenseType || 'N/A'}
             </Typography>
-
-            {/* Rating */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, mb: 2 }}>
-              {[...Array(5)].map((_, i) => (
-                <StarIcon
-                  key={i}
-                  sx={{
-                    fontSize: '1.1rem',
-                    color: i < Math.floor(parseFloat(rating)) ? '#F59E0B' : '#E5E7EB',
-                  }}
-                />
-              ))}
-              <Typography variant="body2" sx={{ ml: 0.5, color: '#6B7280', fontSize: '0.8rem' }}>
-                {rating}
-              </Typography>
-            </Box>
-
-            {/* Social Buttons */}
-            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2.5 }}>
-              {[
-                { name: 'Facebook', icon: FacebookIcon, color: '#1877F2' },
-                { name: 'Instagram', icon: InstagramIcon, color: '#E4405F' },
-                { name: 'LinkedIn', icon: LinkedInIcon, color: '#0A66C2' },
-                { name: 'Email', icon: EmailIcon, color: '#EA4335' },
-              ].map((social) => (
-                <IconButton
-                  key={social.name}
-                  size="small"
-                  sx={{
-                    border: '1px solid #ECECEC',
-                    borderRadius: '10px',
-                    width: 40,
-                    height: 40,
-                    '&:hover': { bgcolor: '#F7F7FC' },
-                  }}
-                  onClick={() => {
-                    if (social.name === 'Email' && driver.email) {
-                      window.location.href = `mailto:${driver.email}`;
-                    }
-                  }}
-                >
-                  <social.icon sx={{ fontSize: '1.1rem', color: social.color }} />
-                </IconButton>
-              ))}
-            </Stack>
+            <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+              {driver.status || 'Unknown'} • {driver.employmentType || 'N/A'}
+            </Typography>
 
             <Button
               variant="outlined"
@@ -1046,145 +1996,36 @@ const DriverDashboard = () => {
             <Divider sx={{ mb: 2.5 }} />
 
             {/* Contact Information */}
-            <Stack spacing={1.5} sx={{ mb: 2.5, textAlign: 'left' }}>
+            <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
                 Contact Information
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <PhoneIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
-                <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.8rem' }}>
-                  {driver.phoneNumber || driver.phone || 'N/A'}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <EmailIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
-                <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.8rem' }}>
-                  {driver.email || 'N/A'}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <CarIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
-                <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.8rem' }}>
-                  Vehicle: {driver.assignedVehicleId || 'Not Assigned'}
-                </Typography>
-              </Box>
+              <InfoRow label="Phone" value={driver.phoneNumber || 'N/A'} />
+              <InfoRow label="Email" value={driver.email || 'N/A'} />
+              <InfoRow label="Assigned Vehicle" value={driver.assignedVehicleId || 'Not Assigned'} />
             </Stack>
 
-            <Divider sx={{ mb: 2.5 }} />
+            <Divider sx={{ my: 2.5 }} />
 
-            {/* Tags */}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2.5 }}>
-              {driver.status === 'ACTIVE' && (
-                <Chip
-                  label="Active Driver"
-                  size="small"
-                  sx={{
-                    bgcolor: '#D1FAE5',
-                    color: '#065F46',
-                    borderRadius: '30px',
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                  }}
-                />
-              )}
-              {yearsWithCompany >= 3 && (
-                <Chip
-                  label={`${yearsWithCompany}+ Years`}
-                  size="small"
-                  sx={{
-                    bgcolor: '#F4F4F5',
-                    borderRadius: '30px',
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                  }}
-                />
-              )}
-              {totalTrips >= 100 && (
-                <Chip
-                  label="Top Performer"
-                  size="small"
-                  sx={{
-                    bgcolor: '#FEF3C7',
-                    color: '#92400E',
-                    borderRadius: '30px',
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                  }}
-                />
-              )}
-              {driver.licenseType && (
-                <Chip
-                  label={`License: ${driver.licenseType}`}
-                  size="small"
-                  sx={{
-                    bgcolor: '#F4F4F5',
-                    borderRadius: '30px',
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                  }}
-                />
-              )}
-            </Box>
-
-            <Divider sx={{ mb: 2.5 }} />
-
-            {/* Additional Information */}
+            {/* Quick Stats */}
             <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
-                Additional Information
+                Quick Stats
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.75rem' }}>
-                  Location
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.75rem', fontWeight: 500 }}>
-                  {driver.address || driver.location || 'N/A'}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.75rem' }}>
-                  Status
-                </Typography>
-                <Chip
-                  label={driver.status || 'Unknown'}
-                  size="small"
-                  sx={{
-                    bgcolor: driver?.status === 'ACTIVE' ? '#D1FAE5' : '#FEE2E2',
-                    color: driver?.status === 'ACTIVE' ? '#065F46' : '#991B1B',
-                    fontSize: '0.6rem',
-                    height: 20,
-                    fontWeight: 600,
-                  }}
-                />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.75rem' }}>
-                  Hire Date
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.75rem', fontWeight: 500 }}>
-                  {driver.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.75rem' }}>
-                  Total Trips
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.75rem', fontWeight: 600 }}>
-                  {totalTrips}
-                </Typography>
-              </Box>
+              <InfoRow label="Total Trips" value={driver.totalTrips || 0} />
+              <InfoRow label="Performance Score" value={`${driver.performanceScore || 0}%`} />
+              <InfoRow label="Hire Date" value={driver.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
+              <InfoRow label="License Expiry" value={driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
             </Stack>
           </Box>
         </Paper>
 
-        {/* Main Content - Right Side */}
+        {/* RIGHT PANEL - Main Content */}
         <Box>
-          {/* Navigation Tabs */}
           <DriverNavigationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-          {/* Notification Banners */}
           {notifications.map((notification) => (
-            <DriverNotificationBanner
+            <NotificationBanner
               key={notification.id}
               icon={notification.icon}
               message={notification.message}
@@ -1195,94 +2036,30 @@ const DriverDashboard = () => {
 
           {/* Tab Content */}
           {activeTab === 0 && (
-            <>
-              {/* Statistics Cards - Top Row */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={4}>
-                  <DriverStatCard
-                    title="Total Trips"
-                    value={totalTrips}
-                    subtitle="Lifetime trips completed"
-                    icon={RouteIcon}
-                    metrics={[
-                      { label: 'This Month', value: driver.monthlyTrips || 'N/A' },
-                      { label: 'This Week', value: driver.weeklyTrips || 'N/A' },
-                    ]}
-                    color="#4F46E5"
-                    loading={loading}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DriverStatCard
-                    title="Average Rating"
-                    value={`${rating} ★`}
-                    subtitle="Based on driver performance"
-                    icon={StarIcon}
-                    metrics={[
-                      { label: 'Performance Score', value: `${driver.performanceScore || 0}%` },
-                      { label: 'Safety Score', value: `${driver.safetyScore || 0}%` },
-                    ]}
-                    color="#F59E0B"
-                    loading={loading}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DriverStatCard
-                    title="Earnings"
-                    value={`$${driver.totalEarnings?.toLocaleString() || '0'}`}
-                    subtitle="Total lifetime earnings"
-                    icon={MoneyIcon}
-                    metrics={[
-                      { label: 'Avg/Trip', value: `$${driver.averageEarningsPerTrip?.toFixed(2) || '0.00'}` },
-                      { label: 'This Month', value: `$${driver.monthlyEarnings?.toLocaleString() || '0'}` },
-                    ]}
-                    color="#22C55E"
-                    loading={loading}
-                  />
-                </Grid>
-              </Grid>
-
-              {/* Middle Section - Performance & Upcoming Trips */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={6}>
-                  <DriverPerformanceCard performance={performanceMetrics} loading={loading} />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <UpcomingTripsCard trips={upcomingTrips} loading={loading} onViewAll={handleViewAllTrips} />
-                </Grid>
-              </Grid>
-
-              {/* Bottom Section - License & Additional Info */}
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <LicenseInfoCard driver={driver} loading={loading} />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <QuickActionsCard driverId={id} navigate={navigate} />
-                </Grid>
-              </Grid>
-            </>
+            <OverviewTab 
+              driver={driver} 
+              leaveData={leaveData}
+              timesheetData={timesheetData}
+              loading={loading} 
+            />
           )}
 
           {activeTab === 1 && (
-            <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              Trips history will be displayed here
-            </Typography>
-          )}
-
-          {activeTab === 2 && (
             <TimesheetTab
-              driverId={id}
               timesheetData={timesheetData}
               loading={loading}
               onAddEntry={handleAddTimesheetEntry}
               onDeleteEntry={handleDeleteTimesheetEntry}
+              onPunch={handlePunch}
+              punchStatus={punchStatus}
+              punchLoading={punchLoading}
+              onImportTimesheet={handleImportTimesheet}
+              onExportTimesheet={handleExportTimesheet}
             />
           )}
 
-          {activeTab === 3 && (
+          {activeTab === 2 && (
             <LeaveTab
-              driverId={id}
               leaveData={leaveData}
               loading={loading}
               onRequestLeave={handleRequestLeave}
@@ -1290,510 +2067,24 @@ const DriverDashboard = () => {
             />
           )}
 
+          {activeTab === 3 && (
+            <TripsTab driverId={id} />
+          )}
+
           {activeTab === 4 && (
-            <DriverPerformanceCard performance={performanceMetrics} loading={loading} />
+            <PerformanceTab driver={driver} loading={loading} />
           )}
 
           {activeTab === 5 && (
-            <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              Documents will be displayed here
-            </Typography>
+            <DocumentsTab />
           )}
 
           {activeTab === 6 && (
-            <Typography variant="body1" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              Notes will be displayed here
-            </Typography>
+            <NotesTab driver={driver} />
           )}
-
-          {/* Footer Info */}
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.65rem' }}>
-              Last updated: {new Date().toLocaleString()}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.65rem' }}>
-              Driver ID: #{driver.id || 'N/A'}
-            </Typography>
-          </Box>
         </Box>
       </Box>
     </Box>
-  );
-};
-
-// Helper Components (moved from original)
-const DriverStatCard = ({ title, value, subtitle, metrics, icon: Icon, color = '#4F46E5', loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 3,
-      borderRadius: '16px',
-      border: '1px solid #ECECEC',
-      backgroundColor: '#FFFFFF',
-      height: '100%',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        transform: 'translateY(-2px)',
-      },
-    }}
-  >
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-      <Typography variant="body2" sx={{ color: '#6B7280', fontWeight: 500 }}>
-        {title}
-      </Typography>
-      {Icon && (
-        <Box
-          sx={{
-            bgcolor: `${color}15`,
-            borderRadius: '10px',
-            p: 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon sx={{ color: color, fontSize: '1.25rem' }} />
-        </Box>
-      )}
-    </Box>
-    {loading ? (
-      <CircularProgress size={24} />
-    ) : (
-      <>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
-          {value || 'N/A'}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 2 }}>
-            {subtitle}
-          </Typography>
-        )}
-        {metrics && (
-          <>
-            <Divider sx={{ mb: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-              {metrics.map((metric, index) => (
-                <Box key={index}>
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: '0.65rem' }}>
-                    {metric.label}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
-                    {metric.value}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </>
-        )}
-      </>
-    )}
-  </Paper>
-);
-
-const DriverPerformanceCard = ({ performance, loading }) => {
-  const defaultMetrics = [
-    { label: 'On-Time Rate', value: '0%', color: '#22C55E' },
-    { label: 'Avg Rating', value: '0 ★', color: '#F59E0B' },
-    { label: 'Safety Score', value: '0%', color: '#4F46E5' },
-    { label: 'Efficiency', value: '0%', color: '#8B5CF6' },
-  ];
-
-  const metrics = performance || defaultMetrics;
-
-  if (loading) {
-    return (
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          borderRadius: '16px',
-          border: '1px solid #ECECEC',
-          backgroundColor: '#FFFFFF',
-          height: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <CircularProgress size={30} />
-      </Paper>
-    );
-  }
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        borderRadius: '16px',
-        border: '1px solid #ECECEC',
-        backgroundColor: '#FFFFFF',
-        height: '100%',
-      }}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', mb: 2 }}>
-        Performance Metrics
-      </Typography>
-      <Stack spacing={2.5}>
-        {metrics.map((metric) => (
-          <Box key={metric.label}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
-                {metric.label}
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
-                {metric.value}
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={typeof metric.value === 'string' ? parseInt(metric.value) : 0}
-              sx={{
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: '#F3F4F6',
-                '& .MuiLinearProgress-bar': {
-                  backgroundColor: metric.color,
-                  borderRadius: 3,
-                },
-              }}
-            />
-          </Box>
-        ))}
-      </Stack>
-      <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid #ECECEC' }}>
-        <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', textAlign: 'center' }}>
-          Last 30 days performance
-        </Typography>
-      </Box>
-    </Paper>
-  );
-};
-
-const UpcomingTripsCard = ({ trips, loading, onViewAll }) => {
-  const getStatusColor = (status) => {
-    const map = {
-      SCHEDULED: '#3B82F6',
-      CONFIRMED: '#22C55E',
-      PENDING: '#F59E0B',
-      COMPLETED: '#6B7280',
-      CANCELLED: '#EF4444',
-      IN_PROGRESS: '#8B5CF6',
-    };
-    return map[status?.toUpperCase()] || '#6B7280';
-  };
-
-  const getStatusLabel = (status) => {
-    const map = {
-      SCHEDULED: 'Scheduled',
-      CONFIRMED: 'Confirmed',
-      PENDING: 'Pending',
-      COMPLETED: 'Completed',
-      CANCELLED: 'Cancelled',
-      IN_PROGRESS: 'In Progress',
-    };
-    return map[status?.toUpperCase()] || status || 'Unknown';
-  };
-
-  if (loading) {
-    return (
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          borderRadius: '16px',
-          border: '1px solid #ECECEC',
-          backgroundColor: '#FFFFFF',
-          height: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <CircularProgress size={30} />
-      </Paper>
-    );
-  }
-
-  const displayTrips = trips?.slice(0, 5) || [];
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        borderRadius: '16px',
-        border: '1px solid #ECECEC',
-        backgroundColor: '#FFFFFF',
-        height: '100%',
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827' }}>
-          Upcoming Trips
-        </Typography>
-        <Button size="small" sx={{ fontSize: '0.7rem', color: '#4F46E5' }} onClick={onViewAll}>
-          View All
-        </Button>
-      </Box>
-      {displayTrips.length === 0 ? (
-        <Typography variant="body2" sx={{ color: '#6B7280', textAlign: 'center', py: 2 }}>
-          No upcoming trips
-        </Typography>
-      ) : (
-        <Stack spacing={2}>
-          {displayTrips.map((trip) => (
-            <Box key={trip.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 500, color: '#111827', fontSize: '0.8rem' }}>
-                  {trip.route || `Trip #${trip.id}`}
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: '0.65rem' }}>
-                  {trip.date ? new Date(trip.date).toLocaleString() : 'N/A'} • {trip.vehicle || 'No vehicle'}
-                </Typography>
-              </Box>
-              <Chip
-                label={getStatusLabel(trip.status)}
-                size="small"
-                sx={{
-                  fontSize: '0.6rem',
-                  height: 20,
-                  bgcolor: `${getStatusColor(trip.status)}15`,
-                  color: getStatusColor(trip.status),
-                  fontWeight: 600,
-                }}
-              />
-            </Box>
-          ))}
-        </Stack>
-      )}
-    </Paper>
-  );
-};
-
-const LicenseInfoCard = ({ driver, loading }) => {
-  if (loading) {
-    return (
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          borderRadius: '16px',
-          border: '1px solid #ECECEC',
-          backgroundColor: '#FFFFFF',
-          height: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <CircularProgress size={30} />
-      </Paper>
-    );
-  }
-
-  const expiryDate = driver?.licenseExpiry;
-  const isExpiring = expiryDate && new Date(expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const isExpired = expiryDate && new Date(expiryDate) < new Date();
-
-  const getExpiryStatus = () => {
-    if (isExpired) return { label: 'Expired', color: '#EF4444' };
-    if (isExpiring) return { label: 'Expiring Soon', color: '#F59E0B' };
-    return { label: 'Valid', color: '#22C55E' };
-  };
-
-  const status = getExpiryStatus();
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        borderRadius: '16px',
-        border: '1px solid #ECECEC',
-        backgroundColor: '#FFFFFF',
-        height: '100%',
-      }}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', mb: 2 }}>
-        License Information
-      </Typography>
-      <Stack spacing={2}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
-            License Number
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
-            {driver?.licenseNumber || 'N/A'}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
-            License Type
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
-            {driver?.licenseType || 'N/A'}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
-            Expiry Date
-          </Typography>
-          <Chip
-            label={expiryDate ? new Date(expiryDate).toLocaleDateString() : 'N/A'}
-            size="small"
-            sx={{
-              fontSize: '0.6rem',
-              height: 20,
-              bgcolor: `${status.color}15`,
-              color: status.color,
-              fontWeight: 600,
-            }}
-          />
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
-            Status
-          </Typography>
-          <Chip
-            label={driver?.status || 'Unknown'}
-            size="small"
-            sx={{
-              fontSize: '0.6rem',
-              height: 20,
-              bgcolor: driver?.status === 'ACTIVE' ? '#D1FAE5' : '#FEE2E2',
-              color: driver?.status === 'ACTIVE' ? '#065F46' : '#991B1B',
-              fontWeight: 600,
-            }}
-          />
-        </Box>
-      </Stack>
-    </Paper>
-  );
-};
-
-const QuickActionsCard = ({ driverId, navigate }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 3,
-      borderRadius: '16px',
-      border: '1px solid #ECECEC',
-      backgroundColor: '#FFFFFF',
-      height: '100%',
-    }}
-  >
-    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', mb: 2 }}>
-      Quick Actions
-    </Typography>
-    <Grid container spacing={1.5}>
-      {[
-        { label: 'Assign Trip', icon: <RouteIcon />, color: '#4F46E5', action: () => navigate('/trips/new') },
-        { label: 'View Documents', icon: <AssignmentIcon />, color: '#8B5CF6', action: () => navigate(`/drivers/${driverId}/documents`) },
-        { label: 'Schedule Training', icon: <CalendarIcon />, color: '#3B82F6', action: () => navigate(`/drivers/${driverId}/training`) },
-        { label: 'Performance Report', icon: <AssessmentIcon />, color: '#22C55E', action: () => navigate(`/drivers/${driverId}/performance`) },
-        { label: 'Timesheet', icon: <AccessTimeIcon />, color: '#8B5CF6', action: () => navigate(`/drivers/${driverId}/timesheet`) },
-        { label: 'Leave Request', icon: <BeachAccessIcon />, color: '#F59E0B', action: () => navigate(`/drivers/${driverId}/leave`) },
-      ].map((action) => (
-        <Grid item xs={6} key={action.label}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={action.icon}
-            onClick={action.action}
-            sx={{
-              borderRadius: '12px',
-              borderColor: '#ECECEC',
-              color: '#111827',
-              fontSize: '0.7rem',
-              textTransform: 'none',
-              py: 1.5,
-              justifyContent: 'flex-start',
-              '&:hover': {
-                borderColor: action.color,
-                bgcolor: `${action.color}08`,
-              },
-            }}
-          >
-            {action.label}
-          </Button>
-        </Grid>
-      ))}
-    </Grid>
-  </Paper>
-);
-
-// Notification Banner Component
-const DriverNotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
-  const getBackgroundColor = () => {
-    switch (severity) {
-      case 'warning':
-        return '#FEF3C7';
-      case 'error':
-        return '#FEE2E2';
-      case 'success':
-        return '#D1FAE5';
-      default:
-        return '#DBEAFE';
-    }
-  };
-
-  const getIconColor = () => {
-    switch (severity) {
-      case 'warning':
-        return '#F59E0B';
-      case 'error':
-        return '#EF4444';
-      case 'success':
-        return '#10B981';
-      default:
-        return '#3B82F6';
-    }
-  };
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        mb: 1.5,
-        borderRadius: '14px',
-        border: '1px solid #ECECEC',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        minHeight: '70px',
-        backgroundColor: '#FFFFFF',
-        transition: 'all 0.2s ease',
-        '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
-        <Box
-          sx={{
-            bgcolor: getBackgroundColor(),
-            borderRadius: '50%',
-            width: 36,
-            height: 36,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: '1.25rem' } })}
-        </Box>
-        <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.875rem' }}>
-          {message}
-        </Typography>
-      </Box>
-      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0 }}>
-        <CloseIcon sx={{ fontSize: '1rem' }} />
-      </IconButton>
-    </Paper>
   );
 };
 
