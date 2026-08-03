@@ -545,7 +545,7 @@ const CustomerDetails = () => {
                     {customer.email || 'N/A'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Phone sx={{ fontSize: '0.7rem' }} />
+                    <PhoneIcon sx={{ fontSize: '0.7rem' }} />
                     {customer.phone || 'N/A'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
