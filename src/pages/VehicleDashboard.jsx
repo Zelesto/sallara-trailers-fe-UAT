@@ -39,6 +39,7 @@ import {
   Slider,
   Switch,
   FormControlLabel,
+  InputAdornment,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
