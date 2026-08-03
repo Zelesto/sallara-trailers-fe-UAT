@@ -43,7 +43,6 @@ import {
   Pending as PendingIcon,
   Close as CloseIcon,
   Warning as WarningIcon,
-  Email as EmailIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { customerService } from '../../services/customerService';
@@ -542,7 +541,7 @@ const CustomerDetails = () => {
                 </Stack>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 0.5 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Email sx={{ fontSize: '0.7rem' }} />
+                    <EmailIcon sx={{ fontSize: '0.7rem' }} />
                     {customer.email || 'N/A'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
