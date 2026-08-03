@@ -23,7 +23,6 @@ import {
   Alert,
   CircularProgress,
   Avatar,
-  Divider,
   MenuItem,
   FormControl,
   InputLabel,
@@ -39,7 +38,6 @@ import {
   Phone,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Info as InfoIcon,
   Close as CloseIcon,
   PersonAdd as PersonAddIcon,
   Clear as ClearIcon,
@@ -48,7 +46,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { customerService } from '../../services/customerService';
 
-// Stat Card Component
+// Stat Card Component - FIXED (no icon rendering issues)
 const StatCard = ({ title, value, color = '#4F46E5', icon: Icon, subtitle }) => (
   <Card
     elevation={0}
@@ -125,7 +123,7 @@ const StatCard = ({ title, value, color = '#4F46E5', icon: Icon, subtitle }) => 
   </Card>
 );
 
-// Status Chip Component
+// Status Chip Component - FIXED (removed icon)
 const StatusChip = ({ status }) => {
   const isActive = status !== false;
   return (
@@ -138,10 +136,8 @@ const StatusChip = ({ status }) => {
         height: 22,
         bgcolor: isActive ? '#D1FAE5' : '#FEE2E2',
         color: isActive ? '#065F46' : '#991B1B',
-        '& .MuiChip-icon': { fontSize: '0.6rem' },
         '& .MuiChip-label': { px: 0.5 },
       }}
-      icon={isActive ? <CheckCircleIcon /> : <CloseIcon />}
     />
   );
 };
@@ -252,7 +248,7 @@ const CustomerList = () => {
               title="Total Customers"
               value={stats.total}
               color="#4F46E5"
-              icon={<BusinessIcon />}
+              icon={BusinessIcon}
             />
           </Grid>
           <Grid item xs={6} sm={4}>
@@ -260,7 +256,7 @@ const CustomerList = () => {
               title="Active"
               value={stats.active}
               color="#22C55E"
-              icon={<CheckCircleIcon />}
+              icon={CheckCircleIcon}
               subtitle={`${stats.active > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% of total`}
             />
           </Grid>
@@ -269,7 +265,7 @@ const CustomerList = () => {
               title="Inactive"
               value={stats.inactive}
               color="#EF4444"
-              icon={<CloseIcon />}
+              icon={CloseIcon}
               subtitle={`${stats.inactive > 0 ? Math.round((stats.inactive / stats.total) * 100) : 0}% of total`}
             />
           </Grid>
