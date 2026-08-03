@@ -72,6 +72,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
 import { inventoryMovementService } from '../../services/inventoryMovementService';
+import FleetManagementIcon from '../components/icons/FleetManagementIcon';
 
 // Import your logo images
 import fullLogoImage from '../assets/img/PGSALogo.png';
@@ -272,7 +273,7 @@ const menuSections = [
     items: [
       { text: 'Vehicles', icon: <DirectionsCar />, path: '/vehicles' },
       { text: 'Drivers', icon: <Person />, path: '/drivers' },
-      { text: 'Driver Management', icon: <Person />, path: '/driverManagement' },
+      { text: 'Driver Management', icon: <FleetManagementIcon />, path: '/driverManagement' },
     ],
   },
   {
