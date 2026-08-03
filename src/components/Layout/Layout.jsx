@@ -272,6 +272,7 @@ const menuSections = [
     items: [
       { text: 'Vehicles', icon: <DirectionsCar />, path: '/vehicles' },
       { text: 'Drivers', icon: <Person />, path: '/drivers' },
+      { text: 'Driver Management', icon: <Person />, path: '/driverManagement' },
     ],
   },
   {
