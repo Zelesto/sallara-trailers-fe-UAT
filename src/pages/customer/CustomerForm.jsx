@@ -19,10 +19,6 @@ import {
   FormHelperText,
   Stack,
   Divider,
-  Card,
-  CardContent,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -38,24 +34,23 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Info as InfoIcon,
-  PersonAdd as PersonAddIcon,
   Badge,
 } from '@mui/icons-material';
 import { customerService } from '../../services/customerService';
 
-// Form Section Header Component
+// Form Section Header Component - FIXED
 const FormSectionHeader = ({ icon, title, subtitle }) => (
   <Box sx={{ mb: 2 }}>
     <Stack direction="row" spacing={1} alignItems="center">
       <Box
         sx={{
-          bgcolor: 'primary.light',
+          bgcolor: '#EEF2FF',
           borderRadius: '8px',
           p: 0.5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'primary.main',
+          color: '#4F46E5',
         }}
       >
         {icon}
@@ -73,7 +68,7 @@ const FormSectionHeader = ({ icon, title, subtitle }) => (
   </Box>
 );
 
-// Status Chip Component
+// Status Chip Component - FIXED
 const StatusChip = ({ status }) => {
   const isActive = status !== false;
   return (
@@ -81,13 +76,11 @@ const StatusChip = ({ status }) => {
       label={isActive ? 'Active' : 'Inactive'}
       color={isActive ? 'success' : 'error'}
       size="small"
-      icon={isActive ? <CheckCircleIcon sx={{ fontSize: '0.8rem' }} /> : <CloseIcon sx={{ fontSize: '0.8rem' }} />}
       sx={{
         fontWeight: 600,
         fontSize: '0.7rem',
         height: 24,
         '& .MuiChip-label': { px: 1 },
-        '& .MuiChip-icon': { fontSize: '0.8rem' },
       }}
     />
   );
@@ -105,7 +98,6 @@ const CustomerForm = () => {
   const [formErrors, setFormErrors] = useState({});
 
   const [formData, setFormData] = useState({
-    // Basic Information
     customerCode: '',
     name: '',
     email: '',
@@ -113,26 +105,18 @@ const CustomerForm = () => {
     website: '',
     registrationNumber: '',
     vatNumber: '',
-    
-    // Address
     addressLine1: '',
     addressLine2: '',
     city: '',
     province: '',
     postalCode: '',
     country: 'South Africa',
-    
-    // Contact
     contactPerson: '',
     contactPhone: '',
     contactEmail: '',
-    
-    // Financial
     paymentTerms: '30 Days',
     creditLimit: '',
     currency: 'ZAR',
-    
-    // Status
     isActive: true,
     notes: '',
   });
@@ -497,75 +481,6 @@ const CustomerForm = () => {
                     startAdornment: (
                       <InputAdornment position="start">
                         <Phone sx={{ fontSize: '1rem', color: '#6B7280' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Website"
-                  name="website"
-                  value={formData.website}
-                  onChange={handleChange}
-                  size="medium"
-                  placeholder="https://example.com"
-                  sx={{
-                    '& .MuiInputLabel-root': { fontSize: '0.8rem' },
-                    '& .MuiInputBase-root': { fontSize: '0.85rem' },
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Business sx={{ fontSize: '1rem', color: '#6B7280' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Registration Number"
-                  name="registrationNumber"
-                  value={formData.registrationNumber}
-                  onChange={handleChange}
-                  size="medium"
-                  placeholder="Company registration number"
-                  sx={{
-                    '& .MuiInputLabel-root': { fontSize: '0.8rem' },
-                    '& .MuiInputBase-root': { fontSize: '0.85rem' },
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Badge sx={{ fontSize: '1rem', color: '#6B7280' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="VAT Number"
-                  name="vatNumber"
-                  value={formData.vatNumber}
-                  onChange={handleChange}
-                  size="medium"
-                  placeholder="VAT registration number"
-                  sx={{
-                    '& .MuiInputLabel-root': { fontSize: '0.8rem' },
-                    '& .MuiInputBase-root': { fontSize: '0.85rem' },
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Receipt sx={{ fontSize: '1rem', color: '#6B7280' }} />
                       </InputAdornment>
                     ),
                   }}
