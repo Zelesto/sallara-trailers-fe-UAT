@@ -537,7 +537,7 @@ const MainLayout = () => {
                 fontWeight: 500,
               }}
             >
-              v1.0.4 - 30 JULY 2026
+              v1.2.1 - 15 AUG 2026
             </Typography>
           </BrandText>
         </LogoWrapper>
