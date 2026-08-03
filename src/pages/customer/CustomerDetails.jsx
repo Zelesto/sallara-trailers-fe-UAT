@@ -43,6 +43,7 @@ import {
   Pending as PendingIcon,
   Close as CloseIcon,
   Warning as WarningIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { customerService } from '../../services/customerService';
