@@ -72,7 +72,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
 import { inventoryMovementService } from '../../services/inventoryMovementService';
-import FleetManagementIcon from '../components/icons/FleetManagementIcon';
+import FleetManagementIcon from './components/icons/FleetManagementIcon';
 
 // Import your logo images
 import fullLogoImage from '../assets/img/PGSALogo.png';
