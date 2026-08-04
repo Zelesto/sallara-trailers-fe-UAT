@@ -1303,15 +1303,28 @@ const TimesheetTab = ({
 // ============================================================
 // PERFORMANCE TAB
 // ============================================================
-const PerformanceTab = ({ driver, performance, loading }) => {
-  const defaultMetrics = [
-    { label: 'On-Time Rate', value: '94%', color: '#22C55E', icon: <TimerIcon /> },
-    { label: 'Avg Rating', value: '4.8 ★', color: '#F59E0B', icon: <StarIcon /> },
-    { label: 'Safety Score', value: '96%', color: '#4F46E5', icon: <SecurityIcon /> },
-    { label: 'Efficiency', value: '88%', color: '#8B5CF6', icon: <TrendingUpIcon /> },
+const PerformanceTab = ({ driver, timesheetData, trips, loading }) => {
+  // Calculate real metrics
+  const totalTrips = driver?.totalTrips || trips?.length || 0;
+  const completedTrips = trips?.filter(t => t.status === 'COMPLETED').length || 0;
+  const onTimeRate = totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0;
+  
+  // Calculate average rating from trips or use performance score
+  const avgRating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
+  
+  // Safety score (could be from driver data or calculated)
+  const safetyScore = driver?.safetyScore || 0;
+  
+  // Efficiency (could be calculated from trips data)
+  const efficiency = driver?.efficiencyScore || 0;
+  
+  const metrics = [
+    { label: 'On-Time Rate', value: `${onTimeRate}%`, color: '#22C55E', icon: <TimerIcon /> },
+    { label: 'Avg Rating', value: `${avgRating} ★`, color: '#F59E0B', icon: <StarIcon /> },
+    { label: 'Safety Score', value: `${safetyScore}%`, color: '#4F46E5', icon: <SecurityIcon /> },
+    { label: 'Efficiency', value: `${efficiency}%`, color: '#8B5CF6', icon: <TrendingUpIcon /> },
   ];
 
-  const metrics = performance || defaultMetrics;
 
   if (loading) {
     return (
@@ -1673,30 +1686,145 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 // ============================================================
 // PLACEHOLDER TABS
 // ============================================================
-const DocumentsTab = () => (
-  <Box sx={{ py: 4, textAlign: 'center' }}>
-    <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-    <Typography variant="body1" color="text.secondary">
-      Driver documents will be displayed here
-    </Typography>
-  </Box>
-);
-
-const NotesTab = ({ driver }) => (
-  <Box sx={{ py: 4, textAlign: 'center' }}>
-    <InfoIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-    <Typography variant="body1" color="text.secondary">
-      Driver notes will be displayed here
-    </Typography>
-    {driver?.notes && (
-      <Paper sx={{ mt: 2, p: 3, textAlign: 'left', borderRadius: '12px', border: '1px solid #ECECEC' }}>
-        <Typography variant="body2" sx={{ color: '#111827' }}>
-          {driver.notes}
+const DocumentsTab = ({ driverId }) => {
+  const [documents, setDocuments] = useState([]);
+  
+  return (
+    <Box sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Driver Documents
         </Typography>
-      </Paper>
-    )}
-  </Box>
-);
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<UploadIcon />}
+          sx={{
+            fontSize: '0.75rem',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+          }}
+        >
+          Upload Document
+        </Button>
+      </Box>
+      
+      {documents.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
+          <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+          <Typography variant="body1" color="text.secondary">
+            No documents uploaded yet
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Upload driver documents like ID, license, medical certificates, etc.
+          </Typography>
+          <Button variant="text" sx={{ mt: 2, color: '#4F46E5' }}>
+            Upload your first document
+          </Button>
+        </Paper>
+      ) : (
+        // Document list here
+        <></>
+      )}
+    </Box>
+  );
+};
+
+const NotesTab = ({ driver, onUpdateNotes }) => {
+  const [notes, setNotes] = useState(driver?.notes || '');
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onUpdateNotes(notes);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error saving notes:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Box sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Driver Notes
+        </Typography>
+        {!isEditing && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<EditIcon />}
+            onClick={() => setIsEditing(true)}
+            sx={{ fontSize: '0.75rem' }}
+          >
+            Edit Notes
+          </Button>
+        )}
+      </Box>
+      
+      {isEditing ? (
+        <Box>
+          <TextField
+            fullWidth
+            multiline
+            rows={6}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add notes about the driver..."
+            sx={{ mb: 2 }}
+          />
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleSave}
+              disabled={saving}
+              sx={{
+                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              }}
+            >
+              {saving ? <CircularProgress size={20} /> : 'Save Notes'}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setNotes(driver?.notes || '');
+                setIsEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </Stack>
+        </Box>
+      ) : (
+        <Paper
+          sx={{
+            p: 3,
+            borderRadius: '12px',
+            border: '1px solid #ECECEC',
+            bgcolor: '#F9FAFB',
+            minHeight: '150px',
+          }}
+        >
+          {notes ? (
+            <Typography variant="body2" sx={{ color: '#111827', whiteSpace: 'pre-wrap' }}>
+              {notes}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              No notes added yet. Click "Edit Notes" to add information about this driver.
+            </Typography>
+          )}
+        </Paper>
+      )}
+    </Box>
+  );
+};
 
 // ============================================================
 // MAIN DRIVER DASHBOARD
@@ -1837,21 +1965,30 @@ const DriverDashboard = () => {
   };
 
   const fetchTrips = async (driverId) => {
+  try {
+    const id = parseInt(driverId, 10);
+    if (isNaN(id)) {
+      console.error('Invalid driver ID for trips fetch');
+      setTrips([]);
+      return;
+    }
+    
+    console.log(`📤 Fetching trips for driver: ${id}`);
+    const tripsData = await tripService.getTripsByDriver(id);
+    setTrips(tripsData || []);
+  } catch (err) {
+    console.error('Error fetching trips:', err);
+    // If API fails, try to get trips from the general trips endpoint and filter
     try {
-      const id = parseInt(driverId, 10);
-      if (isNaN(id)) {
-        console.error('Invalid driver ID for trips fetch');
-        setTrips([]);
-        return;
-      }
-      
-      const tripsData = await tripService.getTripsByDriver(id);
-      setTrips(tripsData || []);
-    } catch (err) {
-      console.error('Error fetching trips:', err);
+      const allTrips = await tripService.getAllTrips();
+      const filtered = allTrips.filter(trip => trip.driverId === parseInt(driverId) || trip.driver?.id === parseInt(driverId));
+      setTrips(filtered);
+    } catch (fallbackErr) {
+      console.error('Fallback trip fetch also failed:', fallbackErr);
       setTrips([]);
     }
-  };
+  }
+};
 
   const handleNotificationClose = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
