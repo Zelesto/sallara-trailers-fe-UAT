@@ -111,9 +111,12 @@ import {
   Engineering as EngineeringIcon,
 } from '@mui/icons-material';
 import { vehicleService } from '../services/vehicleService';
+import { fuelService } from '../services/fuelService';
+import { certificateService } from '../services/certificateService';
+import { maintenanceService } from '../services/maintenanceService';
 
 // ============================================================
-// NAVIGATION TABS
+// NAVIGATION TABS (unchanged)
 // ============================================================
 const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
   const handleChange = (event, newValue) => {
@@ -173,7 +176,7 @@ const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
 };
 
 // ============================================================
-// FUEL TANK CARD
+// FUEL TANK CARD (unchanged)
 // ============================================================
 const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F46E5', onReset }) => {
   const percentage = capacity > 0 ? (currentLevel / capacity) * 100 : 0;
@@ -198,7 +201,6 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
         {title}
       </Typography>
       
-      {/* Fuel Gauge */}
       <Box sx={{ position: 'relative', mb: 2 }}>
         <Box
           sx={{
@@ -222,7 +224,6 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
               justifyContent: 'center',
             }}
           />
-          {/* Fuel level indicator lines */}
           <Box
             sx={{
               position: 'absolute',
@@ -320,7 +321,7 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
 };
 
 // ============================================================
-// SPECIFICATIONS TAB
+// SPECIFICATIONS TAB (unchanged)
 // ============================================================
 const SpecificationsTab = ({ vehicle }) => {
   const specs = [
@@ -383,9 +384,11 @@ const SpecificationsTab = ({ vehicle }) => {
 };
 
 // ============================================================
-// FUEL MANAGEMENT TAB
+// FUEL MANAGEMENT TAB - UPDATED WITH REAL API
 // ============================================================
-const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel }) => {
+const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel, onUpdateFuel }) => {
+  const [saving, setSaving] = useState(false);
+
   const handleConsumptionChange = (type, value) => {
     setFuelData(prev => ({
       ...prev,
@@ -393,12 +396,41 @@ const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel }) => {
     }));
   };
 
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    try {
+      await onUpdateFuel({
+        avgConsumption: fuelData.avgConsumption,
+        virtualConsumption: fuelData.virtualConsumption,
+        fuelCapacity: fuelData.tank1Capacity,
+        currentFuelLevel: fuelData.tank1Current,
+      });
+    } catch (err) {
+      console.error('Error saving fuel settings:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Box>
       <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #ECECEC', mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-          Fuel Consumption Settings
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Fuel Consumption Settings
+          </Typography>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSaveSettings}
+            disabled={saving}
+            sx={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            }}
+          >
+            {saving ? <CircularProgress size={20} /> : 'Save Settings'}
+          </Button>
+        </Stack>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <TextField
@@ -510,9 +542,9 @@ const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel }) => {
 };
 
 // ============================================================
-// SERVICE HISTORY TAB
+// SERVICE HISTORY TAB - UPDATED WITH REAL API
 // ============================================================
-const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete }) => {
+const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete, onRefresh }) => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
@@ -527,20 +559,31 @@ const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete })
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Service History
         </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={onAdd}
-          sx={{ 
-            fontSize: '0.75rem',
-            borderRadius: '10px',
-            textTransform: 'none',
-            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-          }}
-        >
-          Add Service Record
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RefreshIcon />}
+            onClick={onRefresh}
+            sx={{ fontSize: '0.75rem' }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={onAdd}
+            sx={{ 
+              fontSize: '0.75rem',
+              borderRadius: '10px',
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            }}
+          >
+            Add Service Record
+          </Button>
+        </Stack>
       </Box>
 
       {serviceRecords.length === 0 ? (
@@ -625,9 +668,9 @@ const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete })
 };
 
 // ============================================================
-// CERTIFICATES & PERMITS TAB
+// CERTIFICATES & PERMITS TAB - UPDATED WITH REAL API
 // ============================================================
-const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify }) => {
+const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify, onRefresh }) => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
@@ -642,20 +685,31 @@ const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify })
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Certificates & Permits
         </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={onAdd}
-          sx={{ 
-            fontSize: '0.75rem',
-            borderRadius: '10px',
-            textTransform: 'none',
-            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-          }}
-        >
-          Add Certificate
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RefreshIcon />}
+            onClick={onRefresh}
+            sx={{ fontSize: '0.75rem' }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={onAdd}
+            sx={{ 
+              fontSize: '0.75rem',
+              borderRadius: '10px',
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            }}
+          >
+            Add Certificate
+          </Button>
+        </Stack>
       </Box>
 
       {certificates.length === 0 ? (
@@ -746,7 +800,7 @@ const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify })
 };
 
 // ============================================================
-// OVERVIEW TAB
+// OVERVIEW TAB (unchanged)
 // ============================================================
 const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => {
   const safeResetFuel = (tank) => {
@@ -761,7 +815,6 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
 
   return (
     <Box>
-      {/* Quick Stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
@@ -805,7 +858,6 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
         </Grid>
       </Grid>
 
-      {/* Fuel Tanks */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <FuelTankCard
@@ -827,7 +879,6 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
         </Grid>
       </Grid>
 
-      {/* Recent Services & Certificates */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
@@ -871,7 +922,7 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
 };
 
 // ============================================================
-// STAT CARD
+// STAT CARD (unchanged)
 // ============================================================
 const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
   <Paper
@@ -928,7 +979,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 );
 
 // ============================================================
-// SERVICE LIST ITEM
+// SERVICE LIST ITEM (unchanged)
 // ============================================================
 const ServiceListItem = ({ service }) => {
   const statusColor = service.status === 'COMPLETED' ? '#22C55E' : 
@@ -971,7 +1022,7 @@ const ServiceListItem = ({ service }) => {
 };
 
 // ============================================================
-// CERTIFICATE LIST ITEM
+// CERTIFICATE LIST ITEM (unchanged)
 // ============================================================
 const CertificateListItem = ({ certificate }) => {
   const statusColor = certificate.status === 'ACTIVE' ? '#22C55E' : '#F59E0B';
@@ -1012,7 +1063,7 @@ const CertificateListItem = ({ certificate }) => {
 };
 
 // ============================================================
-// NOTIFICATION BANNER
+// NOTIFICATION BANNER (unchanged)
 // ============================================================
 const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
   const getBackgroundColor = () => {
@@ -1077,7 +1128,7 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 };
 
 // ============================================================
-// PLACEHOLDER TABS
+// PLACEHOLDER TABS (unchanged)
 // ============================================================
 const MaintenanceTab = () => (
   <Box sx={{ py: 4, textAlign: 'center' }}>
@@ -1114,7 +1165,7 @@ const NotesTab = ({ vehicle }) => (
 );
 
 // ============================================================
-// SERVICE DIALOG
+// SERVICE DIALOG (unchanged)
 // ============================================================
 const ServiceDialog = ({ open, onClose, service, onSave }) => {
   const [formData, setFormData] = useState({
@@ -1249,7 +1300,7 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
 };
 
 // ============================================================
-// CERTIFICATE DIALOG
+// CERTIFICATE DIALOG (unchanged)
 // ============================================================
 const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
   const [formData, setFormData] = useState({
@@ -1366,7 +1417,7 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
 };
 
 // ============================================================
-// MAIN VEHICLE DASHBOARD COMPONENT
+// MAIN VEHICLE DASHBOARD - UPDATED WITH REAL API
 // ============================================================
 const VehicleDashboard = () => {
   const { id } = useParams();
@@ -1421,7 +1472,6 @@ const VehicleDashboard = () => {
 
       const newNotifications = [];
       
-      // Check roadworthy expiry
       if (data.roadworthyExpiry) {
         const expiryDate = new Date(data.roadworthyExpiry);
         const daysUntilExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
@@ -1442,7 +1492,6 @@ const VehicleDashboard = () => {
         }
       }
 
-      // Check service due
       if (data.nextServiceDue) {
         const serviceDate = new Date(data.nextServiceDue);
         const daysUntilService = Math.ceil((serviceDate - new Date()) / (1000 * 60 * 60 * 24));
@@ -1463,7 +1512,6 @@ const VehicleDashboard = () => {
         }
       }
 
-      // Check fuel level
       const fuelPercentage = (fuelData.tank1Current / fuelData.tank1Capacity) * 100;
       if (fuelPercentage < 15) {
         newNotifications.push({
@@ -1483,68 +1531,24 @@ const VehicleDashboard = () => {
     }
   };
 
-  const fetchServiceRecords = async () => {
-    setServiceRecords([
-      {
-        id: 1,
-        type: 'Oil Change',
-        date: '2024-06-15',
-        odometer: 45000,
-        cost: 2500,
-        status: 'COMPLETED',
-        notes: 'Full synthetic oil change',
-      },
-      {
-        id: 2,
-        type: 'Brake Service',
-        date: '2024-07-20',
-        odometer: 52000,
-        cost: 3800,
-        status: 'COMPLETED',
-        notes: 'Replaced brake pads and discs',
-      },
-      {
-        id: 3,
-        type: 'Engine Tune-up',
-        date: null,
-        odometer: null,
-        cost: null,
-        status: 'SCHEDULED',
-        notes: 'Scheduled for next week',
-      },
-    ]);
+  const fetchServiceRecords = async (vehicleId) => {
+    try {
+      const records = await maintenanceService.getMaintenanceSchedule(vehicleId);
+      setServiceRecords(records || []);
+    } catch (err) {
+      console.error('Error fetching service records:', err);
+      setServiceRecords([]);
+    }
   };
 
-  const fetchCertificates = async () => {
-    setCertificates([
-      {
-        id: 1,
-        name: 'Roadworthy Certificate',
-        number: 'RWC-2024-001',
-        issueDate: '2024-01-15',
-        expiryDate: '2025-01-15',
-        status: 'ACTIVE',
-        type: 'roadworthy',
-      },
-      {
-        id: 2,
-        name: 'Operating Permit',
-        number: 'OP-2024-045',
-        issueDate: '2024-02-01',
-        expiryDate: '2024-12-31',
-        status: 'ACTIVE',
-        type: 'permit',
-      },
-      {
-        id: 3,
-        name: 'Insurance Certificate',
-        number: 'INS-2024-789',
-        issueDate: '2024-03-01',
-        expiryDate: '2025-03-01',
-        status: 'EXPIRING',
-        type: 'insurance',
-      },
-    ]);
+  const fetchCertificates = async (vehicleId) => {
+    try {
+      const certs = await vehicleService.getCertificates(vehicleId);
+      setCertificates(certs || []);
+    } catch (err) {
+      console.error('Error fetching certificates:', err);
+      setCertificates([]);
+    }
   };
 
   const handleNotificationClose = (id) => {
@@ -1559,14 +1563,38 @@ const VehicleDashboard = () => {
     navigate(`/vehicles/${id}/edit`);
   };
 
-  const handleResetFuel = (tank) => {
-    setFuelData(prev => {
-      if (tank === 1) {
-        return { ...prev, tank1Current: prev.tank1Capacity };
-      } else {
-        return { ...prev, tank2Current: prev.tank2Capacity };
+  const handleResetFuel = async (tank) => {
+    try {
+      await vehicleService.resetFuelToFull(id);
+      setFuelData(prev => {
+        if (tank === 1) {
+          return { ...prev, tank1Current: prev.tank1Capacity };
+        } else {
+          return { ...prev, tank2Current: prev.tank2Capacity };
+        }
+      });
+    } catch (err) {
+      console.error('Error resetting fuel:', err);
+      setError('Failed to reset fuel level');
+    }
+  };
+
+  const handleUpdateFuel = async (fuelData) => {
+    try {
+      await vehicleService.updateFuelLevel(id, fuelData);
+      // Refresh fuel data
+      const data = await vehicleService.getVehicleById(id);
+      if (data.fuelCapacity) {
+        setFuelData(prev => ({
+          ...prev,
+          tank1Capacity: data.fuelCapacity || 400,
+          tank1Current: data.currentFuelLevel || 320,
+        }));
       }
-    });
+    } catch (err) {
+      console.error('Error updating fuel:', err);
+      setError('Failed to update fuel settings');
+    }
   };
 
   const handleAddService = () => {
@@ -1581,7 +1609,13 @@ const VehicleDashboard = () => {
 
   const handleDeleteService = async (serviceId) => {
     if (!window.confirm('Are you sure you want to delete this service record?')) return;
-    setServiceRecords(serviceRecords.filter(s => s.id !== serviceId));
+    try {
+      await maintenanceService.deleteMaintenance(serviceId);
+      setServiceRecords(serviceRecords.filter(s => s.id !== serviceId));
+    } catch (err) {
+      console.error('Error deleting service:', err);
+      setError('Failed to delete service record');
+    }
   };
 
   const handleAddCertificate = () => {
@@ -1595,6 +1629,14 @@ const VehicleDashboard = () => {
 
   const handleVerifyCertificate = (certificate) => {
     console.log('Verify certificate:', certificate);
+  };
+
+  const handleRefreshServiceRecords = () => {
+    fetchServiceRecords(id);
+  };
+
+  const handleRefreshCertificates = () => {
+    fetchCertificates(id);
   };
 
   if (loading) {
@@ -1630,7 +1672,6 @@ const VehicleDashboard = () => {
     <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
       <Box sx={{ maxWidth: '1440px', margin: '0 auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, gap: 3 }}>
         
-        {/* LEFT PANEL - Vehicle Profile */}
         <Paper
           elevation={0}
           sx={{
@@ -1716,7 +1757,6 @@ const VehicleDashboard = () => {
 
             <Divider sx={{ mb: 2.5 }} />
 
-            {/* Vehicle Information */}
             <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
                 Vehicle Information
@@ -1731,7 +1771,6 @@ const VehicleDashboard = () => {
 
             <Divider sx={{ my: 2.5 }} />
 
-            {/* Fuel Summary */}
             <Box sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem', mb: 1 }}>
                 Fuel Summary
@@ -1767,7 +1806,6 @@ const VehicleDashboard = () => {
 
             <Divider sx={{ my: 2.5 }} />
 
-            {/* Quick Stats */}
             <Stack spacing={1} sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
                 Quick Stats
@@ -1780,7 +1818,6 @@ const VehicleDashboard = () => {
           </Box>
         </Paper>
 
-        {/* RIGHT PANEL - Main Content */}
         <Box>
           <VehicleNavigationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -1794,7 +1831,6 @@ const VehicleDashboard = () => {
             />
           ))}
 
-          {/* Tab Content */}
           {activeTab === 0 && (
             <OverviewTab
               vehicle={vehicle}
@@ -1818,6 +1854,7 @@ const VehicleDashboard = () => {
               setFuelData={setFuelData}
               vehicle={vehicle}
               onResetFuel={handleResetFuel}
+              onUpdateFuel={handleUpdateFuel}
             />
           )}
 
@@ -1828,6 +1865,7 @@ const VehicleDashboard = () => {
               onAdd={handleAddService}
               onEdit={handleEditService}
               onDelete={handleDeleteService}
+              onRefresh={handleRefreshServiceRecords}
             />
           )}
 
@@ -1838,6 +1876,7 @@ const VehicleDashboard = () => {
               onAdd={handleAddCertificate}
               onDownload={handleDownloadCertificate}
               onVerify={handleVerifyCertificate}
+              onRefresh={handleRefreshCertificates}
             />
           )}
 
@@ -1855,18 +1894,27 @@ const VehicleDashboard = () => {
         </Box>
       </Box>
 
-      {/* Dialogs */}
       <ServiceDialog
         open={openServiceDialog}
         onClose={() => setOpenServiceDialog(false)}
         service={editingService}
-        onSave={(data) => {
-          if (editingService) {
-            setServiceRecords(serviceRecords.map(s => s.id === editingService.id ? { ...s, ...data } : s));
-          } else {
-            setServiceRecords([...serviceRecords, { ...data, id: Date.now() }]);
+        onSave={async (data) => {
+          try {
+            const serviceData = {
+              ...data,
+              vehicleId: parseInt(id),
+            };
+            if (editingService) {
+              await maintenanceService.updateMaintenance(editingService.id, serviceData);
+            } else {
+              await maintenanceService.addMaintenance(serviceData);
+            }
+            await fetchServiceRecords(id);
+            setOpenServiceDialog(false);
+          } catch (err) {
+            console.error('Error saving service:', err);
+            setError('Failed to save service record');
           }
-          setOpenServiceDialog(false);
         }}
       />
 
@@ -1874,13 +1922,23 @@ const VehicleDashboard = () => {
         open={openCertificateDialog}
         onClose={() => setOpenCertificateDialog(false)}
         certificate={editingCertificate}
-        onSave={(data) => {
-          if (editingCertificate) {
-            setCertificates(certificates.map(c => c.id === editingCertificate.id ? { ...c, ...data } : c));
-          } else {
-            setCertificates([...certificates, { ...data, id: Date.now(), status: 'ACTIVE' }]);
+        onSave={async (data) => {
+          try {
+            const certData = {
+              ...data,
+              vehicleId: parseInt(id),
+            };
+            if (editingCertificate) {
+              await vehicleService.updateCertificate(id, editingCertificate.id, certData);
+            } else {
+              await vehicleService.addCertificate(id, certData);
+            }
+            await fetchCertificates(id);
+            setOpenCertificateDialog(false);
+          } catch (err) {
+            console.error('Error saving certificate:', err);
+            setError('Failed to save certificate');
           }
-          setOpenCertificateDialog(false);
         }}
       />
     </Box>
