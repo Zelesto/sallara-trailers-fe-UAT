@@ -1662,29 +1662,38 @@ const DriverDashboard = () => {
     }
   };
 
-  const fetchTimesheetData = async (driverId) => {
-    try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-      const endDate = new Date();
-      
-      const entries = await timesheetService.getEntries(
-        driverId,
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
-      );
-      setTimesheetData(entries || []);
-      
-      // Get current punch status
-      const activeEntry = await timesheetService.getActivePunch(driverId);
-      if (activeEntry) {
-        setPunchStatus(activeEntry.punchStatus || 'CLOCKED_OUT');
-      }
-    } catch (err) {
-      console.error('Error fetching timesheet data:', err);
-      setTimesheetData([]);
+ const fetchTimesheetData = async (driverId) => {
+  try {
+    const id = parseInt(driverId, 10);
+    if (isNaN(id)) {
+      console.error('Invalid driver ID for timesheet fetch');
+      return;
     }
-  };
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    const endDate = new Date();
+    
+    console.log(`📤 Fetching timesheet for driver ${id} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+    
+    const entries = await timesheetService.getEntries(
+      id,
+      startDate.toISOString().split('T')[0],
+      endDate.toISOString().split('T')[0]
+    );
+    setTimesheetData(entries || []);
+    
+    // Get current punch status
+    const activeEntry = await timesheetService.getActivePunch(id);
+    if (activeEntry) {
+      setPunchStatus(activeEntry.punchStatus || 'CLOCKED_OUT');
+    }
+  } catch (err) {
+    console.error('Error fetching timesheet data:', err);
+    // Don't set error state for timesheet fetch failures
+    setTimesheetData([]);
+  }
+};
 
   const fetchLeaveData = async (driverId) => {
     try {
