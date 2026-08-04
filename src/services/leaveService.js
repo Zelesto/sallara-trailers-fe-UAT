@@ -1,8 +1,69 @@
 // src/services/leaveService.js
+import api from './api';
+
+const toSnakeCase = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  const result = {};
+  const mappings = {
+    driverId: 'driver_id',
+    leaveTypeId: 'leave_type_id',
+    startDate: 'start_date',
+    endDate: 'end_date',
+    durationDays: 'duration_days',
+    attachmentUrl: 'attachment_url',
+    approvedBy: 'approved_by',
+    approvedAt: 'approved_at',
+    rejectionReason: 'rejection_reason',
+    requestedAt: 'requested_at',
+  };
+  
+  Object.keys(data).forEach(key => {
+    const snakeKey = mappings[key] || key;
+    if (data[key] === undefined) {
+      return;
+    }
+    result[snakeKey] = data[key];
+  });
+  
+  return result;
+};
+
+const toCamelCase = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  const result = {};
+  const mappings = {
+    driver_id: 'driverId',
+    leave_type_id: 'leaveTypeId',
+    start_date: 'startDate',
+    end_date: 'endDate',
+    duration_days: 'durationDays',
+    attachment_url: 'attachmentUrl',
+    approved_by: 'approvedBy',
+    approved_at: 'approvedAt',
+    rejection_reason: 'rejectionReason',
+    requested_at: 'requestedAt',
+    created_at: 'createdAt',
+    updated_at: 'updatedAt',
+    total_days: 'totalDays',
+    used_days: 'usedDays',
+    pending_days: 'pendingDays',
+    remaining_days: 'remainingDays',
+    carried_over: 'carriedOver',
+  };
+  
+  Object.keys(data).forEach(key => {
+    const camelKey = mappings[key] || key;
+    result[camelKey] = data[key];
+  });
+  
+  return result;
+};
+
 export const leaveService = {
   requestLeave: async (leaveData) => {
     try {
-      // Validate required fields
       if (!leaveData.driverId) {
         throw new Error('Driver ID is required');
       }
@@ -13,14 +74,14 @@ export const leaveService = {
         throw new Error('Start date and end date are required');
       }
 
-      const payload = {
+      const payload = toSnakeCase({
         driver_id: parseInt(leaveData.driverId, 10),
         leave_type_id: parseInt(leaveData.leaveTypeId, 10),
         start_date: leaveData.startDate,
         end_date: leaveData.endDate,
         reason: leaveData.reason || '',
         notes: leaveData.notes || '',
-      };
+      });
       
       console.log('📤 Leave request payload:', payload);
       const response = await api.post('/leave/request', payload);
@@ -59,7 +120,6 @@ export const leaveService = {
         return [];
       }
       if (error.response?.status === 500) {
-        // If backend endpoint doesn't exist yet, return mock data
         console.warn('⚠️ Backend endpoint not implemented yet, returning mock data');
         return [
           { 
@@ -76,127 +136,32 @@ export const leaveService = {
     }
   },
 
-  // ====== LEAVE REQUESTS ======
-  
-  requestLeave: async (leaveData) => {
-    try {
-      const payload = toSnakeCase(leaveData);
-      const response = await api.post('/leave/request', payload);
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error requesting leave:', error);
-      throw error;
-    }
-  },
-
-  approveLeave: async (leaveId, approverId) => {
-    try {
-      const response = await api.put(`/leave/${leaveId}/approve`, null, {
-        params: { approverId }
-      });
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error approving leave:', error);
-      throw error;
-    }
-  },
-
-  rejectLeave: async (leaveId, reason) => {
-    try {
-      const response = await api.put(`/leave/${leaveId}/reject`, null, {
-        params: { reason }
-      });
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error rejecting leave:', error);
-      throw error;
-    }
-  },
-
   cancelLeave: async (leaveId) => {
     try {
       const response = await api.put(`/leave/${leaveId}/cancel`);
-      return toCamelCase(response);
+      return toCamelCase(response?.data || response);
     } catch (error) {
-      console.error('Error cancelling leave:', error);
+      console.error('❌ Error cancelling leave:', error);
       throw error;
     }
   },
 
-  getLeaveRequests: async (driverId) => {
-    try {
-      const response = await api.get(`/leave/driver/${driverId}`);
-      if (Array.isArray(response)) {
-        return response.map(leave => toCamelCase(leave));
-      }
-      return response || [];
-    } catch (error) {
-      console.error('Error fetching leave requests:', error);
-      throw error;
-    }
-  },
-
-  getLeaveRequest: async (leaveId) => {
-    try {
-      const response = await api.get(`/leave/${leaveId}`);
-      return toCamelCase(response);
-    } catch (error) {
-      console.error(`Error fetching leave request ${leaveId}:`, error);
-      throw error;
-    }
-  },
-
-  // ====== LEAVE BALANCES ======
-  
   getLeaveBalances: async (driverId) => {
     try {
-      const response = await api.get(`/leave/driver/${driverId}/balances`);
-      if (Array.isArray(response)) {
-        return response.map(balance => toCamelCase(balance));
+      const id = parseInt(driverId, 10);
+      if (isNaN(id)) {
+        throw new Error('Invalid driver ID');
       }
-      return response || [];
-    } catch (error) {
-      console.error('Error fetching leave balances:', error);
-      throw error;
-    }
-  },
-
-  getLeaveBalance: async (driverId, leaveTypeId, year) => {
-    try {
-      const response = await api.get(`/leave/driver/${driverId}/balance`, {
-        params: { leaveTypeId, year }
-      });
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error fetching leave balance:', error);
-      throw error;
-    }
-  },
-
-  // ====== LEAVE SUMMARY ======
-  
-  getLeaveSummary: async (driverId) => {
-    try {
-      const response = await api.get(`/leave/driver/${driverId}/summary`);
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error fetching leave summary:', error);
-      throw error;
-    }
-  },
-
-  getTeamLeaveCalendar: async (startDate, endDate) => {
-    try {
-      const response = await api.get('/leave/calendar', {
-        params: { startDate, endDate }
-      });
-      if (Array.isArray(response)) {
-        return response.map(leave => toCamelCase(leave));
+      
+      const response = await api.get(`/leave/driver/${id}/balances`);
+      const data = response?.data || response;
+      if (Array.isArray(data)) {
+        return data.map(balance => toCamelCase(balance));
       }
-      return response || [];
+      return data || [];
     } catch (error) {
-      console.error('Error fetching team leave calendar:', error);
-      throw error;
+      console.error('❌ Error fetching leave balances:', error);
+      return [];
     }
   },
 };
