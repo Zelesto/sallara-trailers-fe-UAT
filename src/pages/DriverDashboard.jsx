@@ -1980,8 +1980,29 @@ const DriverDashboard = () => {
     console.error('Error fetching trips:', err);
     // If API fails, try to get trips from the general trips endpoint and filter
     try {
-      const allTrips = await tripService.getAllTrips();
-      const filtered = allTrips.filter(trip => trip.driverId === parseInt(driverId) || trip.driver?.id === parseInt(driverId));
+      console.log('📤 Attempting fallback: fetching all trips and filtering');
+      const allTripsResponse = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
+      
+      // Extract the array from the response
+      let tripsArray = [];
+      if (allTripsResponse && allTripsResponse.content && Array.isArray(allTripsResponse.content)) {
+        tripsArray = allTripsResponse.content;
+      } else if (Array.isArray(allTripsResponse)) {
+        tripsArray = allTripsResponse;
+      } else {
+        console.warn('Unexpected getAllTrips response format:', allTripsResponse);
+        setTrips([]);
+        return;
+      }
+      
+      console.log(`📥 Filtering ${tripsArray.length} trips for driver ${id}`);
+      const filtered = tripsArray.filter(trip => 
+        trip.driverId === id || 
+        trip.driver?.id === id ||
+        trip.driverId === parseInt(trip.driver?.id) // Additional check if types differ
+      );
+      
+      console.log(`✅ Found ${filtered.length} trips for driver ${id}`);
       setTrips(filtered);
     } catch (fallbackErr) {
       console.error('Fallback trip fetch also failed:', fallbackErr);
