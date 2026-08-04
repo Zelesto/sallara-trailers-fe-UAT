@@ -1667,6 +1667,7 @@ const DriverDashboard = () => {
     const id = parseInt(driverId, 10);
     if (isNaN(id)) {
       console.error('Invalid driver ID for timesheet fetch');
+      setTimesheetData([]);
       return;
     }
     
@@ -1690,20 +1691,28 @@ const DriverDashboard = () => {
     }
   } catch (err) {
     console.error('Error fetching timesheet data:', err);
-    // Don't set error state for timesheet fetch failures
     setTimesheetData([]);
   }
 };
 
-  const fetchLeaveData = async (driverId) => {
-    try {
-      const requests = await leaveService.getLeaveRequests(driverId);
-      setLeaveData(requests || []);
-    } catch (err) {
-      console.error('Error fetching leave data:', err);
+ // Update the fetchLeaveData function
+const fetchLeaveData = async (driverId) => {
+  try {
+    const id = parseInt(driverId, 10);
+    if (isNaN(id)) {
+      console.error('Invalid driver ID for leave fetch');
       setLeaveData([]);
+      return;
     }
-  };
+    
+    const requests = await leaveService.getLeaveRequests(id);
+    setLeaveData(requests || []);
+  } catch (err) {
+    console.error('Error fetching leave data:', err);
+    setLeaveData([]);
+  }
+};
+
 
   const handleNotificationClose = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
@@ -1717,10 +1726,11 @@ const DriverDashboard = () => {
     navigate(`/drivers/${id}/edit`);
   };
 
-  const handlePunch = async (type) => {
+  // Update the handlePunch function
+// Update the handlePunch function
+const handlePunch = async (type) => {
   setPunchLoading(true);
   try {
-    // Make sure driverId is a number, not a string
     const driverId = parseInt(id, 10);
     if (isNaN(driverId)) {
       throw new Error('Invalid driver ID');
@@ -1807,22 +1817,30 @@ const DriverDashboard = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleRequestLeave = async (leave) => {
+ // Update the handleRequestLeave function
+const handleRequestLeave = async (leave) => {
   try {
     const driverId = parseInt(id, 10);
     if (isNaN(driverId)) {
       throw new Error('Invalid driver ID');
     }
 
+    // Map leave type to ID
+    const leaveTypeMap = {
+      'ANNUAL': 1,
+      'SICK': 2,
+      'STUDY': 3,
+      'UNPAID': 4,
+      'OTHER': 5,
+    };
+
     const leaveRequest = {
       driverId: driverId,
-      leaveTypeId: leave.type === 'ANNUAL' ? 1 : 
-                   leave.type === 'SICK' ? 2 :
-                   leave.type === 'STUDY' ? 3 : 4,
+      leaveTypeId: leaveTypeMap[leave.type] || 1,
       startDate: leave.startDate,
       endDate: leave.endDate,
-      reason: leave.reason,
-      notes: leave.notes,
+      reason: leave.reason || '',
+      notes: leave.notes || '',
     };
     
     console.log('📤 Sending leave request:', leaveRequest);
