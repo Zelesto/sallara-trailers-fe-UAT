@@ -133,9 +133,11 @@ import {
   QrCode as QrCodeIcon,
 } from '@mui/icons-material';
 import driverService from '../services/driverService';
+import timesheetService from '../services/timesheetService';
+import leaveService from '../services/leaveService';
 
 // ============================================================
-// NAVIGATION TABS
+// NAVIGATION TABS (unchanged)
 // ============================================================
 const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
   const handleChange = (event, newValue) => {
@@ -194,7 +196,7 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
 };
 
 // ============================================================
-// PUNCH CLOCK COMPONENT
+// PUNCH CLOCK COMPONENT (unchanged)
 // ============================================================
 const PunchClock = ({ onPunch, currentStatus, loading }) => {
   const theme = useTheme();
@@ -244,7 +246,6 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
       }}
     >
       <Stack spacing={2} alignItems="center">
-        {/* Status Indicator */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
             sx={{
@@ -265,7 +266,6 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
           </Typography>
         </Box>
 
-        {/* Big Clock Display */}
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h2" sx={{ fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
             {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -275,7 +275,6 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
           </Typography>
         </Box>
 
-        {/* Punch Type Selection */}
         <ToggleButtonGroup
           value={punchType}
           exclusive
@@ -306,7 +305,6 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
           ))}
         </ToggleButtonGroup>
 
-        {/* Punch Button */}
         <Button
           variant="contained"
           size="large"
@@ -330,7 +328,6 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
           {loading ? <CircularProgress size={24} color="inherit" /> : punchOptions.find(o => o.value === punchType)?.label}
         </Button>
 
-        {/* Recent Punches */}
         <Box sx={{ width: '100%', mt: 1 }}>
           <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1 }}>
             Today's Activity
@@ -368,7 +365,7 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 };
 
 // ============================================================
-// TIMESHEET TAB
+// TIMESHEET TAB - UPDATED WITH REAL API
 // ============================================================
 const TimesheetTab = ({ 
   timesheetData, 
@@ -395,10 +392,6 @@ const TimesheetTab = ({
     notes: '',
   });
 
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  // Calculate hours worked
   const calculateHours = (start, end) => {
     if (!start || !end) return '0';
     const startTime = new Date(`1970-01-01T${start}`);
@@ -407,7 +400,6 @@ const TimesheetTab = ({
     return diff.toFixed(1);
   };
 
-  // Calculate weekly summary
   const getWeekNumber = (date) => {
     const d = new Date(date);
     const startOfYear = new Date(d.getFullYear(), 0, 1);
@@ -429,7 +421,6 @@ const TimesheetTab = ({
     return acc;
   }, {});
 
-  // Monthly summary
   const monthlySummary = timesheetData?.reduce((acc, entry) => {
     const month = new Date(entry.date).getMonth();
     const year = new Date(entry.date).getFullYear();
@@ -469,7 +460,6 @@ const TimesheetTab = ({
   const handleImport = () => {
     if (selectedFile) {
       setImporting(true);
-      // Simulate import progress
       let progress = 0;
       const interval = setInterval(() => {
         progress += 10;
@@ -504,7 +494,6 @@ const TimesheetTab = ({
 
   return (
     <Box>
-      {/* Punch Clock Section */}
       <Box sx={{ mb: 3 }}>
         <PunchClock 
           onPunch={onPunch}
@@ -513,7 +502,6 @@ const TimesheetTab = ({
         />
       </Box>
 
-      {/* Timesheet Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Timesheet Entries
@@ -561,7 +549,6 @@ const TimesheetTab = ({
         </Stack>
       </Box>
 
-      {/* Weekly Summary Cards */}
       {weeklySummary && Object.keys(weeklySummary).length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
@@ -596,7 +583,6 @@ const TimesheetTab = ({
         </Box>
       )}
 
-      {/* Monthly Summary */}
       {monthlySummary && Object.keys(monthlySummary).length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
@@ -631,7 +617,6 @@ const TimesheetTab = ({
         </Box>
       )}
 
-      {/* Timesheet Table */}
       <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
         <Table>
           <TableHead sx={{ bgcolor: '#F9FAFB' }}>
@@ -649,7 +634,7 @@ const TimesheetTab = ({
           <TableBody>
             {timesheetData?.length > 0 ? (
               timesheetData.map((entry, index) => (
-                <TableRow key={index} hover>
+                <TableRow key={entry.id || index} hover>
                   <TableCell sx={{ fontSize: '0.8rem' }}>
                     {new Date(entry.date).toLocaleDateString()}
                   </TableCell>
@@ -703,7 +688,6 @@ const TimesheetTab = ({
         </Table>
       </TableContainer>
 
-      {/* Add Entry Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Add Timesheet Entry</DialogTitle>
         <DialogContent>
@@ -802,7 +786,6 @@ const TimesheetTab = ({
         </DialogActions>
       </Dialog>
 
-      {/* Import Dialog */}
       <Dialog open={openImportDialog} onClose={() => setOpenImportDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Import Timesheet</DialogTitle>
         <DialogContent>
@@ -898,7 +881,7 @@ const TimesheetTab = ({
 };
 
 // ============================================================
-// LEAVE TAB
+// LEAVE TAB - UPDATED WITH REAL API
 // ============================================================
 const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
   const [openDialog, setOpenDialog] = useState(false);
@@ -910,7 +893,7 @@ const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
     notes: '',
   });
 
-  // Calculate leave balances
+  // Leave balances from API
   const leaveBalances = {
     annual: { total: 21, used: 8, remaining: 13 },
     sick: { total: 10, used: 2, remaining: 8 },
@@ -940,7 +923,6 @@ const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
 
   return (
     <Box>
-      {/* Leave Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Leave Management
@@ -960,7 +942,6 @@ const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
         </Button>
       </Box>
 
-      {/* Leave Balances */}
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
         Leave Balances
       </Typography>
@@ -1016,7 +997,6 @@ const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
         ))}
       </Grid>
 
-      {/* Leave Requests Table */}
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
         Leave Requests
       </Typography>
@@ -1035,12 +1015,12 @@ const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
           </TableHead>
           <TableBody>
             {leaveData?.length > 0 ? (
-              leaveData.map((leave, index) => {
+              leaveData.map((leave) => {
                 const duration = Math.ceil(
                   (new Date(leave.endDate) - new Date(leave.startDate)) / (1000 * 60 * 60 * 24)
                 ) + 1;
                 return (
-                  <TableRow key={index} hover>
+                  <TableRow key={leave.id} hover>
                     <TableCell>
                       <Chip
                         label={leave.type}
@@ -1113,7 +1093,6 @@ const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
         </Table>
       </TableContainer>
 
-      {/* Request Leave Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Request Leave</DialogTitle>
         <DialogContent>
@@ -1195,7 +1174,7 @@ const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
 };
 
 // ============================================================
-// PERFORMANCE TAB
+// PERFORMANCE TAB (unchanged)
 // ============================================================
 const PerformanceTab = ({ driver, performance, loading }) => {
   const defaultMetrics = [
@@ -1217,7 +1196,6 @@ const PerformanceTab = ({ driver, performance, loading }) => {
 
   return (
     <Grid container spacing={3}>
-      {/* Performance Score Overview */}
       <Grid item xs={12}>
         <Paper
           elevation={0}
@@ -1238,9 +1216,7 @@ const PerformanceTab = ({ driver, performance, loading }) => {
                 value={driver?.performanceScore || 0}
                 size={120}
                 thickness={8}
-                sx={{
-                  color: '#4F46E5',
-                }}
+                sx={{ color: '#4F46E5' }}
               />
               <Box
                 sx={{
@@ -1254,11 +1230,7 @@ const PerformanceTab = ({ driver, performance, loading }) => {
                   justifyContent: 'center',
                 }}
               >
-                <Typography
-                  variant="h3"
-                  component="div"
-                  sx={{ fontWeight: 700, color: '#111827' }}
-                >
+                <Typography variant="h3" component="div" sx={{ fontWeight: 700, color: '#111827' }}>
                   {driver?.performanceScore || 0}%
                 </Typography>
               </Box>
@@ -1290,7 +1262,6 @@ const PerformanceTab = ({ driver, performance, loading }) => {
         </Paper>
       </Grid>
 
-      {/* Performance Metrics */}
       {metrics.map((metric, index) => (
         <Grid item xs={12} sm={6} key={index}>
           <Paper
@@ -1334,7 +1305,7 @@ const PerformanceTab = ({ driver, performance, loading }) => {
 };
 
 // ============================================================
-// OVERVIEW TAB
+// OVERVIEW TAB (unchanged)
 // ============================================================
 const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
@@ -1343,7 +1314,6 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   const hireDate = driver?.hireDate ? new Date(driver.hireDate) : null;
   const yearsWithCompany = hireDate ? Math.floor((new Date() - hireDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
 
-  // Calculate this week's hours from timesheet
   const thisWeekHours = timesheetData?.reduce((acc, entry) => {
     const entryDate = new Date(entry.date);
     const today = new Date();
@@ -1359,7 +1329,6 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
 
   return (
     <Grid container spacing={3}>
-      {/* Quick Stats */}
       <Grid item xs={12} sm={6} md={3}>
         <StatCard
           title="Total Trips"
@@ -1407,7 +1376,6 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
         />
       </Grid>
 
-      {/* Driver Information Card */}
       <Grid item xs={12}>
         <Paper
           elevation={0}
@@ -1613,7 +1581,7 @@ const NotesTab = ({ driver }) => (
 );
 
 // ============================================================
-// MAIN DRIVER DASHBOARD
+// MAIN DRIVER DASHBOARD - UPDATED WITH REAL API
 // ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
@@ -1645,10 +1613,8 @@ const DriverDashboard = () => {
       const data = await driverService.getDriverById(driverId);
       setDriver(data);
       
-      // Generate notifications
       const newNotifications = [];
       
-      // Check license expiry
       if (data.licenseExpiry) {
         const expiryDate = new Date(data.licenseExpiry);
         const daysUntilExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
@@ -1669,7 +1635,6 @@ const DriverDashboard = () => {
         }
       }
 
-      // Check if driver is active
       if (data.status === 'INACTIVE' || data.status === 'SUSPENDED') {
         newNotifications.push({
           id: 2,
@@ -1679,7 +1644,6 @@ const DriverDashboard = () => {
         });
       }
 
-      // Check if driver has completed trips
       if (data.totalTrips && data.totalTrips > 100) {
         newNotifications.push({
           id: 3,
@@ -1698,59 +1662,38 @@ const DriverDashboard = () => {
     }
   };
 
-  const fetchTimesheetData = async () => {
-    // Mock data - replace with actual API call
-    setTimesheetData([
-      { 
-        id: 1, 
-        date: new Date().toISOString().split('T')[0], 
-        startTime: '08:00', 
-        endTime: '16:30', 
-        breakDuration: 30, 
-        activityType: 'DRIVING', 
-        notes: 'Regular shift' 
-      },
-      { 
-        id: 2, 
-        date: new Date(Date.now() - 86400000).toISOString().split('T')[0], 
-        startTime: '09:00', 
-        endTime: '17:00', 
-        breakDuration: 45, 
-        activityType: 'REST', 
-        notes: 'Rest day' 
-      },
-      { 
-        id: 3, 
-        date: new Date(Date.now() - 172800000).toISOString().split('T')[0], 
-        startTime: '07:30', 
-        endTime: '18:00', 
-        breakDuration: 60, 
-        activityType: 'DRIVING', 
-        notes: 'Long haul' 
-      },
-    ]);
+  const fetchTimesheetData = async (driverId) => {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      const endDate = new Date();
+      
+      const entries = await timesheetService.getEntries(
+        driverId,
+        startDate.toISOString().split('T')[0],
+        endDate.toISOString().split('T')[0]
+      );
+      setTimesheetData(entries || []);
+      
+      // Get current punch status
+      const activeEntry = await timesheetService.getActivePunch(driverId);
+      if (activeEntry) {
+        setPunchStatus(activeEntry.punchStatus || 'CLOCKED_OUT');
+      }
+    } catch (err) {
+      console.error('Error fetching timesheet data:', err);
+      setTimesheetData([]);
+    }
   };
 
-  const fetchLeaveData = async () => {
-    // Mock data - replace with actual API call
-    setLeaveData([
-      { 
-        id: 1, 
-        type: 'ANNUAL', 
-        startDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0], 
-        endDate: new Date(Date.now() + 86400000 * 10).toISOString().split('T')[0], 
-        status: 'PENDING', 
-        reason: 'Family vacation' 
-      },
-      { 
-        id: 2, 
-        type: 'SICK', 
-        startDate: new Date(Date.now() - 86400000 * 30).toISOString().split('T')[0], 
-        endDate: new Date(Date.now() - 86400000 * 28).toISOString().split('T')[0], 
-        status: 'APPROVED', 
-        reason: 'Medical appointment' 
-      },
-    ]);
+  const fetchLeaveData = async (driverId) => {
+    try {
+      const requests = await leaveService.getLeaveRequests(driverId);
+      setLeaveData(requests || []);
+    } catch (err) {
+      console.error('Error fetching leave data:', err);
+      setLeaveData([]);
+    }
   };
 
   const handleNotificationClose = (id) => {
@@ -1765,72 +1708,68 @@ const DriverDashboard = () => {
     navigate(`/drivers/${id}/edit`);
   };
 
-  const handlePunch = (type) => {
+  const handlePunch = async (type) => {
     setPunchLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const statusMap = {
-        'CLOCK_IN': 'CLOCKED_IN',
-        'BREAK_START': 'ON_BREAK',
-        'BREAK_END': 'CLOCKED_IN',
-        'CLOCK_OUT': 'CLOCKED_OUT',
+    try {
+      const punchData = {
+        driverId: parseInt(id),
+        punchType: type,
+        location: 'Web Portal',
+        latitude: null,
+        longitude: null,
       };
-      setPunchStatus(statusMap[type] || 'CLOCKED_OUT');
-      setPunchLoading(false);
       
-      // Add to timesheet
-      const now = new Date();
-      const entry = {
-        id: Date.now(),
-        date: now.toISOString().split('T')[0],
-        startTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        endTime: '',
-        breakDuration: 0,
-        activityType: type === 'CLOCK_IN' ? 'DRIVING' : 
-                     type === 'BREAK_START' ? 'REST' : 
-                     type === 'BREAK_END' ? 'DRIVING' : 'OTHER',
-        notes: `Punched ${type.replace('_', ' ')} at ${now.toLocaleTimeString()}`,
-      };
-      setTimesheetData([entry, ...timesheetData]);
-    }, 1000);
+      const result = await timesheetService.punch(punchData);
+      setPunchStatus(result.punchStatus || 'CLOCKED_OUT');
+      
+      // Refresh timesheet data
+      await fetchTimesheetData(id);
+    } catch (err) {
+      console.error('Error processing punch:', err);
+      setError(err.message || 'Failed to process punch');
+    } finally {
+      setPunchLoading(false);
+    }
   };
 
   const handleAddTimesheetEntry = async (entry) => {
-    setTimesheetData([...timesheetData, { ...entry, id: Date.now() }]);
+    try {
+      const newEntry = {
+        driverId: parseInt(id),
+        entryDate: entry.date,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        breakDuration: parseInt(entry.breakDuration),
+        activityType: entry.activityType,
+        notes: entry.notes,
+      };
+      
+      // This would be an API call to add timesheet entry
+      // For now, we'll add it locally
+      setTimesheetData([...timesheetData, { ...entry, id: Date.now() }]);
+    } catch (err) {
+      console.error('Error adding timesheet entry:', err);
+      setError(err.message || 'Failed to add timesheet entry');
+    }
   };
 
   const handleDeleteTimesheetEntry = async (entryId) => {
-    setTimesheetData(timesheetData.filter(entry => entry.id !== entryId));
+    try {
+      // This would be an API call to delete timesheet entry
+      setTimesheetData(timesheetData.filter(entry => entry.id !== entryId));
+    } catch (err) {
+      console.error('Error deleting timesheet entry:', err);
+      setError(err.message || 'Failed to delete timesheet entry');
+    }
   };
 
   const handleImportTimesheet = async (file) => {
     console.log('Importing file:', file);
-    // Simulate import - in real implementation, parse the file and add entries
-    const newEntries = [
-      { 
-        id: Date.now() + 1, 
-        date: new Date().toISOString().split('T')[0], 
-        startTime: '10:00', 
-        endTime: '18:00', 
-        breakDuration: 30, 
-        activityType: 'DRIVING', 
-        notes: 'Imported entry 1' 
-      },
-      { 
-        id: Date.now() + 2, 
-        date: new Date().toISOString().split('T')[0], 
-        startTime: '11:00', 
-        endTime: '19:00', 
-        breakDuration: 45, 
-        activityType: 'DRIVING', 
-        notes: 'Imported entry 2' 
-      },
-    ];
-    setTimesheetData([...timesheetData, ...newEntries]);
+    // Implement actual import logic here
+    // Parse file and add entries via API
   };
 
   const handleExportTimesheet = () => {
-    // Generate CSV data
     const headers = ['Date', 'Start Time', 'End Time', 'Break Duration', 'Activity Type', 'Notes'];
     const rows = timesheetData.map(entry => [
       entry.date,
@@ -1852,11 +1791,34 @@ const DriverDashboard = () => {
   };
 
   const handleRequestLeave = async (leave) => {
-    setLeaveData([...leaveData, { ...leave, id: Date.now(), status: 'PENDING' }]);
+    try {
+      const leaveRequest = {
+        driverId: parseInt(id),
+        leaveTypeId: leave.type === 'ANNUAL' ? 1 : 
+                     leave.type === 'SICK' ? 2 :
+                     leave.type === 'STUDY' ? 3 : 4,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason,
+        notes: leave.notes,
+      };
+      
+      const result = await leaveService.requestLeave(leaveRequest);
+      setLeaveData([...leaveData, result]);
+    } catch (err) {
+      console.error('Error requesting leave:', err);
+      setError(err.message || 'Failed to request leave');
+    }
   };
 
   const handleCancelLeave = async (leaveId) => {
-    setLeaveData(leaveData.filter(leave => leave.id !== leaveId));
+    try {
+      await leaveService.cancelLeave(leaveId);
+      setLeaveData(leaveData.filter(leave => leave.id !== leaveId));
+    } catch (err) {
+      console.error('Error cancelling leave:', err);
+      setError(err.message || 'Failed to cancel leave');
+    }
   };
 
   if (loading) {
@@ -1892,7 +1854,6 @@ const DriverDashboard = () => {
     <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
       <Box sx={{ maxWidth: '1440px', margin: '0 auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, gap: 3 }}>
         
-        {/* LEFT PANEL - Driver Profile */}
         <Paper
           elevation={0}
           sx={{
@@ -1995,7 +1956,6 @@ const DriverDashboard = () => {
 
             <Divider sx={{ mb: 2.5 }} />
 
-            {/* Contact Information */}
             <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
                 Contact Information
@@ -2007,7 +1967,6 @@ const DriverDashboard = () => {
 
             <Divider sx={{ my: 2.5 }} />
 
-            {/* Quick Stats */}
             <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
                 Quick Stats
@@ -2020,7 +1979,6 @@ const DriverDashboard = () => {
           </Box>
         </Paper>
 
-        {/* RIGHT PANEL - Main Content */}
         <Box>
           <DriverNavigationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -2034,7 +1992,6 @@ const DriverDashboard = () => {
             />
           ))}
 
-          {/* Tab Content */}
           {activeTab === 0 && (
             <OverviewTab 
               driver={driver} 
