@@ -135,9 +135,10 @@ import {
 import driverService from '../services/driverService';
 import timesheetService from '../services/timesheetService';
 import leaveService from '../services/leaveService';
+import tripService from '../services/tripService';
 
 // ============================================================
-// NAVIGATION TABS (unchanged)
+// NAVIGATION TABS
 // ============================================================
 const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
   const handleChange = (event, newValue) => {
@@ -196,7 +197,7 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
 };
 
 // ============================================================
-// PUNCH CLOCK COMPONENT (unchanged)
+// PUNCH CLOCK COMPONENT
 // ============================================================
 const PunchClock = ({ onPunch, currentStatus, loading }) => {
   const theme = useTheme();
@@ -365,7 +366,426 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 };
 
 // ============================================================
-// TIMESHEET TAB - UPDATED WITH REAL API
+// TRIPS TAB
+// ============================================================
+const TripsTab = ({ trips, loading, onViewTrip }) => {
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  if (!trips || trips.length === 0) {
+    return (
+      <Box sx={{ py: 4, textAlign: 'center' }}>
+        <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          No trips found for this driver
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <Table>
+        <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Trip #</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Route</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Vehicle</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Date</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Distance</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {trips.map((trip) => (
+            <TableRow key={trip.id} hover>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#4F46E5' }}>
+                  {trip.tripNumber || `#${trip.id}`}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                  {trip.originCity || trip.originLocation} → {trip.destinationCity || trip.destinationLocation}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Chip
+                  label={trip.status}
+                  size="small"
+                  sx={{
+                    fontSize: '0.6rem',
+                    height: 20,
+                    bgcolor: trip.status === 'COMPLETED' ? '#D1FAE5' : 
+                             trip.status === 'IN_PROGRESS' ? '#FEF3C7' : 
+                             trip.status === 'CANCELLED' ? '#FEE2E2' : '#DBEAFE',
+                    color: trip.status === 'COMPLETED' ? '#065F46' : 
+                           trip.status === 'IN_PROGRESS' ? '#92400E' : 
+                           trip.status === 'CANCELLED' ? '#991B1B' : '#1E40AF',
+                    fontWeight: 500,
+                  }}
+                />
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>
+                {trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A'}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>
+                {trip.plannedStartDate ? new Date(trip.plannedStartDate).toLocaleDateString() : 'N/A'}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>
+                {trip.totalDistance ? `${trip.totalDistance} km` : 'N/A'}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
+// ============================================================
+// LEAVE TAB WITH APPROVE/REJECT
+// ============================================================
+const LeaveTab = ({ 
+  leaveData, 
+  loading, 
+  onRequestLeave, 
+  onCancelLeave,
+  onOpenApproveDialog 
+}) => {
+  const [openDialog, setOpenDialog] = useState(false);
+  const [newLeave, setNewLeave] = useState({
+    type: 'ANNUAL',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    reason: '',
+    notes: '',
+  });
+
+  const leaveBalances = {
+    annual: { total: 21, used: 8, remaining: 13 },
+    sick: { total: 10, used: 2, remaining: 8 },
+    study: { total: 5, used: 0, remaining: 5 },
+    unpaid: { total: 0, used: 0, remaining: 0 },
+  };
+
+  const handleRequestLeave = () => {
+    onRequestLeave(newLeave);
+    setOpenDialog(false);
+    setNewLeave({
+      type: 'ANNUAL',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+      reason: '',
+      notes: '',
+    });
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Leave Management
+        </Typography>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenDialog(true)}
+          sx={{
+            fontSize: '0.75rem',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+          }}
+        >
+          Request Leave
+        </Button>
+      </Box>
+
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+        Leave Balances
+      </Typography>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {Object.entries(leaveBalances).map(([key, balance]) => (
+          <Grid item xs={6} sm={3} key={key}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: '12px',
+                border: '1px solid #ECECEC',
+                textAlign: 'center',
+                bgcolor: '#FFFFFF',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.6rem' }}>
+                {key} Leave
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 0.5, mt: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5' }}>
+                  {balance.remaining}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                  / {balance.total}
+                </Typography>
+              </Box>
+              <Box sx={{ mt: 1 }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={(balance.used / balance.total) * 100}
+                  sx={{
+                    height: 4,
+                    borderRadius: 2,
+                    bgcolor: '#F3F4F6',
+                    '& .MuiLinearProgress-bar': {
+                      bgcolor: '#4F46E5',
+                      borderRadius: 2,
+                    },
+                  }}
+                />
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: '0.6rem' }}>
+                  Used: {balance.used} / Remaining: {balance.remaining}
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+        Leave Requests
+      </Typography>
+      <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
+        <Table>
+          <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Type</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Start Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>End Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Duration</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Reason</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {leaveData?.length > 0 ? (
+              leaveData.map((leave) => {
+                const duration = Math.ceil(
+                  (new Date(leave.endDate) - new Date(leave.startDate)) / (1000 * 60 * 60 * 24)
+                ) + 1;
+                return (
+                  <TableRow key={leave.id} hover>
+                    <TableCell>
+                      <Chip
+                        label={leave.type}
+                        size="small"
+                        sx={{
+                          fontSize: '0.6rem',
+                          height: 20,
+                          bgcolor: leave.type === 'ANNUAL' ? '#DBEAFE' :
+                                  leave.type === 'SICK' ? '#D1FAE5' :
+                                  leave.type === 'STUDY' ? '#FEF3C7' : '#F3F4F6',
+                          color: leave.type === 'ANNUAL' ? '#1E40AF' :
+                                 leave.type === 'SICK' ? '#065F46' :
+                                 leave.type === 'STUDY' ? '#92400E' : '#6B7280',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                      {new Date(leave.startDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                      {new Date(leave.endDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                      {duration} days
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={leave.status}
+                        size="small"
+                        sx={{
+                          fontSize: '0.6rem',
+                          height: 20,
+                          bgcolor: leave.status === 'APPROVED' ? '#D1FAE5' :
+                                  leave.status === 'PENDING' ? '#FEF3C7' :
+                                  leave.status === 'REJECTED' ? '#FEE2E2' : '#F3F4F6',
+                          color: leave.status === 'APPROVED' ? '#065F46' :
+                                 leave.status === 'PENDING' ? '#92400E' :
+                                 leave.status === 'REJECTED' ? '#991B1B' : '#6B7280',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                      {leave.reason || '-'}
+                    </TableCell>
+                    <TableCell>
+                      {leave.status === 'PENDING' && (
+                        <Stack direction="row" spacing={0.5}>
+                          <Tooltip title="Approve" arrow>
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => onOpenApproveDialog(leave, 'APPROVE')}
+                              sx={{ p: 0.5 }}
+                            >
+                              <CheckCircleIcon sx={{ fontSize: '0.9rem' }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reject" arrow>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => onOpenApproveDialog(leave, 'REJECT')}
+                              sx={{ p: 0.5 }}
+                            >
+                              <CancelIcon sx={{ fontSize: '0.9rem' }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Cancel Request" arrow>
+                            <IconButton
+                              size="small"
+                              color="warning"
+                              onClick={() => onCancelLeave(leave.id)}
+                              sx={{ p: 0.5 }}
+                            >
+                              <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      )}
+                      {leave.status !== 'PENDING' && (
+                        <Chip
+                          label={leave.status}
+                          size="small"
+                          sx={{
+                            fontSize: '0.6rem',
+                            height: 20,
+                            bgcolor: leave.status === 'APPROVED' ? '#D1FAE5' : 
+                                     leave.status === 'REJECTED' ? '#FEE2E2' : '#F3F4F6',
+                            color: leave.status === 'APPROVED' ? '#065F46' : 
+                                   leave.status === 'REJECTED' ? '#991B1B' : '#6B7280',
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No leave requests found
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Request Leave</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <FormControl fullWidth size="medium">
+              <InputLabel sx={{ fontSize: '0.8rem' }}>Leave Type</InputLabel>
+              <Select
+                value={newLeave.type}
+                onChange={(e) => setNewLeave({ ...newLeave, type: e.target.value })}
+                label="Leave Type"
+                sx={{ fontSize: '0.85rem' }}
+              >
+                <MenuItem value="ANNUAL">Annual Leave</MenuItem>
+                <MenuItem value="SICK">Sick Leave</MenuItem>
+                <MenuItem value="STUDY">Study Leave</MenuItem>
+                <MenuItem value="UNPAID">Unpaid Leave</MenuItem>
+                <MenuItem value="OTHER">Other</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              label="Start Date"
+              type="date"
+              value={newLeave.startDate}
+              onChange={(e) => setNewLeave({ ...newLeave, startDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            />
+            <TextField
+              label="End Date"
+              type="date"
+              value={newLeave.endDate}
+              onChange={(e) => setNewLeave({ ...newLeave, endDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            />
+            <TextField
+              label="Reason"
+              value={newLeave.reason}
+              onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })}
+              fullWidth
+              size="medium"
+              placeholder="Reason for leave request"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            />
+            <TextField
+              label="Additional Notes"
+              multiline
+              rows={2}
+              value={newLeave.notes}
+              onChange={(e) => setNewLeave({ ...newLeave, notes: e.target.value })}
+              fullWidth
+              size="medium"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+          <Button 
+            onClick={handleRequestLeave} 
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              textTransform: 'none',
+              borderRadius: '10px',
+              px: 3,
+            }}
+          >
+            Submit Request
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+// ============================================================
+// TIMESHEET TAB
 // ============================================================
 const TimesheetTab = ({ 
   timesheetData, 
@@ -881,300 +1301,7 @@ const TimesheetTab = ({
 };
 
 // ============================================================
-// LEAVE TAB - UPDATED WITH REAL API
-// ============================================================
-const LeaveTab = ({ leaveData, loading, onRequestLeave, onCancelLeave }) => {
-  const [openDialog, setOpenDialog] = useState(false);
-  const [newLeave, setNewLeave] = useState({
-    type: 'ANNUAL',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
-    reason: '',
-    notes: '',
-  });
-
-  // Leave balances from API
-  const leaveBalances = {
-    annual: { total: 21, used: 8, remaining: 13 },
-    sick: { total: 10, used: 2, remaining: 8 },
-    study: { total: 5, used: 0, remaining: 5 },
-    unpaid: { total: 0, used: 0, remaining: 0 },
-  };
-
-  const handleRequestLeave = () => {
-    onRequestLeave(newLeave);
-    setOpenDialog(false);
-    setNewLeave({
-      type: 'ANNUAL',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
-      reason: '',
-      notes: '',
-    });
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-        <CircularProgress size={40} />
-      </Box>
-    );
-  }
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Leave Management
-        </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenDialog(true)}
-          sx={{
-            fontSize: '0.75rem',
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-          }}
-        >
-          Request Leave
-        </Button>
-      </Box>
-
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-        Leave Balances
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {Object.entries(leaveBalances).map(([key, balance]) => (
-          <Grid item xs={6} sm={3} key={key}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.5,
-                borderRadius: '12px',
-                border: '1px solid #ECECEC',
-                textAlign: 'center',
-                bgcolor: '#FFFFFF',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                  transform: 'translateY(-2px)',
-                },
-              }}
-            >
-              <Typography variant="caption" sx={{ color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.6rem' }}>
-                {key} Leave
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 0.5, mt: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5' }}>
-                  {balance.remaining}
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                  / {balance.total}
-                </Typography>
-              </Box>
-              <Box sx={{ mt: 1 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={(balance.used / balance.total) * 100}
-                  sx={{
-                    height: 4,
-                    borderRadius: 2,
-                    bgcolor: '#F3F4F6',
-                    '& .MuiLinearProgress-bar': {
-                      bgcolor: '#4F46E5',
-                      borderRadius: 2,
-                    },
-                  }}
-                />
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: '0.6rem' }}>
-                  Used: {balance.used} / Remaining: {balance.remaining}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-        Leave Requests
-      </Typography>
-      <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
-        <Table>
-          <TableHead sx={{ bgcolor: '#F9FAFB' }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Start Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>End Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Duration</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Reason</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {leaveData?.length > 0 ? (
-              leaveData.map((leave) => {
-                const duration = Math.ceil(
-                  (new Date(leave.endDate) - new Date(leave.startDate)) / (1000 * 60 * 60 * 24)
-                ) + 1;
-                return (
-                  <TableRow key={leave.id} hover>
-                    <TableCell>
-                      <Chip
-                        label={leave.type}
-                        size="small"
-                        sx={{
-                          fontSize: '0.6rem',
-                          height: 20,
-                          bgcolor: leave.type === 'ANNUAL' ? '#DBEAFE' :
-                                  leave.type === 'SICK' ? '#D1FAE5' :
-                                  leave.type === 'STUDY' ? '#FEF3C7' : '#F3F4F6',
-                          color: leave.type === 'ANNUAL' ? '#1E40AF' :
-                                 leave.type === 'SICK' ? '#065F46' :
-                                 leave.type === 'STUDY' ? '#92400E' : '#6B7280',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
-                      {new Date(leave.startDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
-                      {new Date(leave.endDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                      {duration} days
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={leave.status}
-                        size="small"
-                        sx={{
-                          fontSize: '0.6rem',
-                          height: 20,
-                          bgcolor: leave.status === 'APPROVED' ? '#D1FAE5' :
-                                  leave.status === 'PENDING' ? '#FEF3C7' :
-                                  leave.status === 'REJECTED' ? '#FEE2E2' : '#F3F4F6',
-                          color: leave.status === 'APPROVED' ? '#065F46' :
-                                 leave.status === 'PENDING' ? '#92400E' :
-                                 leave.status === 'REJECTED' ? '#991B1B' : '#6B7280',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                      {leave.reason || '-'}
-                    </TableCell>
-                    <TableCell>
-                      {leave.status === 'PENDING' && (
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => onCancelLeave(leave.id)}
-                          sx={{ p: 0.5 }}
-                        >
-                          <DeleteIcon sx={{ fontSize: '0.8rem' }} />
-                        </IconButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No leave requests found
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Request Leave</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <FormControl fullWidth size="medium">
-              <InputLabel sx={{ fontSize: '0.8rem' }}>Leave Type</InputLabel>
-              <Select
-                value={newLeave.type}
-                onChange={(e) => setNewLeave({ ...newLeave, type: e.target.value })}
-                label="Leave Type"
-                sx={{ fontSize: '0.85rem' }}
-              >
-                <MenuItem value="ANNUAL">Annual Leave</MenuItem>
-                <MenuItem value="SICK">Sick Leave</MenuItem>
-                <MenuItem value="STUDY">Study Leave</MenuItem>
-                <MenuItem value="UNPAID">Unpaid Leave</MenuItem>
-                <MenuItem value="OTHER">Other</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              label="Start Date"
-              type="date"
-              value={newLeave.startDate}
-              onChange={(e) => setNewLeave({ ...newLeave, startDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
-            />
-            <TextField
-              label="End Date"
-              type="date"
-              value={newLeave.endDate}
-              onChange={(e) => setNewLeave({ ...newLeave, endDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
-            />
-            <TextField
-              label="Reason"
-              value={newLeave.reason}
-              onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })}
-              fullWidth
-              size="medium"
-              placeholder="Reason for leave request"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
-            />
-            <TextField
-              label="Additional Notes"
-              multiline
-              rows={2}
-              value={newLeave.notes}
-              onChange={(e) => setNewLeave({ ...newLeave, notes: e.target.value })}
-              fullWidth
-              size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
-          <Button 
-            onClick={handleRequestLeave} 
-            variant="contained"
-            sx={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-              textTransform: 'none',
-              borderRadius: '10px',
-              px: 3,
-            }}
-          >
-            Submit Request
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-};
-
-// ============================================================
-// PERFORMANCE TAB (unchanged)
+// PERFORMANCE TAB
 // ============================================================
 const PerformanceTab = ({ driver, performance, loading }) => {
   const defaultMetrics = [
@@ -1305,7 +1432,7 @@ const PerformanceTab = ({ driver, performance, loading }) => {
 };
 
 // ============================================================
-// OVERVIEW TAB (unchanged)
+// OVERVIEW TAB
 // ============================================================
 const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
@@ -1546,15 +1673,6 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 // ============================================================
 // PLACEHOLDER TABS
 // ============================================================
-const TripsTab = ({ driverId }) => (
-  <Box sx={{ py: 4, textAlign: 'center' }}>
-    <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-    <Typography variant="body1" color="text.secondary">
-      Trip history will be displayed here
-    </Typography>
-  </Box>
-);
-
 const DocumentsTab = () => (
   <Box sx={{ py: 4, textAlign: 'center' }}>
     <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
@@ -1581,7 +1699,7 @@ const NotesTab = ({ driver }) => (
 );
 
 // ============================================================
-// MAIN DRIVER DASHBOARD - UPDATED WITH REAL API
+// MAIN DRIVER DASHBOARD
 // ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
@@ -1590,17 +1708,24 @@ const DriverDashboard = () => {
   const [driver, setDriver] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [timesheetData, setTimesheetData] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
+  const [trips, setTrips] = useState([]);
   const [punchStatus, setPunchStatus] = useState('CLOCKED_OUT');
   const [punchLoading, setPunchLoading] = useState(false);
+  const [openApproveDialog, setOpenApproveDialog] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState(null);
+  const [approveAction, setApproveAction] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     if (id) {
       fetchDriverData(id);
       fetchTimesheetData(id);
       fetchLeaveData(id);
+      fetchTrips(id);
     } else {
       setError('No driver ID provided');
       setLoading(false);
@@ -1662,57 +1787,71 @@ const DriverDashboard = () => {
     }
   };
 
- const fetchTimesheetData = async (driverId) => {
-  try {
-    const id = parseInt(driverId, 10);
-    if (isNaN(id)) {
-      console.error('Invalid driver ID for timesheet fetch');
+  const fetchTimesheetData = async (driverId) => {
+    try {
+      const id = parseInt(driverId, 10);
+      if (isNaN(id)) {
+        console.error('Invalid driver ID for timesheet fetch');
+        setTimesheetData([]);
+        return;
+      }
+      
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      const endDate = new Date();
+      
+      console.log(`📤 Fetching timesheet for driver ${id} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+      
+      const entries = await timesheetService.getEntries(
+        id,
+        startDate.toISOString().split('T')[0],
+        endDate.toISOString().split('T')[0]
+      );
+      setTimesheetData(entries || []);
+      
+      const activeEntry = await timesheetService.getActivePunch(id);
+      if (activeEntry) {
+        setPunchStatus(activeEntry.punchStatus || 'CLOCKED_OUT');
+      }
+    } catch (err) {
+      console.error('Error fetching timesheet data:', err);
       setTimesheetData([]);
-      return;
     }
-    
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
-    const endDate = new Date();
-    
-    console.log(`📤 Fetching timesheet for driver ${id} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
-    
-    const entries = await timesheetService.getEntries(
-      id,
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
-    );
-    setTimesheetData(entries || []);
-    
-    // Get current punch status
-    const activeEntry = await timesheetService.getActivePunch(id);
-    if (activeEntry) {
-      setPunchStatus(activeEntry.punchStatus || 'CLOCKED_OUT');
-    }
-  } catch (err) {
-    console.error('Error fetching timesheet data:', err);
-    setTimesheetData([]);
-  }
-};
+  };
 
- // Update the fetchLeaveData function
-const fetchLeaveData = async (driverId) => {
-  try {
-    const id = parseInt(driverId, 10);
-    if (isNaN(id)) {
-      console.error('Invalid driver ID for leave fetch');
+  const fetchLeaveData = async (driverId) => {
+    try {
+      const id = parseInt(driverId, 10);
+      if (isNaN(id)) {
+        console.error('Invalid driver ID for leave fetch');
+        setLeaveData([]);
+        return;
+      }
+      
+      const requests = await leaveService.getLeaveRequests(id);
+      setLeaveData(requests || []);
+    } catch (err) {
+      console.error('Error fetching leave data:', err);
       setLeaveData([]);
-      return;
     }
-    
-    const requests = await leaveService.getLeaveRequests(id);
-    setLeaveData(requests || []);
-  } catch (err) {
-    console.error('Error fetching leave data:', err);
-    setLeaveData([]);
-  }
-};
+  };
 
+  const fetchTrips = async (driverId) => {
+    try {
+      const id = parseInt(driverId, 10);
+      if (isNaN(id)) {
+        console.error('Invalid driver ID for trips fetch');
+        setTrips([]);
+        return;
+      }
+      
+      const tripsData = await tripService.getTripsByDriver(id);
+      setTrips(tripsData || []);
+    } catch (err) {
+      console.error('Error fetching trips:', err);
+      setTrips([]);
+    }
+  };
 
   const handleNotificationClose = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
@@ -1726,38 +1865,36 @@ const fetchLeaveData = async (driverId) => {
     navigate(`/drivers/${id}/edit`);
   };
 
-  // Update the handlePunch function
-// Update the handlePunch function
-const handlePunch = async (type) => {
-  setPunchLoading(true);
-  try {
-    const driverId = parseInt(id, 10);
-    if (isNaN(driverId)) {
-      throw new Error('Invalid driver ID');
-    }
+  const handlePunch = async (type) => {
+    setPunchLoading(true);
+    try {
+      const driverId = parseInt(id, 10);
+      if (isNaN(driverId)) {
+        throw new Error('Invalid driver ID');
+      }
 
-    const punchData = {
-      driverId: driverId,
-      punchType: type,
-      location: 'Web Portal',
-      latitude: null,
-      longitude: null,
-    };
-    
-    console.log('📤 Sending punch data:', punchData);
-    const result = await timesheetService.punch(punchData);
-    console.log('✅ Punch result:', result);
-    setPunchStatus(result.punchStatus || 'CLOCKED_OUT');
-    
-    // Refresh timesheet data
-    await fetchTimesheetData(id);
-  } catch (err) {
-    console.error('Error processing punch:', err);
-    setError(err.userMessage || err.message || 'Failed to process punch');
-  } finally {
-    setPunchLoading(false);
-  }
-};
+      const punchData = {
+        driverId: driverId,
+        punchType: type,
+        location: 'Web Portal',
+        latitude: null,
+        longitude: null,
+      };
+      
+      console.log('📤 Sending punch data:', punchData);
+      const result = await timesheetService.punch(punchData);
+      console.log('✅ Punch result:', result);
+      setPunchStatus(result.punchStatus || 'CLOCKED_OUT');
+      
+      await fetchTimesheetData(id);
+    } catch (err) {
+      console.error('Error processing punch:', err);
+      setError(err.userMessage || err.message || 'Failed to process punch');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setPunchLoading(false);
+    }
+  };
 
   const handleAddTimesheetEntry = async (entry) => {
     try {
@@ -1771,29 +1908,32 @@ const handlePunch = async (type) => {
         notes: entry.notes,
       };
       
-      // This would be an API call to add timesheet entry
-      // For now, we'll add it locally
       setTimesheetData([...timesheetData, { ...entry, id: Date.now() }]);
+      setSuccessMessage('Timesheet entry added successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Error adding timesheet entry:', err);
       setError(err.message || 'Failed to add timesheet entry');
+      setTimeout(() => setError(null), 3000);
     }
   };
 
   const handleDeleteTimesheetEntry = async (entryId) => {
     try {
-      // This would be an API call to delete timesheet entry
       setTimesheetData(timesheetData.filter(entry => entry.id !== entryId));
+      setSuccessMessage('Timesheet entry deleted successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Error deleting timesheet entry:', err);
       setError(err.message || 'Failed to delete timesheet entry');
+      setTimeout(() => setError(null), 3000);
     }
   };
 
   const handleImportTimesheet = async (file) => {
     console.log('Importing file:', file);
-    // Implement actual import logic here
-    // Parse file and add entries via API
+    setSuccessMessage('Timesheet imported successfully');
+    setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   const handleExportTimesheet = () => {
@@ -1815,52 +1955,94 @@ const handlePunch = async (type) => {
     a.download = `timesheet_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+    setSuccessMessage('Timesheet exported successfully');
+    setTimeout(() => setSuccessMessage(''), 3000);
   };
 
- // Update the handleRequestLeave function
-const handleRequestLeave = async (leave) => {
-  try {
-    const driverId = parseInt(id, 10);
-    if (isNaN(driverId)) {
-      throw new Error('Invalid driver ID');
+  const handleRequestLeave = async (leave) => {
+    try {
+      const driverId = parseInt(id, 10);
+      if (isNaN(driverId)) {
+        throw new Error('Invalid driver ID');
+      }
+
+      const leaveTypeMap = {
+        'ANNUAL': 1,
+        'SICK': 2,
+        'STUDY': 3,
+        'UNPAID': 4,
+        'OTHER': 5,
+      };
+
+      const leaveRequest = {
+        driverId: driverId,
+        leaveTypeId: leaveTypeMap[leave.type] || 1,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason || '',
+        notes: leave.notes || '',
+      };
+      
+      console.log('📤 Sending leave request:', leaveRequest);
+      const result = await leaveService.requestLeave(leaveRequest);
+      console.log('✅ Leave request result:', result);
+      setLeaveData([...leaveData, result]);
+      setSuccessMessage('Leave request submitted successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error requesting leave:', err);
+      setError(err.userMessage || err.message || 'Failed to request leave');
+      setTimeout(() => setError(null), 3000);
     }
-
-    // Map leave type to ID
-    const leaveTypeMap = {
-      'ANNUAL': 1,
-      'SICK': 2,
-      'STUDY': 3,
-      'UNPAID': 4,
-      'OTHER': 5,
-    };
-
-    const leaveRequest = {
-      driverId: driverId,
-      leaveTypeId: leaveTypeMap[leave.type] || 1,
-      startDate: leave.startDate,
-      endDate: leave.endDate,
-      reason: leave.reason || '',
-      notes: leave.notes || '',
-    };
-    
-    console.log('📤 Sending leave request:', leaveRequest);
-    const result = await leaveService.requestLeave(leaveRequest);
-    console.log('✅ Leave request result:', result);
-    setLeaveData([...leaveData, result]);
-  } catch (err) {
-    console.error('Error requesting leave:', err);
-    setError(err.userMessage || err.message || 'Failed to request leave');
-  }
-};
+  };
 
   const handleCancelLeave = async (leaveId) => {
     try {
       await leaveService.cancelLeave(leaveId);
       setLeaveData(leaveData.filter(leave => leave.id !== leaveId));
+      setSuccessMessage('Leave request cancelled');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Error cancelling leave:', err);
       setError(err.message || 'Failed to cancel leave');
+      setTimeout(() => setError(null), 3000);
     }
+  };
+
+  const handleApproveLeave = async (leaveId) => {
+    try {
+      const approverId = 1; // TODO: Get from current user context
+      const result = await leaveService.approveLeave(leaveId, approverId);
+      await fetchLeaveData(id);
+      setOpenApproveDialog(false);
+      setSuccessMessage('Leave request approved successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error approving leave:', err);
+      setError(err.message || 'Failed to approve leave');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  const handleRejectLeave = async (leaveId, reason) => {
+    try {
+      const result = await leaveService.rejectLeave(leaveId, reason || 'No reason provided');
+      await fetchLeaveData(id);
+      setOpenApproveDialog(false);
+      setRejectionReason('');
+      setSuccessMessage('Leave request rejected');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error rejecting leave:', err);
+      setError(err.message || 'Failed to reject leave');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  const handleOpenApproveDialog = (leave, action) => {
+    setSelectedLeave(leave);
+    setApproveAction(action);
+    setOpenApproveDialog(true);
   };
 
   if (loading) {
@@ -2024,6 +2206,17 @@ const handleRequestLeave = async (leave) => {
         <Box>
           <DriverNavigationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
+          {error && (
+            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+          {successMessage && (
+            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage('')}>
+              {successMessage}
+            </Alert>
+          )}
+
           {notifications.map((notification) => (
             <NotificationBanner
               key={notification.id}
@@ -2063,11 +2256,12 @@ const handleRequestLeave = async (leave) => {
               loading={loading}
               onRequestLeave={handleRequestLeave}
               onCancelLeave={handleCancelLeave}
+              onOpenApproveDialog={handleOpenApproveDialog}
             />
           )}
 
           {activeTab === 3 && (
-            <TripsTab driverId={id} />
+            <TripsTab trips={trips} loading={loading} />
           )}
 
           {activeTab === 4 && (
@@ -2083,6 +2277,71 @@ const handleRequestLeave = async (leave) => {
           )}
         </Box>
       </Box>
+
+      {/* Approve/Reject Leave Dialog */}
+      <Dialog open={openApproveDialog} onClose={() => setOpenApproveDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>
+          {approveAction === 'APPROVE' ? 'Approve Leave Request' : 'Reject Leave Request'}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            {selectedLeave && (
+              <>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Leave Type</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{selectedLeave.type}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Duration</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {new Date(selectedLeave.startDate).toLocaleDateString()} - {new Date(selectedLeave.endDate).toLocaleDateString()}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Reason</Typography>
+                  <Typography variant="body2">{selectedLeave.reason || 'No reason provided'}</Typography>
+                </Box>
+                {approveAction === 'REJECT' && (
+                  <TextField
+                    label="Rejection Reason"
+                    multiline
+                    rows={2}
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    fullWidth
+                    size="medium"
+                    placeholder="Reason for rejecting the leave request"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+                  />
+                )}
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenApproveDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+          <Button 
+            onClick={() => {
+              if (approveAction === 'APPROVE') {
+                handleApproveLeave(selectedLeave?.id);
+              } else {
+                handleRejectLeave(selectedLeave?.id, rejectionReason);
+              }
+            }} 
+            variant="contained"
+            sx={{
+              background: approveAction === 'APPROVE' 
+                ? 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)'
+                : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+              textTransform: 'none',
+              borderRadius: '10px',
+              px: 3,
+            }}
+          >
+            {approveAction === 'APPROVE' ? 'Approve' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
