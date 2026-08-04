@@ -71,7 +71,6 @@ const toCamelCase = (data) => {
 export const timesheetService = {
   punch: async (punchData) => {
     try {
-      // Validate required fields
       if (!punchData.driverId) {
         throw new Error('Driver ID is required');
       }
@@ -79,13 +78,13 @@ export const timesheetService = {
         throw new Error('Punch type is required');
       }
       
-      const payload = {
+      const payload = toSnakeCase({
         driver_id: parseInt(punchData.driverId, 10),
         punch_type: punchData.punchType,
         location: punchData.location || 'Web Portal',
         latitude: punchData.latitude || null,
         longitude: punchData.longitude || null,
-      };
+      });
       
       console.log('📤 Punch payload:', payload);
       const response = await api.post('/timesheet/punch', payload);
@@ -129,7 +128,6 @@ export const timesheetService = {
         return [];
       }
       if (error.response?.status === 500) {
-        // If backend endpoint doesn't exist yet, return mock data
         console.warn('⚠️ Backend endpoint not implemented yet, returning mock data');
         return [
           { 
@@ -169,72 +167,24 @@ export const timesheetService = {
       return toCamelCase(data);
     } catch (error) {
       console.error('❌ Error fetching active punch:', error);
-      if (error.response?.status === 404) {
-        return null;
-      }
-      return null; // Return null if no active punch
+      return null;
     }
   },
 
   getTotalHours: async (driverId, startDate, endDate) => {
     try {
-      const response = await api.get(`/timesheet/driver/${driverId}/hours`, {
+      const id = parseInt(driverId, 10);
+      if (isNaN(id)) {
+        throw new Error('Invalid driver ID');
+      }
+      
+      const response = await api.get(`/timesheet/driver/${id}/hours`, {
         params: { startDate, endDate }
       });
       return response;
     } catch (error) {
-      console.error('Error fetching total hours:', error);
-      throw error;
-    }
-  },
-
-  // ====== TIMESHEET SUMMARY ======
-  
-  getSummary: async (driverId, startDate, endDate) => {
-    try {
-      const response = await api.get(`/timesheet/driver/${driverId}/summary`, {
-        params: { startDate, endDate }
-      });
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error fetching timesheet summary:', error);
-      throw error;
-    }
-  },
-
-  // ====== TIMESHEET APPROVALS ======
-  
-  submitTimesheet: async (timesheetId) => {
-    try {
-      const response = await api.put(`/timesheet/${timesheetId}/submit`);
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error submitting timesheet:', error);
-      throw error;
-    }
-  },
-
-  approveTimesheet: async (timesheetId, approverId) => {
-    try {
-      const response = await api.put(`/timesheet/${timesheetId}/approve`, null, {
-        params: { approverId }
-      });
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error approving timesheet:', error);
-      throw error;
-    }
-  },
-
-  rejectTimesheet: async (timesheetId, reason) => {
-    try {
-      const response = await api.put(`/timesheet/${timesheetId}/reject`, null, {
-        params: { reason }
-      });
-      return toCamelCase(response);
-    } catch (error) {
-      console.error('Error rejecting timesheet:', error);
-      throw error;
+      console.error('❌ Error fetching total hours:', error);
+      return 0;
     }
   },
 };
