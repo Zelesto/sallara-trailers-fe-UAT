@@ -136,15 +136,61 @@ export const leaveService = {
     }
   },
 
-  cancelLeave: async (leaveId) => {
-    try {
-      const response = await api.put(`/leave/${leaveId}/cancel`);
-      return toCamelCase(response?.data || response);
-    } catch (error) {
-      console.error('❌ Error cancelling leave:', error);
-      throw error;
+
+  
+
+  approveLeave: async (leaveId, approverId) => {
+  try {
+    if (!leaveId) {
+      throw new Error('Leave ID is required');
     }
-  },
+    if (!approverId) {
+      throw new Error('Approver ID is required');
+    }
+
+    const response = await api.put(`/leave/${leaveId}/approve`, null, {
+      params: { approverId }
+    });
+    console.log('✅ Leave approved:', response);
+    return toCamelCase(response);
+  } catch (error) {
+    console.error('❌ Error approving leave:', error);
+    if (error.response?.data) {
+      throw new Error(error.response.data);
+    }
+    throw error;
+  }
+},
+
+rejectLeave: async (leaveId, reason) => {
+  try {
+    if (!leaveId) {
+      throw new Error('Leave ID is required');
+    }
+
+    const response = await api.put(`/leave/${leaveId}/reject`, null, {
+      params: { reason: reason || 'No reason provided' }
+    });
+    console.log('✅ Leave rejected:', response);
+    return toCamelCase(response);
+  } catch (error) {
+    console.error('❌ Error rejecting leave:', error);
+    if (error.response?.data) {
+      throw new Error(error.response.data);
+    }
+    throw error;
+  }
+},
+
+cancelLeave: async (leaveId) => {
+  try {
+    const response = await api.put(`/leave/${leaveId}/cancel`);
+    return toCamelCase(response?.data || response);
+  } catch (error) {
+    console.error('❌ Error cancelling leave:', error);
+    throw error;
+  }
+},
 
   getLeaveBalances: async (driverId) => {
     try {
