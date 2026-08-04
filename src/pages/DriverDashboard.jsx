@@ -1709,28 +1709,36 @@ const DriverDashboard = () => {
   };
 
   const handlePunch = async (type) => {
-    setPunchLoading(true);
-    try {
-      const punchData = {
-        driverId: parseInt(id),
-        punchType: type,
-        location: 'Web Portal',
-        latitude: null,
-        longitude: null,
-      };
-      
-      const result = await timesheetService.punch(punchData);
-      setPunchStatus(result.punchStatus || 'CLOCKED_OUT');
-      
-      // Refresh timesheet data
-      await fetchTimesheetData(id);
-    } catch (err) {
-      console.error('Error processing punch:', err);
-      setError(err.message || 'Failed to process punch');
-    } finally {
-      setPunchLoading(false);
+  setPunchLoading(true);
+  try {
+    // Make sure driverId is a number, not a string
+    const driverId = parseInt(id, 10);
+    if (isNaN(driverId)) {
+      throw new Error('Invalid driver ID');
     }
-  };
+
+    const punchData = {
+      driverId: driverId,
+      punchType: type,
+      location: 'Web Portal',
+      latitude: null,
+      longitude: null,
+    };
+    
+    console.log('📤 Sending punch data:', punchData);
+    const result = await timesheetService.punch(punchData);
+    console.log('✅ Punch result:', result);
+    setPunchStatus(result.punchStatus || 'CLOCKED_OUT');
+    
+    // Refresh timesheet data
+    await fetchTimesheetData(id);
+  } catch (err) {
+    console.error('Error processing punch:', err);
+    setError(err.userMessage || err.message || 'Failed to process punch');
+  } finally {
+    setPunchLoading(false);
+  }
+};
 
   const handleAddTimesheetEntry = async (entry) => {
     try {
@@ -1791,25 +1799,32 @@ const DriverDashboard = () => {
   };
 
   const handleRequestLeave = async (leave) => {
-    try {
-      const leaveRequest = {
-        driverId: parseInt(id),
-        leaveTypeId: leave.type === 'ANNUAL' ? 1 : 
-                     leave.type === 'SICK' ? 2 :
-                     leave.type === 'STUDY' ? 3 : 4,
-        startDate: leave.startDate,
-        endDate: leave.endDate,
-        reason: leave.reason,
-        notes: leave.notes,
-      };
-      
-      const result = await leaveService.requestLeave(leaveRequest);
-      setLeaveData([...leaveData, result]);
-    } catch (err) {
-      console.error('Error requesting leave:', err);
-      setError(err.message || 'Failed to request leave');
+  try {
+    const driverId = parseInt(id, 10);
+    if (isNaN(driverId)) {
+      throw new Error('Invalid driver ID');
     }
-  };
+
+    const leaveRequest = {
+      driverId: driverId,
+      leaveTypeId: leave.type === 'ANNUAL' ? 1 : 
+                   leave.type === 'SICK' ? 2 :
+                   leave.type === 'STUDY' ? 3 : 4,
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      reason: leave.reason,
+      notes: leave.notes,
+    };
+    
+    console.log('📤 Sending leave request:', leaveRequest);
+    const result = await leaveService.requestLeave(leaveRequest);
+    console.log('✅ Leave request result:', result);
+    setLeaveData([...leaveData, result]);
+  } catch (err) {
+    console.error('Error requesting leave:', err);
+    setError(err.userMessage || err.message || 'Failed to request leave');
+  }
+};
 
   const handleCancelLeave = async (leaveId) => {
     try {
