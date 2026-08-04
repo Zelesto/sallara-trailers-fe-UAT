@@ -90,44 +90,7 @@ export const maintenanceService = {
    * Get maintenance schedule for a vehicle
    * @param {number|string} vehicleId - Vehicle ID
    */
-  getCertificates: async (vehicleId) => {
-  try {
-    console.log(`📤 Fetching certificates for vehicle: ${vehicleId}`);
-    const response = await api.get(`/vehicles/${vehicleId}/certificates`);
-    const data = unwrap(response);
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return data || [];
-  } catch (error) {
-    console.warn('⚠️ Certificate endpoint not available, returning mock data');
-    // Return mock data when backend is not ready
-    return [
-      { 
-        id: 1, 
-        name: 'Roadworthy Certificate', 
-        number: 'RWC-2024-001', 
-        issueDate: '2024-01-15', 
-        expiryDate: '2025-01-15', 
-        status: 'ACTIVE', 
-        type: 'roadworthy' 
-      },
-      { 
-        id: 2, 
-        name: 'Operating Permit', 
-        number: 'OP-2024-045', 
-        issueDate: '2024-02-01', 
-        expiryDate: '2024-12-31', 
-        status: 'ACTIVE', 
-        type: 'permit' 
-      },
-    ];
-  }
-},
-Update maintenanceService.js
-javascript
-// src/services/maintenanceService.js - Add fallback
-
+ 
 getMaintenanceSchedule: async (vehicleId) => {
   try {
     console.log(`📤 Fetching maintenance schedule for vehicle: ${vehicleId}`);
