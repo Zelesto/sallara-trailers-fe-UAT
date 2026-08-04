@@ -114,9 +114,10 @@ import { vehicleService } from '../services/vehicleService';
 import { fuelService } from '../services/fuelService';
 import { certificateService } from '../services/certificateService';
 import { maintenanceService } from '../services/maintenanceService';
+import tripService from '../services/tripService';
 
 // ============================================================
-// NAVIGATION TABS (unchanged)
+// NAVIGATION TABS
 // ============================================================
 const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
   const handleChange = (event, newValue) => {
@@ -129,7 +130,7 @@ const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
     { label: 'Fuel Management', icon: <FuelIcon /> },
     { label: 'Service History', icon: <BuildIcon /> },
     { label: 'Certificates & Permits', icon: <VerifiedIcon /> },
-    { label: 'Maintenance', icon: <EngineeringIcon /> },
+    { label: 'Trips', icon: <RouteIcon /> },
     { label: 'Documents', icon: <DescriptionIcon /> },
     { label: 'Notes', icon: <InfoIcon /> },
   ];
@@ -176,7 +177,7 @@ const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
 };
 
 // ============================================================
-// FUEL TANK CARD (unchanged)
+// FUEL TANK CARD
 // ============================================================
 const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F46E5', onReset }) => {
   const percentage = capacity > 0 ? (currentLevel / capacity) * 100 : 0;
@@ -321,7 +322,7 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
 };
 
 // ============================================================
-// SPECIFICATIONS TAB (unchanged)
+// SPECIFICATIONS TAB
 // ============================================================
 const SpecificationsTab = ({ vehicle }) => {
   const specs = [
@@ -384,7 +385,7 @@ const SpecificationsTab = ({ vehicle }) => {
 };
 
 // ============================================================
-// FUEL MANAGEMENT TAB - UPDATED WITH REAL API
+// FUEL MANAGEMENT TAB
 // ============================================================
 const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel, onUpdateFuel }) => {
   const [saving, setSaving] = useState(false);
@@ -542,7 +543,7 @@ const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel, onUpda
 };
 
 // ============================================================
-// SERVICE HISTORY TAB - UPDATED WITH REAL API
+// SERVICE HISTORY TAB
 // ============================================================
 const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete, onRefresh }) => {
   if (loading) {
@@ -668,7 +669,7 @@ const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete, o
 };
 
 // ============================================================
-// CERTIFICATES & PERMITS TAB - UPDATED WITH REAL API
+// CERTIFICATES & PERMITS TAB
 // ============================================================
 const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify, onRefresh }) => {
   if (loading) {
@@ -800,7 +801,92 @@ const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify, o
 };
 
 // ============================================================
-// OVERVIEW TAB (unchanged)
+// TRIPS TAB
+// ============================================================
+const TripsTab = ({ trips, loading, onViewTrip }) => {
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  if (!trips || trips.length === 0) {
+    return (
+      <Box sx={{ py: 4, textAlign: 'center' }}>
+        <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          No trips found for this vehicle
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <Table>
+        <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Trip #</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Route</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Driver</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Date</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Distance</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {trips.map((trip) => (
+            <TableRow key={trip.id} hover>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#4F46E5' }}>
+                  {trip.tripNumber || `#${trip.id}`}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                  {trip.originCity || trip.originLocation} → {trip.destinationCity || trip.destinationLocation}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                  {trip.driverName || trip.driver?.name || 'N/A'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Chip
+                  label={trip.status}
+                  size="small"
+                  sx={{
+                    fontSize: '0.6rem',
+                    height: 20,
+                    bgcolor: trip.status === 'COMPLETED' ? '#D1FAE5' : 
+                             trip.status === 'IN_PROGRESS' ? '#FEF3C7' : 
+                             trip.status === 'CANCELLED' ? '#FEE2E2' : '#DBEAFE',
+                    color: trip.status === 'COMPLETED' ? '#065F46' : 
+                           trip.status === 'IN_PROGRESS' ? '#92400E' : 
+                           trip.status === 'CANCELLED' ? '#991B1B' : '#1E40AF',
+                    fontWeight: 500,
+                  }}
+                />
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>
+                {trip.plannedStartDate ? new Date(trip.plannedStartDate).toLocaleDateString() : 'N/A'}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>
+                {trip.totalDistance ? `${trip.totalDistance} km` : 'N/A'}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
+// ============================================================
+// OVERVIEW TAB
 // ============================================================
 const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => {
   const safeResetFuel = (tank) => {
@@ -922,7 +1008,7 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
 };
 
 // ============================================================
-// STAT CARD (unchanged)
+// STAT CARD
 // ============================================================
 const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
   <Paper
@@ -979,7 +1065,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 );
 
 // ============================================================
-// SERVICE LIST ITEM (unchanged)
+// SERVICE LIST ITEM
 // ============================================================
 const ServiceListItem = ({ service }) => {
   const statusColor = service.status === 'COMPLETED' ? '#22C55E' : 
@@ -1022,7 +1108,7 @@ const ServiceListItem = ({ service }) => {
 };
 
 // ============================================================
-// CERTIFICATE LIST ITEM (unchanged)
+// CERTIFICATE LIST ITEM
 // ============================================================
 const CertificateListItem = ({ certificate }) => {
   const statusColor = certificate.status === 'ACTIVE' ? '#22C55E' : '#F59E0B';
@@ -1063,7 +1149,7 @@ const CertificateListItem = ({ certificate }) => {
 };
 
 // ============================================================
-// NOTIFICATION BANNER (unchanged)
+// NOTIFICATION BANNER
 // ============================================================
 const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
   const getBackgroundColor = () => {
@@ -1128,7 +1214,7 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 };
 
 // ============================================================
-// PLACEHOLDER TABS (unchanged)
+// PLACEHOLDER TABS
 // ============================================================
 const MaintenanceTab = () => (
   <Box sx={{ py: 4, textAlign: 'center' }}>
@@ -1165,7 +1251,7 @@ const NotesTab = ({ vehicle }) => (
 );
 
 // ============================================================
-// SERVICE DIALOG (unchanged)
+// SERVICE DIALOG
 // ============================================================
 const ServiceDialog = ({ open, onClose, service, onSave }) => {
   const [formData, setFormData] = useState({
@@ -1300,7 +1386,7 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
 };
 
 // ============================================================
-// CERTIFICATE DIALOG (unchanged)
+// CERTIFICATE DIALOG
 // ============================================================
 const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
   const [formData, setFormData] = useState({
@@ -1417,7 +1503,7 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
 };
 
 // ============================================================
-// MAIN VEHICLE DASHBOARD - UPDATED WITH REAL API
+// MAIN VEHICLE DASHBOARD
 // ============================================================
 const VehicleDashboard = () => {
   const { id } = useParams();
@@ -1429,6 +1515,7 @@ const VehicleDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [serviceRecords, setServiceRecords] = useState([]);
   const [certificates, setCertificates] = useState([]);
+  const [trips, setTrips] = useState([]);
   const [openServiceDialog, setOpenServiceDialog] = useState(false);
   const [openCertificateDialog, setOpenCertificateDialog] = useState(false);
   const [editingService, setEditingService] = useState(null);
@@ -1448,6 +1535,7 @@ const VehicleDashboard = () => {
       fetchVehicleData(id);
       fetchServiceRecords(id);
       fetchCertificates(id);
+      fetchTrips(id);
     } else {
       setError('No vehicle ID provided');
       setLoading(false);
@@ -1551,6 +1639,16 @@ const VehicleDashboard = () => {
     }
   };
 
+  const fetchTrips = async (vehicleId) => {
+    try {
+      const tripsData = await tripService.getTripsByVehicle(vehicleId);
+      setTrips(tripsData || []);
+    } catch (err) {
+      console.error('Error fetching trips:', err);
+      setTrips([]);
+    }
+  };
+
   const handleNotificationClose = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
@@ -1576,13 +1674,13 @@ const VehicleDashboard = () => {
     } catch (err) {
       console.error('Error resetting fuel:', err);
       setError('Failed to reset fuel level');
+      setTimeout(() => setError(null), 3000);
     }
   };
 
   const handleUpdateFuel = async (fuelData) => {
     try {
       await vehicleService.updateFuelLevel(id, fuelData);
-      // Refresh fuel data
       const data = await vehicleService.getVehicleById(id);
       if (data.fuelCapacity) {
         setFuelData(prev => ({
@@ -1594,6 +1692,7 @@ const VehicleDashboard = () => {
     } catch (err) {
       console.error('Error updating fuel:', err);
       setError('Failed to update fuel settings');
+      setTimeout(() => setError(null), 3000);
     }
   };
 
@@ -1615,6 +1714,7 @@ const VehicleDashboard = () => {
     } catch (err) {
       console.error('Error deleting service:', err);
       setError('Failed to delete service record');
+      setTimeout(() => setError(null), 3000);
     }
   };
 
@@ -1881,7 +1981,7 @@ const VehicleDashboard = () => {
           )}
 
           {activeTab === 5 && (
-            <MaintenanceTab />
+            <TripsTab trips={trips} loading={loading} />
           )}
 
           {activeTab === 6 && (
