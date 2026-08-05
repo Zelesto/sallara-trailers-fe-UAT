@@ -73,6 +73,7 @@ import driverService from '../services/driverService';
 import timesheetService from '../services/timesheetService';
 import leaveService from '../services/leaveService';
 import tripService from '../services/tripService';
+import documentService from '../services/documentService';
 
 // ============================================================
 // NAVIGATION TABS
