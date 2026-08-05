@@ -21,33 +21,36 @@ const documentService = {
    * @returns {Promise<Object>} Upload response
    */
   uploadDocument: async (driverId, file, documentType = 'OTHER', description = '') => {
-    try {
-      const formData = new FormData();
-      formData.append('driverId', driverId);
-      formData.append('file', file);
-      formData.append('documentType', documentType);
-      formData.append('description', description || '');
-
-      console.log(`📤 Uploading document for driver ${driverId}:`, {
-        fileName: file.name,
-        fileSize: file.size,
-        documentType,
-      });
-
-      const response = await api.post('/documents/upload', formData, {
-        headers: { 
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      console.log(`✅ Document uploaded for driver ${driverId}:`, response);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error uploading document for driver ${driverId}:`, error);
-      throw error;
+  try {
+    // Validate driverId
+    const driverIdNum = parseInt(driverId, 10);
+    if (isNaN(driverIdNum) || driverIdNum <= 0) {
+      throw new Error('Invalid driver ID');
     }
-  },
 
+    const formData = new FormData();
+    formData.append('driverId', driverIdNum);
+    formData.append('file', file);
+    formData.append('documentType', documentType);
+    formData.append('description', description || '');
+
+    console.log(`📤 Uploading document for driver ${driverIdNum}:`, {
+      fileName: file.name,
+      fileSize: file.size,
+      documentType,
+    });
+
+    const response = await api.post('/documents/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    console.log(`✅ Document uploaded for driver ${driverIdNum}:`, response);
+    return response;
+  } catch (error) {
+    console.error(`❌ Error uploading document for driver ${driverId}:`, error);
+    throw error;
+  }
+},
   /**
    * Get all documents for a driver
    * @param {number|string} driverId - Driver ID
