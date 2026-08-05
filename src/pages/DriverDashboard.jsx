@@ -1747,6 +1747,9 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 // DOCUMENTS TAB - COMPLETE VERSION (FIXED)
 // ============================================================
 const DocumentsTab = ({ driverId }) => {
+
+  console.log('📌 DocumentsTab received driverId:', driverId, 'type:', typeof driverId);
+
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1756,6 +1759,7 @@ const DocumentsTab = ({ driverId }) => {
   const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  
 
   const documentTypes = documentService.getDocumentTypes?.() || [
     { value: 'ID', label: 'ID Document' },
@@ -1800,16 +1804,21 @@ const DocumentsTab = ({ driverId }) => {
   };
 
   const handleUpload = async () => {
+
+    console.log('📌 handleUpload - driverId:', driverId, 'type:', typeof driverId);
+    
     if (!selectedFile) {
       setError('Please select a file');
       return;
     }
 
-    // Parse driverId correctly
+    // Parse driverId safely
     const driverIdNum = parseInt(driverId, 10);
+    console.log('📌 Parsed driverId:', driverIdNum);
+    
     if (isNaN(driverIdNum) || driverIdNum <= 0) {
+      console.error('❌ Invalid driver ID in handleUpload:', driverId);
       setError(`Invalid driver ID: ${driverId}`);
-      setUploading(false);
       return;
     }
 
@@ -2241,6 +2250,7 @@ const NotesTab = ({ driver }) => {
 // ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
+  console.log('🔍 DriverDashboard - URL param id:', id, 'type:', typeof id);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [driver, setDriver] = useState(null);
@@ -2870,7 +2880,7 @@ const DriverDashboard = () => {
           )}
 
           {activeTab === 5 && (
-            <DocumentsTab />
+            <DocumentsTab driverId={id} />
           )}
 
           {activeTab === 6 && (
