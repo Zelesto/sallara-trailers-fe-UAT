@@ -1804,38 +1804,62 @@ const DocumentsTab = ({ driverId }) => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) {
-      setError('Please select a file');
-      return;
-    }
+  if (!selectedFile) {
+    setError('Please select a file');
+    return;
+  }
 
-    setUploading(true);
-    setError(null);
-    setSuccess(null);
+  setUploading(true);
+  setError(null);
+  setSuccess(null);
 
-    try {
-      const result = await documentService.uploadDocument(
-        driverId,
-        selectedFile,
-        documentType,
-        description
-      );
+  try {
+    const result = await documentService.uploadDocument(
+      parseInt(driverId),
+      selectedFile,
+      documentType,
+      description
+    );
 
-      setSuccess('Document uploaded successfully!');
-      setSelectedFile(null);
-      setDocumentType('OTHER');
-      setDescription('');
-      setOpenUploadDialog(false);
-      
-      // Refresh document list
-      await fetchDocuments();
-    } catch (err) {
-      console.error('Upload error:', err);
-      setError(err.message || 'Failed to upload document');
-    } finally {
-      setUploading(false);
-    }
-  };
+    setSuccess('Document uploaded successfully!');
+    setSelectedFile(null);
+    setDocumentType('OTHER');
+    setDescription('');
+    setOpenUploadDialog(false);
+    
+    // Refresh document list
+    await fetchDocuments();
+  } catch (err) {
+    console.error('Upload error:', err);
+    setError(err.userMessage || err.message || 'Failed to upload document');
+  } finally {
+    setUploading(false);
+  }
+};
+
+const handleDelete = async (doc) => {
+  if (!window.confirm(`Are you sure you want to delete "${doc.fileName}"?`)) {
+    return;
+  }
+
+  try {
+    await documentService.deleteDocument(doc.id);
+    setSuccess('Document deleted successfully');
+    await fetchDocuments();
+  } catch (err) {
+    console.error('Delete error:', err);
+    setError('Failed to delete document');
+  }
+};
+
+const handleDownload = async (doc) => {
+  try {
+    await documentService.downloadDocument(doc.id, doc.fileName);
+  } catch (err) {
+    console.error('Download error:', err);
+    setError('Failed to download document');
+  }
+};
 
   const handleDelete = async (doc) => {
     if (!window.confirm(`Are you sure you want to delete "${doc.fileName}"?`)) {
