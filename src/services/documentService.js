@@ -51,18 +51,7 @@ const documentService = {
     throw error;
   }
 },
-
-    const response = await api.post('/documents/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    console.log(`✅ Document uploaded for driver ${driverIdNum}:`, response);
-    return response;
-  } catch (error) {
-    console.error(`❌ Error uploading document for driver ${driverId}:`, error);
-    throw error;
-  }
-},
+   
   /**
    * Get all documents for a driver
    * @param {number|string} driverId - Driver ID
