@@ -2027,46 +2027,87 @@ const DriverDashboard = () => {
     }
   };
 
-  const fetchTrips = async (driverId) => {
+ const fetchTrips = async (driverId) => {
+  try {
+    const id = parseInt(driverId, 10);
+    if (isNaN(id)) {
+      console.error('Invalid driver ID for trips fetch');
+      setTrips([]);
+      return;
+    }
+    
+    console.log(`📤 Fetching trips for driver: ${id}`);
+    const tripsResponse = await tripService.getTripsByDriver(id);
+    console.log(`📥 getTripsByDriver response:`, tripsResponse);
+    
+    let tripsData = [];
+    if (tripsResponse && tripsResponse.data) {
+      tripsData = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
+    } else if (Array.isArray(tripsResponse)) {
+      tripsData = tripsResponse;
+    }
+    
+    console.log(`✅ Found ${tripsData.length} trips for driver ${id}`);
+    setTrips(tripsData);
+  } catch (err) {
+    console.error('Error fetching trips:', err);
+    
     try {
-      const idNum = parseInt(driverId, 10);
-      if (isNaN(idNum)) {
+      console.log('📤 Attempting fallback: fetching all trips and filtering');
+      const allTripsResponse = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
+      console.log(`📥 getAllTrips response:`, allTripsResponse);
+      
+      let tripsArray = [];
+      if (allTripsResponse && allTripsResponse.content && Array.isArray(allTripsResponse.content)) {
+        tripsArray = allTripsResponse.content;
+      } else if (Array.isArray(allTripsResponse)) {
+        tripsArray = allTripsResponse;
+      } else if (allTripsResponse && allTripsResponse.data && Array.isArray(allTripsResponse.data)) {
+        tripsArray = allTripsResponse.data;
+      } else {
+        console.warn('Unexpected getAllTrips response format:', allTripsResponse);
         setTrips([]);
         return;
       }
       
-      const tripsResponse = await tripService.getTripsByDriver(idNum);
-      let tripsData = [];
-      if (tripsResponse && tripsResponse.data) {
-        tripsData = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
-      } else if (Array.isArray(tripsResponse)) {
-        tripsData = tripsResponse;
-      }
-      setTrips(tripsData);
-    } catch (err) {
-      console.error('Error fetching trips:', err);
-      try {
-        const allTripsResponse = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
-        let tripsArray = [];
-        if (allTripsResponse && allTripsResponse.content && Array.isArray(allTripsResponse.content)) {
-          tripsArray = allTripsResponse.content;
-        } else if (Array.isArray(allTripsResponse)) {
-          tripsArray = allTripsResponse;
-        }
+      console.log(`📥 Filtering ${tripsArray.length} trips for driver ${id}`);
+      
+      // Log all driver IDs to see what's available
+      const driverIdCount = {};
+      tripsArray.forEach(t => {
+        const did = t.driverId || t.driver?.id || 'null';
+        driverIdCount[did] = (driverIdCount[did] || 0) + 1;
+      });
+      console.log('📊 Driver ID distribution in trips:', driverIdCount);
+      
+      // Filter trips for this driver - use loose equality
+      const filtered = tripsArray.filter(trip => {
+        const tripDriverId = trip.driverId;
+        const tripDriverObjId = trip.driver?.id;
         
-        const filtered = tripsArray.filter(trip => {
-          const tripDriverId = trip.driverId;
-          const tripDriverObjId = trip.driver?.id;
-          return String(tripDriverId) === String(idNum) || String(tripDriverObjId) === String(idNum);
-        });
+        // Compare as strings to handle type mismatches
+        const match = 
+          String(tripDriverId) === String(id) ||
+          String(tripDriverObjId) === String(id);
         
-        setTrips(filtered);
-      } catch (fallbackErr) {
-        console.error('Fallback trip fetch also failed:', fallbackErr);
-        setTrips([]);
+        return match;
+      });
+      
+      console.log(`✅ Found ${filtered.length} trips for driver ${id}`);
+      
+      if (filtered.length > 0) {
+        console.log('📊 Sample filtered trip:', filtered[0]);
+      } else {
+        console.log(`⚠️ No trips found for driver ${id}. Available driver IDs:`, Object.keys(driverIdCount));
       }
+      
+      setTrips(filtered);
+    } catch (fallbackErr) {
+      console.error('Fallback trip fetch also failed:', fallbackErr);
+      setTrips([]);
     }
-  };
+  }
+};
 
   const handleNotificationClose = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
