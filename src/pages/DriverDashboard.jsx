@@ -1743,7 +1743,7 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 };
 
 // ============================================================
-// DOCUMENTS TAB - COMPLETE VERSION
+// DOCUMENTS TAB - COMPLETE VERSION (FIXED)
 // ============================================================
 const DocumentsTab = ({ driverId }) => {
   const [documents, setDocuments] = useState([]);
@@ -1756,8 +1756,8 @@ const DocumentsTab = ({ driverId }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   
+  // Import document service
   const documentService = useMemo(() => {
-    // Lazy import or use existing service
     return require('../services/documentService').default;
   }, []);
 
@@ -1793,7 +1793,6 @@ const DocumentsTab = ({ driverId }) => {
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Validate file size (50MB max)
       if (file.size > 50 * 1024 * 1024) {
         setError('File size exceeds 50MB limit');
         return;
@@ -1804,62 +1803,38 @@ const DocumentsTab = ({ driverId }) => {
   };
 
   const handleUpload = async () => {
-  if (!selectedFile) {
-    setError('Please select a file');
-    return;
-  }
+    if (!selectedFile) {
+      setError('Please select a file');
+      return;
+    }
 
-  setUploading(true);
-  setError(null);
-  setSuccess(null);
+    setUploading(true);
+    setError(null);
+    setSuccess(null);
 
-  try {
-    const result = await documentService.uploadDocument(
-      parseInt(driverId),
-      selectedFile,
-      documentType,
-      description
-    );
+    try {
+      const result = await documentService.uploadDocument(
+        parseInt(driverId),
+        selectedFile,
+        documentType,
+        description
+      );
 
-    setSuccess('Document uploaded successfully!');
-    setSelectedFile(null);
-    setDocumentType('OTHER');
-    setDescription('');
-    setOpenUploadDialog(false);
-    
-    // Refresh document list
-    await fetchDocuments();
-  } catch (err) {
-    console.error('Upload error:', err);
-    setError(err.userMessage || err.message || 'Failed to upload document');
-  } finally {
-    setUploading(false);
-  }
-};
-
-const handleDelete = async (doc) => {
-  if (!window.confirm(`Are you sure you want to delete "${doc.fileName}"?`)) {
-    return;
-  }
-
-  try {
-    await documentService.deleteDocument(doc.id);
-    setSuccess('Document deleted successfully');
-    await fetchDocuments();
-  } catch (err) {
-    console.error('Delete error:', err);
-    setError('Failed to delete document');
-  }
-};
-
-const handleDownload = async (doc) => {
-  try {
-    await documentService.downloadDocument(doc.id, doc.fileName);
-  } catch (err) {
-    console.error('Download error:', err);
-    setError('Failed to download document');
-  }
-};
+      setSuccess('Document uploaded successfully!');
+      setSelectedFile(null);
+      setDocumentType('OTHER');
+      setDescription('');
+      setOpenUploadDialog(false);
+      
+      // Refresh document list
+      await fetchDocuments();
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err.userMessage || err.message || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleDelete = async (doc) => {
     if (!window.confirm(`Are you sure you want to delete "${doc.fileName}"?`)) {
@@ -1867,7 +1842,7 @@ const handleDownload = async (doc) => {
     }
 
     try {
-      await documentService.deleteDocument(driverId, doc);
+      await documentService.deleteDocument(doc.id);
       setSuccess('Document deleted successfully');
       await fetchDocuments();
     } catch (err) {
@@ -1878,7 +1853,7 @@ const handleDownload = async (doc) => {
 
   const handleDownload = async (doc) => {
     try {
-      await documentService.downloadDocument(doc);
+      await documentService.downloadDocument(doc.id, doc.fileName);
     } catch (err) {
       console.error('Download error:', err);
       setError('Failed to download document');
@@ -1902,6 +1877,7 @@ const handleDownload = async (doc) => {
     if (type.includes('word') || name.endsWith('.docx') || name.endsWith('.doc')) return '📘';
     if (type.includes('excel') || name.endsWith('.xlsx') || name.endsWith('.xls')) return '📗';
     if (type.includes('text') || name.endsWith('.txt')) return '📝';
+    if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.7z')) return '📦';
     return '📄';
   };
 
