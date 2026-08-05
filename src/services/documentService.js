@@ -20,12 +20,12 @@ const documentService = {
    * @param {string} description - Document description
    * @returns {Promise<Object>} Upload response
    */
-  uploadDocument: async (driverId, file, documentType = 'OTHER', description = '') => {
+ uploadDocument: async (driverId, file, documentType = 'OTHER', description = '') => {
   try {
     // Validate driverId
     const driverIdNum = parseInt(driverId, 10);
     if (isNaN(driverIdNum) || driverIdNum <= 0) {
-      throw new Error('Invalid driver ID');
+      throw new Error(`Invalid driver ID: ${driverId}`);
     }
 
     const formData = new FormData();
@@ -39,6 +39,18 @@ const documentService = {
       fileSize: file.size,
       documentType,
     });
+
+    const response = await api.post('/documents/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    console.log(`✅ Document uploaded for driver ${driverIdNum}:`, response);
+    return response;
+  } catch (error) {
+    console.error(`❌ Error uploading document for driver ${driverId}:`, error);
+    throw error;
+  }
+},
 
     const response = await api.post('/documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
