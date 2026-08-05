@@ -366,7 +366,7 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 };
 
 // ============================================================
-// TRIPS TAB
+// TRIPS TAB - FIXED VERSION
 // ============================================================
 const TripsTab = ({ trips, loading, onViewTrip }) => {
   if (loading) {
@@ -376,6 +376,11 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
       </Box>
     );
   }
+
+  // Log the actual trip data to see what we're working with
+  console.log('📊 TripsTab received:', trips);
+  console.log('📊 First trip sample:', trips && trips.length > 0 ? trips[0] : 'No trips');
+  console.log('📊 Trip count:', trips?.length || 0);
 
   if (!trips || trips.length === 0) {
     return (
@@ -388,8 +393,85 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
     );
   }
 
+  // Helper function to safely get nested property values
+  const getTripValue = (trip, path, defaultValue = 'N/A') => {
+    try {
+      const value = path.split('.').reduce((obj, key) => obj?.[key], trip);
+      return value !== undefined && value !== null ? value : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  };
+
+  // Helper to get trip number
+  const getTripNumber = (trip) => {
+    return trip.tripNumber || trip.id || trip.tripId || `#${trip.id}`;
+  };
+
+  // Helper to get route display
+  const getRouteDisplay = (trip) => {
+    const origin = trip.originCity || trip.originLocation || trip.origin?.city || trip.origin?.location || 'Origin';
+    const destination = trip.destinationCity || trip.destinationLocation || trip.destination?.city || trip.destination?.location || 'Destination';
+    return `${origin} → ${destination}`;
+  };
+
+  // Helper to get status with proper display
+  const getStatusChip = (status) => {
+    const statusMap = {
+      'COMPLETED': { bg: '#D1FAE5', color: '#065F46', label: 'Completed' },
+      'IN_PROGRESS': { bg: '#FEF3C7', color: '#92400E', label: 'In Progress' },
+      'PLANNED': { bg: '#DBEAFE', color: '#1E40AF', label: 'Planned' },
+      'ASSIGNED': { bg: '#E0E7FF', color: '#3730A3', label: 'Assigned' },
+      'ACTIVE': { bg: '#FEF3C7', color: '#92400E', label: 'Active' },
+      'CANCELLED': { bg: '#FEE2E2', color: '#991B1B', label: 'Cancelled' },
+      'DELAYED': { bg: '#FEF3C7', color: '#92400E', label: 'Delayed' },
+    };
+    const config = statusMap[status] || { bg: '#F3F4F6', color: '#6B7280', label: status || 'Unknown' };
+    return (
+      <Chip
+        label={config.label}
+        size="small"
+        sx={{
+          fontSize: '0.6rem',
+          height: 20,
+          bgcolor: config.bg,
+          color: config.color,
+          fontWeight: 500,
+        }}
+      />
+    );
+  };
+
+  // Helper to get vehicle display
+  const getVehicleDisplay = (trip) => {
+    return trip.vehicle?.registrationNumber || 
+           trip.vehicleRegistration || 
+           trip.vehicle?.registration || 
+           trip.assignedVehicle?.registrationNumber ||
+           'N/A';
+  };
+
+  // Helper to get date
+  const getTripDate = (trip) => {
+    const date = trip.plannedStartDate || trip.startDate || trip.date || trip.createdAt;
+    if (date) {
+      try {
+        return new Date(date).toLocaleDateString();
+      } catch {
+        return 'N/A';
+      }
+    }
+    return 'N/A';
+  };
+
+  // Helper to get distance
+  const getTripDistance = (trip) => {
+    const distance = trip.totalDistance || trip.distance || trip.estimatedDistance;
+    return distance ? `${distance} km` : 'N/A';
+  };
+
   return (
-    <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+    <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
       <Table>
         <TableHead sx={{ bgcolor: '#F9FAFB' }}>
           <TableRow>
@@ -403,42 +485,28 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
         </TableHead>
         <TableBody>
           {trips.map((trip) => (
-            <TableRow key={trip.id} hover>
+            <TableRow key={trip.id || trip.tripId} hover>
               <TableCell>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#4F46E5' }}>
-                  {trip.tripNumber || `#${trip.id}`}
+                  {getTripNumber(trip)}
                 </Typography>
               </TableCell>
               <TableCell>
                 <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {trip.originCity || trip.originLocation} → {trip.destinationCity || trip.destinationLocation}
+                  {getRouteDisplay(trip)}
                 </Typography>
               </TableCell>
               <TableCell>
-                <Chip
-                  label={trip.status}
-                  size="small"
-                  sx={{
-                    fontSize: '0.6rem',
-                    height: 20,
-                    bgcolor: trip.status === 'COMPLETED' ? '#D1FAE5' : 
-                             trip.status === 'IN_PROGRESS' ? '#FEF3C7' : 
-                             trip.status === 'CANCELLED' ? '#FEE2E2' : '#DBEAFE',
-                    color: trip.status === 'COMPLETED' ? '#065F46' : 
-                           trip.status === 'IN_PROGRESS' ? '#92400E' : 
-                           trip.status === 'CANCELLED' ? '#991B1B' : '#1E40AF',
-                    fontWeight: 500,
-                  }}
-                />
+                {getStatusChip(trip.status)}
               </TableCell>
               <TableCell sx={{ fontSize: '0.8rem' }}>
-                {trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A'}
+                {getVehicleDisplay(trip)}
               </TableCell>
               <TableCell sx={{ fontSize: '0.8rem' }}>
-                {trip.plannedStartDate ? new Date(trip.plannedStartDate).toLocaleDateString() : 'N/A'}
+                {getTripDate(trip)}
               </TableCell>
               <TableCell sx={{ fontSize: '0.8rem' }}>
-                {trip.totalDistance ? `${trip.totalDistance} km` : 'N/A'}
+                {getTripDistance(trip)}
               </TableCell>
             </TableRow>
           ))}
