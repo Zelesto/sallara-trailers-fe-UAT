@@ -1800,50 +1800,53 @@ const DocumentsTab = ({ driverId }) => {
   };
 
   const handleUpload = async () => {
-  if (!selectedFile) {
-    setError('Please select a file');
-    return;
-  }
+    if (!selectedFile) {
+      setError('Please select a file');
+      return;
+    }
 
-  setUploading(true);
-  setError(null);
-  setSuccess(null);
-
-  try {
-    // Make sure driverId is a valid number
+    // Parse driverId correctly
     const driverIdNum = parseInt(driverId, 10);
     if (isNaN(driverIdNum) || driverIdNum <= 0) {
-      setError('Invalid driver ID');
+      setError(`Invalid driver ID: ${driverId}`);
       setUploading(false);
       return;
     }
 
-    console.log(`📤 Uploading document for driver ${driverIdNum}:`, {
-      fileName: selectedFile.name,
-      fileSize: selectedFile.size,
-      documentType,
-    });
+    setUploading(true);
+    setError(null);
+    setSuccess(null);
 
-    const result = await documentService.uploadDocument(
-      driverIdNum,  // Pass the parsed number
-      selectedFile,
-      documentType,
-      description
-    );
+    try {
+      console.log(`📤 Uploading document for driver ${driverIdNum}:`, {
+        fileName: selectedFile.name,
+        fileSize: selectedFile.size,
+        documentType,
+      });
 
-    setSuccess('Document uploaded successfully!');
-    setSelectedFile(null);
-    setDocumentType('OTHER');
-    setDescription('');
-    setOpenUploadDialog(false);
-    await fetchDocuments();
-  } catch (err) {
-    console.error('Upload error:', err);
-    setError(err.userMessage || err.message || 'Failed to upload document');
-  } finally {
-    setUploading(false);
-  }
-};
+      const result = await documentService.uploadDocument(
+        driverIdNum,  // Use the parsed number
+        selectedFile,
+        documentType,
+        description
+      );
+
+      setSuccess('Document uploaded successfully!');
+      setSelectedFile(null);
+      setDocumentType('OTHER');
+      setDescription('');
+      setOpenUploadDialog(false);
+      
+      // Refresh document list
+      await fetchDocuments();
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err.userMessage || err.message || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
 
   const handleDelete = async (doc) => {
     if (!window.confirm(`Are you sure you want to delete "${doc.fileName}"?`)) {
