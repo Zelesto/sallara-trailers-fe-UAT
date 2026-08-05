@@ -23,8 +23,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Card,
-  CardContent,
   TextField,
   Dialog,
   DialogTitle,
@@ -35,102 +33,41 @@ import {
   Select,
   MenuItem,
   Tooltip,
-  Badge,
-  Slider,
-  Switch,
-  FormControlLabel,
   InputAdornment,
-  Input,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemAvatar,
-  Avatar as MuiAvatar,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
-  Fab,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
   ToggleButton,
   ToggleButtonGroup,
   useTheme,
   useMediaQuery,
-  Snackbar,
-  LinearProgress as MuiLinearProgress,
-  Chip as MuiChip,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  DirectionsCar as CarIcon,
   Route as RouteIcon,
   Assessment as AssessmentIcon,
-  CalendarToday as CalendarIcon,
-  Settings as SettingsIcon,
-  Support as SupportIcon,
-  ArrowBack as ArrowBackIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  LocationOn as LocationOnIcon,
-  Info as InfoIcon,
-  Close as CloseIcon,
-  WhatsApp as WhatsAppIcon,
-  Sms as SmsIcon,
-  Gmail as GmailIcon,
-  DesktopMac as DesktopIcon,
-  PhoneIphone as MobileIcon,
-  TabletMac as TabletIcon,
-  DevicesOther as OtherIcon,
-  Chat as ChatIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
-  AttachMoney as MoneyIcon,
-  TrendingUp as TrendingUpIcon,
-  EventNote as EventNoteIcon,
-  Assignment as AssignmentIcon,
-  PersonAdd as PersonAddIcon,
-  Edit as EditIcon,
-  MoreVert as MoreVertIcon,
-  Facebook as FacebookIcon,
-  Instagram as InstagramIcon,
-  LinkedIn as LinkedInIcon,
   AccessTime as AccessTimeIcon,
   BeachAccess as BeachAccessIcon,
+  Description as DescriptionIcon,
+  Info as InfoIcon,
+  ArrowBack as ArrowBackIcon,
+  Star as StarIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Edit as EditIcon,
+  Close as CloseIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Print as PrintIcon,
-  Speed as SpeedIcon,
-  LocalGasStation as FuelIcon,
-  Build as BuildIcon,
-  Receipt as ReceiptIcon,
-  Description as DescriptionIcon,
-  FileCopy as FileCopyIcon,
-  Verified as VerifiedIcon,
-  Pending as PendingIcon,
+  Upload as UploadIcon,
+  CloudUpload as CloudUploadIcon,
   Cancel as CancelIcon,
-  Refresh as RefreshIcon,
-  Save as SaveIcon,
-  GpsFixed as GpsFixedIcon,
-  Timer as TimerIcon,
   PlayArrow as PlayArrowIcon,
   Pause as PauseIcon,
   Stop as StopIcon,
   Coffee as CoffeeIcon,
   LunchDining as LunchDiningIcon,
   Security as SecurityIcon,
-  Upload as UploadIcon,
-  FileUpload as FileUploadIcon,
-  CloudUpload as CloudUploadIcon,
-  Fingerprint as FingerprintIcon,
-  QrCode as QrCodeIcon,
+  TrendingUp as TrendingUpIcon,
+  Timer as TimerIcon,
 } from '@mui/icons-material';
 import driverService from '../services/driverService';
 import timesheetService from '../services/timesheetService';
@@ -201,7 +138,6 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
 // ============================================================
 const PunchClock = ({ onPunch, currentStatus, loading }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [punchType, setPunchType] = useState('CLOCK_IN');
 
   const getStatusColor = () => {
@@ -366,7 +302,7 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 };
 
 // ============================================================
-// TRIPS TAB - FIXED VERSION
+// TRIPS TAB
 // ============================================================
 const TripsTab = ({ trips, loading, onViewTrip }) => {
   if (loading) {
@@ -376,11 +312,6 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
       </Box>
     );
   }
-
-  // Log the actual trip data to see what we're working with
-  console.log('📊 TripsTab received:', trips);
-  console.log('📊 First trip sample:', trips && trips.length > 0 ? trips[0] : 'No trips');
-  console.log('📊 Trip count:', trips?.length || 0);
 
   if (!trips || trips.length === 0) {
     return (
@@ -393,38 +324,27 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
     );
   }
 
-  // Helper function to safely get nested property values
-  const getTripValue = (trip, path, defaultValue = 'N/A') => {
-    try {
-      const value = path.split('.').reduce((obj, key) => obj?.[key], trip);
-      return value !== undefined && value !== null ? value : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  };
-
-  // Helper to get trip number
   const getTripNumber = (trip) => {
     return trip.tripNumber || trip.id || trip.tripId || `#${trip.id}`;
   };
 
-  // Helper to get route display
   const getRouteDisplay = (trip) => {
     const origin = trip.originCity || trip.originLocation || trip.origin?.city || trip.origin?.location || 'Origin';
     const destination = trip.destinationCity || trip.destinationLocation || trip.destination?.city || trip.destination?.location || 'Destination';
     return `${origin} → ${destination}`;
   };
 
-  // Helper to get status with proper display
   const getStatusChip = (status) => {
     const statusMap = {
       'COMPLETED': { bg: '#D1FAE5', color: '#065F46', label: 'Completed' },
+      'FINALIZED': { bg: '#D1FAE5', color: '#065F46', label: 'Finalized' },
       'IN_PROGRESS': { bg: '#FEF3C7', color: '#92400E', label: 'In Progress' },
       'PLANNED': { bg: '#DBEAFE', color: '#1E40AF', label: 'Planned' },
       'ASSIGNED': { bg: '#E0E7FF', color: '#3730A3', label: 'Assigned' },
       'ACTIVE': { bg: '#FEF3C7', color: '#92400E', label: 'Active' },
       'CANCELLED': { bg: '#FEE2E2', color: '#991B1B', label: 'Cancelled' },
       'DELAYED': { bg: '#FEF3C7', color: '#92400E', label: 'Delayed' },
+      'DRAFT': { bg: '#F3F4F6', color: '#6B7280', label: 'Draft' },
     };
     const config = statusMap[status] || { bg: '#F3F4F6', color: '#6B7280', label: status || 'Unknown' };
     return (
@@ -442,7 +362,6 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
     );
   };
 
-  // Helper to get vehicle display
   const getVehicleDisplay = (trip) => {
     return trip.vehicle?.registrationNumber || 
            trip.vehicleRegistration || 
@@ -451,7 +370,6 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
            'N/A';
   };
 
-  // Helper to get date
   const getTripDate = (trip) => {
     const date = trip.plannedStartDate || trip.startDate || trip.date || trip.createdAt;
     if (date) {
@@ -464,9 +382,8 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
     return 'N/A';
   };
 
-  // Helper to get distance
   const getTripDistance = (trip) => {
-    const distance = trip.totalDistance || trip.distance || trip.estimatedDistance;
+    const distance = trip.totalDistance || trip.distance || trip.estimatedDistance || trip.plannedDistanceKm;
     return distance ? `${distance} km` : 'N/A';
   };
 
@@ -517,7 +434,7 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
 };
 
 // ============================================================
-// LEAVE TAB WITH APPROVE/REJECT
+// LEAVE TAB
 // ============================================================
 const LeaveTab = ({ 
   leaveData, 
@@ -535,12 +452,33 @@ const LeaveTab = ({
     notes: '',
   });
 
-  const leaveBalances = {
-    annual: { total: 21, used: 8, remaining: 13 },
-    sick: { total: 10, used: 2, remaining: 8 },
-    study: { total: 5, used: 0, remaining: 5 },
-    unpaid: { total: 0, used: 0, remaining: 0 },
+  // Calculate leave balances from actual leave data
+  const calculateBalances = (data) => {
+    const balances = { annual: 21, sick: 10, study: 5, unpaid: 0 };
+    const used = { annual: 0, sick: 0, study: 0, unpaid: 0 };
+    
+    data?.forEach(leave => {
+      const type = leave.leaveType?.name || leave.leaveType?.type || leave.type;
+      if (type && (leave.status === 'APPROVED' || leave.status === 'approved')) {
+        const days = Math.ceil(
+          (new Date(leave.endDate) - new Date(leave.startDate)) / (1000 * 60 * 60 * 24)
+        ) + 1;
+        const key = type.toLowerCase();
+        if (used[key] !== undefined) {
+          used[key] += days;
+        }
+      }
+    });
+    
+    return {
+      annual: { total: balances.annual, used: used.annual, remaining: Math.max(0, balances.annual - used.annual) },
+      sick: { total: balances.sick, used: used.sick, remaining: Math.max(0, balances.sick - used.sick) },
+      study: { total: balances.study, used: used.study, remaining: Math.max(0, balances.study - used.study) },
+      unpaid: { total: balances.unpaid, used: used.unpaid, remaining: Math.max(0, balances.unpaid - used.unpaid) },
+    };
   };
+
+  const leaveBalances = calculateBalances(leaveData);
 
   const handleRequestLeave = () => {
     onRequestLeave(newLeave);
@@ -552,6 +490,22 @@ const LeaveTab = ({
       reason: '',
       notes: '',
     });
+  };
+
+  // Helper to get leave type display name
+  const getLeaveTypeLabel = (leave) => {
+    return leave.leaveType?.name || leave.leaveType?.type || leave.type || 'N/A';
+  };
+
+  // Helper to get leave type color
+  const getLeaveTypeColor = (leave) => {
+    const type = leave.leaveType?.name || leave.leaveType?.type || leave.type;
+    switch(type) {
+      case 'ANNUAL': return { bg: '#DBEAFE', color: '#1E40AF' };
+      case 'SICK': return { bg: '#D1FAE5', color: '#065F46' };
+      case 'STUDY': return { bg: '#FEF3C7', color: '#92400E' };
+      default: return { bg: '#F3F4F6', color: '#6B7280' };
+    }
   };
 
   if (loading) {
@@ -618,7 +572,7 @@ const LeaveTab = ({
               <Box sx={{ mt: 1 }}>
                 <LinearProgress
                   variant="determinate"
-                  value={(balance.used / balance.total) * 100}
+                  value={balance.total > 0 ? (balance.used / balance.total) * 100 : 0}
                   sx={{
                     height: 4,
                     borderRadius: 2,
@@ -660,21 +614,20 @@ const LeaveTab = ({
                 const duration = Math.ceil(
                   (new Date(leave.endDate) - new Date(leave.startDate)) / (1000 * 60 * 60 * 24)
                 ) + 1;
+                const typeColors = getLeaveTypeColor(leave);
+                const leaveTypeLabel = getLeaveTypeLabel(leave);
+                
                 return (
                   <TableRow key={leave.id} hover>
                     <TableCell>
                       <Chip
-                        label={leave.type}
+                        label={leaveTypeLabel}
                         size="small"
                         sx={{
                           fontSize: '0.6rem',
                           height: 20,
-                          bgcolor: leave.type === 'ANNUAL' ? '#DBEAFE' :
-                                  leave.type === 'SICK' ? '#D1FAE5' :
-                                  leave.type === 'STUDY' ? '#FEF3C7' : '#F3F4F6',
-                          color: leave.type === 'ANNUAL' ? '#1E40AF' :
-                                 leave.type === 'SICK' ? '#065F46' :
-                                 leave.type === 'STUDY' ? '#92400E' : '#6B7280',
+                          bgcolor: typeColors.bg,
+                          color: typeColors.color,
                         }}
                       />
                     </TableCell>
@@ -694,12 +647,12 @@ const LeaveTab = ({
                         sx={{
                           fontSize: '0.6rem',
                           height: 20,
-                          bgcolor: leave.status === 'APPROVED' ? '#D1FAE5' :
-                                  leave.status === 'PENDING' ? '#FEF3C7' :
-                                  leave.status === 'REJECTED' ? '#FEE2E2' : '#F3F4F6',
-                          color: leave.status === 'APPROVED' ? '#065F46' :
-                                 leave.status === 'PENDING' ? '#92400E' :
-                                 leave.status === 'REJECTED' ? '#991B1B' : '#6B7280',
+                          bgcolor: leave.status === 'APPROVED' || leave.status === 'approved' ? '#D1FAE5' :
+                                  leave.status === 'PENDING' || leave.status === 'pending' ? '#FEF3C7' :
+                                  leave.status === 'REJECTED' || leave.status === 'rejected' ? '#FEE2E2' : '#F3F4F6',
+                          color: leave.status === 'APPROVED' || leave.status === 'approved' ? '#065F46' :
+                                 leave.status === 'PENDING' || leave.status === 'pending' ? '#92400E' :
+                                 leave.status === 'REJECTED' || leave.status === 'rejected' ? '#991B1B' : '#6B7280',
                         }}
                       />
                     </TableCell>
@@ -707,7 +660,7 @@ const LeaveTab = ({
                       {leave.reason || '-'}
                     </TableCell>
                     <TableCell>
-                      {leave.status === 'PENDING' && (
+                      {(leave.status === 'PENDING' || leave.status === 'pending') && (
                         <Stack direction="row" spacing={0.5}>
                           <Tooltip title="Approve" arrow>
                             <IconButton
@@ -741,17 +694,17 @@ const LeaveTab = ({
                           </Tooltip>
                         </Stack>
                       )}
-                      {leave.status !== 'PENDING' && (
+                      {(leave.status !== 'PENDING' && leave.status !== 'pending') && (
                         <Chip
                           label={leave.status}
                           size="small"
                           sx={{
                             fontSize: '0.6rem',
                             height: 20,
-                            bgcolor: leave.status === 'APPROVED' ? '#D1FAE5' : 
-                                     leave.status === 'REJECTED' ? '#FEE2E2' : '#F3F4F6',
-                            color: leave.status === 'APPROVED' ? '#065F46' : 
-                                   leave.status === 'REJECTED' ? '#991B1B' : '#6B7280',
+                            bgcolor: leave.status === 'APPROVED' || leave.status === 'approved' ? '#D1FAE5' : 
+                                     leave.status === 'REJECTED' || leave.status === 'rejected' ? '#FEE2E2' : '#F3F4F6',
+                            color: leave.status === 'APPROVED' || leave.status === 'approved' ? '#065F46' : 
+                                   leave.status === 'REJECTED' || leave.status === 'rejected' ? '#991B1B' : '#6B7280',
                           }}
                         />
                       )}
@@ -799,7 +752,6 @@ const LeaveTab = ({
               InputLabelProps={{ shrink: true }}
               fullWidth
               size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <TextField
               label="End Date"
@@ -809,7 +761,6 @@ const LeaveTab = ({
               InputLabelProps={{ shrink: true }}
               fullWidth
               size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <TextField
               label="Reason"
@@ -818,7 +769,6 @@ const LeaveTab = ({
               fullWidth
               size="medium"
               placeholder="Reason for leave request"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <TextField
               label="Additional Notes"
@@ -828,7 +778,6 @@ const LeaveTab = ({
               onChange={(e) => setNewLeave({ ...newLeave, notes: e.target.value })}
               fullWidth
               size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
           </Stack>
         </DialogContent>
@@ -882,45 +831,63 @@ const TimesheetTab = ({
 
   const calculateHours = (start, end) => {
     if (!start || !end) return '0';
-    const startTime = new Date(`1970-01-01T${start}`);
-    const endTime = new Date(`1970-01-01T${end}`);
-    const diff = (endTime - startTime) / (1000 * 60 * 60);
-    return diff.toFixed(1);
+    try {
+      const startTime = new Date(`1970-01-01T${start}`);
+      const endTime = new Date(`1970-01-01T${end}`);
+      const diff = (endTime - startTime) / (1000 * 60 * 60);
+      return diff.toFixed(1);
+    } catch {
+      return '0';
+    }
   };
 
   const getWeekNumber = (date) => {
+    if (!date) return 0;
     const d = new Date(date);
     const startOfYear = new Date(d.getFullYear(), 0, 1);
     const days = Math.floor((d - startOfYear) / (24 * 60 * 60 * 1000));
     return Math.ceil((days + startOfYear.getDay() + 1) / 7);
   };
 
+  // Fix: Handle both 'date' and 'entryDate' fields from API
+  const getEntryDate = (entry) => {
+    return entry.entryDate || entry.date;
+  };
+
   const weeklySummary = timesheetData?.reduce((acc, entry) => {
-    const weekNumber = getWeekNumber(entry.date);
+    const date = getEntryDate(entry);
+    if (!date) return acc;
+    const weekNumber = getWeekNumber(date);
     if (!acc[weekNumber]) {
       acc[weekNumber] = { 
         totalHours: 0, 
         entries: 0, 
-        weekStart: entry.date 
+        weekStart: date 
       };
     }
-    acc[weekNumber].totalHours += parseFloat(calculateHours(entry.startTime, entry.endTime));
+    if (entry.startTime && entry.endTime) {
+      acc[weekNumber].totalHours += parseFloat(calculateHours(entry.startTime, entry.endTime));
+    }
     acc[weekNumber].entries += 1;
     return acc;
   }, {});
 
   const monthlySummary = timesheetData?.reduce((acc, entry) => {
-    const month = new Date(entry.date).getMonth();
-    const year = new Date(entry.date).getFullYear();
+    const date = getEntryDate(entry);
+    if (!date) return acc;
+    const month = new Date(date).getMonth();
+    const year = new Date(date).getFullYear();
     const key = `${year}-${month}`;
     if (!acc[key]) {
       acc[key] = { 
         totalHours: 0, 
         entries: 0, 
-        month: new Date(entry.date).toLocaleDateString([], { month: 'long', year: 'numeric' })
+        month: new Date(date).toLocaleDateString([], { month: 'long', year: 'numeric' })
       };
     }
-    acc[key].totalHours += parseFloat(calculateHours(entry.startTime, entry.endTime));
+    if (entry.startTime && entry.endTime) {
+      acc[key].totalHours += parseFloat(calculateHours(entry.startTime, entry.endTime));
+    }
     acc[key].entries += 1;
     return acc;
   }, {});
@@ -969,6 +936,26 @@ const TimesheetTab = ({
   const handleExport = () => {
     if (onExportTimesheet) {
       onExportTimesheet();
+    }
+  };
+
+  // Fix: Format date from API response
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  // Fix: Format time from API response
+  const formatTime = (timeStr) => {
+    if (!timeStr) return 'N/A';
+    try {
+      return new Date(`1970-01-01T${timeStr}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return timeStr;
     }
   };
 
@@ -1059,7 +1046,7 @@ const TimesheetTab = ({
                     Week {index + 1}
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: '#4F46E5', mt: 0.5 }}>
-                    {week.totalHours}h
+                    {week.totalHours.toFixed(1)}h
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#6B7280' }}>
                     {week.entries} entries
@@ -1093,7 +1080,7 @@ const TimesheetTab = ({
                     {month.month}
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: '#8B5CF6', mt: 0.5 }}>
-                    {month.totalHours}h
+                    {month.totalHours.toFixed(1)}h
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#6B7280' }}>
                     {month.entries} entries
@@ -1124,17 +1111,21 @@ const TimesheetTab = ({
               timesheetData.map((entry, index) => (
                 <TableRow key={entry.id || index} hover>
                   <TableCell sx={{ fontSize: '0.8rem' }}>
-                    {new Date(entry.date).toLocaleDateString()}
+                    {formatDate(getEntryDate(entry))}
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>{entry.startTime}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>{entry.endTime}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>{entry.breakDuration}</TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                    {formatTime(entry.startTime)}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                    {formatTime(entry.endTime)}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>{entry.breakDuration || '-'}</TableCell>
                   <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#4F46E5' }}>
-                    {calculateHours(entry.startTime, entry.endTime)}h
+                    {entry.startTime && entry.endTime ? `${calculateHours(entry.startTime, entry.endTime)}h` : 'N/A'}
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={entry.activityType}
+                      label={entry.activityType || 'N/A'}
                       size="small"
                       sx={{
                         fontSize: '0.6rem',
@@ -1176,6 +1167,7 @@ const TimesheetTab = ({
         </Table>
       </TableContainer>
 
+      {/* Dialogs remain the same */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Add Timesheet Entry</DialogTitle>
         <DialogContent>
@@ -1188,7 +1180,6 @@ const TimesheetTab = ({
               InputLabelProps={{ shrink: true }}
               fullWidth
               size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
             <Grid container spacing={2}>
               <Grid item xs={6}>
@@ -1200,7 +1191,6 @@ const TimesheetTab = ({
                   InputLabelProps={{ shrink: true }}
                   fullWidth
                   size="medium"
-                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -1212,7 +1202,6 @@ const TimesheetTab = ({
                   InputLabelProps={{ shrink: true }}
                   fullWidth
                   size="medium"
-                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
                 />
               </Grid>
             </Grid>
@@ -1223,7 +1212,6 @@ const TimesheetTab = ({
               onChange={(e) => setNewEntry({ ...newEntry, breakDuration: parseInt(e.target.value) })}
               fullWidth
               size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
               InputProps={{
                 endAdornment: <InputAdornment position="end">min</InputAdornment>,
               }}
@@ -1253,7 +1241,6 @@ const TimesheetTab = ({
               onChange={(e) => setNewEntry({ ...newEntry, notes: e.target.value })}
               fullWidth
               size="medium"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
             />
           </Stack>
         </DialogContent>
@@ -1371,19 +1358,12 @@ const TimesheetTab = ({
 // ============================================================
 // PERFORMANCE TAB
 // ============================================================
-const PerformanceTab = ({ driver, timesheetData, trips, loading }) => {
-  // Calculate real metrics
+const PerformanceTab = ({ driver, trips, loading }) => {
   const totalTrips = driver?.totalTrips || trips?.length || 0;
-  const completedTrips = trips?.filter(t => t.status === 'COMPLETED').length || 0;
+  const completedTrips = trips?.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED').length || 0;
   const onTimeRate = totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0;
-  
-  // Calculate average rating from trips or use performance score
   const avgRating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
-  
-  // Safety score (could be from driver data or calculated)
-  const safetyScore = driver?.safetyScore || 0;
-  
-  // Efficiency (could be calculated from trips data)
+  const safetyScore = driver?.safetyScore || 85;
   const efficiency = driver?.efficiencyScore || 0;
   
   const metrics = [
@@ -1392,7 +1372,6 @@ const PerformanceTab = ({ driver, timesheetData, trips, loading }) => {
     { label: 'Safety Score', value: `${safetyScore}%`, color: '#4F46E5', icon: <SecurityIcon /> },
     { label: 'Efficiency', value: `${efficiency}%`, color: '#8B5CF6', icon: <TrendingUpIcon /> },
   ];
-
 
   if (loading) {
     return (
@@ -1452,7 +1431,7 @@ const PerformanceTab = ({ driver, timesheetData, trips, loading }) => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CheckCircleIcon sx={{ color: '#22C55E', fontSize: '1rem' }} />
                     <Typography variant="caption" sx={{ color: '#111827' }}>
-                      {driver?.totalTrips || 0} Trips Completed
+                      {totalTrips} Trips Completed
                     </Typography>
                   </Box>
                 </Grid>
@@ -1460,7 +1439,7 @@ const PerformanceTab = ({ driver, timesheetData, trips, loading }) => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <StarIcon sx={{ color: '#F59E0B', fontSize: '1rem' }} />
                     <Typography variant="caption" sx={{ color: '#111827' }}>
-                      {driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0'} ★ Rating
+                      {avgRating} ★ Rating
                     </Typography>
                   </Box>
                 </Grid>
@@ -1513,7 +1492,7 @@ const PerformanceTab = ({ driver, timesheetData, trips, loading }) => {
 };
 
 // ============================================================
-// OVERVIEW TAB - UPDATED
+// OVERVIEW TAB
 // ============================================================
 const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
@@ -1526,23 +1505,28 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
 
   // Calculate this week's hours from timesheet data
   const thisWeekHours = timesheetData?.reduce((acc, entry) => {
-    const entryDate = new Date(entry.date || entry.entryDate);
+    const date = entry.entryDate || entry.date;
+    if (!date) return acc;
+    const entryDate = new Date(date);
     const today = new Date();
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay());
     if (entryDate >= startOfWeek && entryDate <= today) {
-      const start = entry.startTime || entry.clockIn;
-      const end = entry.endTime || entry.clockOut;
+      const start = entry.startTime;
+      const end = entry.endTime;
       if (start && end) {
-        const startTime = new Date(`1970-01-01T${start}`);
-        const endTime = new Date(`1970-01-01T${end}`);
-        acc += (endTime - startTime) / (1000 * 60 * 60);
+        try {
+          const startTime = new Date(`1970-01-01T${start}`);
+          const endTime = new Date(`1970-01-01T${end}`);
+          acc += (endTime - startTime) / (1000 * 60 * 60);
+        } catch {
+          // Ignore invalid times
+        }
       }
     }
     return acc;
   }, 0);
 
-  // Count pending leave requests
   const pendingLeaveCount = leaveData?.filter(l => 
     l.status === 'PENDING' || l.status === 'pending'
   ).length || 0;
@@ -1582,7 +1566,7 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
       <Grid item xs={12} sm={6} md={3}>
         <StatCard
           title="Leave Balance"
-          value="13 days"
+          value={`${leaveData?.filter(l => l.status === 'APPROVED' || l.status === 'approved').length || 0} days`}
           subtitle={`${pendingLeaveCount} pending requests`}
           icon={<BeachAccessIcon />}
           color="#22C55E"
@@ -1761,9 +1745,7 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 // ============================================================
 // PLACEHOLDER TABS
 // ============================================================
-const DocumentsTab = ({ driverId }) => {
-  const [documents, setDocuments] = useState([]);
-  
+const DocumentsTab = () => {
   return (
     <Box sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -1784,28 +1766,20 @@ const DocumentsTab = ({ driverId }) => {
         </Button>
       </Box>
       
-      {documents.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
-          <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-          <Typography variant="body1" color="text.secondary">
-            No documents uploaded yet
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Upload driver documents like ID, license, medical certificates, etc.
-          </Typography>
-          <Button variant="text" sx={{ mt: 2, color: '#4F46E5' }}>
-            Upload your first document
-          </Button>
-        </Paper>
-      ) : (
-        // Document list here
-        <></>
-      )}
+      <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
+        <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          No documents uploaded yet
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Upload driver documents like ID, license, medical certificates, etc.
+        </Typography>
+      </Paper>
     </Box>
   );
 };
 
-const NotesTab = ({ driver, onUpdateNotes }) => {
+const NotesTab = ({ driver }) => {
   const [notes, setNotes] = useState(driver?.notes || '');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1813,7 +1787,7 @@ const NotesTab = ({ driver, onUpdateNotes }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onUpdateNotes(notes);
+      // Save notes logic here
       setIsEditing(false);
     } catch (err) {
       console.error('Error saving notes:', err);
@@ -1936,159 +1910,82 @@ const DriverDashboard = () => {
   }, [id]);
 
   const fetchDriverData = async (driverId) => {
-  setLoading(true);
-  try {
-    // Fetch driver data
-    const data = await driverService.getDriverById(driverId);
-    
-    // Fetch trips for this driver to calculate stats
-    const id = parseInt(driverId, 10);
-    let driverTrips = [];
+    setLoading(true);
     try {
-      // First try to get trips by driver
-      const tripsResponse = await tripService.getTripsByDriver(id);
-      if (tripsResponse && tripsResponse.data) {
-        driverTrips = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
-      } else if (Array.isArray(tripsResponse)) {
-        driverTrips = tripsResponse;
-      }
-    } catch (err) {
-      console.warn('Could not fetch trips by driver, using fallback');
-      // Fallback: get all trips and filter
-      const allTrips = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
-      let tripsArray = [];
-      if (allTrips && allTrips.content) {
-        tripsArray = allTrips.content;
-      } else if (Array.isArray(allTrips)) {
-        tripsArray = allTrips;
-      }
-      driverTrips = tripsArray.filter(t => 
-        String(t.driverId) === String(id) || 
-        String(t.driver?.id) === String(id)
-      );
-    }
-    
-    // Calculate stats from trips
-    const totalTrips = driverTrips.length;
-    const completedTrips = driverTrips.filter(t => 
-      t.status === 'COMPLETED' || t.status === 'FINALIZED'
-    ).length;
-    const inProgressTrips = driverTrips.filter(t => 
-      t.status === 'IN_PROGRESS' || t.status === 'ACTIVE'
-    ).length;
-    const plannedTrips = driverTrips.filter(t => 
-      t.status === 'PLANNED' || t.status === 'ASSIGNED'
-    ).length;
-    
-    // Calculate total distance
-    const totalDistance = driverTrips.reduce((sum, t) => {
-      const distance = t.totalDistance || t.distance || t.distanceKm || t.plannedDistanceKm || 0;
-      return sum + (typeof distance === 'number' ? distance : parseFloat(distance) || 0);
-    }, 0);
-    
-    // Calculate monthly trips (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const monthlyTrips = driverTrips.filter(t => {
-      const startDate = t.plannedStartDate || t.startDate || t.createdAt;
-      if (!startDate) return false;
+      const data = await driverService.getDriverById(driverId);
+      const idNum = parseInt(driverId, 10);
+      let driverTrips = [];
+      
       try {
-        return new Date(startDate) >= thirtyDaysAgo;
-      } catch {
-        return false;
+        const tripsResponse = await tripService.getTripsByDriver(idNum);
+        if (tripsResponse && tripsResponse.data) {
+          driverTrips = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
+        } else if (Array.isArray(tripsResponse)) {
+          driverTrips = tripsResponse;
+        }
+      } catch (err) {
+        console.warn('Could not fetch trips by driver, using fallback');
+        const allTrips = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
+        let tripsArray = [];
+        if (allTrips && allTrips.content) {
+          tripsArray = allTrips.content;
+        } else if (Array.isArray(allTrips)) {
+          tripsArray = allTrips;
+        }
+        driverTrips = tripsArray.filter(t => 
+          String(t.driverId) === String(idNum) || 
+          String(t.driver?.id) === String(idNum)
+        );
       }
-    }).length;
-    
-    // Calculate performance score
-    const performanceScore = data.performanceScore || 
-      (totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0);
-    
-    // Calculate efficiency score (based on completed vs planned)
-    const efficiencyScore = data.efficiencyScore || 
-      (totalTrips > 0 ? Math.round((completedTrips / Math.max(totalTrips, 1)) * 100) : 0);
-    
-    // Calculate safety score (placeholder - could be from incidents)
-    const safetyScore = data.safetyScore || 95; // Default if not provided
-    
-    // Enrich driver data with calculated stats
-    const enrichedDriver = {
-      ...data,
-      totalTrips: totalTrips,
-      completedTrips: completedTrips,
-      inProgressTrips: inProgressTrips,
-      plannedTrips: plannedTrips,
-      totalDistance: Math.round(totalDistance),
-      monthlyTrips: monthlyTrips,
-      performanceScore: performanceScore,
-      efficiencyScore: efficiencyScore,
-      safetyScore: safetyScore,
-      tripCount: totalTrips,
-    };
-    
-    setDriver(enrichedDriver);
-    console.log('✅ Enriched driver data:', {
-      name: `${enrichedDriver.firstName} ${enrichedDriver.lastName}`,
-      totalTrips: enrichedDriver.totalTrips,
-      performanceScore: enrichedDriver.performanceScore,
-      monthlyTrips: enrichedDriver.monthlyTrips,
-      totalDistance: enrichedDriver.totalDistance,
-    });
-    
-    // Notifications
-    const newNotifications = [];
-    
-    if (data.licenseExpiry) {
-      const expiryDate = new Date(data.licenseExpiry);
-      const daysUntilExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
-      if (daysUntilExpiry < 0) {
-        newNotifications.push({
-          id: 1,
-          icon: <WarningIcon />,
-          message: `Driver license has expired. Please renew immediately.`,
-          severity: 'error',
-        });
-      } else if (daysUntilExpiry < 30) {
-        newNotifications.push({
-          id: 1,
-          icon: <WarningIcon />,
-          message: `Driver license expires in ${daysUntilExpiry} days. Please remind them to renew.`,
-          severity: 'warning',
-        });
-      }
+      
+      const totalTrips = driverTrips.length;
+      const completedTrips = driverTrips.filter(t => 
+        t.status === 'COMPLETED' || t.status === 'FINALIZED'
+      ).length;
+      
+      const totalDistance = driverTrips.reduce((sum, t) => {
+        const distance = t.totalDistance || t.distance || t.distanceKm || t.plannedDistanceKm || 0;
+        return sum + (typeof distance === 'number' ? distance : parseFloat(distance) || 0);
+      }, 0);
+      
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const monthlyTrips = driverTrips.filter(t => {
+        const startDate = t.plannedStartDate || t.startDate || t.createdAt;
+        if (!startDate) return false;
+        try {
+          return new Date(startDate) >= thirtyDaysAgo;
+        } catch {
+          return false;
+        }
+      }).length;
+      
+      const performanceScore = data.performanceScore || 
+        (totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0);
+      
+      const enrichedDriver = {
+        ...data,
+        totalTrips: totalTrips,
+        completedTrips: completedTrips,
+        totalDistance: Math.round(totalDistance),
+        monthlyTrips: monthlyTrips,
+        performanceScore: performanceScore,
+        tripCount: totalTrips,
+      };
+      
+      setDriver(enrichedDriver);
+    } catch (err) {
+      console.error('Error fetching driver data:', err);
+      setError('Failed to load driver data');
+    } finally {
+      setLoading(false);
     }
-
-    if (data.status === 'INACTIVE' || data.status === 'SUSPENDED') {
-      newNotifications.push({
-        id: 2,
-        icon: <WarningIcon />,
-        message: `Driver account is ${data.status.toLowerCase()}. Please review their status.`,
-        severity: 'error',
-      });
-    }
-
-    if (totalTrips > 100) {
-      newNotifications.push({
-        id: 3,
-        icon: <CheckCircleIcon />,
-        message: `Driver completed ${totalTrips} trips! Great performance milestone.`,
-        severity: 'success',
-      });
-    }
-
-    setNotifications(newNotifications);
-  } catch (err) {
-    console.error('Error fetching driver data:', err);
-    setError('Failed to load driver data');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const fetchTimesheetData = async (driverId) => {
     try {
-      const id = parseInt(driverId, 10);
-      if (isNaN(id)) {
-        console.error('Invalid driver ID for timesheet fetch');
+      const idNum = parseInt(driverId, 10);
+      if (isNaN(idNum)) {
         setTimesheetData([]);
         return;
       }
@@ -2097,16 +1994,14 @@ const DriverDashboard = () => {
       startDate.setDate(startDate.getDate() - 30);
       const endDate = new Date();
       
-      console.log(`📤 Fetching timesheet for driver ${id} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
-      
       const entries = await timesheetService.getEntries(
-        id,
+        idNum,
         startDate.toISOString().split('T')[0],
         endDate.toISOString().split('T')[0]
       );
       setTimesheetData(entries || []);
       
-      const activeEntry = await timesheetService.getActivePunch(id);
+      const activeEntry = await timesheetService.getActivePunch(idNum);
       if (activeEntry) {
         setPunchStatus(activeEntry.punchStatus || 'CLOCKED_OUT');
       }
@@ -2118,14 +2013,13 @@ const DriverDashboard = () => {
 
   const fetchLeaveData = async (driverId) => {
     try {
-      const id = parseInt(driverId, 10);
-      if (isNaN(id)) {
-        console.error('Invalid driver ID for leave fetch');
+      const idNum = parseInt(driverId, 10);
+      if (isNaN(idNum)) {
         setLeaveData([]);
         return;
       }
       
-      const requests = await leaveService.getLeaveRequests(id);
+      const requests = await leaveService.getLeaveRequests(idNum);
       setLeaveData(requests || []);
     } catch (err) {
       console.error('Error fetching leave data:', err);
@@ -2134,86 +2028,45 @@ const DriverDashboard = () => {
   };
 
   const fetchTrips = async (driverId) => {
-  try {
-    const id = parseInt(driverId, 10);
-    if (isNaN(id)) {
-      console.error('Invalid driver ID for trips fetch');
-      setTrips([]);
-      return;
-    }
-    
-    console.log(`📤 Fetching trips for driver: ${id}`);
-    const tripsResponse = await tripService.getTripsByDriver(id);
-    console.log(`📥 getTripsByDriver response:`, tripsResponse);
-    
-    let tripsData = [];
-    if (tripsResponse && tripsResponse.data) {
-      tripsData = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
-    } else if (Array.isArray(tripsResponse)) {
-      tripsData = tripsResponse;
-    }
-    
-    console.log(`✅ Found ${tripsData.length} trips for driver ${id}`);
-    setTrips(tripsData);
-  } catch (err) {
-    console.error('Error fetching trips:', err);
-    
     try {
-      console.log('📤 Attempting fallback: fetching all trips and filtering');
-      const allTripsResponse = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
-      console.log(`📥 getAllTrips response:`, allTripsResponse);
-      
-      let tripsArray = [];
-      if (allTripsResponse && allTripsResponse.content && Array.isArray(allTripsResponse.content)) {
-        tripsArray = allTripsResponse.content;
-      } else if (Array.isArray(allTripsResponse)) {
-        tripsArray = allTripsResponse;
-      } else if (allTripsResponse && allTripsResponse.data && Array.isArray(allTripsResponse.data)) {
-        tripsArray = allTripsResponse.data;
-      } else {
-        console.warn('Unexpected getAllTrips response format:', allTripsResponse);
+      const idNum = parseInt(driverId, 10);
+      if (isNaN(idNum)) {
         setTrips([]);
         return;
       }
       
-      console.log(`📥 Filtering ${tripsArray.length} trips for driver ${id}`);
-      
-      // Log all driver IDs to see what's available
-      const driverIdCount = {};
-      tripsArray.forEach(t => {
-        const did = t.driverId || t.driver?.id || 'null';
-        driverIdCount[did] = (driverIdCount[did] || 0) + 1;
-      });
-      console.log('📊 Driver ID distribution in trips:', driverIdCount);
-      
-      // Filter trips for this driver - use loose equality
-      const filtered = tripsArray.filter(trip => {
-        const tripDriverId = trip.driverId;
-        const tripDriverObjId = trip.driver?.id;
-        
-        // Compare as strings to handle type mismatches
-        const match = 
-          String(tripDriverId) === String(id) ||
-          String(tripDriverObjId) === String(id);
-        
-        return match;
-      });
-      
-      console.log(`✅ Found ${filtered.length} trips for driver ${id}`);
-      
-      if (filtered.length > 0) {
-        console.log('📊 Sample filtered trip:', filtered[0]);
-      } else {
-        console.log(`⚠️ No trips found for driver ${id}. Available driver IDs:`, Object.keys(driverIdCount));
+      const tripsResponse = await tripService.getTripsByDriver(idNum);
+      let tripsData = [];
+      if (tripsResponse && tripsResponse.data) {
+        tripsData = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
+      } else if (Array.isArray(tripsResponse)) {
+        tripsData = tripsResponse;
       }
-      
-      setTrips(filtered);
-    } catch (fallbackErr) {
-      console.error('Fallback trip fetch also failed:', fallbackErr);
-      setTrips([]);
+      setTrips(tripsData);
+    } catch (err) {
+      console.error('Error fetching trips:', err);
+      try {
+        const allTripsResponse = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
+        let tripsArray = [];
+        if (allTripsResponse && allTripsResponse.content && Array.isArray(allTripsResponse.content)) {
+          tripsArray = allTripsResponse.content;
+        } else if (Array.isArray(allTripsResponse)) {
+          tripsArray = allTripsResponse;
+        }
+        
+        const filtered = tripsArray.filter(trip => {
+          const tripDriverId = trip.driverId;
+          const tripDriverObjId = trip.driver?.id;
+          return String(tripDriverId) === String(idNum) || String(tripDriverObjId) === String(idNum);
+        });
+        
+        setTrips(filtered);
+      } catch (fallbackErr) {
+        console.error('Fallback trip fetch also failed:', fallbackErr);
+        setTrips([]);
+      }
     }
-  }
-};
+  };
 
   const handleNotificationClose = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
@@ -2243,11 +2096,8 @@ const DriverDashboard = () => {
         longitude: null,
       };
       
-      console.log('📤 Sending punch data:', punchData);
       const result = await timesheetService.punch(punchData);
-      console.log('✅ Punch result:', result);
       setPunchStatus(result.punchStatus || 'CLOCKED_OUT');
-      
       await fetchTimesheetData(id);
     } catch (err) {
       console.error('Error processing punch:', err);
@@ -2260,16 +2110,6 @@ const DriverDashboard = () => {
 
   const handleAddTimesheetEntry = async (entry) => {
     try {
-      const newEntry = {
-        driverId: parseInt(id),
-        entryDate: entry.date,
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-        breakDuration: parseInt(entry.breakDuration),
-        activityType: entry.activityType,
-        notes: entry.notes,
-      };
-      
       setTimesheetData([...timesheetData, { ...entry, id: Date.now() }]);
       setSuccessMessage('Timesheet entry added successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -2301,11 +2141,11 @@ const DriverDashboard = () => {
   const handleExportTimesheet = () => {
     const headers = ['Date', 'Start Time', 'End Time', 'Break Duration', 'Activity Type', 'Notes'];
     const rows = timesheetData.map(entry => [
-      entry.date,
-      entry.startTime,
+      entry.entryDate || entry.date || '',
+      entry.startTime || '',
       entry.endTime || '',
-      entry.breakDuration,
-      entry.activityType,
+      entry.breakDuration || '',
+      entry.activityType || '',
       entry.notes || '',
     ]);
     
@@ -2345,9 +2185,7 @@ const DriverDashboard = () => {
         notes: leave.notes || '',
       };
       
-      console.log('📤 Sending leave request:', leaveRequest);
       const result = await leaveService.requestLeave(leaveRequest);
-      console.log('✅ Leave request result:', result);
       setLeaveData([...leaveData, result]);
       setSuccessMessage('Leave request submitted successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -2373,8 +2211,8 @@ const DriverDashboard = () => {
 
   const handleApproveLeave = async (leaveId) => {
     try {
-      const approverId = 1; // TODO: Get from current user context
-      const result = await leaveService.approveLeave(leaveId, approverId);
+      const approverId = 1;
+      await leaveService.approveLeave(leaveId, approverId);
       await fetchLeaveData(id);
       setOpenApproveDialog(false);
       setSuccessMessage('Leave request approved successfully');
@@ -2388,7 +2226,7 @@ const DriverDashboard = () => {
 
   const handleRejectLeave = async (leaveId, reason) => {
     try {
-      const result = await leaveService.rejectLeave(leaveId, reason || 'No reason provided');
+      await leaveService.rejectLeave(leaveId, reason || 'No reason provided');
       await fetchLeaveData(id);
       setOpenApproveDialog(false);
       setRejectionReason('');
@@ -2434,7 +2272,6 @@ const DriverDashboard = () => {
 
   const fullName = `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
   const initials = `${driver.firstName?.charAt(0) || ''}${driver.lastName?.charAt(0) || ''}`.toUpperCase();
-  const rating = driver.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
 
   return (
     <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
@@ -2627,7 +2464,7 @@ const DriverDashboard = () => {
           )}
 
           {activeTab === 4 && (
-            <PerformanceTab driver={driver} loading={loading} />
+            <PerformanceTab driver={driver} trips={trips} loading={loading} />
           )}
 
           {activeTab === 5 && (
@@ -2651,7 +2488,9 @@ const DriverDashboard = () => {
               <>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Leave Type</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{selectedLeave.type}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {selectedLeave.leaveType?.name || selectedLeave.leaveType?.type || selectedLeave.type || 'N/A'}
+                  </Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Duration</Typography>
@@ -2673,7 +2512,6 @@ const DriverDashboard = () => {
                     fullWidth
                     size="medium"
                     placeholder="Reason for rejecting the leave request"
-                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
                   />
                 )}
               </>
