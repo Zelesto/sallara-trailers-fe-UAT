@@ -2042,10 +2042,21 @@ const DriverDashboard = () => {
     }
     
     console.log(`📤 Fetching trips for driver: ${id}`);
-    const tripsData = await tripService.getTripsByDriver(id);
-    setTrips(tripsData || []);
+    const tripsResponse = await tripService.getTripsByDriver(id);
+    
+    // Extract data from the response - it might be { data: [...] } or just an array
+    let tripsData = [];
+    if (tripsResponse && tripsResponse.data) {
+      tripsData = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
+    } else if (Array.isArray(tripsResponse)) {
+      tripsData = tripsResponse;
+    }
+    
+    console.log(`✅ Found ${tripsData.length} trips for driver ${id}`);
+    setTrips(tripsData);
   } catch (err) {
     console.error('Error fetching trips:', err);
+    
     // If API fails, try to get trips from the general trips endpoint and filter
     try {
       console.log('📤 Attempting fallback: fetching all trips and filtering');
@@ -2057,6 +2068,8 @@ const DriverDashboard = () => {
         tripsArray = allTripsResponse.content;
       } else if (Array.isArray(allTripsResponse)) {
         tripsArray = allTripsResponse;
+      } else if (allTripsResponse && allTripsResponse.data && Array.isArray(allTripsResponse.data)) {
+        tripsArray = allTripsResponse.data;
       } else {
         console.warn('Unexpected getAllTrips response format:', allTripsResponse);
         setTrips([]);
@@ -2064,13 +2077,41 @@ const DriverDashboard = () => {
       }
       
       console.log(`📥 Filtering ${tripsArray.length} trips for driver ${id}`);
-      const filtered = tripsArray.filter(trip => 
-        trip.driverId === id || 
-        trip.driver?.id === id ||
-        trip.driverId === parseInt(trip.driver?.id) // Additional check if types differ
-      );
+      
+      // Log the first trip to see its structure
+      if (tripsArray.length > 0) {
+        console.log('🔍 First trip object:', tripsArray[0]);
+        console.log('🔍 All keys:', Object.keys(tripsArray[0]));
+        console.log('🔍 driver key:', tripsArray[0].driver);
+        console.log('🔍 driverId key:', tripsArray[0].driverId);
+        console.log('🔍 assignedDriver key:', tripsArray[0].assignedDriver);
+      }
+      
+      // Try different possible driver reference fields
+      const filtered = tripsArray.filter(trip => {
+        // Check various possible fields where driver ID might be stored
+        const driverMatch = 
+          trip.driverId === id ||
+          trip.driver?.id === id ||
+          trip.driver?.driverId === id ||
+          trip.assignedDriverId === id ||
+          trip.assignedDriver?.id === id ||
+          trip.driver?.userId === id ||
+          trip.driverId === String(id) ||
+          trip.driver?.id === String(id) ||
+          trip.driverId === id.toString();
+        
+        return driverMatch;
+      });
       
       console.log(`✅ Found ${filtered.length} trips for driver ${id}`);
+      
+      // Log some of the filtered trips to verify
+      if (filtered.length > 0) {
+        console.log('📊 Sample filtered trip:', filtered[0]);
+        console.log('📊 Filtered trip IDs:', filtered.map(t => ({ id: t.id, tripNumber: t.tripNumber, driverRef: t.driver?.id || t.driverId })));
+      }
+      
       setTrips(filtered);
     } catch (fallbackErr) {
       console.error('Fallback trip fetch also failed:', fallbackErr);
