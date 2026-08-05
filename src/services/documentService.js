@@ -1,6 +1,5 @@
 // src/services/documentService.js
 import api from './api';
-import { supabase, DRIVER_DOCUMENTS_BUCKET } from './supabase';
 
 const DOCUMENT_TYPES = {
   ID: 'ID Document',
@@ -27,17 +26,18 @@ const documentService = {
       formData.append('driverId', driverId);
       formData.append('file', file);
       formData.append('documentType', documentType);
-      formData.append('description', description);
+      formData.append('description', description || '');
 
       console.log(`📤 Uploading document for driver ${driverId}:`, {
         fileName: file.name,
         fileSize: file.size,
         documentType,
-        bucket: DRIVER_DOCUMENTS_BUCKET,
       });
 
       const response = await api.post('/documents/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       console.log(`✅ Document uploaded for driver ${driverId}:`, response);
@@ -61,51 +61,16 @@ const documentService = {
       return response || [];
     } catch (error) {
       console.error(`❌ Error fetching documents for driver ${driverId}:`, error);
-      // Fallback: try direct Supabase
-      try {
-        console.log('🔄 Falling back to direct Supabase query...');
-        const { data: files, error } = await supabase.storage
-          .from(DRIVER_DOCUMENTS_BUCKET)
-          .list(`drivers/${driverId}`, {
-            limit: 100,
-            offset: 0,
-            sortBy: { column: 'created_at', order: 'desc' },
-          });
-
-        if (error) throw error;
-
-        if (!files || files.length === 0) {
-          return [];
-        }
-
-        return files.map(file => ({
-          id: file.id || `file_${Date.now()}`,
-          fileName: file.name,
-          filePath: `drivers/${driverId}/${file.name}`,
-          fileUrl: supabase.storage
-            .from(DRIVER_DOCUMENTS_BUCKET)
-            .getPublicUrl(`drivers/${driverId}/${file.name}`).data?.publicUrl,
-          fileSize: file.metadata?.size || 0,
-          uploadedAt: file.created_at || new Date().toISOString(),
-          documentType: file.metadata?.documentType || 'OTHER',
-          description: file.metadata?.description || '',
-          bucket: DRIVER_DOCUMENTS_BUCKET,
-        }));
-      } catch (fallbackError) {
-        console.error('❌ Fallback also failed:', fallbackError);
-        return [];
-      }
+      return [];
     }
   },
 
   /**
    * Delete a document
    * @param {string} documentId - Document ID
-   * @param {number|string} driverId - Driver ID (for fallback)
-   * @param {string} fileName - File name (for fallback)
    * @returns {Promise<Object>} Delete response
    */
-  deleteDocument: async (documentId, driverId = null, fileName = null) => {
+  deleteDocument: async (documentId) => {
     try {
       console.log(`🗑️ Deleting document: ${documentId}`);
       const response = await api.delete(`/documents/${documentId}`);
@@ -113,24 +78,6 @@ const documentService = {
       return response;
     } catch (error) {
       console.error(`❌ Error deleting document ${documentId}:`, error);
-      
-      // Fallback: try direct Supabase delete
-      if (driverId && fileName) {
-        try {
-          console.log('🔄 Falling back to direct Supabase delete...');
-          const filePath = `drivers/${driverId}/${fileName}`;
-          const { error: deleteError } = await supabase.storage
-            .from(DRIVER_DOCUMENTS_BUCKET)
-            .remove([filePath]);
-
-          if (deleteError) throw deleteError;
-          console.log(`✅ Document ${fileName} deleted from Supabase`);
-          return { success: true, message: 'Deleted from storage' };
-        } catch (fallbackError) {
-          console.error('❌ Fallback delete also failed:', fallbackError);
-          throw fallbackError;
-        }
-      }
       throw error;
     }
   },
@@ -145,10 +92,11 @@ const documentService = {
     try {
       console.log(`📥 Downloading document: ${documentId}`);
       
-      // Try to get signed URL first
+      // First try to get signed URL
       try {
         const urlResponse = await api.get(`/documents/${documentId}/url`);
         if (urlResponse?.url) {
+          // Open in new tab for viewing/download
           window.open(urlResponse.url, '_blank');
           return;
         }
@@ -161,6 +109,7 @@ const documentService = {
         responseType: 'blob',
       });
 
+      // Create download link
       const blob = new Blob([response], { type: 'application/octet-stream' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -174,73 +123,6 @@ const documentService = {
       console.log(`✅ Document ${documentId} downloaded successfully`);
     } catch (error) {
       console.error(`❌ Error downloading document ${documentId}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Upload a document directly to Supabase (bypassing backend)
-   * @param {number|string} driverId - Driver ID
-   * @param {File} file - Document file
-   * @param {string} documentType - Document type
-   * @param {string} description - Document description
-   * @returns {Promise<Object>} Upload result
-   */
-  uploadDirect: async (driverId, file, documentType = 'OTHER', description = '') => {
-    try {
-      if (!file) throw new Error('No file selected');
-      if (file.size > 50 * 1024 * 1024) {
-        throw new Error('File size exceeds 50MB limit');
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `drivers/${driverId}/${documentType}/${fileName}`;
-
-      console.log(`📤 Direct upload to Supabase for driver ${driverId}:`, {
-        fileName: file.name,
-        filePath,
-        bucket: DRIVER_DOCUMENTS_BUCKET,
-        supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-      });
-
-      const { data, error } = await supabase.storage
-        .from(DRIVER_DOCUMENTS_BUCKET)
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-          metadata: {
-            documentType,
-            description: description || '',
-            driverId: String(driverId),
-            originalName: file.name,
-          },
-        });
-
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage
-        .from(DRIVER_DOCUMENTS_BUCKET)
-        .getPublicUrl(filePath);
-
-      const documentRecord = {
-        id: data?.id || `doc_${Date.now()}`,
-        driverId: parseInt(driverId),
-        fileName: file.name,
-        filePath: filePath,
-        fileUrl: urlData?.publicUrl,
-        documentType,
-        description: description || '',
-        fileSize: file.size,
-        fileType: file.type,
-        uploadedAt: new Date().toISOString(),
-        bucket: DRIVER_DOCUMENTS_BUCKET,
-      };
-
-      console.log('✅ Document uploaded directly to Supabase');
-      return documentRecord;
-    } catch (error) {
-      console.error('❌ Error in direct upload:', error);
       throw error;
     }
   },
