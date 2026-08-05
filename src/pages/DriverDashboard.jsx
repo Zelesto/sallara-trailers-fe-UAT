@@ -1743,12 +1743,155 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 };
 
 // ============================================================
-// PLACEHOLDER TABS
+// DOCUMENTS TAB - COMPLETE VERSION
 // ============================================================
-const DocumentsTab = () => {
+const DocumentsTab = ({ driverId }) => {
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [openUploadDialog, setOpenUploadDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [documentType, setDocumentType] = useState('OTHER');
+  const [description, setDescription] = useState('');
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  
+  const documentService = useMemo(() => {
+    // Lazy import or use existing service
+    return require('../services/documentService').default;
+  }, []);
+
+  const documentTypes = documentService.getDocumentTypes?.() || [
+    { value: 'ID', label: 'ID Document' },
+    { value: 'LICENSE', label: 'Driver License' },
+    { value: 'MEDICAL', label: 'Medical Certificate' },
+    { value: 'TRAINING', label: 'Training Certificate' },
+    { value: 'CONTRACT', label: 'Employment Contract' },
+    { value: 'INSURANCE', label: 'Insurance Document' },
+    { value: 'OTHER', label: 'Other' },
+  ];
+
+  useEffect(() => {
+    if (driverId) {
+      fetchDocuments();
+    }
+  }, [driverId]);
+
+  const fetchDocuments = async () => {
+    setLoading(true);
+    try {
+      const docs = await documentService.getDriverDocuments(driverId);
+      setDocuments(docs || []);
+    } catch (err) {
+      console.error('Error fetching documents:', err);
+      setError('Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file size (50MB max)
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size exceeds 50MB limit');
+        return;
+      }
+      setSelectedFile(file);
+      setError(null);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setError('Please select a file');
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const result = await documentService.uploadDocument(
+        driverId,
+        selectedFile,
+        documentType,
+        description
+      );
+
+      setSuccess('Document uploaded successfully!');
+      setSelectedFile(null);
+      setDocumentType('OTHER');
+      setDescription('');
+      setOpenUploadDialog(false);
+      
+      // Refresh document list
+      await fetchDocuments();
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err.message || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (doc) => {
+    if (!window.confirm(`Are you sure you want to delete "${doc.fileName}"?`)) {
+      return;
+    }
+
+    try {
+      await documentService.deleteDocument(driverId, doc);
+      setSuccess('Document deleted successfully');
+      await fetchDocuments();
+    } catch (err) {
+      console.error('Delete error:', err);
+      setError('Failed to delete document');
+    }
+  };
+
+  const handleDownload = async (doc) => {
+    try {
+      await documentService.downloadDocument(doc);
+    } catch (err) {
+      console.error('Download error:', err);
+      setError('Failed to download document');
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return 'N/A';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+  };
+
+  const getFileIcon = (fileType, fileName) => {
+    if (!fileType && !fileName) return '📄';
+    const name = fileName?.toLowerCase() || '';
+    const type = fileType?.toLowerCase() || '';
+    
+    if (type.includes('pdf') || name.endsWith('.pdf')) return '📕';
+    if (type.includes('image') || name.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) return '🖼️';
+    if (type.includes('word') || name.endsWith('.docx') || name.endsWith('.doc')) return '📘';
+    if (type.includes('excel') || name.endsWith('.xlsx') || name.endsWith('.xls')) return '📗';
+    if (type.includes('text') || name.endsWith('.txt')) return '📝';
+    return '📄';
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Driver Documents
         </Typography>
@@ -1756,6 +1899,7 @@ const DocumentsTab = () => {
           variant="contained"
           size="small"
           startIcon={<UploadIcon />}
+          onClick={() => setOpenUploadDialog(true)}
           sx={{
             fontSize: '0.75rem',
             borderRadius: '8px',
@@ -1765,19 +1909,224 @@ const DocumentsTab = () => {
           Upload Document
         </Button>
       </Box>
-      
-      <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
-        <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-        <Typography variant="body1" color="text.secondary">
-          No documents uploaded yet
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Upload driver documents like ID, license, medical certificates, etc.
-        </Typography>
-      </Paper>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      )}
+
+      {documents.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
+          <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+          <Typography variant="body1" color="text.secondary">
+            No documents uploaded yet
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Upload driver documents like ID, license, medical certificates, etc.
+          </Typography>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<UploadIcon />}
+            onClick={() => setOpenUploadDialog(true)}
+            sx={{ mt: 2 }}
+          >
+            Upload First Document
+          </Button>
+        </Paper>
+      ) : (
+        <Grid container spacing={2}>
+          {documents.map((doc) => (
+            <Grid item xs={12} sm={6} md={4} key={doc.id || doc.filePath}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: '12px',
+                  border: '1px solid #ECECEC',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                    transform: 'translateY(-2px)',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Box sx={{ fontSize: '2rem', lineHeight: 1 }}>
+                    {getFileIcon(doc.fileType, doc.fileName)}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 600,
+                        color: '#111827',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {doc.fileName}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                      {doc.documentType || 'Other'} • {formatFileSize(doc.fileSize)}
+                    </Typography>
+                    {doc.description && (
+                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                        {doc.description}
+                      </Typography>
+                    )}
+                    <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block' }}>
+                      {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                      <Tooltip title="Download" arrow>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDownload(doc)}
+                          sx={{ p: 0.5 }}
+                        >
+                          <DownloadIcon sx={{ fontSize: '0.9rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete" arrow>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(doc)}
+                          sx={{ p: 0.5 }}
+                        >
+                          <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* Upload Dialog */}
+      <Dialog open={openUploadDialog} onClose={() => !uploading && setOpenUploadDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>
+          Upload Document
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <Box
+              sx={{
+                border: '2px dashed #ECECEC',
+                borderRadius: '12px',
+                p: 3,
+                textAlign: 'center',
+                bgcolor: '#F9FAFB',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  borderColor: '#4F46E5',
+                  bgcolor: '#EEF2FF',
+                },
+              }}
+            >
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.bmp,.webp"
+                style={{ display: 'none' }}
+                id="document-upload"
+                onChange={handleFileSelect}
+                disabled={uploading}
+              />
+              <label htmlFor="document-upload">
+                <IconButton component="span" sx={{ bgcolor: '#EEF2FF', color: '#4F46E5', mb: 1 }}>
+                  <CloudUploadIcon sx={{ fontSize: 40 }} />
+                </IconButton>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827' }}>
+                  {selectedFile ? selectedFile.name : 'Choose a file'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                  Supported formats: PDF, Word, Excel, Images, Text
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                  Max file size: 50MB
+                </Typography>
+                {selectedFile && (
+                  <Chip
+                    label={formatFileSize(selectedFile.size)}
+                    size="small"
+                    sx={{ mt: 1 }}
+                  />
+                )}
+              </label>
+            </Box>
+
+            <FormControl fullWidth>
+              <InputLabel sx={{ fontSize: '0.8rem' }}>Document Type</InputLabel>
+              <Select
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+                label="Document Type"
+                disabled={uploading}
+                sx={{ fontSize: '0.85rem' }}
+              >
+                {documentTypes.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Description (optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              fullWidth
+              multiline
+              rows={2}
+              disabled={uploading}
+              placeholder="Add a description for this document"
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenUploadDialog(false)} disabled={uploading} sx={{ color: '#6B7280' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpload}
+            variant="contained"
+            disabled={!selectedFile || uploading}
+            sx={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              textTransform: 'none',
+              borderRadius: '10px',
+              px: 3,
+            }}
+          >
+            {uploading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Upload Document'
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
+
+// ============================================================
+// PLACEHOLDER TABS
+// ============================================================
+
 
 const NotesTab = ({ driver }) => {
   const [notes, setNotes] = useState(driver?.notes || '');
