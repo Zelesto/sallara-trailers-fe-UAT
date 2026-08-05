@@ -1513,27 +1513,39 @@ const PerformanceTab = ({ driver, timesheetData, trips, loading }) => {
 };
 
 // ============================================================
-// OVERVIEW TAB
+// OVERVIEW TAB - UPDATED
 // ============================================================
 const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
   const rating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
   const totalTrips = driver?.totalTrips || 0;
+  const monthlyTrips = driver?.monthlyTrips || 0;
+  const totalDistance = driver?.totalDistance || 0;
   const hireDate = driver?.hireDate ? new Date(driver.hireDate) : null;
   const yearsWithCompany = hireDate ? Math.floor((new Date() - hireDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
 
+  // Calculate this week's hours from timesheet data
   const thisWeekHours = timesheetData?.reduce((acc, entry) => {
-    const entryDate = new Date(entry.date);
+    const entryDate = new Date(entry.date || entry.entryDate);
     const today = new Date();
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay());
     if (entryDate >= startOfWeek && entryDate <= today) {
-      const start = new Date(`1970-01-01T${entry.startTime}`);
-      const end = new Date(`1970-01-01T${entry.endTime}`);
-      acc += (end - start) / (1000 * 60 * 60);
+      const start = entry.startTime || entry.clockIn;
+      const end = entry.endTime || entry.clockOut;
+      if (start && end) {
+        const startTime = new Date(`1970-01-01T${start}`);
+        const endTime = new Date(`1970-01-01T${end}`);
+        acc += (endTime - startTime) / (1000 * 60 * 60);
+      }
     }
     return acc;
   }, 0);
+
+  // Count pending leave requests
+  const pendingLeaveCount = leaveData?.filter(l => 
+    l.status === 'PENDING' || l.status === 'pending'
+  ).length || 0;
 
   return (
     <Grid container spacing={3}>
@@ -1541,7 +1553,7 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
         <StatCard
           title="Total Trips"
           value={totalTrips}
-          subtitle={`${driver?.monthlyTrips || 0} this month`}
+          subtitle={`${monthlyTrips} this month`}
           icon={<RouteIcon />}
           color="#4F46E5"
           loading={loading}
@@ -1561,13 +1573,7 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
         <StatCard
           title="This Week"
           value={`${thisWeekHours.toFixed(1)}h`}
-          subtitle={`${timesheetData?.filter(e => {
-            const d = new Date(e.date);
-            const today = new Date();
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - today.getDay());
-            return d >= startOfWeek && d <= today;
-          }).length || 0} entries`}
+          subtitle={`${timesheetData?.length || 0} entries`}
           icon={<AccessTimeIcon />}
           color="#8B5CF6"
           loading={loading}
@@ -1577,7 +1583,7 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
         <StatCard
           title="Leave Balance"
           value="13 days"
-          subtitle={`${leaveData?.filter(l => l.status === 'PENDING').length || 0} pending requests`}
+          subtitle={`${pendingLeaveCount} pending requests`}
           icon={<BeachAccessIcon />}
           color="#22C55E"
           loading={loading}
@@ -1609,6 +1615,7 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
               <InfoRow label="Email" value={driver?.email || 'N/A'} />
               <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
               <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
+              <InfoRow label="Total Distance" value={`${totalDistance.toLocaleString()} km`} />
             </Grid>
           </Grid>
         </Paper>
@@ -1929,59 +1936,153 @@ const DriverDashboard = () => {
   }, [id]);
 
   const fetchDriverData = async (driverId) => {
-    setLoading(true);
+  setLoading(true);
+  try {
+    // Fetch driver data
+    const data = await driverService.getDriverById(driverId);
+    
+    // Fetch trips for this driver to calculate stats
+    const id = parseInt(driverId, 10);
+    let driverTrips = [];
     try {
-      const data = await driverService.getDriverById(driverId);
-      setDriver(data);
-      
-      const newNotifications = [];
-      
-      if (data.licenseExpiry) {
-        const expiryDate = new Date(data.licenseExpiry);
-        const daysUntilExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
-        if (daysUntilExpiry < 0) {
-          newNotifications.push({
-            id: 1,
-            icon: <WarningIcon />,
-            message: `Driver license has expired. Please renew immediately.`,
-            severity: 'error',
-          });
-        } else if (daysUntilExpiry < 30) {
-          newNotifications.push({
-            id: 1,
-            icon: <WarningIcon />,
-            message: `Driver license expires in ${daysUntilExpiry} days. Please remind them to renew.`,
-            severity: 'warning',
-          });
-        }
+      // First try to get trips by driver
+      const tripsResponse = await tripService.getTripsByDriver(id);
+      if (tripsResponse && tripsResponse.data) {
+        driverTrips = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
+      } else if (Array.isArray(tripsResponse)) {
+        driverTrips = tripsResponse;
       }
-
-      if (data.status === 'INACTIVE' || data.status === 'SUSPENDED') {
+    } catch (err) {
+      console.warn('Could not fetch trips by driver, using fallback');
+      // Fallback: get all trips and filter
+      const allTrips = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
+      let tripsArray = [];
+      if (allTrips && allTrips.content) {
+        tripsArray = allTrips.content;
+      } else if (Array.isArray(allTrips)) {
+        tripsArray = allTrips;
+      }
+      driverTrips = tripsArray.filter(t => 
+        String(t.driverId) === String(id) || 
+        String(t.driver?.id) === String(id)
+      );
+    }
+    
+    // Calculate stats from trips
+    const totalTrips = driverTrips.length;
+    const completedTrips = driverTrips.filter(t => 
+      t.status === 'COMPLETED' || t.status === 'FINALIZED'
+    ).length;
+    const inProgressTrips = driverTrips.filter(t => 
+      t.status === 'IN_PROGRESS' || t.status === 'ACTIVE'
+    ).length;
+    const plannedTrips = driverTrips.filter(t => 
+      t.status === 'PLANNED' || t.status === 'ASSIGNED'
+    ).length;
+    
+    // Calculate total distance
+    const totalDistance = driverTrips.reduce((sum, t) => {
+      const distance = t.totalDistance || t.distance || t.distanceKm || t.plannedDistanceKm || 0;
+      return sum + (typeof distance === 'number' ? distance : parseFloat(distance) || 0);
+    }, 0);
+    
+    // Calculate monthly trips (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const monthlyTrips = driverTrips.filter(t => {
+      const startDate = t.plannedStartDate || t.startDate || t.createdAt;
+      if (!startDate) return false;
+      try {
+        return new Date(startDate) >= thirtyDaysAgo;
+      } catch {
+        return false;
+      }
+    }).length;
+    
+    // Calculate performance score
+    const performanceScore = data.performanceScore || 
+      (totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0);
+    
+    // Calculate efficiency score (based on completed vs planned)
+    const efficiencyScore = data.efficiencyScore || 
+      (totalTrips > 0 ? Math.round((completedTrips / Math.max(totalTrips, 1)) * 100) : 0);
+    
+    // Calculate safety score (placeholder - could be from incidents)
+    const safetyScore = data.safetyScore || 95; // Default if not provided
+    
+    // Enrich driver data with calculated stats
+    const enrichedDriver = {
+      ...data,
+      totalTrips: totalTrips,
+      completedTrips: completedTrips,
+      inProgressTrips: inProgressTrips,
+      plannedTrips: plannedTrips,
+      totalDistance: Math.round(totalDistance),
+      monthlyTrips: monthlyTrips,
+      performanceScore: performanceScore,
+      efficiencyScore: efficiencyScore,
+      safetyScore: safetyScore,
+      tripCount: totalTrips,
+    };
+    
+    setDriver(enrichedDriver);
+    console.log('✅ Enriched driver data:', {
+      name: `${enrichedDriver.firstName} ${enrichedDriver.lastName}`,
+      totalTrips: enrichedDriver.totalTrips,
+      performanceScore: enrichedDriver.performanceScore,
+      monthlyTrips: enrichedDriver.monthlyTrips,
+      totalDistance: enrichedDriver.totalDistance,
+    });
+    
+    // Notifications
+    const newNotifications = [];
+    
+    if (data.licenseExpiry) {
+      const expiryDate = new Date(data.licenseExpiry);
+      const daysUntilExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+      if (daysUntilExpiry < 0) {
         newNotifications.push({
-          id: 2,
+          id: 1,
           icon: <WarningIcon />,
-          message: `Driver account is ${data.status.toLowerCase()}. Please review their status.`,
+          message: `Driver license has expired. Please renew immediately.`,
           severity: 'error',
         });
-      }
-
-      if (data.totalTrips && data.totalTrips > 100) {
+      } else if (daysUntilExpiry < 30) {
         newNotifications.push({
-          id: 3,
-          icon: <CheckCircleIcon />,
-          message: `Driver completed ${data.totalTrips} trips! Great performance milestone.`,
-          severity: 'success',
+          id: 1,
+          icon: <WarningIcon />,
+          message: `Driver license expires in ${daysUntilExpiry} days. Please remind them to renew.`,
+          severity: 'warning',
         });
       }
-
-      setNotifications(newNotifications);
-    } catch (err) {
-      console.error('Error fetching driver data:', err);
-      setError('Failed to load driver data');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    if (data.status === 'INACTIVE' || data.status === 'SUSPENDED') {
+      newNotifications.push({
+        id: 2,
+        icon: <WarningIcon />,
+        message: `Driver account is ${data.status.toLowerCase()}. Please review their status.`,
+        severity: 'error',
+      });
+    }
+
+    if (totalTrips > 100) {
+      newNotifications.push({
+        id: 3,
+        icon: <CheckCircleIcon />,
+        message: `Driver completed ${totalTrips} trips! Great performance milestone.`,
+        severity: 'success',
+      });
+    }
+
+    setNotifications(newNotifications);
+  } catch (err) {
+    console.error('Error fetching driver data:', err);
+    setError('Failed to load driver data');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchTimesheetData = async (driverId) => {
     try {
