@@ -1,5 +1,5 @@
 // src/pages/drivers/DriverDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -1755,11 +1755,6 @@ const DocumentsTab = ({ driverId }) => {
   const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  
-  // Import document service
-  const documentService = useMemo(() => {
-    return require('../services/documentService').default;
-  }, []);
 
   const documentTypes = documentService.getDocumentTypes?.() || [
     { value: 'ID', label: 'ID Document' },
@@ -1770,6 +1765,7 @@ const DocumentsTab = ({ driverId }) => {
     { value: 'INSURANCE', label: 'Insurance Document' },
     { value: 'OTHER', label: 'Other' },
   ];
+
 
   useEffect(() => {
     if (driverId) {
