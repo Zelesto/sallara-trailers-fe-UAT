@@ -1,5 +1,8 @@
 // src/services/documentService.js
-import { supabase, DRIVER_DOCUMENTS_BUCKET } from './supabase';
+import api from './api';
+
+// If you want to use direct Supabase from frontend
+// import { supabase, DRIVER_DOCUMENTS_BUCKET } from './supabase';
 
 const DOCUMENT_TYPES = {
   ID: 'ID Document',
@@ -11,13 +14,9 @@ const DOCUMENT_TYPES = {
   OTHER: 'Other',
 };
 
-const getDocumentTypeLabel = (type) => {
-  return DOCUMENT_TYPES[type] || type || 'Other';
-};
-
 const documentService = {
   /**
-   * Upload a document for a driver
+   * Upload a document for a driver - Using Backend API
    */
   uploadDocument: async (driverId, file, documentType, description = '') => {
     try {
@@ -30,74 +29,28 @@ const documentService = {
         throw new Error('File size exceeds 50MB limit');
       }
 
-      // Generate unique file path
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `drivers/${driverId}/${documentType}/${fileName}`;
+      // Create FormData for upload
+      const formData = new FormData();
+      formData.append('driverId', driverId);
+      formData.append('file', file);
+      formData.append('documentType', documentType);
+      formData.append('description', description || '');
 
       console.log(`📤 Uploading document for driver ${driverId}:`, {
         fileName: file.name,
         fileSize: file.size,
         documentType,
-        filePath,
       });
 
-      // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(DRIVER_DOCUMENTS_BUCKET)
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+      // Upload using your backend API
+      const response = await api.post('/documents/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw new Error(`Upload failed: ${uploadError.message}`);
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(DRIVER_DOCUMENTS_BUCKET)
-        .getPublicUrl(filePath);
-
-      const fileUrl = urlData?.publicUrl;
-
-      // Create document record in your backend
-      const documentRecord = {
-        driverId,
-        fileName: file.name,
-        filePath,
-        fileUrl,
-        documentType,
-        description: description || '',
-        fileSize: file.size,
-        fileType: file.type,
-        uploadedAt: new Date().toISOString(),
-      };
-
-      console.log('✅ Document uploaded successfully:', documentRecord);
-
-      // Save to your backend API
-      try {
-        const response = await fetch('/api/documents', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(documentRecord),
-        });
-
-        if (!response.ok) {
-          console.warn('Failed to save document record to backend, but file is uploaded');
-        } else {
-          const savedDoc = await response.json();
-          return { ...documentRecord, ...savedDoc };
-        }
-      } catch (apiError) {
-        console.warn('API save failed, but file is uploaded:', apiError);
-      }
-
-      return documentRecord;
+      console.log('✅ Document uploaded successfully:', response);
+      return response;
     } catch (error) {
       console.error('❌ Error uploading document:', error);
       throw error;
@@ -105,53 +58,12 @@ const documentService = {
   },
 
   /**
-   * Get all documents for a driver
+   * Get all documents for a driver - Using Backend API
    */
   getDriverDocuments: async (driverId) => {
     try {
-      // First try to get from your backend API
-      try {
-        const response = await fetch(`/api/documents/driver/${driverId}`);
-        if (response.ok) {
-          const documents = await response.json();
-          return documents;
-        }
-      } catch (apiError) {
-        console.warn('Could not fetch from API, falling back to Supabase');
-      }
-
-      // Fallback: List files from Supabase
-      const { data: files, error } = await supabase.storage
-        .from(DRIVER_DOCUMENTS_BUCKET)
-        .list(`drivers/${driverId}`, {
-          limit: 100,
-          offset: 0,
-          sortBy: { column: 'created_at', order: 'desc' },
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      if (!files || files.length === 0) {
-        return [];
-      }
-
-      // Map files to document objects
-      const documents = files.map(file => ({
-        id: file.id,
-        fileName: file.name,
-        filePath: `${driverId}/${file.name}`,
-        fileUrl: supabase.storage
-          .from(DRIVER_DOCUMENTS_BUCKET)
-          .getPublicUrl(`drivers/${driverId}/${file.name}`).data?.publicUrl,
-        fileSize: file.metadata?.size || 0,
-        uploadedAt: file.created_at,
-        documentType: file.metadata?.documentType || 'OTHER',
-        description: file.metadata?.description || '',
-      }));
-
-      return documents;
+      const response = await api.get(`/documents/driver/${driverId}`);
+      return response || [];
     } catch (error) {
       console.error('❌ Error fetching documents:', error);
       return [];
@@ -159,31 +71,12 @@ const documentService = {
   },
 
   /**
-   * Delete a document
+   * Delete a document - Using Backend API
    */
-  deleteDocument: async (driverId, document) => {
+  deleteDocument: async (documentId) => {
     try {
-      // Delete from Supabase Storage
-      const filePath = document.filePath || `drivers/${driverId}/${document.fileName}`;
-      const { error: deleteError } = await supabase.storage
-        .from(DRIVER_DOCUMENTS_BUCKET)
-        .remove([filePath]);
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      // Delete from backend API
-      try {
-        await fetch(`/api/documents/${document.id}`, {
-          method: 'DELETE',
-        });
-      } catch (apiError) {
-        console.warn('Could not delete from API, but file is deleted from storage');
-      }
-
-      console.log('✅ Document deleted successfully');
-      return true;
+      const response = await api.delete(`/documents/${documentId}`);
+      return response;
     } catch (error) {
       console.error('❌ Error deleting document:', error);
       throw error;
@@ -191,33 +84,25 @@ const documentService = {
   },
 
   /**
-   * Download a document
+   * Download a document - Using Backend API
    */
-  downloadDocument: async (document) => {
+  downloadDocument: async (documentId, fileName) => {
     try {
-      const url = document.fileUrl;
-      if (!url) {
-        throw new Error('No file URL available');
-      }
-
-      // Fetch the file
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to download: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
+      // Get signed URL or download directly
+      const response = await api.get(`/documents/download/${documentId}`, {
+        responseType: 'blob',
+      });
       
       // Create download link
-      const downloadUrl = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(response);
       const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = document.fileName || 'document';
+      a.href = url;
+      a.download = fileName || 'document';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(downloadUrl);
-
+      window.URL.revokeObjectURL(url);
+      
       return true;
     } catch (error) {
       console.error('❌ Error downloading document:', error);
@@ -248,14 +133,16 @@ const documentService = {
   /**
    * Get file icon based on type
    */
-  getFileIcon: (fileType) => {
-    if (!fileType) return '📄';
-    const type = fileType.toLowerCase();
-    if (type.includes('pdf')) return '📕';
-    if (type.includes('image')) return '🖼️';
-    if (type.includes('word') || type.includes('doc')) return '📘';
-    if (type.includes('excel') || type.includes('sheet')) return '📗';
-    if (type.includes('text')) return '📝';
+  getFileIcon: (fileType, fileName) => {
+    if (!fileType && !fileName) return '📄';
+    const name = fileName?.toLowerCase() || '';
+    const type = fileType?.toLowerCase() || '';
+    
+    if (type.includes('pdf') || name.endsWith('.pdf')) return '📕';
+    if (type.includes('image') || name.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) return '🖼️';
+    if (type.includes('word') || name.endsWith('.docx') || name.endsWith('.doc')) return '📘';
+    if (type.includes('excel') || name.endsWith('.xlsx') || name.endsWith('.xls')) return '📗';
+    if (type.includes('text') || name.endsWith('.txt')) return '📝';
     return '📄';
   },
 };
