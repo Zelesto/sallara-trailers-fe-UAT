@@ -726,7 +726,7 @@ const LeaveTab = ({
         </Table>
       </TableContainer>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth aria-hidden={false}>
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth disablePortal>
         <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Request Leave</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
@@ -1169,7 +1169,7 @@ const TimesheetTab = ({
       </TableContainer>
 
       {/* Dialogs remain the same */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth disablePortal>
         <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Add Timesheet Entry</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
