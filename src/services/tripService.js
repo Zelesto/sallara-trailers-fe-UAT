@@ -762,17 +762,43 @@ getAllTrips: async (params = {}) => {
 },
 
   /**
-   * Get trips by vehicle
-   */
-  getTripsByVehicle: async (vehicleId) => {
-    try {
-      const response = await api.get(`/trips/vehicle/${vehicleId}`);
-      const data = unwrap(response);
-      return { data: Array.isArray(data) ? data : (data?.data ?? []) };
-    } catch (error) {
-      throw handleApiError(error, `Fetching trips for vehicle ${vehicleId}`);
+ * Get trips by vehicle
+ */
+getTripsByVehicle: async (vehicleId) => {
+  try {
+    const response = await api.get(`/trips/vehicle/${vehicleId}`);
+    console.log(`📥 getTripsByVehicle raw response:`, response);
+    
+    // api.get already returns the data directly (response.data from axios interceptor)
+    // So response should be the array or paginated content
+    
+    // If the response is already an array, return it
+    if (Array.isArray(response)) {
+      return response;
     }
-  },
+    
+    // If the response has a data property that's an array
+    if (response && response.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    // If the response has content (paginated)
+    if (response && response.content && Array.isArray(response.content)) {
+      return response.content;
+    }
+    
+    // If the response is wrapped in a data property with content
+    if (response && response.data && response.data.content && Array.isArray(response.data.content)) {
+      return response.data.content;
+    }
+    
+    // Return empty array if nothing matches
+    return [];
+  } catch (error) {
+    console.error(`Error fetching trips for vehicle ${vehicleId}:`, error);
+    throw error;
+  }
+},
 
   // ============================================================
   // STATISTICS & KPIs
