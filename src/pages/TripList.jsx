@@ -247,17 +247,10 @@ function TripList() {
       sort: 'id,desc',
     };
     
-    // ✅ FIX: Only add status if it's not 'all'
-    if (status && status !== 'all') {
+    // ✅ FIX: Only add status if it's not 'all' AND not undefined
+    if (status && status !== 'all' && status !== 'undefined') {
       params.status = status;
     }
-    
-    // ✅ Alternative: If the API doesn't support 'all', send all statuses
-    // if (status === 'all') {
-    //   params.status = 'PLANNED,ASSIGNED,IN_PROGRESS,ACTIVE,COMPLETED,CANCELLED,CLOSED,FINALIZED,DRAFT,PENDING';
-    // } else if (status) {
-    //   params.status = status;
-    // }
     
     if (search) params.search = search;
     if (city) params.city = city;
@@ -288,33 +281,6 @@ function TripList() {
     setLoading(false);
   }
 }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
-
-useEffect(() => {
-  fetchTrips({ page: 0 });
-}, []);
-
-useEffect(() => {
-  if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
-  fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
-  return () => clearTimeout(fetchTimerRef.current);
-}, [searchText, statusFilter, cityFilter, customerFilter]);
-
-const handleStartTrip = (trip) => {
-  if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
-  
-  const startOdometer = prompt('Enter starting odometer reading (km):');
-  if (!startOdometer) return;
-
-  tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
-    .then(() => {
-      showNotification('Trip started successfully!', 'success');
-      fetchTrips({ page: pagination.page });
-    })
-    .catch(err => {
-      console.error('Error starting trip:', err);
-      showNotification(err.message || 'Failed to start trip', 'error');
-    });
-};
 
   const handleEndTrip = (trip) => {
     if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
