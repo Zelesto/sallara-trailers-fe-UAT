@@ -28,7 +28,8 @@ import {
   Chip,
   Divider,
   Stack,
-  Checkbox
+  Checkbox,
+  Avatar,
 } from '@mui/material';
 import {
   LocalGasStation,
@@ -43,7 +44,11 @@ import {
   Clear as ClearIcon,
   Save as SaveIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Receipt,
+  CalendarToday,
+  Speed,
+  Business,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fuelService } from '../services/fuelService';
@@ -90,6 +95,53 @@ const InfoItem = ({ label, value }) => (
       {value || 'N/A'}
     </Typography>
   </Box>
+);
+
+// Stat Card Component
+const StatCard = ({ title, value, subtitle, icon, color = '#4F46E5' }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2,
+      borderRadius: '12px',
+      border: '1px solid #ECECEC',
+      backgroundColor: '#FFFFFF',
+      height: '100%',
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        transform: 'translateY(-2px)',
+      },
+    }}
+  >
+    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+      <Box>
+        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.5px' }}>
+          {title}
+        </Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mt: 0.5 }}>
+          {value || 'N/A'}
+        </Typography>
+        {subtitle && (
+          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: '0.65rem' }}>
+            {subtitle}
+          </Typography>
+        )}
+      </Box>
+      <Box
+        sx={{
+          bgcolor: `${color}15`,
+          borderRadius: '10px',
+          p: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {icon}
+      </Box>
+    </Stack>
+  </Paper>
 );
 
 const FuelSlipForm = () => {
@@ -149,13 +201,13 @@ const FuelSlipForm = () => {
   const [vehicleInputValue, setVehicleInputValue] = useState('');
   const [driverInputValue, setDriverInputValue] = useState('');
 
-  // ✅ Move getSelectedTrip here - at the component level
   const getSelectedTrip = () => {
     if (!formData.tripId) return null;
     return trips.find(t => t.id && t.id.toString() === formData.tripId.toString());
   };
+
   // Load data for edit mode
-   useEffect(() => {
+  useEffect(() => {
     if (isEdit && id) {
       fetchSlipDetails();
     }
@@ -225,120 +277,117 @@ const FuelSlipForm = () => {
   };
 
   const fetchAllData = async () => {
-  try {
-    setFetchingData(true);
-    setLoadingTrips(true);
-
-    // Fetch vehicles and drivers
-    const [vehiclesData, driversData] = await Promise.all([
-      vehicleService.getAllVehicles().catch(() => []),
-      driverService.getAllDrivers().catch(() => [])
-    ]);
-
-    // ✅ FETCH TRIPS - Use the exact same approach as TripList
-    let tripsData = [];
     try {
-      // Use the same params that work in TripList
-      const response = await tripService.getAllTrips({
-        page: 0,
-        size: 10,
-        sortBy: 'id',
-        sortOrder: 'DESC'
-      });
-      
-      console.log('📦 getAllTrips response:', response);
-      
-      // Extract content - TripList uses this same pattern
-      if (response && response.content && Array.isArray(response.content)) {
-        tripsData = response.content;
-        console.log('📦 Trips loaded from content:', tripsData.length);
-      } else if (Array.isArray(response)) {
-        tripsData = response;
-        console.log('📦 Trips loaded as array:', tripsData.length);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error fetching trips:', error);
-      tripsData = [];
-    }
+      setFetchingData(true);
+      setLoadingTrips(true);
 
-    // If no trips with params, try without (like TripList fallback)
-    if (tripsData.length === 0) {
+      // Fetch vehicles and drivers
+      const [vehiclesData, driversData] = await Promise.all([
+        vehicleService.getAllVehicles().catch(() => []),
+        driverService.getAllDrivers().catch(() => [])
+      ]);
+
+      // ✅ FETCH TRIPS - Use the exact same approach as TripList
+      let tripsData = [];
       try {
-        const response = await tripService.getAllTrips();
-        console.log('📦 getAllTrips without params:', response);
+        const response = await tripService.getAllTrips({
+          page: 0,
+          size: 10,
+          sortBy: 'id',
+          sortOrder: 'DESC'
+        });
+        
+        console.log('📦 getAllTrips response:', response);
         
         if (response && response.content && Array.isArray(response.content)) {
           tripsData = response.content;
-          console.log('📦 Trips loaded from content (no params):', tripsData.length);
+          console.log('📦 Trips loaded from content:', tripsData.length);
         } else if (Array.isArray(response)) {
           tripsData = response;
-          console.log('📦 Trips loaded as array (no params):', tripsData.length);
+          console.log('📦 Trips loaded as array:', tripsData.length);
         }
+        
       } catch (error) {
-        console.error('❌ Error fetching trips without params:', error);
+        console.error('❌ Error fetching trips:', error);
+        tripsData = [];
       }
-    }
 
-    const extractData = (response) => {
-      if (!response) return [];
-      if (Array.isArray(response)) return response;
-      if (response.data && Array.isArray(response.data)) return response.data;
-      if (response.content && Array.isArray(response.content)) return response.content;
-      return [];
-    };
+      // If no trips with params, try without
+      if (tripsData.length === 0) {
+        try {
+          const response = await tripService.getAllTrips();
+          console.log('📦 getAllTrips without params:', response);
+          
+          if (response && response.content && Array.isArray(response.content)) {
+            tripsData = response.content;
+            console.log('📦 Trips loaded from content (no params):', tripsData.length);
+          } else if (Array.isArray(response)) {
+            tripsData = response;
+            console.log('📦 Trips loaded as array (no params):', tripsData.length);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching trips without params:', error);
+        }
+      }
 
-    let vehiclesList = extractData(vehiclesData);
-    let driversList = extractData(driversData);
-    let tripsList = extractData(tripsData);
+      const extractData = (response) => {
+        if (!response) return [];
+        if (Array.isArray(response)) return response;
+        if (response.data && Array.isArray(response.data)) return response.data;
+        if (response.content && Array.isArray(response.content)) return response.content;
+        return [];
+      };
 
-    console.log('🔍 DEBUG - tripsList length:', tripsList.length);
-    if (tripsList.length > 0) {
-      console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
-      console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ 
-        id: t.id, 
-        tripNumber: t.tripNumber, 
-        status: t.status 
-      })));
-    }
+      let vehiclesList = extractData(vehiclesData);
+      let driversList = extractData(driversData);
+      let tripsList = extractData(tripsData);
 
-    // ✅ Only filter out FINALIZED - keep COMPLETED for fuel slips
-    tripsList = tripsList
-      .filter(t => {
-        const status = t.status?.toUpperCase() || '';
-        // Keep COMPLETED trips for fuel slips (they need to add fuel after trip)
-        return status !== 'FINALIZED' && status !== 'CANCELLED';
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
-        const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
-        return dateB - dateA;
+      console.log('🔍 DEBUG - tripsList length:', tripsList.length);
+      if (tripsList.length > 0) {
+        console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
+        console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ 
+          id: t.id, 
+          tripNumber: t.tripNumber, 
+          status: t.status 
+        })));
+      }
+
+      // ✅ Only filter out FINALIZED - keep COMPLETED for fuel slips
+      tripsList = tripsList
+        .filter(t => {
+          const status = t.status?.toUpperCase() || '';
+          return status !== 'FINALIZED' && status !== 'CANCELLED';
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+          const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+          return dateB - dateA;
+        });
+
+      console.log('📊 After filtering, trips:', tripsList.length);
+
+      setVehicles(vehiclesList);
+      setDrivers(driversList);
+      setTrips(tripsList);
+
+      console.log('📊 Loaded data summary:', {
+        vehicles: vehiclesList.length,
+        drivers: driversList.length,
+        trips: tripsList.length
       });
 
-    console.log('📊 After filtering, trips:', tripsList.length);
+      if (tripsList.length === 0) {
+        setError('No trips available. Please ensure trips exist in the system.');
+      }
 
-    setVehicles(vehiclesList);
-    setDrivers(driversList);
-    setTrips(tripsList);
-
-    console.log('📊 Loaded data summary:', {
-      vehicles: vehiclesList.length,
-      drivers: driversList.length,
-      trips: tripsList.length
-    });
-
-    if (tripsList.length === 0) {
-      setError('No trips available. Please ensure trips exist in the system.');
+    } catch (err) {
+      console.error('❌ Error loading data:', err);
+      setError('Failed to load some data. You can still continue with manual entry.');
+    } finally {
+      setFetchingData(false);
+      setLoadingTrips(false);
     }
-
-  } catch (err) {
-    console.error('❌ Error loading data:', err);
-    setError('Failed to load some data. You can still continue with manual entry.');
-  } finally {
-    setFetchingData(false);
-    setLoadingTrips(false);
-  }
-};
+  };
 
   // Auto-populate vehicle and driver when trip is selected
   const handleTripSelection = async (tripId) => {
@@ -673,27 +722,27 @@ const FuelSlipForm = () => {
     }
   };
 
-  // Available trips filter (exclude FINALIZED and COMPLETED, show latest first)
- const availableTrips = useMemo(() => {
-  console.log('🔍 DEBUG - Before filtering, trips count:', trips.length);
-  console.log('🔍 DEBUG - Trip statuses before filter:', trips.map(t => t.status));
-  
-  const filtered = trips
-    .filter(t => {
-      const status = t.status?.toUpperCase() || '';
-      return status !== 'FINALIZED';
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
-      const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
-      return dateB - dateA;
-    });
-  
-  console.log('🔍 DEBUG - After filtering, availableTrips count:', filtered.length);
-  console.log('🔍 DEBUG - availableTrips:', filtered.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
-  
-  return filtered;
-}, [trips]);
+  // Available trips filter (exclude FINALIZED)
+  const availableTrips = useMemo(() => {
+    console.log('🔍 DEBUG - Before filtering, trips count:', trips.length);
+    console.log('🔍 DEBUG - Trip statuses before filter:', trips.map(t => t.status));
+    
+    const filtered = trips
+      .filter(t => {
+        const status = t.status?.toUpperCase() || '';
+        return status !== 'FINALIZED';
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+        const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+        return dateB - dateA;
+      });
+    
+    console.log('🔍 DEBUG - After filtering, availableTrips count:', filtered.length);
+    console.log('🔍 DEBUG - availableTrips:', filtered.map(t => ({ id: t.id, tripNumber: t.tripNumber, status: t.status })));
+    
+    return filtered;
+  }, [trips]);
 
   // Render step content
   const renderStepContent = () => {
@@ -706,10 +755,10 @@ const FuelSlipForm = () => {
               Basic Information
             </Typography>
 
-            <Card sx={{ mb: 2 }}>
+            <Card sx={{ mb: 2, borderRadius: '12px', border: '1px solid #ECECEC' }}>
               <CardContent sx={{ p: 1.5 }}>
                 <FormControl component="fieldset">
-                  <FormLabel sx={{ fontSize: '0.8rem' }}>Select Entry Mode</FormLabel>
+                  <FormLabel sx={{ fontSize: '0.8rem', fontWeight: 600 }}>Select Entry Mode</FormLabel>
                   <RadioGroup row value={entryMode} onChange={handleEntryModeChange}>
                     <FormControlLabel value="manual" control={<Radio size="small" />} label="Manual Entry" sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }} />
                     <FormControlLabel value="trip" control={<Radio size="small" />} label="Select Active Trip" sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }} />
@@ -725,11 +774,11 @@ const FuelSlipForm = () => {
                   value={formData.tripId}
                   onChange={(e) => handleTripSelection(e.target.value)}
                   label="Trip"
-                  sx={{ fontSize: '0.8rem' }}
+                  sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
                   renderValue={(selected) => {
                     const trip = availableTrips.find(t => t.id && t.id.toString() === selected.toString());
                     return trip
-                      ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'} (${trip.status})`
+                      ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'}`
                       : '-- Select a Trip --';
                   }}
                 >
@@ -742,9 +791,7 @@ const FuelSlipForm = () => {
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                           {trip.originLocation || 'Origin'} → {trip.destinationLocation || 'Destination'} | 
-                          {trip.vehicleRegistration || 'No vehicle'} | 
                           Status: {trip.status}
-                          {trip.plannedStartDate && ` | ${new Date(trip.plannedStartDate).toLocaleDateString()}`}
                         </Typography>
                       </Box>
                     </MenuItem>
@@ -763,7 +810,10 @@ const FuelSlipForm = () => {
                   value={formData.slipNumber}
                   onChange={handleInputChange}
                   disabled={isEdit}
-                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{
                     endAdornment: !isEdit && (
                       <InputAdornment position="end">
@@ -785,7 +835,11 @@ const FuelSlipForm = () => {
                   value={formData.transactionDate}
                   onChange={handleInputChange}
                   InputLabelProps={{ shrink: true }}
-                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    mt: 1.5, 
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
               </Grid>
@@ -811,7 +865,10 @@ const FuelSlipForm = () => {
                       size="small"
                       helperText="Type registration number or select from list"
                       error={!formData.vehicleManual && !formData.vehicleId}
-                      sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                      sx={{ 
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiInputBase-root': { borderRadius: '10px' }
+                      }}
                     />
                   )}
                 />
@@ -836,7 +893,11 @@ const FuelSlipForm = () => {
                       size="small"
                       helperText="Type name or select from list"
                       error={!formData.driverManual && !formData.driverId}
-                      sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                      sx={{ 
+                        mt: 1.5,
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiInputBase-root': { borderRadius: '10px' }
+                      }}
                     />
                   )}
                 />
@@ -854,7 +915,7 @@ const FuelSlipForm = () => {
             </Typography>
 
             {stepErrors.length > 0 && stepErrors.map((err, i) => (
-              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem' }}>{err}</Alert>
+              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem', borderRadius: '10px' }}>{err}</Alert>
             ))}
 
             <Grid container spacing={2}>
@@ -865,7 +926,7 @@ const FuelSlipForm = () => {
                     name="fuelType"
                     value={formData.fuelType}
                     onChange={handleInputChange}
-                    sx={{ fontSize: '0.8rem' }}
+                    sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
                   >
                     {FUEL_TYPES.map(ft => (
                       <MenuItem key={ft} value={ft} sx={{ fontSize: '0.8rem' }}>{ft}</MenuItem>
@@ -881,7 +942,10 @@ const FuelSlipForm = () => {
                   size="small"
                   value={formData.quantity}
                   onChange={handleInputChange}
-                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{
                     endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>L</InputAdornment>,
                     sx: { fontSize: '0.8rem' }
@@ -896,7 +960,11 @@ const FuelSlipForm = () => {
                   size="small"
                   value={formData.unitPrice}
                   onChange={handleInputChange}
-                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    mt: 1.5,
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start" sx={{ fontSize: '0.7rem' }}>R</InputAdornment>,
                     endAdornment: <InputAdornment position="end" sx={{ fontSize: '0.7rem' }}>/L</InputAdornment>,
@@ -910,7 +978,11 @@ const FuelSlipForm = () => {
                   name="totalAmount"
                   size="small"
                   value={formatCurrency(formData.totalAmount || calculatedTotal)}
-                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    mt: 1.5,
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{
                     readOnly: true,
                     sx: { fontSize: '0.8rem', fontWeight: 600 }
@@ -927,7 +999,10 @@ const FuelSlipForm = () => {
                   size="small"
                   value={formData.odometerReading}
                   onChange={handleInputChange}
-                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
 
@@ -938,7 +1013,11 @@ const FuelSlipForm = () => {
                   size="small"
                   value={formData.pumpNumber}
                   onChange={handleInputChange}
-                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    mt: 1.5,
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
 
@@ -949,7 +1028,11 @@ const FuelSlipForm = () => {
                   size="small"
                   value={formData.receiptNumber}
                   onChange={handleInputChange}
-                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    mt: 1.5,
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
 
@@ -962,7 +1045,11 @@ const FuelSlipForm = () => {
                   onChange={handleInputChange}
                   multiline
                   rows={2}
-                  sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  sx={{ 
+                    mt: 1.5,
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { borderRadius: '10px' }
+                  }}
                   InputProps={{ sx: { fontSize: '0.8rem' } }}
                 />
               </Grid>
@@ -979,7 +1066,7 @@ const FuelSlipForm = () => {
             </Typography>
 
             {stepErrors.length > 0 && stepErrors.map((err, i) => (
-              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem' }}>{err}</Alert>
+              <Alert key={i} severity="error" sx={{ mb: 1, fontSize: '0.8rem', borderRadius: '10px' }}>{err}</Alert>
             ))}
 
             <Grid container spacing={2}>
@@ -997,7 +1084,10 @@ const FuelSlipForm = () => {
                       {...params}
                       label="Station Name"
                       size="small"
-                      sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                      sx={{ 
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiInputBase-root': { borderRadius: '10px' }
+                      }}
                     />
                   )}
                 />
@@ -1015,7 +1105,11 @@ const FuelSlipForm = () => {
                       {...params}
                       label="Location"
                       size="small"
-                      sx={{ mt: 1.5, '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                      sx={{ 
+                        mt: 1.5,
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiInputBase-root': { borderRadius: '10px' }
+                      }}
                     />
                   )}
                 />
@@ -1025,7 +1119,12 @@ const FuelSlipForm = () => {
                   onClick={getCurrentLocation}
                   disabled={gettingLocation}
                   size="small"
-                  sx={{ mt: 1.5, fontSize: '0.75rem' }}
+                  sx={{ 
+                    mt: 1.5, 
+                    fontSize: '0.75rem',
+                    borderRadius: '10px',
+                    textTransform: 'none',
+                  }}
                 >
                   {gettingLocation ? 'Getting Location...' : 'Use Current Location'}
                 </Button>
@@ -1041,7 +1140,7 @@ const FuelSlipForm = () => {
                   <Select
                     value={formData.paymentMethod}
                     onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                    sx={{ fontSize: '0.8rem' }}
+                    sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
                   >
                     {PAYMENT_METHODS.map(m => (
                       <MenuItem key={m} value={m} sx={{ fontSize: '0.8rem' }}>{m}</MenuItem>
@@ -1077,7 +1176,7 @@ const FuelSlipForm = () => {
               Review & Submit
             </Typography>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2, mb: 2, borderRadius: '12px', border: '1px solid #ECECEC' }}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
                 Fuel Slip Details
               </Typography>
@@ -1122,94 +1221,189 @@ const FuelSlipForm = () => {
   }
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header - Compact */}
-      <Box sx={{ mb: 2 }}>
-        <Button
-          startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />}
-          onClick={() => navigate('/fuel/slips')}
-          size="small"
-          sx={{ fontSize: '0.75rem', mb: 1 }}
-        >
-          Back to Fuel Slips
-        </Button>
-        <Box display="flex" alignItems="center" gap={1.5}>
-          <LocalGasStation sx={{ fontSize: 28, color: 'primary.main' }} />
+    <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
+      <Box sx={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
           <Box>
-            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+            <Typography variant="h5" fontWeight="700" sx={{ fontSize: '1.25rem' }}>
               {isEdit ? 'Edit Fuel Slip' : 'Add New Fuel Slip'}
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
               {isEdit ? 'Update fuel transaction details' : 'Record a new fuel transaction for your fleet'}
             </Typography>
           </Box>
+          <Button
+            startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => navigate('/fuel/slips')}
+            size="small"
+            sx={{ 
+              fontSize: '0.8rem',
+              color: '#6B7280',
+              borderRadius: '10px',
+              textTransform: 'none',
+              '&:hover': { bgcolor: 'transparent' },
+            }}
+          >
+            Back to Fuel Slips
+          </Button>
         </Box>
-      </Box>
 
-      {/* Stepper - Compact */}
-      <Paper sx={{ p: 1.5, mb: 2 }}>
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
-          {STEPS.map(label => (
-            <Step key={label}><StepLabel>{label}</StepLabel></Step>
-          ))}
-        </Stepper>
-      </Paper>
+        {/* Stats Cards */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Total Fuel"
+              value={formData.quantity || '0'}
+              subtitle="Liters"
+              icon={<LocalGasStation sx={{ color: '#4F46E5', fontSize: '1.3rem' }} />}
+              color="#4F46E5"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Unit Price"
+              value={formData.unitPrice ? `R ${formData.unitPrice}` : 'N/A'}
+              subtitle="Per liter"
+              icon={<Receipt sx={{ color: '#F59E0B', fontSize: '1.3rem' }} />}
+              color="#F59E0B"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Total Amount"
+              value={formatCurrency(formData.totalAmount || calculatedTotal)}
+              subtitle="Total cost"
+              icon={<Business sx={{ color: '#22C55E', fontSize: '1.3rem' }} />}
+              color="#22C55E"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <StatCard
+              title="Odometer"
+              value={formData.odometerReading || 'N/A'}
+              subtitle="Current reading"
+              icon={<Speed sx={{ color: '#8B5CF6', fontSize: '1.3rem' }} />}
+              color="#8B5CF6"
+            />
+          </Grid>
+        </Grid>
 
-      {/* Alerts */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
+        {/* Stepper */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 3,
+            borderRadius: '16px',
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
+            {STEPS.map(label => (
+              <Step key={label}><StepLabel>{label}</StepLabel></Step>
+            ))}
+          </Stepper>
+        </Paper>
 
-      {/* Form Content */}
-      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
-        {fetchingData && activeStep === 0 ? (
-          <Box display="flex" justifyContent="center" alignItems="center" p={3}>
-            <CircularProgress size={30} />
-            <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading data...</Typography>
-          </Box>
-        ) : (
-          <>
-            {renderStepContent()}
-
-            {/* Navigation Buttons - Compact */}
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-              <Button
-                disabled={activeStep === 0}
-                onClick={handleBack}
-                size="small"
-                sx={{ fontSize: '0.8rem' }}
-              >
-                Back
-              </Button>
-
-              {activeStep < STEPS.length - 1 ? (
-                <Button variant="contained" onClick={handleNext} size="small" sx={{ fontSize: '0.8rem' }}>
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  size="small"
-                  sx={{ fontSize: '0.8rem' }}
-                  startIcon={loading ? <CircularProgress size={16} /> : (isEdit ? <SaveIcon /> : <CheckCircle />)}
-                >
-                  {loading ? 'Saving...' : (isEdit ? 'Update Slip' : 'Submit Fuel Slip')}
-                </Button>
-              )}
-            </Box>
-          </>
+        {/* Alerts */}
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }} 
+            onClose={() => setError('')}
+          >
+            {error}
+          </Alert>
         )}
-      </Paper>
+        {success && (
+          <Alert 
+            severity="success" 
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }} 
+            onClose={() => setSuccess('')}
+          >
+            {success}
+          </Alert>
+        )}
+
+        {/* Form Content */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3, md: 4 },
+            borderRadius: '16px',
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          {fetchingData && activeStep === 0 ? (
+            <Box display="flex" justifyContent="center" alignItems="center" p={3}>
+              <CircularProgress size={30} />
+              <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading data...</Typography>
+            </Box>
+          ) : (
+            <>
+              {renderStepContent()}
+
+              {/* Navigation Buttons */}
+              <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+                <Button
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                  size="small"
+                  sx={{ 
+                    fontSize: '0.8rem',
+                    borderRadius: '10px',
+                    textTransform: 'none',
+                  }}
+                >
+                  Back
+                </Button>
+
+                {activeStep < STEPS.length - 1 ? (
+                  <Button 
+                    variant="contained" 
+                    onClick={handleNext} 
+                    size="small" 
+                    sx={{ 
+                      fontSize: '0.8rem',
+                      borderRadius: '10px',
+                      textTransform: 'none',
+                      background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                      },
+                    }}
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    size="small"
+                    sx={{ 
+                      fontSize: '0.8rem',
+                      borderRadius: '10px',
+                      textTransform: 'none',
+                      background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #15803D 0%, #16A34A 100%)',
+                      },
+                    }}
+                    startIcon={loading ? <CircularProgress size={16} color="inherit" /> : (isEdit ? <SaveIcon /> : <CheckCircle />)}
+                  >
+                    {loading ? 'Saving...' : (isEdit ? 'Update Slip' : 'Submit Fuel Slip')}
+                  </Button>
+                )}
+              </Box>
+            </>
+          )}
+        </Paper>
+      </Box>
     </Box>
   );
 };
