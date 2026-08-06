@@ -232,77 +232,89 @@ function TripList() {
   );
 
   const fetchTrips = useCallback(async ({
-    page = 0,
-    size = pagination.pageSize,
-    search = searchText,
-    status = statusFilter,
-    city = cityFilter,
-    customer = customerFilter
-  } = {}) => {
-    setLoading(true);
-    try {
-      const params = {
-        page: Number(page),
-        size: Number(size),
-        sort: 'id,desc',
-      };
-      
-      if (search) params.search = search;
-      if (status !== 'all') params.status = status;
-      if (city) params.city = city;
-
-      console.log('📤 Fetching trips with params:', params);
-
-      const response = await tripService.getAllTrips(params);
-      
-      console.log('📥 Response:', {
-        page: response.number,
-        totalElements: response.totalElements,
-        totalPages: response.totalPages,
-        contentLength: response.content?.length
-      });
-
-      setTrips(response.content || []);
-      setPagination({
-        page: response.number ?? page,
-        pageSize: response.size ?? size,
-        total: response.totalElements ?? 0
-      });
-    } catch (err) {
-      console.error('Error fetching trips:', err);
-      showNotification('Failed to load trips', 'error');
-      setTrips([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
-
-  useEffect(() => {
-    fetchTrips({ page: 0 });
-  }, []);
-
-  useEffect(() => {
-    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
-    fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
-    return () => clearTimeout(fetchTimerRef.current);
-  }, [searchText, statusFilter, cityFilter, customerFilter]);
-
-  const handleStartTrip = (trip) => {
-    if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
+  page = 0,
+  size = pagination.pageSize,
+  search = searchText,
+  status = statusFilter,
+  city = cityFilter,
+  customer = customerFilter
+} = {}) => {
+  setLoading(true);
+  try {
+    const params = {
+      page: Number(page),
+      size: Number(size),
+      sort: 'id,desc',
+    };
     
-    const startOdometer = prompt('Enter starting odometer reading (km):');
-    if (!startOdometer) return;
+    // ✅ FIX: Only add status if it's not 'all'
+    if (status && status !== 'all') {
+      params.status = status;
+    }
+    
+    // ✅ Alternative: If the API doesn't support 'all', send all statuses
+    // if (status === 'all') {
+    //   params.status = 'PLANNED,ASSIGNED,IN_PROGRESS,ACTIVE,COMPLETED,CANCELLED,CLOSED,FINALIZED,DRAFT,PENDING';
+    // } else if (status) {
+    //   params.status = status;
+    // }
+    
+    if (search) params.search = search;
+    if (city) params.city = city;
+    if (customer) params.customer = customer;
 
-    tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
-      .then(() => {
-        showNotification('Trip started successfully!', 'success');
-        fetchTrips({ page: pagination.page });
-      })
-      .catch(err => {
-        console.error('Error starting trip:', err);
-        showNotification(err.message || 'Failed to start trip', 'error');
-      });
-  };
+    console.log('📤 Fetching trips with params:', params);
+
+    const response = await tripService.getAllTrips(params);
+    
+    console.log('📥 Response:', {
+      page: response.number,
+      totalElements: response.totalElements,
+      totalPages: response.totalPages,
+      contentLength: response.content?.length
+    });
+
+    setTrips(response.content || []);
+    setPagination({
+      page: response.number ?? page,
+      pageSize: response.size ?? size,
+      total: response.totalElements ?? 0
+    });
+  } catch (err) {
+    console.error('Error fetching trips:', err);
+    showNotification('Failed to load trips', 'error');
+    setTrips([]);
+  } finally {
+    setLoading(false);
+  }
+}, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
+
+useEffect(() => {
+  fetchTrips({ page: 0 });
+}, []);
+
+useEffect(() => {
+  if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+  fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
+  return () => clearTimeout(fetchTimerRef.current);
+}, [searchText, statusFilter, cityFilter, customerFilter]);
+
+const handleStartTrip = (trip) => {
+  if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
+  
+  const startOdometer = prompt('Enter starting odometer reading (km):');
+  if (!startOdometer) return;
+
+  tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
+    .then(() => {
+      showNotification('Trip started successfully!', 'success');
+      fetchTrips({ page: pagination.page });
+    })
+    .catch(err => {
+      console.error('Error starting trip:', err);
+      showNotification(err.message || 'Failed to start trip', 'error');
+    });
+};
 
   const handleEndTrip = (trip) => {
     if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
