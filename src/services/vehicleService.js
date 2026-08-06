@@ -377,13 +377,23 @@ export const vehicleService = {
   
   getCertificates: async (vehicleId) => {
     try {
-      const response = await api.get(`/vehicles/${vehicleId}/certificates`);
-      return processVehicles(response);
+        const response = await api.get(`/vehicles/${vehicleId}/certificates`);
+        return Array.isArray(response) ? response : [];
     } catch (error) {
-      console.error(`Error fetching certificates for vehicle ${vehicleId}:`, error);
-      throw error;
+        console.error('Error fetching certificates:', error);
+        return [];
     }
-  },
+},
+
+getMaintenance: async (vehicleId) => {
+    try {
+        const response = await api.get(`/vehicles/${vehicleId}/maintenance`);
+        return Array.isArray(response) ? response : [];
+    } catch (error) {
+        console.error('Error fetching maintenance:', error);
+        return [];
+    }
+}
 
   addCertificate: async (vehicleId, certificateData) => {
     try {
