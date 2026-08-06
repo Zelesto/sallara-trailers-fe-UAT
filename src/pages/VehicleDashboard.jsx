@@ -1630,15 +1630,42 @@ const VehicleDashboard = () => {
   };
 
   const fetchCertificates = async (vehicleId) => {
-    try {
-      const certs = await vehicleService.getCertificates(vehicleId);
-      setCertificates(certs || []);
-    } catch (err) {
-      console.error('Error fetching certificates:', err);
-      setCertificates([]);
+  try {
+    const response = await api.get(`/vehicles/${vehicleId}/certificates`);
+    // Ensure we return an array
+    if (Array.isArray(response)) {
+      return response;
+    } else if (response && response.data && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && response.content && Array.isArray(response.content)) {
+      return response.content;
     }
-  };
+    return [];
+  } catch (error) {
+    console.error('Error fetching certificates:', error);
+    return [];
+  }
+};
 
+
+  const fetchMaintenance = async (vehicleId) => {
+  try {
+    const response = await api.get(`/vehicles/${vehicleId}/maintenance`);
+    // Ensure we return an array
+    if (Array.isArray(response)) {
+      return response;
+    } else if (response && response.data && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && response.content && Array.isArray(response.content)) {
+      return response.content;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching maintenance:', error);
+    return [];
+  }
+};
+  
   const fetchTrips = async (vehicleId) => {
     try {
       const tripsData = await tripService.getTripsByVehicle(vehicleId);
