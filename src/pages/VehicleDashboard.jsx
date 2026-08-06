@@ -897,15 +897,25 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
 // ============================================================
 // OVERVIEW TAB
 // ============================================================
-const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => {
-  const safeResetFuel = (tank) => {
-    if (typeof handleResetFuel === 'function') {
-      handleResetFuel(tank);
-    }
-  };
 
-  const totalFuelCapacity = fuelData.tank1Capacity + fuelData.tank2Capacity;
-  const totalFuelCurrent = fuelData.tank1Current + fuelData.tank2Current;
+const mockTrailers = [
+  { id: 1, number: 'TR-2024-001', type: 'Refrigerated 48ft', status: 'HOOKED' },
+  { id: 2, number: 'TR-2024-002', type: 'Flatbed 53ft', status: 'AVAILABLE' },
+  { id: 3, number: 'TR-2024-003', type: 'Dry Van 53ft', status: 'HOOKED' },
+  { id: 4, number: 'TR-2024-004', type: 'Tanker 40ft', status: 'AVAILABLE' },
+];
+
+const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => {
+  // Calculate real stats from data
+  const totalTrips = vehicle?.totalTrips || 0;
+  const totalDistance = vehicle?.currentOdometer || 0;
+  const fuelEfficiency = vehicle?.avgConsumption || 0;
+  const completedServices = serviceRecords?.filter(s => s.status === 'COMPLETED').length || 0;
+  const activeCertificates = certificates?.filter(c => c.status === 'ACTIVE').length || 0;
+  
+  // Calculate fuel percentage
+  const totalFuelCapacity = (fuelData?.tank1Capacity || 0) + (fuelData?.tank2Capacity || 0);
+  const totalFuelCurrent = (fuelData?.tank1Current || 0) + (fuelData?.tank2Current || 0);
   const fuelPercentage = totalFuelCapacity > 0 ? (totalFuelCurrent / totalFuelCapacity) * 100 : 0;
 
   return (
@@ -914,7 +924,7 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Distance"
-            value={vehicle.currentOdometer ? `${vehicle.currentOdometer.toLocaleString()} km` : 'N/A'}
+            value={totalDistance ? `${totalDistance.toLocaleString()} km` : 'N/A'}
             subtitle="Lifetime distance"
             icon={RouteIcon}
             color="#4F46E5"
@@ -924,7 +934,7 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Fuel Efficiency"
-            value={vehicle.avgConsumption ? `${vehicle.avgConsumption} L/100km` : 'N/A'}
+            value={fuelEfficiency ? `${fuelEfficiency} L/100km` : 'N/A'}
             subtitle="Average consumption"
             icon={FuelIcon}
             color="#F59E0B"
@@ -934,8 +944,8 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Service Status"
-            value={serviceRecords.filter(s => s.status === 'COMPLETED').length > 0 ? 'Up to date' : 'Due'}
-            subtitle={`${serviceRecords.filter(s => s.status === 'SCHEDULED').length} scheduled`}
+            value={completedServices > 0 ? 'Up to date' : 'Due'}
+            subtitle={`${serviceRecords?.filter(s => s.status === 'SCHEDULED').length || 0} scheduled`}
             icon={BuildIcon}
             color="#22C55E"
             loading={loading}
@@ -953,6 +963,50 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
         </Grid>
       </Grid>
 
+      {/* Trailer Hook Card */}
+      <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #ECECEC', mb: 3 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+          Trailer Hook Status
+        </Typography>
+        <Grid container spacing={2}>
+          {mockTrailers.map((trailer) => (
+            <Grid item xs={12} sm={6} md={4} key={trailer.id}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: '12px',
+                  border: `2px solid ${trailer.status === 'HOOKED' ? '#22C55E' : '#6B7280'}`,
+                  bgcolor: trailer.status === 'HOOKED' ? '#F0FDF4' : '#F9FAFB',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {trailer.number}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                      {trailer.type}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={trailer.status === 'HOOKED' ? 'Hooked' : 'Available'}
+                    size="small"
+                    sx={{
+                      fontSize: '0.55rem',
+                      height: 18,
+                      bgcolor: trailer.status === 'HOOKED' ? '#D1FAE5' : '#F3F4F6',
+                      color: trailer.status === 'HOOKED' ? '#065F46' : '#6B7280',
+                    }}
+                  />
+                </Stack>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Paper>
+
+      {/* Fuel Tanks */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <FuelTankCard
@@ -960,7 +1014,7 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
             capacity={fuelData.tank1Capacity}
             currentLevel={fuelData.tank1Current}
             color="#4F46E5"
-            onReset={() => safeResetFuel(1)}
+            onReset={() => handleResetFuel(1)}
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -969,21 +1023,22 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
             capacity={fuelData.tank2Capacity}
             currentLevel={fuelData.tank2Current}
             color="#8B5CF6"
-            onReset={() => safeResetFuel(2)}
+            onReset={() => handleResetFuel(2)}
           />
         </Grid>
       </Grid>
 
+      {/* Recent Services and Certificates */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
               Recent Services
             </Typography>
-            {serviceRecords.slice(0, 3).map(service => (
+            {serviceRecords?.slice(0, 3).map(service => (
               <ServiceListItem key={service.id} service={service} />
             ))}
-            {serviceRecords.length === 0 && (
+            {(!serviceRecords || serviceRecords.length === 0) && (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                 No service records
               </Typography>
@@ -998,10 +1053,10 @@ const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading,
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
               Active Certificates
             </Typography>
-            {certificates.filter(c => c.status === 'ACTIVE' || c.status === 'EXPIRING').slice(0, 3).map(cert => (
+            {certificates?.filter(c => c.status === 'ACTIVE').slice(0, 3).map(cert => (
               <CertificateListItem key={cert.id} certificate={cert} />
             ))}
-            {certificates.filter(c => c.status === 'ACTIVE').length === 0 && (
+            {(!certificates || certificates.filter(c => c.status === 'ACTIVE').length === 0) && (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                 No active certificates
               </Typography>
