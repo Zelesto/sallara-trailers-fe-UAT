@@ -116,6 +116,8 @@ import { certificateService } from '../services/certificateService';
 import { maintenanceService } from '../services/maintenanceService';
 import tripService from '../services/tripService';
 
+import api from '../services/api'; 
+
 // ============================================================
 // NAVIGATION TABS
 // ============================================================
@@ -1639,37 +1641,25 @@ const VehicleDashboard = () => {
   const fetchCertificates = async (vehicleId) => {
   try {
     const response = await api.get(`/vehicles/${vehicleId}/certificates`);
-    // Ensure we return an array
-    if (Array.isArray(response)) {
-      return response;
-    } else if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    } else if (response && response.content && Array.isArray(response.content)) {
-      return response.content;
-    }
-    return [];
+    // api.get already returns the data directly (response.data from interceptor)
+    const certs = Array.isArray(response) ? response : [];
+    setCertificates(certs);
+    console.log(`✅ Found ${certs.length} certificates for vehicle ${vehicleId}`);
   } catch (error) {
     console.error('Error fetching certificates:', error);
-    return [];
+    setCertificates([]);
   }
 };
 
-
-  const fetchMaintenance = async (vehicleId) => {
+const fetchMaintenance = async (vehicleId) => {
   try {
     const response = await api.get(`/vehicles/${vehicleId}/maintenance`);
-    // Ensure we return an array
-    if (Array.isArray(response)) {
-      return response;
-    } else if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    } else if (response && response.content && Array.isArray(response.content)) {
-      return response.content;
-    }
-    return [];
+    const records = Array.isArray(response) ? response : [];
+    setServiceRecords(records);
+    console.log(`✅ Found ${records.length} maintenance records for vehicle ${vehicleId}`);
   } catch (error) {
     console.error('Error fetching maintenance:', error);
-    return [];
+    setServiceRecords([]);
   }
 };
   
