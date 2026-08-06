@@ -153,6 +153,14 @@ getAllTrips: async (params = {}) => {
       params.sort = 'id,desc';
     }
     
+    // ✅ FIX: Remove status if it's 'all' or a hardcoded default
+    // This ensures we don't filter when we want all trips
+    if (params.status === 'all' || 
+        params.status === 'IN_PROGRESS,ACTIVE,PLANNED,ASSIGNED' ||
+        !params.status) {
+      delete params.status;
+    }
+    
     console.log('📤 getAllTrips params:', params);
     
     const response = await api.get('/trips', { params });
