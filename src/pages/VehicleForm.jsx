@@ -23,8 +23,7 @@ import {
   CardContent,
   IconButton,
   Tooltip,
-  BuildIcon,
-} from '@mui/material';
+  } from '@mui/material';
 import {
   ArrowBack,
   Save,
@@ -46,6 +45,7 @@ import {
   Info as InfoIcon,
   PersonAdd as PersonAddIcon,
   TrendingUp as TrendingUpIcon,
+  BuildIcon as BuildIcon,
 } from '@mui/icons-material';
 import { vehicleService } from '../services/vehicleService';
 
