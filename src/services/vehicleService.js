@@ -328,16 +328,35 @@ export const vehicleService = {
     }
   },
 
-  updateFuelLevel: async (vehicleId, fuelData) => {
-    try {
-      const payload = toSnakeCase(fuelData);
-      const response = await api.put(`/vehicles/${vehicleId}/fuel-level`, payload);
-      return toCamelCase(response);
-    } catch (error) {
-      console.error(`Error updating fuel level for vehicle ${vehicleId}:`, error);
-      throw error;
+  /**
+ * Update fuel level for a vehicle
+ */
+updateFuelLevel: async (vehicleId, fuelData) => {
+  try {
+    // If fuelData is an object with fuelLevel property, extract it
+    let payload = {};
+    if (typeof fuelData === 'object' && fuelData !== null) {
+      // If it has a fuelLevel property, use it
+      if (fuelData.fuelLevel !== undefined) {
+        payload = { fuelLevel: fuelData.fuelLevel };
+      } else {
+        // Otherwise convert the whole object to snake_case
+        payload = toSnakeCase(fuelData);
+      }
+    } else if (typeof fuelData === 'number') {
+      // If it's a number, use it as fuelLevel
+      payload = { fuelLevel: fuelData };
+    } else {
+      throw new Error('Invalid fuel data format');
     }
-  },
+    
+    const response = await api.put(`/vehicles/${vehicleId}/fuel-level`, payload);
+    return toCamelCase(response);
+  } catch (error) {
+    console.error(`Error updating fuel level for vehicle ${vehicleId}:`, error);
+    throw error;
+  }
+},
 
   resetFuelToFull: async (vehicleId, odometerReading = null, tankNumber = 1) => {
     try {
