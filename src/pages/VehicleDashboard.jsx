@@ -397,21 +397,28 @@ const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel, onUpda
     }));
   };
 
+
   const handleSaveSettings = async () => {
-    setSaving(true);
-    try {
-      await onUpdateFuel({
-        avgConsumption: fuelData.avgConsumption,
-        virtualConsumption: fuelData.virtualConsumption,
-        fuelCapacity: fuelData.tank1Capacity,
-        currentFuelLevel: fuelData.tank1Current,
-      });
-    } catch (err) {
-      console.error('Error saving fuel settings:', err);
-    } finally {
-      setSaving(false);
-    }
-  };
+  setSaving(true);
+  try {
+    // Create the fuel data object with the correct format
+    const fuelData = {
+      fuelLevel: fuelData.tank1Current,  // Send the current fuel level
+      avgConsumption: fuelData.avgConsumption,
+      virtualConsumption: fuelData.virtualConsumption,
+      fuelCapacity: fuelData.tank1Capacity,
+    };
+    
+    await onUpdateFuel(fuelData);
+    // Or if onUpdateFuel expects just the number:
+    // await onUpdateFuel(fuelData.tank1Current);
+  } catch (err) {
+    console.error('Error saving fuel settings:', err);
+  } finally {
+    setSaving(false);
+  }
+};
+  
 
   return (
     <Box>
@@ -1706,22 +1713,27 @@ const VehicleDashboard = () => {
   };
 
   const handleUpdateFuel = async (fuelData) => {
-    try {
-      await vehicleService.updateFuelLevel(id, fuelData);
-      const data = await vehicleService.getVehicleById(id);
-      if (data.fuelCapacity) {
-        setFuelData(prev => ({
-          ...prev,
-          tank1Capacity: data.fuelCapacity || 400,
-          tank1Current: data.currentFuelLevel || 320,
-        }));
-      }
-    } catch (err) {
-      console.error('Error updating fuel:', err);
-      setError('Failed to update fuel settings');
-      setTimeout(() => setError(null), 3000);
+  try {
+    // If fuelData is a number, use it as fuelLevel
+    const payload = typeof fuelData === 'number' 
+      ? { fuelLevel: fuelData }
+      : fuelData;
+      
+    await vehicleService.updateFuelLevel(id, payload);
+    const data = await vehicleService.getVehicleById(id);
+    if (data.fuelCapacity) {
+      setFuelData(prev => ({
+        ...prev,
+        tank1Capacity: data.fuelCapacity || 400,
+        tank1Current: data.currentFuelLevel || 320,
+      }));
     }
-  };
+  } catch (err) {
+    console.error('Error updating fuel:', err);
+    setError('Failed to update fuel settings');
+    setTimeout(() => setError(null), 3000);
+  }
+};
 
   const handleAddService = () => {
     setEditingService(null);
