@@ -399,28 +399,24 @@ const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel, onUpda
     }));
   };
 
-
   const handleSaveSettings = async () => {
-  setSaving(true);
-  try {
-    // Create the fuel data object with the correct format
-    const fuelData = {
-      fuelLevel: fuelData.tank1Current,  // Send the current fuel level
-      avgConsumption: fuelData.avgConsumption,
-      virtualConsumption: fuelData.virtualConsumption,
-      fuelCapacity: fuelData.tank1Capacity,
-    };
-    
-    await onUpdateFuel(fuelData);
-    // Or if onUpdateFuel expects just the number:
-    // await onUpdateFuel(fuelData.tank1Current);
-  } catch (err) {
-    console.error('Error saving fuel settings:', err);
-  } finally {
-    setSaving(false);
-  }
-};
-  
+    setSaving(true);
+    try {
+      // ✅ Use the prop fuelData (don't redeclare)
+      const payload = {
+        fuelLevel: fuelData.tank1Current,
+        avgConsumption: fuelData.avgConsumption,
+        virtualConsumption: fuelData.virtualConsumption,
+        fuelCapacity: fuelData.tank1Capacity,
+      };
+      
+      await onUpdateFuel(payload);
+    } catch (err) {
+      console.error('Error saving fuel settings:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Box>
