@@ -13,7 +13,7 @@ import {
   Chip, IconButton, Button, Card, CardContent, Tooltip,
   TablePagination, TextField, Alert, Stack, Popover, Divider,
   Avatar, LinearProgress, Badge, Collapse, Fade, Grow,
-  Grid,  // ✅ ADD THIS
+  Grid,
 } from '@mui/material';
 
 import {
@@ -26,6 +26,7 @@ import {
   Route as RouteIcon, CalendarToday, Speed, LocalGasStation,
   Star, StarBorder, MoreVert, Download, Print,
 } from '@mui/icons-material';
+
 /* ============================================================
    CONSTANTS & CONFIGURATIONS
    ============================================================ */
@@ -231,56 +232,87 @@ function TripList() {
     [trips]
   );
 
+  // ✅ FIXED: fetchTrips with proper status handling
   const fetchTrips = useCallback(async ({
-  page = 0,
-  size = pagination.pageSize,
-  search = searchText,
-  status = statusFilter,
-  city = cityFilter,
-  customer = customerFilter
-} = {}) => {
-  setLoading(true);
-  try {
-    const params = {
-      page: Number(page),
-      size: Number(size),
-      sort: 'id,desc',
-    };
-    
-    // ✅ FIX: Only add status if it's not 'all' AND not undefined
-    if (status && status !== 'all' && status !== 'undefined') {
-      params.status = status;
+    page = 0,
+    size = pagination.pageSize,
+    search = searchText,
+    status = statusFilter,
+    city = cityFilter,
+    customer = customerFilter
+  } = {}) => {
+    setLoading(true);
+    try {
+      const params = {
+        page: Number(page),
+        size: Number(size),
+        sort: 'id,desc',
+      };
+      
+      // ✅ CRITICAL FIX: Only add status if it's not 'all' and has a value
+      if (status && status !== 'all' && status !== 'undefined') {
+        params.status = status;
+      }
+      
+      if (search) params.search = search;
+      if (city) params.city = city;
+      if (customer) params.customer = customer;
+
+      console.log('📤 Fetching trips with params:', params);
+
+      const response = await tripService.getAllTrips(params);
+      
+      console.log('📥 Response:', {
+        page: response.number,
+        totalElements: response.totalElements,
+        totalPages: response.totalPages,
+        contentLength: response.content?.length
+      });
+
+      setTrips(response.content || []);
+      setPagination({
+        page: response.number ?? page,
+        pageSize: response.size ?? size,
+        total: response.totalElements ?? 0
+      });
+    } catch (err) {
+      console.error('Error fetching trips:', err);
+      showNotification('Failed to load trips', 'error');
+      setTrips([]);
+    } finally {
+      setLoading(false);
     }
+  }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
+
+  // ✅ FIXED: Initial fetch with no filters
+  useEffect(() => {
+    fetchTrips({ page: 0, status: 'all' });
+  }, []);
+
+  // ✅ FIXED: Debounced filter changes
+  useEffect(() => {
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+    fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
+    return () => clearTimeout(fetchTimerRef.current);
+  }, [searchText, statusFilter, cityFilter, customerFilter]);
+
+  // ✅ FIXED: handleStartTrip function (was missing)
+  const handleStartTrip = (trip) => {
+    if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
     
-    if (search) params.search = search;
-    if (city) params.city = city;
-    if (customer) params.customer = customer;
+    const startOdometer = prompt('Enter starting odometer reading (km):');
+    if (!startOdometer) return;
 
-    console.log('📤 Fetching trips with params:', params);
-
-    const response = await tripService.getAllTrips(params);
-    
-    console.log('📥 Response:', {
-      page: response.number,
-      totalElements: response.totalElements,
-      totalPages: response.totalPages,
-      contentLength: response.content?.length
-    });
-
-    setTrips(response.content || []);
-    setPagination({
-      page: response.number ?? page,
-      pageSize: response.size ?? size,
-      total: response.totalElements ?? 0
-    });
-  } catch (err) {
-    console.error('Error fetching trips:', err);
-    showNotification('Failed to load trips', 'error');
-    setTrips([]);
-  } finally {
-    setLoading(false);
-  }
-}, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
+    tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
+      .then(() => {
+        showNotification('Trip started successfully!', 'success');
+        fetchTrips({ page: pagination.page });
+      })
+      .catch(err => {
+        console.error('Error starting trip:', err);
+        showNotification(err.message || 'Failed to start trip', 'error');
+      });
+  };
 
   const handleEndTrip = (trip) => {
     if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
@@ -356,6 +388,7 @@ function TripList() {
     }
   };
 
+  // ✅ FIXED: Clear filters resets to 'all'
   const handleClearFilters = () => {
     setSearchText('');
     setStatusFilter('all');
