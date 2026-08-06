@@ -393,7 +393,7 @@ getMaintenance: async (vehicleId) => {
         console.error('Error fetching maintenance:', error);
         return [];
     }
-}
+},
 
   addCertificate: async (vehicleId, certificateData) => {
     try {
