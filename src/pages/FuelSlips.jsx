@@ -136,6 +136,33 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge
   </Card>
 );
 
+const [tripNumbers, setTripNumbers] = useState({});
+
+
+useEffect(() => {
+  const fetchTripNumbers = async () => {
+    const slipsWithTrips = slips.filter(s => s.tripId && !tripNumbers[s.tripId]);
+    if (slipsWithTrips.length === 0) return;
+    
+    const tripMap = {};
+    for (const slip of slipsWithTrips) {
+      try {
+        const trip = await tripService.getTripById(slip.tripId);
+        tripMap[slip.tripId] = trip.tripNumber;
+      } catch (err) {
+        console.warn(`Could not fetch trip ${slip.tripId}:`, err);
+        tripMap[slip.tripId] = `Trip #${slip.tripId}`;
+      }
+    }
+    setTripNumbers(prev => ({ ...prev, ...tripMap }));
+  };
+  
+  if (slips.length > 0) {
+    fetchTripNumbers();
+  }
+}, [slips]);
+
+
 // Status Chip Component - Updated to use derived status
 const StatusChip = ({ slip }) => {
   const status = getFuelSlipStatus(slip);
@@ -782,11 +809,12 @@ function FuelSlips() {
                       </Typography>
                       {slip.tripId && (
                         <Chip
-                          label={tripDetails?.tripNumber || `Trip #${slip.tripId}`} 
+                          label={tripNumbers[slip.tripId] || `Trip #${slip.tripId}`}
                           size="small"
                           color="info"
                           variant="outlined"
                           sx={{ height: 14, fontSize: '0.45rem', mt: 0.25 }}
+                          onClick={() => navigate(`/trips/${slip.tripId}`)}
                         />
                       )}
                     </Box>
