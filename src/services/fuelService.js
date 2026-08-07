@@ -180,23 +180,27 @@ export const fuelService = {
   },
 
   /**
-   * Update an existing fuel slip
-   * @param {number|string} id - Fuel slip ID
-   * @param {Object} data - Updated fuel slip data
-   */
-  updateFuelSlip: async (id, data) => {
-    try {
-      const payload = buildFuelSlipPayload(data);
-      console.log(`📤 Updating fuel slip ${id} with payload:`, payload);
-      const response = await api.put(`/fuel/slips/${id}`, payload);
-      const result = unwrap(response);
-      console.log('✅ Fuel slip updated:', result);
-      return result;
-    } catch (error) {
-      throw handleApiError(error, `Updating fuel slip ${id}`);
-    }
-  },
-
+ * Update an existing fuel slip
+ * @param {number|string} id - Fuel slip ID
+ * @param {Object} data - Updated fuel slip data
+ */
+updateFuelSlip: async (id, data) => {
+  try {
+    console.log(`📤 Updating fuel slip with ID: ${id}`);
+    console.log('📤 Update data:', data);
+    
+    const payload = buildFuelSlipPayload(data);
+    console.log('📤 Update payload:', payload);
+    
+    const response = await api.put(`/fuel/slips/${id}`, payload);
+    const result = unwrap(response);
+    console.log('✅ Fuel slip updated:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Error updating fuel slip:', error);
+    throw handleApiError(error, `Updating fuel slip ${id}`);
+  }
+},
   /**
    * Delete a fuel slip
    * @param {number|string} id - Fuel slip ID
