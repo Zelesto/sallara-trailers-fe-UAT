@@ -794,37 +794,38 @@ useEffect(() => {
             </Card>
 
             {entryMode === 'trip' && (
-              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Trip</InputLabel>
-                <Select
-                  value={formData.tripId}
-                  onChange={(e) => handleTripSelection(e.target.value)}
-                  label="Trip"
-                  sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
-                  renderValue={(selected) => {
-                    const trip = availableTrips.find(t => t.id && t.id.toString() === selected.toString());
-                    return trip
-                      ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'}`
-                      : '-- Select a Trip --';
-                  }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>-- Select a Trip --</MenuItem>
-                  {availableTrips.map(trip => (
-                    <MenuItem key={trip.id} value={trip.id} sx={{ fontSize: '0.8rem' }}>
-                      <Box>
-                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                          {trip.tripNumber || `Trip #${trip.id}`}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                          {trip.originLocation || 'Origin'} → {trip.destinationLocation || 'Destination'} | 
-                          Status: {trip.status}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
+  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+    <InputLabel sx={{ fontSize: '0.75rem' }}>Trip</InputLabel>
+    <Select
+      value={formData.tripId}
+      onChange={(e) => handleTripSelection(e.target.value)}
+      label="Trip"
+      sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
+      renderValue={(selected) => {
+        const trip = availableTrips.find(t => t.id && t.id.toString() === selected.toString());
+        // ✅ DISPLAY TRIP NUMBER INSTEAD OF ID
+        return trip
+          ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'}`
+          : '-- Select a Trip --';
+      }}
+    >
+      <MenuItem value="" sx={{ fontSize: '0.8rem' }}>-- Select a Trip --</MenuItem>
+      {availableTrips.map(trip => (
+        <MenuItem key={trip.id} value={trip.id} sx={{ fontSize: '0.8rem' }}>
+          <Box>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+              {trip.tripNumber || `Trip #${trip.id}`} {/* ✅ Show trip number */}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+              {trip.originLocation || 'Origin'} → {trip.destinationLocation || 'Destination'} | 
+              Status: {trip.status}
+            </Typography>
+          </Box>
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+)}
 
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
@@ -1213,8 +1214,8 @@ useEffect(() => {
                   <InfoItem label="Date" value={new Date(formData.transactionDate).toLocaleString()} />
                   <InfoItem label="Entry Mode" value={entryMode === 'trip' ? 'Trip-based' : 'Manual'} />
                   {formData.tripId && selectedTrip && (
-                    <InfoItem label="Trip" value={selectedTrip.tripNumber || `Trip #${selectedTrip.id}`} />
-                  )}
+  <InfoItem label="Trip" value={selectedTrip.tripNumber || `Trip #${selectedTrip.id}`} />
+)}
                   <InfoItem label="Vehicle" value={extractRegistrationNumber(formData.vehicleManual)} />
                   <InfoItem label="Driver" value={formData.driverManual} />
                 </Grid>
