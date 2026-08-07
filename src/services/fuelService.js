@@ -67,9 +67,10 @@ const handleApiError = (error, context = '') => {
 /**
  * Build fuel slip payload with common fields
  */
+// src/services/fuelService.js
 const buildFuelSlipPayload = (data) => ({
   slipNumber: sanitizeField(data.slipNumber),
-  transactionDate: formatDateForBackend(data.transactionDate),
+  transactionDate: data.transactionDate, // ✅ Pass as-is, already formatted
   vehicleId: data.vehicleId ? parseInt(data.vehicleId, 10) : null,
   vehicleRegistration: sanitizeField(data.vehicleRegistration),
   driverId: data.driverId ? parseInt(data.driverId, 10) : null,
