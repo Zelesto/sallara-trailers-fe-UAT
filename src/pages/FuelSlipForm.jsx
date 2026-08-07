@@ -248,6 +248,16 @@ useEffect(() => {
     // Determine entry mode
     if (data.tripId) {
       setEntryMode('trip');
+      
+      // ✅ Fetch trip details to get trip number
+      try {
+        const tripData = await tripService.getTripById(data.tripId);
+        console.log('✅ Trip details loaded for edit:', tripData);
+        // Store trip data for display
+        setSelectedTrip(tripData);
+      } catch (tripErr) {
+        console.warn('Could not fetch trip details:', tripErr);
+      }
     } else {
       setEntryMode('manual');
     }
@@ -278,17 +288,6 @@ useEffect(() => {
     // Set input values for display
     setVehicleInputValue(data.vehicleRegNumber || data.vehicleRegistration || '');
     setDriverInputValue(data.driverName || '');
-
-    // If there's a trip, try to get trip details
-    if (data.tripId) {
-      try {
-        const tripData = await tripService.getTripById(data.tripId);
-        console.log('✅ Trip details loaded for edit:', tripData);
-        // You might want to use this for additional info
-      } catch (tripErr) {
-        console.warn('Could not fetch trip details:', tripErr);
-      }
-    }
 
   } catch (err) {
     console.error('❌ Error loading fuel slip:', err);
@@ -803,7 +802,7 @@ useEffect(() => {
       sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
       renderValue={(selected) => {
         const trip = availableTrips.find(t => t.id && t.id.toString() === selected.toString());
-        // ✅ DISPLAY TRIP NUMBER INSTEAD OF ID
+        // ✅ FIX: Show trip number instead of ID
         return trip
           ? `${trip.tripNumber || `Trip #${trip.id}`} - ${trip.originLocation || 'Origin'} → ${trip.destinationLocation || 'Destination'}`
           : '-- Select a Trip --';
@@ -1207,19 +1206,23 @@ useEffect(() => {
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
                 Fuel Slip Details
               </Typography>
-
+            
               <Grid container spacing={1.5}>
                 <Grid item xs={12} md={6}>
                   <InfoItem label="Slip Number" value={formData.slipNumber} />
                   <InfoItem label="Date" value={new Date(formData.transactionDate).toLocaleString()} />
                   <InfoItem label="Entry Mode" value={entryMode === 'trip' ? 'Trip-based' : 'Manual'} />
+                  {/* ✅ FIX: Show trip number instead of ID */}
                   {formData.tripId && selectedTrip && (
-  <InfoItem label="Trip" value={selectedTrip.tripNumber || `Trip #${selectedTrip.id}`} />
-)}
+                    <InfoItem 
+                      label="Trip" 
+                      value={selectedTrip.tripNumber || `Trip #${selectedTrip.id}`} 
+                    />
+                  )}
                   <InfoItem label="Vehicle" value={extractRegistrationNumber(formData.vehicleManual)} />
                   <InfoItem label="Driver" value={formData.driverManual} />
                 </Grid>
-
+            
                 <Grid item xs={12} md={6}>
                   <InfoItem label="Fuel Type" value={formData.fuelType} />
                   <InfoItem label="Quantity" value={`${formData.quantity} L`} />
