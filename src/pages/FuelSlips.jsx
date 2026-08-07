@@ -775,9 +775,9 @@ function FuelSlips() {
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
                         ID: {slip.vehicleId || 'N/A'}
                       </Typography>
-                      {slip.tripNumber && (
+                      {slip.tripId && (
                         <Chip
-                          label={`Trip #${slip.tripNumber}`}
+                          label={`Trip #${slip.tripId}`}
                           size="small"
                           color="info"
                           variant="outlined"
