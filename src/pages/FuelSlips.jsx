@@ -482,6 +482,7 @@ function FuelSlips() {
               <StatCard
                 title="Total Cost"
                 value={formatCurrency(summary.totalAmount)}
+                subtitle={`${summary.slipCount} slips`}
                 icon={AttachMoney}
                 color="primary"
               />
@@ -490,6 +491,7 @@ function FuelSlips() {
               <StatCard
                 title="Total Fuel"
                 value={`${formatNumber(summary.totalQuantity)} L`}
+                subtitle={`Avg: ${formatNumber(summary.totalQuantity / (summary.slipCount || 1))} L/slip`}
                 icon={LocalGasStation}
                 color="secondary"
               />
@@ -498,6 +500,7 @@ function FuelSlips() {
               <StatCard
                 title="Avg Price"
                 value={`${formatCurrency(summary.averagePrice)}/L`}
+                subtitle={`${summary.slipCount} slips`}
                 icon={TrendingUp}
                 color="success"
               />
@@ -506,6 +509,7 @@ function FuelSlips() {
               <StatCard
                 title="Total Slips"
                 value={summary.slipCount}
+                subtitle={`${summary.withTripCount} with trip`}
                 icon={Receipt}
                 color="info"
               />
@@ -775,7 +779,7 @@ function FuelSlips() {
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
                         ID: {slip.vehicleId || 'N/A'}
                       </Typography>
-                      { {slip.tripId && (
+                      {slip.tripId && (
                         <Chip
                           label={slip.tripNumber || `Trip #${slip.tripId}`} 
                           size="small"
