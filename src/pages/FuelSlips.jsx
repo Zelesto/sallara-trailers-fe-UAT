@@ -55,6 +55,7 @@ import {
   Pending as PendingIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { tripService } from '../services/tripService';
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
