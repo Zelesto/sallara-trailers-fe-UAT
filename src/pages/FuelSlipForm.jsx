@@ -151,8 +151,8 @@ const FuelSlipForm = () => {
   // ============================================================
   // FIX: Proper mode detection
   // ============================================================
-  const isEdit = id && id !== 'add' && id !== 'new' && id !== 'undefined';
-  const isCreate = !isEdit;
+const isEdit = id && id !== 'add' && id !== 'new' && id !== 'undefined' && id !== 'null' && !isNaN(id);
+const isCreate = !isEdit;
 
   console.log('📝 FuelSlipForm - Mode:', isEdit ? 'Edit' : 'Create', 'ID:', id);
 
