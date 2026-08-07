@@ -165,6 +165,8 @@ const isCreate = !isEdit;
   const [stepErrors, setStepErrors] = useState([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
 
+  const [selectedTrip, setSelectedTrip] = useState(null); 
+
   // Data state
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -237,13 +239,29 @@ useEffect(() => {
     calculateTotal();
   }, [formData.quantity, formData.unitPrice]);
 
-  const fetchSlipDetails = async () => {
+ const fetchSlipDetails = async () => {
   setLoading(true);
   setError('');
   try {
     console.log(`📤 Fetching fuel slip with ID: ${id}`);
     const data = await fuelService.getFuelSlipById(id);
     console.log('✅ Fuel slip loaded for edit:', data);
+
+    // ✅ FIX: Format the date for datetime-local input
+    let formattedDate = '';
+    if (data.transactionDate) {
+      const dateObj = new Date(data.transactionDate);
+      if (!isNaN(dateObj.getTime())) {
+        // Format as YYYY-MM-DDTHH:mm (local time)
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const hours = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+        formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+        console.log('📅 Formatted date for input:', formattedDate);
+      }
+    }
 
     // Determine entry mode
     if (data.tripId) {
@@ -265,7 +283,7 @@ useEffect(() => {
     // Format the data for the form
     setFormData({
       slipNumber: data.slipNumber || '',
-      transactionDate: data.transactionDate ? new Date(data.transactionDate).toISOString().slice(0, 16) : '',
+      transactionDate: formattedDate, // ✅ Now formattedDate is defined
       vehicleId: data.vehicleId || '',
       driverId: data.driverId || '',
       tripId: data.tripId || '',
@@ -422,6 +440,7 @@ useEffect(() => {
       }));
       setVehicleInputValue('');
       setDriverInputValue('');
+      setSelectedTrip(null);
       return;
     }
 
@@ -433,6 +452,8 @@ useEffect(() => {
         setError('Selected trip not found');
         return;
       }
+
+      setSelectedTrip(selectedTrip);
 
       let newFormData = { ...formData, tripId };
       let newVehicleValue = '';
@@ -533,9 +554,10 @@ useEffect(() => {
 
   // Form handlers
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const { name, value } = e.target;
+  console.log(`📝 Input change: ${name} = ${value}`);
+  setFormData(prev => ({ ...prev, [name]: value }));
+};
 
   const handleEntryModeChange = (e) => {
     const mode = e.target.value;
@@ -697,10 +719,20 @@ useEffect(() => {
       return;
     }
 
+    // ✅ Format the date for the backend
+    let formattedDate = null;
+    if (formData.transactionDate) {
+      const dateObj = new Date(formData.transactionDate);
+      if (!isNaN(dateObj.getTime())) {
+        formattedDate = dateObj.toISOString();
+        console.log('📅 Formatted date for submission:', formattedDate);
+      }
+    }
+
     // ✅ Build payload with all fields
     const payload = {
       slipNumber: formData.slipNumber,
-      transactionDate: new Date(formData.transactionDate).toISOString(),
+      transactionDate: formattedDate, // ✅ Now formattedDate is defined
       vehicleRegistration: vehicleRegistration,
       driverName: formData.driverManual || 'Unknown Driver',
       fuelType: formData.fuelType,
@@ -858,8 +890,14 @@ useEffect(() => {
                   type="datetime-local"
                   name="transactionDate"
                   size="small"
-                  value={formData.transactionDate}
-                  onChange={handleInputChange}
+                  value={formData.transactionDate || ''}
+                  onChange={(e) => {
+                    console.log('📅 Date changed:', e.target.value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      transactionDate: e.target.value 
+                    }));
+                  }}
                   InputLabelProps={{ shrink: true }}
                   sx={{ 
                     mt: 1.5, 
