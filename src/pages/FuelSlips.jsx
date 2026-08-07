@@ -782,7 +782,7 @@ function FuelSlips() {
                       </Typography>
                       {slip.tripId && (
                         <Chip
-                          label={slip.tripNumber || `Trip #${slip.tripId}`} 
+                          label={tripDetails?.tripNumber || `Trip #${slip.tripId}`} 
                           size="small"
                           color="info"
                           variant="outlined"
