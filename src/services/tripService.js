@@ -465,7 +465,7 @@ getAllTrips: async (params = {}) => {
    */
   getIncidentStats: async (tripId) => {
     try {
-      const response = await api.get(`/trips/${tripId}/incidents/stats`);
+      const response = await api.get(`/trips/${tripId}/incidents/list`);
       return unwrap(response);
     } catch (error) {
       return { totalIncidents: 0, activeIncidents: 0, urgentIncidents: 0 };
