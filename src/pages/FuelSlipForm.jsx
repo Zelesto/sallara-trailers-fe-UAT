@@ -276,118 +276,115 @@ const FuelSlipForm = () => {
     }
   };
 
-  const fetchAllData = async () => {
+ const fetchAllData = async () => {
+  try {
+    setFetchingData(true);
+    setLoadingTrips(true);
+
+    // Fetch vehicles and drivers
+    const [vehiclesData, driversData] = await Promise.all([
+      vehicleService.getAllVehicles().catch(() => []),
+      driverService.getAllDrivers().catch(() => [])
+    ]);
+
+    // ✅ FETCH ALL TRIPS (not just 10)
+    let tripsData = [];
     try {
-      setFetchingData(true);
-      setLoadingTrips(true);
-
-      // Fetch vehicles and drivers
-      const [vehiclesData, driversData] = await Promise.all([
-        vehicleService.getAllVehicles().catch(() => []),
-        driverService.getAllDrivers().catch(() => [])
-      ]);
-
-      // ✅ FETCH TRIPS - Use the exact same approach as TripList
-      let tripsData = [];
-      try {
-        const response = await tripService.getAllTrips({
-          page: 0,
-          size: 10,
-          sortBy: 'id',
-          sortOrder: 'DESC'
-        });
+      // Fetch first page with larger size
+      const response = await tripService.getAllTrips({
+        page: 0,
+        size: 100,  // Increased to get more trips
+        sortBy: 'id',
+        sortOrder: 'DESC'
+      });
+      
+      console.log('📦 getAllTrips response:', response);
+      
+      // Handle paginated response
+      if (response && response.content && Array.isArray(response.content)) {
+        tripsData = response.content;
         
-        console.log('📦 getAllTrips response:', response);
-        
-        if (response && response.content && Array.isArray(response.content)) {
-          tripsData = response.content;
-          console.log('📦 Trips loaded from content:', tripsData.length);
-        } else if (Array.isArray(response)) {
-          tripsData = response;
-          console.log('📦 Trips loaded as array:', tripsData.length);
-        }
-        
-      } catch (error) {
-        console.error('❌ Error fetching trips:', error);
-        tripsData = [];
-      }
-
-      // If no trips with params, try without
-      if (tripsData.length === 0) {
-        try {
-          const response = await tripService.getAllTrips();
-          console.log('📦 getAllTrips without params:', response);
-          
-          if (response && response.content && Array.isArray(response.content)) {
-            tripsData = response.content;
-            console.log('📦 Trips loaded from content (no params):', tripsData.length);
-          } else if (Array.isArray(response)) {
-            tripsData = response;
-            console.log('📦 Trips loaded as array (no params):', tripsData.length);
+        // If there are more pages, fetch them too
+        if (response.totalPages && response.totalPages > 1) {
+          const allPages = [response.content];
+          for (let page = 1; page < response.totalPages; page++) {
+            try {
+              const pageResponse = await tripService.getAllTrips({
+                page: page,
+                size: 100,
+                sortBy: 'id',
+                sortOrder: 'DESC'
+              });
+              if (pageResponse && pageResponse.content) {
+                allPages.push(pageResponse.content);
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch page ${page}:`, err);
+            }
           }
-        } catch (error) {
-          console.error('❌ Error fetching trips without params:', error);
+          tripsData = allPages.flat();
         }
+      } else if (Array.isArray(response)) {
+        tripsData = response;
       }
+      
+    } catch (error) {
+      console.error('❌ Error fetching trips:', error);
+      tripsData = [];
+    }
 
-      const extractData = (response) => {
-        if (!response) return [];
-        if (Array.isArray(response)) return response;
-        if (response.data && Array.isArray(response.data)) return response.data;
-        if (response.content && Array.isArray(response.content)) return response.content;
-        return [];
-      };
+    // Extract data helper
+    const extractData = (response) => {
+      if (!response) return [];
+      if (Array.isArray(response)) return response;
+      if (response.data && Array.isArray(response.data)) return response.data;
+      if (response.content && Array.isArray(response.content)) return response.content;
+      return [];
+    };
 
-      let vehiclesList = extractData(vehiclesData);
-      let driversList = extractData(driversData);
-      let tripsList = extractData(tripsData);
+    let vehiclesList = extractData(vehiclesData);
+    let driversList = extractData(driversData);
+    let tripsList = extractData(tripsData);
 
-      console.log('🔍 DEBUG - tripsList length:', tripsList.length);
-      if (tripsList.length > 0) {
-        console.log('🔍 DEBUG - First trip sample:', tripsList[0]);
-        console.log('🔍 DEBUG - Trip statuses:', tripsList.map(t => ({ 
-          id: t.id, 
-          tripNumber: t.tripNumber, 
-          status: t.status 
-        })));
-      }
+    console.log('🔍 DEBUG - tripsList length:', tripsList.length);
 
-      // ✅ Only filter out FINALIZED - keep COMPLETED for fuel slips
-      tripsList = tripsList
-        .filter(t => {
-          const status = t.status?.toUpperCase() || '';
-          return status !== 'FINALIZED' && status !== 'CANCELLED';
-        })
-        .sort((a, b) => {
-          const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
-          const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
-          return dateB - dateA;
-        });
-
-      console.log('📊 After filtering, trips:', tripsList.length);
-
-      setVehicles(vehiclesList);
-      setDrivers(driversList);
-      setTrips(tripsList);
-
-      console.log('📊 Loaded data summary:', {
-        vehicles: vehiclesList.length,
-        drivers: driversList.length,
-        trips: tripsList.length
+    // ✅ FIX: Only filter out FINALIZED, keep COMPLETED for fuel slips
+    tripsList = tripsList
+      .filter(t => {
+        const status = (t.status || '').toUpperCase();
+        // Keep all trips that are NOT FINALIZED
+        // This includes: COMPLETED, IN_PROGRESS, ACTIVE, PLANNED, etc.
+        return status !== 'FINALIZED' && status !== 'CANCELLED';
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.plannedStartDate || a.createdAt || 0);
+        const dateB = new Date(b.plannedStartDate || b.createdAt || 0);
+        return dateB - dateA;
       });
 
-      if (tripsList.length === 0) {
-        setError('No trips available. Please ensure trips exist in the system.');
-      }
+    console.log('📊 After filtering, trips:', tripsList.length);
+    console.log('📊 Trip statuses:', tripsList.map(t => ({ 
+      id: t.id, 
+      tripNumber: t.tripNumber, 
+      status: t.status 
+    })));
 
-    } catch (err) {
-      console.error('❌ Error loading data:', err);
-      setError('Failed to load some data. You can still continue with manual entry.');
-    } finally {
-      setFetchingData(false);
-      setLoadingTrips(false);
+    setVehicles(vehiclesList);
+    setDrivers(driversList);
+    setTrips(tripsList);
+
+    if (tripsList.length === 0) {
+      console.warn('⚠️ No trips available');
     }
-  };
+
+  } catch (err) {
+    console.error('❌ Error loading data:', err);
+    setError('Failed to load some data. You can still continue with manual entry.');
+  } finally {
+    setFetchingData(false);
+    setLoadingTrips(false);
+  }
+};
 
   // Auto-populate vehicle and driver when trip is selected
   const handleTripSelection = async (tripId) => {
