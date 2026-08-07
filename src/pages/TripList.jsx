@@ -359,6 +359,16 @@ function TripList() {
     fetchTrips({ page: pagination.page });
   };
 
+   const handleMetricsSuccess = () => {
+    console.log('🔄 Metrics updated, refreshing trip list...');
+    setShowMetricsModal(false);
+    // Force refresh with current page
+    setTimeout(() => {
+      fetchTrips({ page: pagination.page });
+      showNotification('Trip metrics updated successfully!', 'success');
+    }, 500);
+  };
+  
   const handleViewTrip = (trip) => {
     setSelectedTrip(trip);
     setShowDetailsModal(true);
@@ -910,15 +920,14 @@ function TripList() {
         )}
 
         {showMetricsModal && selectedTrip && (
-          <TripMetricsForm
-            open={showMetricsModal}
-            tripId={selectedTrip.id}
-            tripData={selectedTrip}
-            onClose={() => setShowMetricsModal(false)}
-            onSuccess={handleModalClose(() => setShowMetricsModal(false))}
-          />
-        )}
-
+    <TripMetricsForm
+      open={showMetricsModal}
+      tripId={selectedTrip.id}
+      tripData={selectedTrip}
+      onClose={() => setShowMetricsModal(false)}
+      onSuccess={handleMetricsSuccess}  // Use the new handler
+    />
+  )}
         {showDetailsModal && selectedTrip && (
           <TripDetails
             open={showDetailsModal}
