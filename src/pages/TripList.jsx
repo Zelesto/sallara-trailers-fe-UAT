@@ -402,11 +402,11 @@ function TripList() {
   };
 
   const getTripDisplay = (trip) => ({
-    customerName: trip.customer?.name || trip.customerName || 'N/A',
-    vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A',
-    driverName: trip.driver 
-      ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() 
-      : trip.driverName || 'N/A',
+  customerName: trip.customer?.name || trip.customerName || 'N/A',
+  vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A',
+  driverName: trip.driver 
+    ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() || trip.driver.name || trip.driver.fullName || 'N/A'
+    : trip.driverName || trip.driver_name || trip.assignedDriver || 'N/A',
     canStart: STATUS_KEYS.CAN_START.includes(trip.status),
     canEnd: STATUS_KEYS.CAN_END.includes(trip.status),
     canReport: STATUS_KEYS.CAN_REPORT_INCIDENT.includes(trip.status),
@@ -695,12 +695,15 @@ function TripList() {
                         </TableCell>
 
                         <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
-                          {display.driverName !== 'N/A' ? (
+                        {display.driverName !== 'N/A' ? (
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <PersonIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
                             <Typography sx={{ fontSize: '0.75rem' }}>{display.driverName}</Typography>
-                          ) : (
-                            <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
-                          )}
-                        </TableCell>
+                          </Stack>
+                        ) : (
+                          <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
+                        )}
+                      </TableCell>
 
                         <TableCell sx={{ py: 0.5 }}>
                           <StatusChip status={trip.status} />
