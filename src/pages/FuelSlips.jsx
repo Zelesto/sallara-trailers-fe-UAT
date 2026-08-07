@@ -81,17 +81,11 @@ const formatNumber = (num) => {
 
 // ========== DERIVED STATUS FUNCTION ==========
 const getFuelSlipStatus = (slip) => {
-  // If verified_by is populated, it's VERIFIED
-  if (slip.verifiedBy) {
-    return 'VERIFIED';
-  }
-  // If finalized is true, it's FINALIZED
-  if (slip.finalized) {
-    return 'FINALIZED';
-  }
-  // Otherwise it's PENDING
+  if (slip.verifiedBy) return 'VERIFIED';
+  if (slip.finalized) return 'FINALIZED';
   return 'PENDING';
 };
+
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
@@ -136,31 +130,7 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge
   </Card>
 );
 
-const [tripNumbers, setTripNumbers] = useState({});
 
-
-useEffect(() => {
-  const fetchTripNumbers = async () => {
-    const slipsWithTrips = slips.filter(s => s.tripId && !tripNumbers[s.tripId]);
-    if (slipsWithTrips.length === 0) return;
-    
-    const tripMap = {};
-    for (const slip of slipsWithTrips) {
-      try {
-        const trip = await tripService.getTripById(slip.tripId);
-        tripMap[slip.tripId] = trip.tripNumber;
-      } catch (err) {
-        console.warn(`Could not fetch trip ${slip.tripId}:`, err);
-        tripMap[slip.tripId] = `Trip #${slip.tripId}`;
-      }
-    }
-    setTripNumbers(prev => ({ ...prev, ...tripMap }));
-  };
-  
-  if (slips.length > 0) {
-    fetchTripNumbers();
-  }
-}, [slips]);
 
 
 // Status Chip Component - Updated to use derived status
@@ -203,6 +173,8 @@ function FuelSlips() {
   const [driverFilter, setDriverFilter] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+   const [tripNumbers, setTripNumbers] = useState({});
   
   // Delete Dialog State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -258,6 +230,30 @@ function FuelSlips() {
     fetchSlips();
   }, [params.id, driverFilter, vehicleFilter, statusFilter]);
 
+
+  useEffect(() => {
+    const fetchTripNumbers = async () => {
+      const slipsWithTrips = slips.filter(s => s.tripId && !tripNumbers[s.tripId]);
+      if (slipsWithTrips.length === 0) return;
+      
+      const tripMap = {};
+      for (const slip of slipsWithTrips) {
+        try {
+          const trip = await tripService.getTripById(slip.tripId);
+          tripMap[slip.tripId] = trip.tripNumber;
+        } catch (err) {
+          console.warn(`Could not fetch trip ${slip.tripId}:`, err);
+          tripMap[slip.tripId] = `Trip #${slip.tripId}`;
+        }
+      }
+      setTripNumbers(prev => ({ ...prev, ...tripMap }));
+    };
+    
+    if (slips.length > 0) {
+      fetchTripNumbers();
+    }
+  }, [slips]);
+  
   // Get unique drivers, vehicles, and statuses for filters
   const { drivers, vehicles, statuses } = useMemo(() => {
     const uniqueDrivers = [];
