@@ -207,11 +207,18 @@ const isCreate = !isEdit;
   };
 
   // Load data for edit mode
-  useEffect(() => {
-    if (isEdit && id) {
-      fetchSlipDetails();
+useEffect(() => {
+  if (isEdit && id) {
+    console.log('📤 Loading fuel slip for edit, ID:', id);
+    fetchSlipDetails();
+  } else {
+    console.log('📝 Creating new fuel slip');
+    // Initialize slip number for new slips
+    if (!formData.slipNumber) {
+      setFormData(prev => ({ ...prev, slipNumber: generateSlipNumber() }));
     }
-  }, [id, isEdit]);
+  }
+}, [id, isEdit]);
 
   // Initialize slip number
   useEffect(() => {
@@ -231,50 +238,65 @@ const isCreate = !isEdit;
   }, [formData.quantity, formData.unitPrice]);
 
   const fetchSlipDetails = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await fuelService.getFuelSlipById(id);
-      console.log('Loading fuel slip for edit:', data);
+  setLoading(true);
+  setError('');
+  try {
+    console.log(`📤 Fetching fuel slip with ID: ${id}`);
+    const data = await fuelService.getFuelSlipById(id);
+    console.log('✅ Fuel slip loaded for edit:', data);
 
-      if (data.tripId) {
-        setEntryMode('trip');
-      } else {
-        setEntryMode('manual');
-      }
-
-      setFormData({
-        slipNumber: data.slipNumber || '',
-        transactionDate: data.transactionDate ? new Date(data.transactionDate).toISOString().slice(0, 16) : '',
-        vehicleId: data.vehicleId || '',
-        driverId: data.driverId || '',
-        tripId: data.tripId || '',
-        vehicleManual: data.vehicleRegNumber || '',
-        driverManual: data.driverName || '',
-        fuelType: data.fuelType || 'Diesel (50ppm)',
-        quantity: data.quantity || '',
-        unitPrice: data.unitPrice || '',
-        totalAmount: data.totalAmount || '',
-        odometerReading: data.odometerReading || '',
-        stationName: data.stationName || '',
-        location: data.location || '',
-        pumpNumber: data.pumpNumber || '',
-        paymentMethod: data.paymentMethod || 'Account Payment',
-        receiptNumber: data.receiptNumber || '',
-        notes: data.notes || '',
-        finalized: data.finalized || false
-      });
-
-      setVehicleInputValue(data.vehicleRegNumber || '');
-      setDriverInputValue(data.driverName || '');
-
-    } catch (err) {
-      console.error('Error loading fuel slip:', err);
-      setError(err.message || 'Failed to load fuel slip');
-    } finally {
-      setLoading(false);
+    // Determine entry mode
+    if (data.tripId) {
+      setEntryMode('trip');
+    } else {
+      setEntryMode('manual');
     }
-  };
+
+    // Format the data for the form
+    setFormData({
+      slipNumber: data.slipNumber || '',
+      transactionDate: data.transactionDate ? new Date(data.transactionDate).toISOString().slice(0, 16) : '',
+      vehicleId: data.vehicleId || '',
+      driverId: data.driverId || '',
+      tripId: data.tripId || '',
+      vehicleManual: data.vehicleRegNumber || data.vehicleRegistration || '',
+      driverManual: data.driverName || '',
+      fuelType: data.fuelType || 'Diesel (50ppm)',
+      quantity: data.quantity || '',
+      unitPrice: data.unitPrice || '',
+      totalAmount: data.totalAmount || '',
+      odometerReading: data.odometerReading || '',
+      stationName: data.stationName || '',
+      location: data.location || '',
+      pumpNumber: data.pumpNumber || '',
+      paymentMethod: data.paymentMethod || 'Account Payment',
+      receiptNumber: data.receiptNumber || '',
+      notes: data.notes || '',
+      finalized: data.finalized || false
+    });
+
+    // Set input values for display
+    setVehicleInputValue(data.vehicleRegNumber || data.vehicleRegistration || '');
+    setDriverInputValue(data.driverName || '');
+
+    // If there's a trip, try to get trip details
+    if (data.tripId) {
+      try {
+        const tripData = await tripService.getTripById(data.tripId);
+        console.log('✅ Trip details loaded for edit:', tripData);
+        // You might want to use this for additional info
+      } catch (tripErr) {
+        console.warn('Could not fetch trip details:', tripErr);
+      }
+    }
+
+  } catch (err) {
+    console.error('❌ Error loading fuel slip:', err);
+    setError(err.message || 'Failed to load fuel slip');
+  } finally {
+    setLoading(false);
+  }
+};
 
  const fetchAllData = async () => {
   try {
@@ -663,61 +685,68 @@ const isCreate = !isEdit;
 
   // Submission
   const handleSubmit = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      setSuccess('');
+  try {
+    setLoading(true);
+    setError('');
+    setSuccess('');
 
-      const vehicleRegistration = extractRegistrationNumber(formData.vehicleManual);
-
-      if (!vehicleRegistration) {
-        setError('Please enter a valid vehicle registration number');
-        setLoading(false);
-        return;
-      }
-
-      const payload = {
-        slipNumber: formData.slipNumber,
-        transactionDate: new Date(formData.transactionDate).toISOString(),
-        vehicleRegistration: vehicleRegistration,
-        driverName: formData.driverManual,
-        fuelType: formData.fuelType,
-        quantity: parseFloat(formData.quantity),
-        unitPrice: parseFloat(formData.unitPrice),
-        stationName: formData.stationName || 'Unknown Station',
-        location: formData.location || 'Unknown Location',
-        paymentMethod: formData.paymentMethod || 'Cash',
-        tripId: formData.tripId || null,
-        odometerReading: formData.odometerReading ? parseFloat(formData.odometerReading) : null,
-        pumpNumber: formData.pumpNumber || null,
-        receiptNumber: formData.receiptNumber || null,
-        notes: formData.notes || null,
-        vehicleId: formData.vehicleId || null,
-        driverId: formData.driverId || null,
-        finalized: formData.finalized || false
-      };
-
-      console.log('Submitting fuel slip:', payload);
-
-      let response;
-      if (isEdit) {
-        response = await fuelService.updateFuelSlip(id, payload);
-        setSuccess('Fuel slip updated successfully!');
-      } else {
-        response = await fuelService.createFuelSlip(payload);
-        setSuccess('Fuel slip created successfully!');
-      }
-
-      console.log('Fuel slip saved:', response);
-      setTimeout(() => navigate('/fuel/slips'), 1500);
-
-    } catch (err) {
-      console.error('Error saving fuel slip:', err);
-      setError(err.message || 'Failed to save fuel slip');
-    } finally {
+    // ✅ Validate required fields
+    const vehicleRegistration = extractRegistrationNumber(formData.vehicleManual);
+    if (!vehicleRegistration) {
+      setError('Please enter a valid vehicle registration number');
       setLoading(false);
+      return;
     }
-  };
+
+    // ✅ Build payload with all fields
+    const payload = {
+      slipNumber: formData.slipNumber,
+      transactionDate: new Date(formData.transactionDate).toISOString(),
+      vehicleRegistration: vehicleRegistration,
+      driverName: formData.driverManual || 'Unknown Driver',
+      fuelType: formData.fuelType,
+      quantity: parseFloat(formData.quantity) || 0,
+      unitPrice: parseFloat(formData.unitPrice) || 0,
+      stationName: formData.stationName || 'Unknown Station',
+      location: formData.location || 'Unknown Location',
+      paymentMethod: formData.paymentMethod || 'Cash',
+      tripId: formData.tripId || null,
+      odometerReading: formData.odometerReading ? parseFloat(formData.odometerReading) : null,
+      pumpNumber: formData.pumpNumber || null,
+      receiptNumber: formData.receiptNumber || null,
+      notes: formData.notes || null,
+      vehicleId: formData.vehicleId || null,
+      driverId: formData.driverId || null,
+      finalized: formData.finalized || false
+    };
+
+    console.log('📤 Submitting fuel slip payload:', payload);
+
+    let response;
+    if (isEdit) {
+      console.log(`📤 Updating fuel slip ${id}`);
+      response = await fuelService.updateFuelSlip(id, payload);
+      setSuccess('Fuel slip updated successfully!');
+    } else {
+      console.log('📤 Creating new fuel slip');
+      response = await fuelService.createFuelSlip(payload);
+      setSuccess('Fuel slip created successfully!');
+    }
+
+    console.log('✅ Fuel slip saved:', response);
+    
+    // ✅ Wait a moment before navigating
+    setTimeout(() => {
+      navigate('/fuel/slips');
+    }, 1500);
+
+  } catch (err) {
+    console.error('❌ Error saving fuel slip:', err);
+    setError(err.message || 'Failed to save fuel slip');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Available trips filter (exclude FINALIZED)
   const availableTrips = useMemo(() => {
