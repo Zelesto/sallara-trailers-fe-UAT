@@ -249,7 +249,7 @@ function TripList() {
         sort: 'id,desc',
       };
       
-      // ✅ CRITICAL FIX: Only add status if it's not 'all' and has a value
+      // ✅ Only add status if it's not 'all' and has a value
       if (status && status !== 'all' && status !== 'undefined') {
         params.status = status;
       }
@@ -269,6 +269,17 @@ function TripList() {
         contentLength: response.content?.length
       });
 
+      // ✅ DEBUG: Log first trip to check driver data
+      if (response.content && response.content.length > 0) {
+        console.log('🔍 First trip sample:', response.content[0]);
+        console.log('🔍 Driver data in first trip:', {
+          driver: response.content[0].driver,
+          driverId: response.content[0].driverId,
+          driverName: response.content[0].driverName,
+          assignedDriver: response.content[0].assignedDriver
+        });
+      }
+
       setTrips(response.content || []);
       setPagination({
         page: response.number ?? page,
@@ -283,6 +294,7 @@ function TripList() {
       setLoading(false);
     }
   }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
+
 
   // ✅ FIXED: Initial fetch with no filters
   useEffect(() => {
@@ -358,6 +370,7 @@ function TripList() {
   };
 
   const handleOpenMetrics = (trip) => {
+    console.log('📊 Opening metrics for trip:', trip.id);
     setSelectedTrip(trip);
     setShowMetricsModal(true);
   };
@@ -396,24 +409,57 @@ function TripList() {
     setCustomerFilter('');
   };
 
-  const handleModalClose = (callback) => () => {
+   const handleModalClose = (callback) => () => {
     callback();
-    fetchTrips({ page: pagination.page });
+    // ✅ Force refresh after modal closes
+    setTimeout(() => {
+      fetchTrips({ page: pagination.page });
+    }, 300);
   };
 
-  const getTripDisplay = (trip) => ({
-  customerName: trip.customer?.name || trip.customerName || 'N/A',
-  vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A',
-  driverName: trip.driver 
-    ? `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim() || trip.driver.name || trip.driver.fullName || 'N/A'
-    : trip.driverName || trip.driver_name || trip.assignedDriver || 'N/A',
-    canStart: STATUS_KEYS.CAN_START.includes(trip.status),
-    canEnd: STATUS_KEYS.CAN_END.includes(trip.status),
-    canReport: STATUS_KEYS.CAN_REPORT_INCIDENT.includes(trip.status),
-    canFinalize: STATUS_KEYS.CAN_FINALIZE.includes(trip.status),
-    canEdit: STATUS_KEYS.CAN_EDIT.includes(trip.status),
-    canDelete: STATUS_KEYS.CAN_DELETE.includes(trip.status)
-  });
+ const getTripDisplay = (trip) => {
+    // DEBUG: Log trip for driver data
+    console.log('🔍 getTripDisplay - Trip:', {
+      id: trip.id,
+      tripNumber: trip.tripNumber,
+      driver: trip.driver,
+      driverId: trip.driverId,
+      driverName: trip.driverName,
+      assignedDriver: trip.assignedDriver
+    });
+
+    let driverName = 'N/A';
+    
+    // Check for nested driver object
+    if (trip.driver) {
+      if (trip.driver.firstName || trip.driver.lastName) {
+        driverName = `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim();
+      } else if (trip.driver.name) {
+        driverName = trip.driver.name;
+      } else if (trip.driver.fullName) {
+        driverName = trip.driver.fullName;
+      } else if (typeof trip.driver === 'string') {
+        driverName = trip.driver;
+      }
+    }
+    
+    // If no driver object, check for direct fields
+    if (driverName === 'N/A' || !driverName) {
+      driverName = trip.driverName || trip.driver_name || trip.assignedDriver || 'N/A';
+    }
+
+    return {
+      customerName: trip.customer?.name || trip.customerName || 'N/A',
+      vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A',
+      driverName: driverName,
+      canStart: STATUS_KEYS.CAN_START.includes(trip.status),
+      canEnd: STATUS_KEYS.CAN_END.includes(trip.status),
+      canReport: STATUS_KEYS.CAN_REPORT_INCIDENT.includes(trip.status),
+      canFinalize: STATUS_KEYS.CAN_FINALIZE.includes(trip.status),
+      canEdit: STATUS_KEYS.CAN_EDIT.includes(trip.status),
+      canDelete: STATUS_KEYS.CAN_DELETE.includes(trip.status)
+    };
+  };
 
   const getTripCounts = useMemo(() => {
     const counts = { total: trips.length };
