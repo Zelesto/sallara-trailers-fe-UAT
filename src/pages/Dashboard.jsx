@@ -194,6 +194,7 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
 // ============================================================
 // STAT CARD COMPONENT - FIXED
 // ============================================================
+
 const StatCard = React.memo(({
   title,
   value,
@@ -206,9 +207,14 @@ const StatCard = React.memo(({
   gauge = null,
   onClick,
 }) => {
-  // Default icon if none provided
-  const DefaultIcon = DashboardIcon;
-  const IconComponent = Icon || DefaultIcon;
+  // More robust icon handling
+  const DefaultIcon = DashboardIcon || (() => null);
+  const IconComponent = (Icon && typeof Icon === 'function') ? Icon : DefaultIcon;
+
+  // Safe color handling
+  const safeColor = color || 'primary';
+  const iconColor = getColor(safeColor);
+  const bgColor = getColorBg(safeColor);
 
   return (
     <Card
@@ -222,7 +228,7 @@ const StatCard = React.memo(({
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-          borderColor: getColor(color),
+          borderColor: iconColor,
         },
         position: 'relative',
         overflow: 'visible',
@@ -282,7 +288,7 @@ const StatCard = React.memo(({
           </Box>
           <Box
             sx={{
-              bgcolor: getColorBg(color),
+              bgcolor: bgColor,
               borderRadius: '12px',
               p: 1.5,
               display: 'flex',
@@ -290,13 +296,13 @@ const StatCard = React.memo(({
               justifyContent: 'center',
             }}
           >
-            <IconComponent sx={{ color: getColor(color), fontSize: '1.5rem' }} />
+            <IconComponent sx={{ color: iconColor, fontSize: '1.5rem' }} />
           </Box>
         </Stack>
 
         {gauge && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-            <Gauge value={gauge.value || 0} max={gauge.max || 100} color={getColor(color)} unit={gauge.unit || '%'} />
+            <Gauge value={gauge.value || 0} max={gauge.max || 100} color={iconColor} unit={gauge.unit || '%'} />
           </Box>
         )}
 
