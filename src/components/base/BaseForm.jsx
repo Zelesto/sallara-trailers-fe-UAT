@@ -33,7 +33,7 @@ import {
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 
-// Import date pickers
+// Import date pickers with proper configuration
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
@@ -58,7 +58,7 @@ const safeDialogStyles = dialogStyles || {
 };
 
 /**
- * BaseForm - A reusable form component that provides common form functionality
+ * BaseForm - A reusable form component
  */
 function BaseForm({
   open = false,
@@ -229,7 +229,7 @@ function BaseForm({
       ...fieldProps
     } = field;
 
-    const value = formData[name] || '';
+    const value = formData[name] ?? '';
     const error = errors[name];
     const isTouched = touched[name];
 
@@ -351,18 +351,28 @@ function BaseForm({
         );
 
       case 'date':
+        // SAFE: Always use null if value is not a valid date
+        const dateValue = value ? dayjs(value) : null;
+        const isValidDate = dateValue && dateValue.isValid();
+        
         return (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
               {...fieldProps}
               label={label}
-              value={value ? dayjs(value) : null}
-              onChange={(newValue) => handleFieldChange(name, newValue)}
+              value={isValidDate ? dateValue : null}
+              onChange={(newValue) => {
+                // Handle both dayjs object and null safely
+                const val = newValue && newValue.isValid() ? newValue.toISOString() : null;
+                handleFieldChange(name, val);
+              }}
               disabled={disabled || isSubmitting || loading}
               slotProps={{
                 textField: {
                   ...commonProps,
                   variant: 'outlined',
+                  error: !!error,
+                  helperText: error || helperText || (required ? 'Required' : ''),
                 }
               }}
             />
@@ -370,18 +380,28 @@ function BaseForm({
         );
 
       case 'datetime':
+        // SAFE: Always use null if value is not a valid date
+        const datetimeValue = value ? dayjs(value) : null;
+        const isValidDatetime = datetimeValue && datetimeValue.isValid();
+        
         return (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DateTimePicker
               {...fieldProps}
               label={label}
-              value={value ? dayjs(value) : null}
-              onChange={(newValue) => handleFieldChange(name, newValue)}
+              value={isValidDatetime ? datetimeValue : null}
+              onChange={(newValue) => {
+                // Handle both dayjs object and null safely
+                const val = newValue && newValue.isValid() ? newValue.toISOString() : null;
+                handleFieldChange(name, val);
+              }}
               disabled={disabled || isSubmitting || loading}
               slotProps={{
                 textField: {
                   ...commonProps,
                   variant: 'outlined',
+                  error: !!error,
+                  helperText: error || helperText || (required ? 'Required' : ''),
                 }
               }}
             />
