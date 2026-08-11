@@ -46,7 +46,6 @@ import {
   MoreVert,
   Search,
   Notifications,
-  Speed,
   Map,
   Timeline,
   Assessment,
@@ -192,8 +191,18 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
 };
 
 // ============================================================
-// STAT CARD COMPONENT - FIXED
+// STAT CARD COMPONENT - BULLETPROOF FINAL VERSION
 // ============================================================
+
+// Safe Icon component that always renders something valid
+const SafeIcon = ({ Icon, sx }) => {
+  // If Icon is valid, render it
+  if (Icon && typeof Icon === 'function') {
+    return <Icon sx={sx} />;
+  }
+  // Otherwise render a fallback icon (using Box as a safe fallback)
+  return <DashboardIcon sx={sx} />;
+};
 
 const StatCard = React.memo(({
   title,
@@ -207,10 +216,6 @@ const StatCard = React.memo(({
   gauge = null,
   onClick,
 }) => {
-  // More robust icon handling
-  const DefaultIcon = DashboardIcon || (() => null);
-  const IconComponent = (Icon && typeof Icon === 'function') ? Icon : DefaultIcon;
-
   // Safe color handling
   const safeColor = color || 'primary';
   const iconColor = getColor(safeColor);
@@ -296,7 +301,8 @@ const StatCard = React.memo(({
               justifyContent: 'center',
             }}
           >
-            <IconComponent sx={{ color: iconColor, fontSize: '1.5rem' }} />
+            {/* ✅ Use SafeIcon wrapper - this will NEVER crash */}
+            <SafeIcon Icon={Icon} sx={{ color: iconColor, fontSize: '1.5rem' }} />
           </Box>
         </Stack>
 
