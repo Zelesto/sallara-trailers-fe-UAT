@@ -218,9 +218,8 @@ import {
   Favorite as FavoriteIcon,
   FavoriteBorder as FavoriteBorderIcon,
   
-  // Alert/Status Icons
-  ErrorOutline as AlertCircleIcon,
-  Bell as BellIcon,
+  // Alert/Status Icons - FIXED
+  ErrorOutline as AlertCircleIcon,  // ✅ Correct
   Notifications as NotificationsIcon,
   NotificationsOff as NotificationsOffIcon,
   
@@ -244,7 +243,7 @@ import {
   Stop as StopIcon,
   PlayArrow as PlayArrowIcon,
   Pause as PauseIcon,
-  Refresh as RefreshOutlinedIcon
+  RefreshOutlined as RefreshOutlinedIcon  // ✅ Fixed
 } from '@mui/icons-material';
 
 // ============================================================
@@ -291,7 +290,7 @@ import {
 } from '@mui/lab';
 
 // ============================================================
-// MATERIAL-UI X IMPORTS (Data Grid & Charts)
+// MATERIAL-UI X IMPORTS (Data Grid & Charts) - FIXED
 // ============================================================
 
 import {
@@ -315,22 +314,20 @@ import {
   GridRowModesModel
 } from '@mui/x-data-grid';
 
+// ✅ Charts imported from the correct package
 import {
-
   BarPlot,
   ChartsXAxis,
   ChartsYAxis,
   ChartsTooltip,
   ChartsLegend,
-
   LinePlot,
-
   PiePlot,
   ScatterChart,
   ScatterPlot
-  } from '@mui/x-data-grid';
-// Removed: @mui/x-charts not needed
+} from '@mui/x-charts';
 
+// Date pickers remain correct
 import {
   DateCalendar,
   DatePicker as DatePickerX,
