@@ -193,7 +193,7 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
 };
 
 // ============================================================
-// STAT CARD COMPONENT
+// STAT CARD COMPONENT - FIXED
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -206,116 +206,122 @@ const StatCard = React.memo(({
   loading = false,
   gauge = null,
   onClick,
-}) => (
-  <Card
-    sx={{
-      backgroundColor: '#FFFFFF',
-      borderRadius: '16px',
-      border: '1px solid #ECECEC',
-      transition: 'all 0.3s ease',
-      height: '100%',
-      cursor: onClick ? 'pointer' : 'default',
-      '&:hover': {
-        transform: 'translateY(-4px)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-        borderColor: getColor(color),
-      },
-      position: 'relative',
-      overflow: 'visible',
-    }}
-    onClick={onClick}
-  >
-    <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
-      {loading && (
-        <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
-          <CircularProgress size={16} />
-        </Box>
-      )}
+}) => {
+  // Default icon if none provided
+  const DefaultIcon = DashboardIcon;
+  const IconComponent = Icon || DefaultIcon;
 
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography
-            variant="caption"
-            sx={{
-              color: '#6B7280',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              fontSize: '0.6rem',
-              letterSpacing: '0.5px',
-              display: 'block',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {title}
-          </Typography>
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 700,
-              color: '#111827',
-              fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
-              mt: 0.5,
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {typeof value === 'number' ? (
-              unit === 'currency' ? formatCurrency(value) :
-              unit === 'km' ? `${formatNumber(value)} km` :
-              unit === 'liters' ? `${formatNumber(value)} L` :
-              unit === 'km/L' ? `${value.toFixed(1)} km/L` :
-              unit === '%' ? `${value.toFixed(0)}%` :
-              formatNumber(value, 1)
-            ) : value || 'N/A'}
-          </Typography>
-          {subtitle && (
+  return (
+    <Card
+      sx={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '16px',
+        border: '1px solid #ECECEC',
+        transition: 'all 0.3s ease',
+        height: '100%',
+        cursor: onClick ? 'pointer' : 'default',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+          borderColor: getColor(color),
+        },
+        position: 'relative',
+        overflow: 'visible',
+      }}
+      onClick={onClick}
+    >
+      <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+        {loading && (
+          <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
+            <CircularProgress size={16} />
+          </Box>
+        )}
+
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Box>
             <Typography
               variant="caption"
-              sx={{ color: '#6B7280', display: 'block', mt: 0.25, fontSize: '0.65rem' }}
+              sx={{
+                color: '#6B7280',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                fontSize: '0.6rem',
+                letterSpacing: '0.5px',
+                display: 'block',
+                opacity: loading ? 0.7 : 1,
+              }}
             >
-              {subtitle}
+              {title || 'Stat'}
             </Typography>
-          )}
-        </Box>
-        <Box
-          sx={{
-            bgcolor: getColorBg(color),
-            borderRadius: '12px',
-            p: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon sx={{ color: getColor(color), fontSize: '1.5rem' }} />
-        </Box>
-      </Stack>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#111827',
+                fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
+                mt: 0.5,
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {typeof value === 'number' ? (
+                unit === 'currency' ? formatCurrency(value) :
+                unit === 'km' ? `${formatNumber(value)} km` :
+                unit === 'liters' ? `${formatNumber(value)} L` :
+                unit === 'km/L' ? `${value.toFixed(1)} km/L` :
+                unit === '%' ? `${value.toFixed(0)}%` :
+                formatNumber(value, 1)
+              ) : value || 'N/A'}
+            </Typography>
+            {subtitle && (
+              <Typography
+                variant="caption"
+                sx={{ color: '#6B7280', display: 'block', mt: 0.25, fontSize: '0.65rem' }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          <Box
+            sx={{
+              bgcolor: getColorBg(color),
+              borderRadius: '12px',
+              p: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <IconComponent sx={{ color: getColor(color), fontSize: '1.5rem' }} />
+          </Box>
+        </Stack>
 
-      {gauge && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-          <Gauge value={gauge.value} max={gauge.max} color={getColor(color)} unit={gauge.unit || '%'} />
-        </Box>
-      )}
+        {gauge && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+            <Gauge value={gauge.value || 0} max={gauge.max || 100} color={getColor(color)} unit={gauge.unit || '%'} />
+          </Box>
+        )}
 
-      {trend !== undefined && trend !== null && !isNaN(trend) && (
-        <Chip
-          label={trend > 0 ? `+${trend.toFixed(1)}%` : `${trend.toFixed(1)}%`}
-          size="small"
-          sx={{
-            mt: 1,
-            bgcolor: trend > 0 ? '#D1FAE5' : trend < 0 ? '#FEE2E2' : '#DBEAFE',
-            color: trend > 0 ? '#065F46' : trend < 0 ? '#991B1B' : '#1E40AF',
-            fontWeight: 600,
-            fontSize: '0.6rem',
-            height: 20,
-          }}
-          icon={trend > 0 ? <TrendingUp sx={{ fontSize: '0.7rem' }} /> :
-                 trend < 0 ? <TrendingDown sx={{ fontSize: '0.7rem' }} /> :
-                 <Timeline sx={{ fontSize: '0.7rem' }} />}
-        />
-      )}
-    </CardContent>
-  </Card>
-));
+        {trend !== undefined && trend !== null && !isNaN(trend) && (
+          <Chip
+            label={trend > 0 ? `+${trend.toFixed(1)}%` : `${trend.toFixed(1)}%`}
+            size="small"
+            sx={{
+              mt: 1,
+              bgcolor: trend > 0 ? '#D1FAE5' : trend < 0 ? '#FEE2E2' : '#DBEAFE',
+              color: trend > 0 ? '#065F46' : trend < 0 ? '#991B1B' : '#1E40AF',
+              fontWeight: 600,
+              fontSize: '0.6rem',
+              height: 20,
+            }}
+            icon={trend > 0 ? <TrendingUp sx={{ fontSize: '0.7rem' }} /> :
+                   trend < 0 ? <TrendingDown sx={{ fontSize: '0.7rem' }} /> :
+                   <Timeline sx={{ fontSize: '0.7rem' }} />}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+});
 
 // ============================================================
 // LOW STOCK ALERT COMPONENT
