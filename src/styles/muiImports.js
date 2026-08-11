@@ -218,8 +218,8 @@ import {
   Favorite as FavoriteIcon,
   FavoriteBorder as FavoriteBorderIcon,
   
-  // Alert/Status Icons - FIXED
-  ErrorOutline as AlertCircleIcon,  // ✅ Correct
+  // Alert/Status Icons
+  ErrorOutline as AlertCircleIcon,
   Notifications as NotificationsIcon,
   NotificationsOff as NotificationsOffIcon,
   
@@ -243,7 +243,7 @@ import {
   Stop as StopIcon,
   PlayArrow as PlayArrowIcon,
   Pause as PauseIcon,
-  RefreshOutlined as RefreshOutlinedIcon  // ✅ Fixed
+  RefreshOutlined as RefreshOutlinedIcon
 } from '@mui/icons-material';
 
 // ============================================================
@@ -255,8 +255,8 @@ import {
   AlertTitle,
   Autocomplete as AutocompleteLab,
   AvatarGroup,
-  Badge as BadgeLab,
-  Chip as ChipLab,
+  // Badge removed - now imported from @mui/material
+  // Chip removed - now imported from @mui/material
   ClockPicker,
   DatePicker,
   DateTimePicker,
@@ -290,12 +290,12 @@ import {
 } from '@mui/lab';
 
 // ============================================================
-// MATERIAL-UI X IMPORTS (Data Grid & Charts) - FIXED
+// MATERIAL-UI X IMPORTS (Data Grid & Charts)
 // ============================================================
 
 import {
   DataGrid,
-  DataGridPro,
+  // DataGridPro removed - requires separate paid package
   GridActionsCellItem,
   GridColDef,
   GridRenderCellParams,
@@ -314,7 +314,6 @@ import {
   GridRowModesModel
 } from '@mui/x-data-grid';
 
-// ✅ Charts imported from the correct package
 import {
   BarPlot,
   ChartsXAxis,
@@ -327,7 +326,6 @@ import {
   ScatterPlot
 } from '@mui/x-charts';
 
-// Date pickers remain correct
 import {
   DateCalendar,
   DatePicker as DatePickerX,
@@ -359,7 +357,7 @@ import {
 // ============================================================
 
 import {
-  colors,
+  // colors removed - import individual colors instead
   blue,
   green,
   red,
@@ -589,7 +587,7 @@ export const MuiIcons = {
   FavoriteIcon,
   FavoriteBorderIcon,
   AlertCircleIcon,
-  BellIcon,
+  // BellIcon removed - doesn't exist in MUI icons
   NotificationsIcon,
   NotificationsOffIcon,
   PhoneIphoneIcon,
@@ -616,8 +614,8 @@ export const MuiLab = {
   AlertTitle,
   AutocompleteLab,
   AvatarGroup,
-  BadgeLab,
-  ChipLab,
+  // BadgeLab removed - use Badge from MuiCore
+  // ChipLab removed - use Chip from MuiCore
   ClockPicker,
   DatePicker,
   DateTimePicker: DateTimePickerLab,
@@ -652,7 +650,7 @@ export const MuiLab = {
 // X Components
 export const MuiX = {
   DataGrid,
-  DataGridPro,
+  // DataGridPro removed
   GridActionsCellItem,
   GridToolbar,
   GridToolbarContainer,
@@ -662,15 +660,12 @@ export const MuiX = {
   GridToolbarExport,
   GridToolbarQuickFilter,
   useGridApiRef,
-
   BarPlot,
   ChartsXAxis,
   ChartsYAxis,
   ChartsTooltip,
   ChartsLegend,
-
   LinePlot,
-
   PiePlot,
   ScatterChart,
   ScatterPlot,
@@ -697,7 +692,97 @@ export const MuiStyled = {
 
 // Colors
 export const MuiColors = {
-  colors,
+  // colors removed - use individual color imports
+  blue,
+  green,
+  red,
+  yellow,
+  grey,
+  common,
+  purple,
+  orange,
+  pink,
+  teal,
+  cyan,
+  indigo,
+  lime,
+  brown,
+  deepOrange,
+  deepPurple,
+  amber,
+  blueGrey,
+  lightBlue,
+  lightGreen
+};
+
+// ============================================================
+// DEFAULT EXPORT - COMMONLY USED COMPONENTS
+// ============================================================
+
+export default {
+  // Core
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TextField,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  IconButton,
+  Tooltip,
+  Alert,
+  CircularProgress,
+  Stack,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
+  Divider,
+  Autocomplete,
+  
+  // Icons
+  SaveIcon,
+  CloseIcon,
+  DeleteIcon,
+  EditIcon,
+  AddIcon,
+  RefreshIcon,
+  SearchIcon,
+  
+  // Lab
+  LoadingButton,
+  LocalizationProvider,
+  DateTimePicker,
+  DatePicker,
+  TimePicker,
+  
+  // X
+  DataGrid,
+  AdapterDayjs,
+  
+  // Styled
+  styled,
+  alpha,
+  
+  // Colors
+  // colors removed - use individual color imports
   blue,
   green,
   red,
