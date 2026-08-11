@@ -218,7 +218,7 @@ import {
   Favorite as FavoriteIcon,
   FavoriteBorder as FavoriteBorderIcon,
   
-  // Alert/Status Icons - FIXED
+  // Alert/Status Icons
   ErrorOutline as AlertCircleIcon,
   Notifications as NotificationsIcon,
   NotificationsOff as NotificationsOffIcon,
@@ -251,8 +251,6 @@ import {
 // ============================================================
 
 import {
-  // Only keep components that still exist in @mui/lab v7
-  // Most have been moved to @mui/material or @mui/x-date-pickers
   LoadingButton,
   TabContext,
   TabList,
@@ -274,7 +272,6 @@ import {
 
 import {
   DataGrid,
-  
   GridActionsCellItem,
   GridColDef,
   GridRenderCellParams,
@@ -336,7 +333,6 @@ import {
 // ============================================================
 
 import {
-  
   blue,
   green,
   red,
@@ -586,29 +582,9 @@ export const MuiIcons = {
   RefreshOutlinedIcon
 };
 
-// Lab Components
+// Lab Components - Only what's actually imported
 export const MuiLab = {
-  AlertLab,
-  AlertTitle,
-  AutocompleteLab,
-  AvatarGroup,
-  // BadgeLab removed - use Badge from MuiCore
-  ChipLab,
-  ClockPicker,
-  DatePicker,
-  DateTimePicker: DateTimePickerLab,
-  DesktopDatePicker,
-  DesktopDateTimePicker,
-  DesktopTimePicker,
   LoadingButton,
-  LocalizationProvider,
-  MobileDatePicker,
-  MobileDateTimePicker,
-  MobileTimePicker,
-  PickersDay,
-  StaticDatePicker,
-  StaticDateTimePicker,
-  StaticTimePicker,
   TabContext,
   TabList,
   TabPanel,
@@ -619,16 +595,14 @@ export const MuiLab = {
   TimelineItem,
   TimelineOppositeContent,
   TimelineSeparator,
-  TimePicker,
   TreeItem,
-  TreeView,
-  YearPicker
+  TreeView
 };
 
 // X Components
 export const MuiX = {
   DataGrid,
-  DataGridPro,
+  // DataGridPro removed
   GridActionsCellItem,
   GridToolbar,
   GridToolbarContainer,
@@ -670,7 +644,7 @@ export const MuiStyled = {
 
 // Colors
 export const MuiColors = {
-  colors,
+  // colors object removed - use individual color imports
   blue,
   green,
   red,
@@ -746,10 +720,6 @@ export default {
   
   // Lab
   LoadingButton,
-  LocalizationProvider,
-  DateTimePicker,
-  DatePicker,
-  TimePicker,
   
   // X
   DataGrid,
@@ -760,5 +730,24 @@ export default {
   alpha,
   
   // Colors
-  colors
+  blue,
+  green,
+  red,
+  yellow,
+  grey,
+  common,
+  purple,
+  orange,
+  pink,
+  teal,
+  cyan,
+  indigo,
+  lime,
+  brown,
+  deepOrange,
+  deepPurple,
+  amber,
+  blueGrey,
+  lightBlue,
+  lightGreen
 };
