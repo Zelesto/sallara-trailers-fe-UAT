@@ -219,7 +219,7 @@ import {
   FavoriteBorder as FavoriteBorderIcon,
   
   // Alert/Status Icons
-  AlertCircle as AlertCircleIcon,
+  ErrorOutline as AlertCircleIcon,
   Bell as BellIcon,
   Notifications as NotificationsIcon,
   NotificationsOff as NotificationsOffIcon,
