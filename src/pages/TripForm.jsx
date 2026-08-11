@@ -1,4 +1,4 @@
-// src/pages/TripForm.jsx (Using BaseForm)
+// src/pages/TripForm.jsx
 import React from 'react';
 import BaseForm from '../components/base/BaseForm';
 import { tripService } from '../services/tripService';
@@ -8,6 +8,9 @@ import { useFormSections } from '../hooks/useFormSections';
 function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
   // Define form sections using the hook
   const sections = useFormSections();
+  
+  // Ensure sections is always an array
+  const safeSections = Array.isArray(sections) ? sections : [];
 
   // Handle submit
   const handleSubmit = async (data) => {
@@ -37,7 +40,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
       onSubmit={handleSubmit}
       onSuccess={onSuccess}
       validate={validate}
-      sections={sections}
+      sections={safeSections}
       title={mode === 'create' ? 'Create Trip' : 'Edit Trip'}
       submitLabel={mode === 'create' ? 'Create Trip' : 'Update Trip'}
       maxWidth="lg"
