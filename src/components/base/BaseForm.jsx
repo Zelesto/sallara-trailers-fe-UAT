@@ -15,7 +15,16 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  Paper
+  Paper,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormHelperText,
+  Checkbox,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -24,33 +33,33 @@ import {
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 
+// Import date pickers
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+
+// Import styles with fallback
 import { formStyles, dialogStyles } from '../../styles/formStyles';
+
+// Fallback styles if imports fail
+const safeFormStyles = formStyles || {
+  alert: { sx: { mb: 2 } },
+  button: { sx: {} },
+  primaryButton: { sx: {} }
+};
+
+const safeDialogStyles = dialogStyles || {
+  title: { sx: {} },
+  titleText: { sx: {} },
+  content: { sx: {} },
+  actions: { sx: {} }
+};
 
 /**
  * BaseForm - A reusable form component that provides common form functionality
- * 
- * @param {Object} props
- * @param {boolean} props.open - Controls dialog visibility
- * @param {Function} props.onClose - Called when form should close
- * @param {Function} props.onSubmit - Called when form is submitted
- * @param {Function} props.onCancel - Called when form is cancelled (optional)
- * @param {string} props.title - Form title
- * @param {string} props.mode - 'create' or 'edit'
- * @param {Object} props.initialData - Initial data for edit mode
- * @param {Function} props.onSuccess - Called after successful submission
- * @param {Function} props.validate - Validation function
- * @param {Array} props.sections - Form sections configuration
- * @param {boolean} props.loading - Loading state
- * @param {string} props.submitLabel - Custom submit button label
- * @param {string} props.cancelLabel - Custom cancel button label
- * @param {boolean} props.fullWidth - Full width dialog
- * @param {string} props.maxWidth - Dialog max width ('xs'|'sm'|'md'|'lg'|'xl')
- * @param {React.ReactNode} props.actions - Custom action buttons
- * @param {React.ReactNode} props.headerContent - Custom header content
- * @param {React.ReactNode} props.footerContent - Custom footer content
- * @param {Object} props.formProps - Additional form props
  */
-
 function BaseForm({
   open = false,
   onClose,
@@ -94,17 +103,21 @@ function BaseForm({
       } else {
         // Reset to default/empty state
         const defaultData = {};
-        sections.forEach(section => {
-          section.fields.forEach(field => {
-            if (field.defaultValue !== undefined) {
-              defaultData[field.name] = field.defaultValue;
-            } else if (field.type === 'checkbox') {
-              defaultData[field.name] = false;
-            } else {
-              defaultData[field.name] = '';
+        if (Array.isArray(sections)) {
+          sections.forEach(section => {
+            if (section.fields && Array.isArray(section.fields)) {
+              section.fields.forEach(field => {
+                if (field.defaultValue !== undefined) {
+                  defaultData[field.name] = field.defaultValue;
+                } else if (field.type === 'checkbox') {
+                  defaultData[field.name] = false;
+                } else {
+                  defaultData[field.name] = '';
+                }
+              });
             }
           });
-        });
+        }
         setFormData(defaultData);
       }
       setErrors({});
@@ -125,32 +138,22 @@ function BaseForm({
     }
   };
 
-  // Handle nested field change
-  const handleNestedFieldChange = (parent, name, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [parent]: {
-        ...prev[parent],
-        [name]: value
-      }
-    }));
-    if (errors[`${parent}.${name}`]) {
-      setErrors(prev => ({ ...prev, [`${parent}.${name}`]: '' }));
-    }
-  };
-
   // Validate form
   const validateForm = useCallback(() => {
     if (!validate) {
       // Default validation - check required fields
       const newErrors = {};
-      sections.forEach(section => {
-        section.fields.forEach(field => {
-          if (field.required && !formData[field.name]) {
-            newErrors[field.name] = `${field.label || field.name} is required`;
+      if (Array.isArray(sections)) {
+        sections.forEach(section => {
+          if (section.fields && Array.isArray(section.fields)) {
+            section.fields.forEach(field => {
+              if (field.required && !formData[field.name]) {
+                newErrors[field.name] = `${field.label || field.name} is required`;
+              }
+            });
           }
         });
-      });
+      }
       return newErrors;
     }
     return validate(formData);
@@ -397,6 +400,14 @@ function BaseForm({
 
   // Render sections
   const renderSections = () => {
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+          No form fields configured
+        </Typography>
+      );
+    }
+
     return sections.map((section, sectionIndex) => (
       <Box key={sectionIndex} sx={{ mb: 3 }}>
         {section.title && (
@@ -405,14 +416,22 @@ function BaseForm({
           </Typography>
         )}
         <Grid container spacing={section.spacing || 1.5}>
-          {section.fields.map((field, fieldIndex) => {
-            const fieldSize = field.size || 6;
-            return (
-              <Grid item xs={12} md={fieldSize} key={`${field.name}-${fieldIndex}`}>
-                {renderField(field, sectionIndex, fieldIndex)}
-              </Grid>
-            );
-          })}
+          {section.fields && Array.isArray(section.fields) ? (
+            section.fields.map((field, fieldIndex) => {
+              const fieldSize = field.size || 6;
+              return (
+                <Grid item xs={12} md={fieldSize} key={`${field.name}-${fieldIndex}`}>
+                  {renderField(field, sectionIndex, fieldIndex)}
+                </Grid>
+              );
+            })
+          ) : (
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary">
+                No fields in this section
+              </Typography>
+            </Grid>
+          )}
         </Grid>
         {sectionIndex < sections.length - 1 && (
           <Divider sx={{ mt: 2, mb: 2 }} />
@@ -429,6 +448,25 @@ function BaseForm({
     return renderSections();
   };
 
+  // Safety check - don't render if no sections and no children
+  if (!children && (!Array.isArray(sections) || sections.length === 0) && open) {
+    return (
+      <Dialog open={open} onClose={handleCancel} maxWidth={maxWidth} fullWidth={fullWidth}>
+        <DialogTitle>
+          <Typography>{title}</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning">
+            No form fields configured. Please add sections to the form.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancel}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog
       open={open}
@@ -438,9 +476,9 @@ function BaseForm({
       PaperProps={{ sx: { maxHeight: '90vh' } }}
       {...props}
     >
-      <DialogTitle sx={dialogStyles.title.sx}>
+      <DialogTitle sx={safeDialogStyles.title?.sx || {}}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography sx={dialogStyles.titleText.sx}>
+          <Typography sx={safeDialogStyles.titleText?.sx || { fontWeight: 600 }}>
             {title}
             {loading && <CircularProgress size={16} sx={{ ml: 1 }} />}
           </Typography>
@@ -453,14 +491,14 @@ function BaseForm({
         </Stack>
       </DialogTitle>
 
-      <DialogContent dividers sx={dialogStyles.content.sx}>
+      <DialogContent dividers sx={safeDialogStyles.content?.sx || {}}>
         {error && (
-          <Alert severity="error" sx={formStyles.alert.sx} onClose={() => setError(null)}>
+          <Alert severity="error" sx={safeFormStyles.alert?.sx || { mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
         {success && (
-          <Alert severity="success" sx={formStyles.alert.sx} onClose={() => setSuccess(null)}>
+          <Alert severity="success" sx={safeFormStyles.alert?.sx || { mb: 2 }} onClose={() => setSuccess(null)}>
             {success}
           </Alert>
         )}
@@ -470,7 +508,7 @@ function BaseForm({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={dialogStyles.actions.sx}>
+      <DialogActions sx={safeDialogStyles.actions?.sx || { p: 2 }}>
         {footerContent}
         {actions || (
           <>
@@ -478,7 +516,7 @@ function BaseForm({
               onClick={handleCancel}
               disabled={isSubmitting || loading}
               startIcon={<CloseIcon />}
-              sx={formStyles.button.sx}
+              sx={safeFormStyles.button?.sx || {}}
             >
               {cancelLabel}
             </Button>
@@ -487,7 +525,7 @@ function BaseForm({
               onClick={handleSubmit}
               disabled={isSubmitting || loading || isSuccess}
               startIcon={isSubmitting ? <CircularProgress size={18} /> : <SaveIcon />}
-              sx={formStyles.primaryButton.sx}
+              sx={safeFormStyles.primaryButton?.sx || {}}
             >
               {isSubmitting ? 'Saving...' : isSuccess ? '✓ Saved' : submitLabel || (mode === 'create' ? 'Create' : 'Update')}
             </Button>
