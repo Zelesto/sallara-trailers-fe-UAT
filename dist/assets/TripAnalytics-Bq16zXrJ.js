@@ -1,1 +1,0 @@
-import{j as r,B as i,T as s}from"./index-BWVSzVju.js";import"./react-DMw1u2Dh.js";import{C as a}from"./Card-Be3ZyskZ.js";import"./antd-BT1FDxF_.js";const o=()=>r.jsxs(i,{children:[r.jsx(s,{variant:"h4",component:"h1",mb:3,children:"Trip Analytics"}),r.jsx(a,{children:r.jsx(i,{p:3,children:r.jsx(s,{children:"Trip analytics will be displayed here"})})})]});export{o as default};

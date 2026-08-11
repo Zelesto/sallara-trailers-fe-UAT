@@ -1,1 +1,0 @@
-import{j as r,B as s,T as e}from"./index-BWVSzVju.js";import"./react-DMw1u2Dh.js";import{C as p}from"./Card-Be3ZyskZ.js";import"./antd-BT1FDxF_.js";const n=()=>r.jsxs(s,{children:[r.jsx(e,{variant:"h4",component:"h1",mb:3,children:"Trip Reports"}),r.jsx(p,{children:r.jsx(s,{p:3,children:r.jsx(e,{children:"Trip reports will be displayed here"})})})]});export{n as default};
