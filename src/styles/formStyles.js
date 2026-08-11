@@ -252,7 +252,7 @@ import {
 
 import {
 
-  Autocomplete as AutocompleteLab,
+  //Autocomplete as AutocompleteLab,
   AvatarGroup,
   // Badge removed - now imported from @mui/material
   //Chip as ChipLab,
