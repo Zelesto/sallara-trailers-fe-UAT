@@ -1,4 +1,4 @@
-// src/pages/TripForm.jsx
+// src/pages/TripForm.jsx (Updated with enum_master integration)
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dayjs from 'dayjs';
 import {
@@ -27,7 +27,9 @@ import {
   IconButton,
   InputAdornment,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Tooltip,
+  IconButton as MuiIconButton
 } from '@mui/material';
 
 import {
@@ -46,7 +48,10 @@ import {
   Receipt,
   Business as BusinessIcon,
   Warehouse as WarehouseIcon,
-  Route as RouteIcon
+  Route as RouteIcon,
+  Refresh as RefreshIcon,
+  Add as AddIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 
 import {
@@ -61,6 +66,8 @@ import { vehicleService } from '../services/vehicleService';
 import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
 import { depotService } from '../services/depotService';
+import { enumService } from '../services/enumService';
+import { formStyles } from '../styles/theme';
 
 /* ============================================================
    CONSTANTS & CONFIGURATIONS
@@ -73,16 +80,36 @@ const PRIORITY_OPTIONS = [
   { value: 'URGENT', label: 'Urgent', color: 'error' }
 ];
 
-const STATUS_OPTIONS = [
-  'DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 
-  'COMPLETED', 'ACTIVE', 'PENDING', 'CANCELLED', 'CLOSED', 'FINALIZED'
+// Fallback options if enum_master fails to load
+const FALLBACK_STATUS_OPTIONS = [
+  { code: 'DRAFT', displayName: 'Draft' },
+  { code: 'PLANNED', displayName: 'Planned' },
+  { code: 'ASSIGNED', displayName: 'Assigned' },
+  { code: 'IN_PROGRESS', displayName: 'In Progress' },
+  { code: 'COMPLETED', displayName: 'Completed' },
+  { code: 'ACTIVE', displayName: 'Active' },
+  { code: 'PENDING', displayName: 'Pending' },
+  { code: 'CANCELLED', displayName: 'Cancelled' },
+  { code: 'CLOSED', displayName: 'Closed' },
+  { code: 'FINALIZED', displayName: 'Finalized' }
 ];
 
-const APPROVAL_STATUS_OPTIONS = [
-  'PENDING', 'APPROVED', 'REJECTED', 'UNDER_REVIEW'
+const FALLBACK_APPROVAL_STATUS_OPTIONS = [
+  { code: 'PENDING', displayName: 'Pending' },
+  { code: 'APPROVED', displayName: 'Approved' },
+  { code: 'REJECTED', displayName: 'Rejected' },
+  { code: 'UNDER_REVIEW', displayName: 'Under Review' }
 ];
 
-const TRIP_TYPE_OPTIONS = ['FREIGHT', 'RETURN', 'EMPTY', 'MAINTENANCE'];
+const FALLBACK_TRIP_TYPE_OPTIONS = [
+  { code: 'FREIGHT', displayName: 'Freight' },
+  { code: 'RETURN', displayName: 'Return' },
+  { code: 'EMPTY', displayName: 'Empty' },
+  { code: 'MAINTENANCE', displayName: 'Maintenance' },
+  { code: 'DEDICATED', displayName: 'Dedicated' },
+  { code: 'EXPRESS', displayName: 'Express' },
+  { code: 'CONSOLIDATED', displayName: 'Consolidated' }
+];
 
 const COMMODITY_OPTIONS = [
   'General Freight', 'Refrigerated Goods', 'Dangerous Goods',
@@ -168,6 +195,157 @@ const getDefaultAddress = () => ({
 });
 
 /* ============================================================
+   COMPONENT: EnumSelect
+   ============================================================ */
+
+function EnumSelect({ 
+  moduleName, 
+  category, 
+  value, 
+  onChange, 
+  label, 
+  required = false,
+  error = false,
+  helperText = '',
+  disabled = false,
+  showRefresh = false,
+  onRefresh,
+  loading = false,
+  ...props 
+}) {
+  const [options, setOptions] = useState([]);
+  const [isLoading, setIsLoading] = useState(loading);
+  const [localError, setLocalError] = useState(null);
+
+  useEffect(() => {
+    loadOptions();
+  }, [moduleName, category]);
+
+  const loadOptions = useCallback(async () => {
+    if (!moduleName || !category) return;
+    
+    setIsLoading(true);
+    setLocalError(null);
+    
+    try {
+      const data = await enumService.getEnums(moduleName, category);
+      // Filter only active enums and format for display
+      const activeOptions = data
+        .filter(item => item.isActive)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map(item => ({
+          code: item.code,
+          displayName: item.displayName,
+          isDefault: item.isDefault,
+          colorCode: item.colorCode,
+          iconName: item.iconName,
+          description: item.description
+        }));
+      
+      setOptions(activeOptions);
+      
+      // Auto-select default if no value and there's a default
+      if (!value && activeOptions.length > 0) {
+        const defaultOption = activeOptions.find(opt => opt.isDefault);
+        if (defaultOption && onChange) {
+          onChange(defaultOption.code);
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to load ${moduleName}/${category} enums:`, err);
+      setLocalError('Failed to load options');
+      // Use fallback options
+      setOptions(getFallbackOptions(moduleName, category));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [moduleName, category, value, onChange]);
+
+  const getFallbackOptions = (module, cat) => {
+    if (module === 'trip' && cat === 'status') {
+      return FALLBACK_STATUS_OPTIONS;
+    } else if (module === 'trip' && cat === 'approval') {
+      return FALLBACK_APPROVAL_STATUS_OPTIONS;
+    } else if (module === 'trip' && cat === 'type') {
+      return FALLBACK_TRIP_TYPE_OPTIONS;
+    }
+    return [];
+  };
+
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      loadOptions();
+    }
+  };
+
+  return (
+    <FormControl fullWidth size="small" required={required} error={error || !!localError} disabled={disabled || isLoading}>
+      <InputLabel sx={{ fontSize: '0.75rem' }}>
+        {label || `${category.charAt(0).toUpperCase() + category.slice(1)}`}
+      </InputLabel>
+      <Select
+        value={value || ''}
+        label={label || `${category.charAt(0).toUpperCase() + category.slice(1)}`}
+        onChange={(e) => onChange(e.target.value)}
+        sx={{ fontSize: '0.75rem' }}
+        endAdornment={
+          showRefresh ? (
+            <InputAdornment position="end">
+              <IconButton 
+                size="small" 
+                onClick={handleRefresh}
+                disabled={isLoading}
+                sx={{ mr: 2 }}
+              >
+                {isLoading ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+              </IconButton>
+            </InputAdornment>
+          ) : undefined
+        }
+        {...props}
+      >
+        <MenuItem value="" sx={{ fontSize: '0.75rem' }}>
+          <em>Select {category}</em>
+        </MenuItem>
+        {options.map((option) => (
+          <MenuItem key={option.code} value={option.code} sx={{ fontSize: '0.75rem' }}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              {option.colorCode && (
+                <Box 
+                  sx={{ 
+                    width: 12, 
+                    height: 12, 
+                    borderRadius: '50%', 
+                    backgroundColor: option.colorCode,
+                    border: '1px solid rgba(0,0,0,0.1)'
+                  }} 
+                />
+              )}
+              <Typography sx={{ fontSize: '0.75rem' }}>
+                {option.displayName || option.code}
+              </Typography>
+              {option.isDefault && (
+                <Chip 
+                  label="Default" 
+                  size="small" 
+                  color="primary" 
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.55rem' }}
+                />
+              )}
+            </Stack>
+          </MenuItem>
+        ))}
+      </Select>
+      {helperText && <FormHelperText sx={{ fontSize: '0.65rem' }}>{helperText}</FormHelperText>}
+      {localError && <FormHelperText error sx={{ fontSize: '0.65rem' }}>{localError}</FormHelperText>}
+    </FormControl>
+  );
+}
+
+/* ============================================================
    COMPONENT: AddressSection
    ============================================================ */
 
@@ -212,10 +390,10 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
   };
 
   return (
-    <Card variant="outlined" sx={{ mb: 1.5 }}>
-      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-          <LocationOn fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+    <Card {...formStyles.card}>
+      <CardContent {...formStyles.cardContent}>
+        <Stack {...formStyles.sectionHeader}>
+          <LocationOn fontSize="small" color="primary" sx={formStyles.icon} />
           <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
             {label}
           </Typography>
@@ -362,10 +540,10 @@ function DepotSection({
   onLocationChange 
 }) {
   return (
-    <Card variant="outlined" sx={{ mb: 1.5 }}>
-      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-          <WarehouseIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+    <Card {...formStyles.card}>
+      <CardContent {...formStyles.cardContent}>
+        <Stack {...formStyles.sectionHeader}>
+          <WarehouseIcon fontSize="small" color="primary" sx={formStyles.icon} />
           <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
             Depot & Departure
           </Typography>
@@ -483,6 +661,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [customers, setCustomers] = useState([]);
   const [depots, setDepots] = useState([]);
 
+  // Enum loading state
+  const [enumsLoading, setEnumsLoading] = useState(false);
+
   // Address States
   const [origin, setOrigin] = useState(getDefaultAddress);
   const [destination, setDestination] = useState(getDefaultAddress);
@@ -497,6 +678,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
   // Form State
   const [form, setForm] = useState(getDefaultFormState);
+
+  // Ref for enum refresh
+  const enumRefreshRef = useRef({});
 
   /* ============================================================
      DATA LOADING
@@ -751,7 +935,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   };
 
   /* ============================================================
-     FORM SUBMISSION - FIXED
+     FORM SUBMISSION
    ============================================================ */
 
   const handleSubmit = useCallback(async () => {
@@ -837,46 +1021,29 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       });
 
       console.log(`📤 ${mode === 'edit' ? 'Updating' : 'Creating'} trip:`, payload);
-      console.log(`📤 Mode: ${mode}, InitialData ID: ${initialData?.id}`);
 
       let result;
       if (mode === 'edit' && initialData?.id) {
-        console.log(`📤 Sending update to trip ID: ${initialData.id}`);
         result = await tripService.updateTrip(initialData.id, payload);
         console.log('✅ Trip updated successfully:', result);
         setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
       } else {
-        console.log('📤 Creating new trip...');
         result = await tripService.createTrip(payload);
         console.log('✅ Trip created successfully:', result);
-        console.log('   - ID:', result.id);
-        console.log('   - Number:', result.tripNumber);
         setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
       }
 
       setIsSuccess(true);
 
-      // Call onSuccess with the result
       if (onSuccess) {
-        console.log('📤 Calling onSuccess with result ID:', result.id);
         onSuccess(result);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300));
-      // Refresh parent data
       if (fetchTrips) {
         await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('🔄 Refreshing trip list...');
-        try {
-          await fetchTrips();
-          console.log('✅ Trip list refreshed');
-        } catch (refreshError) {
-          console.error('⚠️ Error refreshing trip list:', refreshError);
-          // Don't fail the whole operation - the trip was created successfully
-        }
+        await fetchTrips();
       }
 
-      // Close after delay
       setTimeout(() => {
         if (onClose) onClose();
       }, 1500);
@@ -885,7 +1052,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       console.error('❌ Trip error:', err);
       let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
 
-      // Check if it's a 404 error (trip created but not found)
       if (err.response?.status === 404) {
         if (err.response?.data?.detail?.includes('Trip not found')) {
           console.warn('⚠️ Trip was created but not found on refresh - race condition');
@@ -938,23 +1104,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     </Alert>
   );
 
-  const fetchTripWithRetry = async (id, maxRetries = 3) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const trip = await tripService.getTripById(id);
-      return trip;
-    } catch (error) {
-      if (error.response?.status === 404 && attempt < maxRetries) {
-        console.log(`⏳ Trip ${id} not found, retrying (${attempt}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error(`Failed to fetch trip ${id} after ${maxRetries} attempts`);
-};
-
   /* ============================================================
      MAIN RENDER
    ============================================================ */
@@ -969,9 +1118,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         PaperProps={{ sx: { maxHeight: '90vh' } }}
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', py: 1.5, px: 2 }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-            {mode === 'create' ? 'Create New Trip' : 'Edit Trip'}
-          </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+              {mode === 'create' ? 'Create New Trip' : 'Edit Trip'}
+            </Typography>
+            {enumsLoading && <CircularProgress size={20} />}
+          </Stack>
         </DialogTitle>
 
         <DialogContent dividers sx={{ overflowY: 'auto', p: 2 }}>
@@ -984,19 +1136,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 {/* Trip Type & Priority */}
                 <Grid container spacing={1.5}>
                   <Grid item xs={12} md={6}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel sx={{ fontSize: '0.75rem' }}>Trip Type</InputLabel>
-                      <Select
-                        value={form.tripType}
-                        label="Trip Type"
-                        onChange={(e) => handleFieldChange('tripType', e.target.value)}
-                        sx={{ fontSize: '0.75rem' }}
-                      >
-                        {TRIP_TYPE_OPTIONS.map(type => (
-                          <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>{type}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <EnumSelect
+                      moduleName="trip"
+                      category="type"
+                      value={form.tripType}
+                      onChange={(value) => handleFieldChange('tripType', value)}
+                      label="Trip Type"
+                      required
+                      showRefresh
+                    />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth size="small">
@@ -1023,10 +1171,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Grid>
 
                 {/* Customer Selection */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-                      <BusinessIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <BusinessIcon fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Customer
                       </Typography>
@@ -1094,10 +1242,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 />
 
                 {/* Depot Distance Fields */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-                      <RouteIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <RouteIcon fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Depot Distances
                       </Typography>
@@ -1170,10 +1318,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Card>
 
                 {/* Schedule */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" spacing={0.75} mb={1.5}>
-                      <ScheduleIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <ScheduleIcon fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Schedule
                       </Typography>
@@ -1260,10 +1408,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Card>
 
                 {/* Assignment */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" spacing={0.75} mb={1.5}>
-                      <DirectionsCar fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <DirectionsCar fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Assignment
                       </Typography>
@@ -1331,10 +1479,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Card>
 
                 {/* Commodity & Cargo */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" spacing={0.75} mb={1.5}>
-                      <Description fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <Description fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Commodity & Cargo
                       </Typography>
@@ -1416,10 +1564,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Card>
 
                 {/* Financial Estimates */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" spacing={0.75} mb={1.5}>
-                      <Receipt fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <Receipt fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Financial Estimates
                       </Typography>
@@ -1459,10 +1607,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Card>
 
                 {/* Notes */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" spacing={0.75} mb={1.5}>
-                      <Comment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <Comment fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Notes
                       </Typography>
@@ -1518,10 +1666,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 </Card>
 
                 {/* Status */}
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" spacing={0.75} mb={1.5}>
-                      <AssignmentIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                <Card {...formStyles.card}>
+                  <CardContent {...formStyles.cardContent}>
+                    <Stack {...formStyles.sectionHeader}>
+                      <AssignmentIcon fontSize="small" color="primary" sx={formStyles.icon} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
                         Status
                       </Typography>
@@ -1529,34 +1677,24 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                     <Grid container spacing={1.5}>
                       <Grid item xs={12} md={6}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
-                          <Select
-                            value={form.status}
-                            label="Status"
-                            onChange={(e) => handleFieldChange('status', e.target.value)}
-                            sx={{ fontSize: '0.75rem' }}
-                          >
-                            {STATUS_OPTIONS.map(s => (
-                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                        <EnumSelect
+                          moduleName="trip"
+                          category="status"
+                          value={form.status}
+                          onChange={(value) => handleFieldChange('status', value)}
+                          label="Status"
+                          showRefresh
+                        />
                       </Grid>
                       <Grid item xs={12} md={6}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
-                          <Select
-                            value={form.approvalStatus}
-                            label="Approval Status"
-                            onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
-                            sx={{ fontSize: '0.75rem' }}
-                          >
-                            {APPROVAL_STATUS_OPTIONS.map(s => (
-                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                        <EnumSelect
+                          moduleName="trip"
+                          category="approval"
+                          value={form.approvalStatus}
+                          onChange={(value) => handleFieldChange('approvalStatus', value)}
+                          label="Approval Status"
+                          showRefresh
+                        />
                       </Grid>
                     </Grid>
                   </CardContent>
