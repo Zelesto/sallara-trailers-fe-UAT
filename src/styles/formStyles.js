@@ -253,7 +253,7 @@ import {
 import {
 
   //Autocomplete as AutocompleteLab,
-  AvatarGroup,
+  //AvatarGroup,
   // Badge removed - now imported from @mui/material
   //Chip as ChipLab,
   ClockPicker,
