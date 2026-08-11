@@ -1,7 +1,725 @@
-// src/styles/formStyles.js
-import Mui, { MuiCore, MuiIcons, MuiLab, MuiX, MuiStyled, MuiColors } from './muiImports';
+// src/styles/muiImports.js
+// ============================================================
+// MATERIAL-UI CORE IMPORTS
+// ============================================================
 
-const {
+// Core Components
+import {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TableSortLabel,
+  TextField,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  IconButton,
+  Tooltip,
+  Alert,
+  CircularProgress,
+  Stack,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
+  CardHeader,
+  CardActions,
+  Divider,
+  LinearProgress,
+  Skeleton,
+  Badge,
+  Avatar,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemAvatar,
+  ListSubheader,
+  Collapse,
+  Drawer,
+  AppBar,
+  Toolbar,
+  Container,
+  CssBaseline,
+  ThemeProvider,
+  createTheme,
+  responsiveFontSizes,
+  useMediaQuery,
+  useTheme,
+  Fade,
+  Grow,
+  Slide,
+  Zoom,
+  Backdrop,
+  Modal,
+  Popover,
+  Popper,
+  Menu,
+  MenuList,
+  MenuItem as MenuItemMUI,
+  Checkbox,
+  Radio,
+  RadioGroup,
+  FormGroup,
+  FormLabel,
+  FormHelperText,
+  InputAdornment,
+  OutlinedInput,
+  FilledInput,
+  InputBase,
+  Autocomplete,
+  Rating,
+  Slider,
+  Switch as SwitchMUI,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  StepButton,
+  MobileStepper,
+  ToggleButton,
+  ToggleButtonGroup,
+  SpeedDial,
+  SpeedDialAction,
+  SpeedDialIcon,
+  Fab,
+  BottomNavigation,
+  BottomNavigationAction,
+  Breadcrumbs,
+  Link,
+  Typography as TypographyMUI
+} from '@mui/material';
+
+// ============================================================
+// MATERIAL-UI ICONS
+// ============================================================
+
+import {
+  // Action Icons
+  Save as SaveIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Add as AddIcon,
+  Refresh as RefreshIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  ViewList as ViewListIcon,
+  ViewModule as ViewModuleIcon,
+  ViewComfy as ViewComfyIcon,
+  MoreVert as MoreVertIcon,
+  MoreHoriz as MoreHorizIcon,
+  ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  Check as CheckIcon,
+  Clear as ClearIcon,
+  Done as DoneIcon,
+  Cancel as CancelIcon,
+  Restore as RestoreIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon,
+  Print as PrintIcon,
+  Download as DownloadIcon,
+  Upload as UploadIcon,
+  FileCopy as FileCopyIcon,
+  Share as ShareIcon,
+  Settings as SettingsIcon,
+  Help as HelpIcon,
+  Info as InfoIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  CheckCircle as CheckCircleIcon,
+  ReportProblem as ReportProblemIcon,
+  Verified as VerifiedIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  Menu as MenuIcon,
+  Home as HomeIcon,
+  Dashboard as DashboardIcon,
+  
+  // Navigation Icons
+  Assignment as AssignmentIcon,
+  Schedule as ScheduleIcon,
+  DirectionsCar as DirectionsCarIcon,
+  Description as DescriptionIcon,
+  LocationOn as LocationOnIcon,
+  SwapHoriz as SwapHorizIcon,
+  Scale as ScaleIcon,
+  AttachMoney as AttachMoneyIcon,
+  Comment as CommentIcon,
+  Toll as TollIcon,
+  Receipt as ReceiptIcon,
+  Business as BusinessIcon,
+  Warehouse as WarehouseIcon,
+  Route as RouteIcon,
+  DepartureBoard as DepartureBoardIcon,
+  LocalShipping as LocalShippingIcon,
+  Person as PersonIcon,
+  People as PeopleIcon,
+  Group as GroupIcon,
+  Storefront as StorefrontIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Inventory as InventoryIcon,
+  
+  // File/Content Icons
+  Folder as FolderIcon,
+  FolderOpen as FolderOpenIcon,
+  Image as ImageIcon,
+  Photo as PhotoIcon,
+  Videocam as VideocamIcon,
+  Mic as MicIcon,
+  Attachment as AttachmentIcon,
+  Note as NoteIcon,
+  Notes as NotesIcon,
+  Article as ArticleIcon,
+  Bookmark as BookmarkIcon,
+  BookmarkBorder as BookmarkBorderIcon,
+  
+  // Communication Icons
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  Chat as ChatIcon,
+  Message as MessageIcon,
+  NotificationImportant as NotificationImportantIcon,
+  
+  // Toggle Icons
+  CheckBox as CheckBoxIcon,
+  CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
+  RadioButtonChecked as RadioButtonCheckedIcon,
+  RadioButtonUnchecked as RadioButtonUncheckedIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+  Favorite as FavoriteIcon,
+  FavoriteBorder as FavoriteBorderIcon,
+  
+  // Alert/Status Icons - FIXED
+  ErrorOutline as AlertCircleIcon,
+  Notifications as NotificationsIcon,
+  NotificationsOff as NotificationsOffIcon,
+  
+  // Device Icons
+  PhoneIphone as PhoneIphoneIcon,
+  TabletMac as TabletMacIcon,
+  Laptop as LaptopIcon,
+  DesktopWindows as DesktopWindowsIcon,
+  
+  // Social Icons
+  Facebook as FacebookIcon,
+  Twitter as TwitterIcon,
+  LinkedIn as LinkedInIcon,
+  YouTube as YouTubeIcon,
+  
+  // Custom/Other Icons
+  TripOrigin as TripOriginIcon,
+  Circle as CircleIcon,
+  Square as SquareIcon,
+  Rectangle as RectangleIcon,
+  Stop as StopIcon,
+  PlayArrow as PlayArrowIcon,
+  Pause as PauseIcon,
+  RefreshOutlined as RefreshOutlinedIcon
+} from '@mui/icons-material';
+
+// ============================================================
+// MATERIAL-UI LAB IMPORTS
+// ============================================================
+
+import {
+  Alert as AlertLab,
+  AlertTitle,
+  Autocomplete as AutocompleteLab,
+  AvatarGroup,
+  // Badge removed - now imported from @mui/material
+  //Chip as ChipLab,
+  ClockPicker,
+  DatePicker,
+  DateTimePicker,
+  DateTimePicker as DateTimePickerLab,
+  DesktopDatePicker,
+  DesktopDateTimePicker,
+  DesktopTimePicker,
+  LoadingButton,
+  LocalizationProvider,
+  MobileDatePicker,
+  MobileDateTimePicker,
+  MobileTimePicker,
+  PickersDay,
+  StaticDatePicker,
+  StaticDateTimePicker,
+  StaticTimePicker,
+  TabContext,
+  TabList,
+  TabPanel,
+  Timeline,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+  TimelineItem,
+  TimelineOppositeContent,
+  TimelineSeparator,
+  TimePicker,
+  TreeItem,
+  TreeView,
+  YearPicker
+} from '@mui/lab';
+
+// ============================================================
+// MATERIAL-UI X IMPORTS (Data Grid & Charts)
+// ============================================================
+
+import {
+  DataGrid,
+  
+  GridActionsCellItem,
+  GridColDef,
+  GridRenderCellParams,
+  GridRowParams,
+  GridToolbar,
+  GridToolbarContainer,
+  GridToolbarColumnsButton,
+  GridToolbarFilterButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  GridToolbarQuickFilter,
+  useGridApiRef,
+  GridEventListener,
+  GridCellEditStopReason,
+  GridCellModesModel,
+  GridRowModesModel
+} from '@mui/x-data-grid';
+
+import {
+  BarPlot,
+  ChartsXAxis,
+  ChartsYAxis,
+  ChartsTooltip,
+  ChartsLegend,
+  LinePlot,
+  PiePlot,
+  ScatterChart,
+  ScatterPlot
+} from '@mui/x-charts';
+
+import {
+  DateCalendar,
+  DatePicker as DatePickerX,
+  DateTimePicker as DateTimePickerX,
+  TimePicker as TimePickerX,
+  PickersDay as PickersDayX,
+  StaticDatePicker as StaticDatePickerX,
+  LocalizationProvider as LocalizationProviderX
+} from '@mui/x-date-pickers';
+
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+
+// ============================================================
+// MATERIAL-UI STYLED
+// ============================================================
+
+import {
+  styled,
+  alpha,
+  darken,
+  lighten,
+  useTheme as useThemeStyled
+} from '@mui/material/styles';
+
+// ============================================================
+// MATERIAL-UI COLORS
+// ============================================================
+
+import {
+  
+  blue,
+  green,
+  red,
+  yellow,
+  grey,
+  common,
+  purple,
+  orange,
+  pink,
+  teal,
+  cyan,
+  indigo,
+  lime,
+  brown,
+  deepOrange,
+  deepPurple,
+  amber,
+  blueGrey,
+  lightBlue,
+  lightGreen
+} from '@mui/material/colors';
+
+// ============================================================
+// EXPORT ALL
+// ============================================================
+
+// Core Components
+export const MuiCore = {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TableSortLabel,
+  TextField,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  IconButton,
+  Tooltip,
+  Alert,
+  CircularProgress,
+  Stack,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
+  CardHeader,
+  CardActions,
+  Divider,
+  LinearProgress,
+  Skeleton,
+  Badge,
+  Avatar,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemAvatar,
+  ListSubheader,
+  Collapse,
+  Drawer,
+  AppBar,
+  Toolbar,
+  Container,
+  CssBaseline,
+  ThemeProvider,
+  createTheme,
+  responsiveFontSizes,
+  useMediaQuery,
+  useTheme,
+  Fade,
+  Grow,
+  Slide,
+  Zoom,
+  Backdrop,
+  Modal,
+  Popover,
+  Popper,
+  Menu,
+  MenuList,
+  MenuItemMUI,
+  Checkbox,
+  Radio,
+  RadioGroup,
+  FormGroup,
+  FormLabel,
+  FormHelperText,
+  InputAdornment,
+  OutlinedInput,
+  FilledInput,
+  InputBase,
+  Autocomplete,
+  Rating,
+  Slider,
+  SwitchMUI,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  StepButton,
+  MobileStepper,
+  ToggleButton,
+  ToggleButtonGroup,
+  SpeedDial,
+  SpeedDialAction,
+  SpeedDialIcon,
+  Fab,
+  BottomNavigation,
+  BottomNavigationAction,
+  Breadcrumbs,
+  Link,
+  TypographyMUI
+};
+
+// Icons
+export const MuiIcons = {
+  SaveIcon,
+  CloseIcon,
+  DeleteIcon,
+  EditIcon,
+  AddIcon,
+  RefreshIcon,
+  SearchIcon,
+  FilterListIcon,
+  ViewListIcon,
+  ViewModuleIcon,
+  ViewComfyIcon,
+  MoreVertIcon,
+  MoreHorizIcon,
+  ArrowBackIcon,
+  ArrowForwardIcon,
+  ArrowUpwardIcon,
+  ArrowDownwardIcon,
+  CheckIcon,
+  ClearIcon,
+  DoneIcon,
+  CancelIcon,
+  RestoreIcon,
+  UndoIcon,
+  RedoIcon,
+  PrintIcon,
+  DownloadIcon,
+  UploadIcon,
+  FileCopyIcon,
+  ShareIcon,
+  SettingsIcon,
+  HelpIcon,
+  InfoIcon,
+  WarningIcon,
+  ErrorIcon,
+  CheckCircleIcon,
+  ReportProblemIcon,
+  VerifiedIcon,
+  LockIcon,
+  LockOpenIcon,
+  VisibilityIcon,
+  VisibilityOffIcon,
+  ExpandMoreIcon,
+  ExpandLessIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MenuIcon,
+  HomeIcon,
+  DashboardIcon,
+  AssignmentIcon,
+  ScheduleIcon,
+  DirectionsCarIcon,
+  DescriptionIcon,
+  LocationOnIcon,
+  SwapHorizIcon,
+  ScaleIcon,
+  AttachMoneyIcon,
+  CommentIcon,
+  TollIcon,
+  ReceiptIcon,
+  BusinessIcon,
+  WarehouseIcon,
+  RouteIcon,
+  DepartureBoardIcon,
+  LocalShippingIcon,
+  PersonIcon,
+  PeopleIcon,
+  GroupIcon,
+  StorefrontIcon,
+  ShoppingCartIcon,
+  InventoryIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  ImageIcon,
+  PhotoIcon,
+  VideocamIcon,
+  MicIcon,
+  AttachmentIcon,
+  NoteIcon,
+  NotesIcon,
+  ArticleIcon,
+  BookmarkIcon,
+  BookmarkBorderIcon,
+  EmailIcon,
+  PhoneIcon,
+  ChatIcon,
+  MessageIcon,
+  NotificationImportantIcon,
+  CheckBoxIcon,
+  CheckBoxOutlineBlankIcon,
+  RadioButtonCheckedIcon,
+  RadioButtonUncheckedIcon,
+  StarIcon,
+  StarBorderIcon,
+  FavoriteIcon,
+  FavoriteBorderIcon,
+  AlertCircleIcon,
+  NotificationsIcon,
+  NotificationsOffIcon,
+  PhoneIphoneIcon,
+  TabletMacIcon,
+  LaptopIcon,
+  DesktopWindowsIcon,
+  FacebookIcon,
+  TwitterIcon,
+  LinkedInIcon,
+  YouTubeIcon,
+  TripOriginIcon,
+  CircleIcon,
+  SquareIcon,
+  RectangleIcon,
+  StopIcon,
+  PlayArrowIcon,
+  PauseIcon,
+  RefreshOutlinedIcon
+};
+
+// Lab Components
+export const MuiLab = {
+  AlertLab,
+  AlertTitle,
+  AutocompleteLab,
+  AvatarGroup,
+  // BadgeLab removed - use Badge from MuiCore
+  ChipLab,
+  ClockPicker,
+  DatePicker,
+  DateTimePicker: DateTimePickerLab,
+  DesktopDatePicker,
+  DesktopDateTimePicker,
+  DesktopTimePicker,
+  LoadingButton,
+  LocalizationProvider,
+  MobileDatePicker,
+  MobileDateTimePicker,
+  MobileTimePicker,
+  PickersDay,
+  StaticDatePicker,
+  StaticDateTimePicker,
+  StaticTimePicker,
+  TabContext,
+  TabList,
+  TabPanel,
+  Timeline,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+  TimelineItem,
+  TimelineOppositeContent,
+  TimelineSeparator,
+  TimePicker,
+  TreeItem,
+  TreeView,
+  YearPicker
+};
+
+// X Components
+export const MuiX = {
+  DataGrid,
+  DataGridPro,
+  GridActionsCellItem,
+  GridToolbar,
+  GridToolbarContainer,
+  GridToolbarColumnsButton,
+  GridToolbarFilterButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  GridToolbarQuickFilter,
+  useGridApiRef,
+  BarPlot,
+  ChartsXAxis,
+  ChartsYAxis,
+  ChartsTooltip,
+  ChartsLegend,
+  LinePlot,
+  PiePlot,
+  ScatterChart,
+  ScatterPlot,
+  DateCalendar,
+  DatePickerX,
+  DateTimePickerX,
+  TimePickerX,
+  PickersDayX,
+  StaticDatePickerX,
+  LocalizationProviderX,
+  AdapterDayjs,
+  AdapterDateFns,
+  AdapterLuxon
+};
+
+// Styled
+export const MuiStyled = {
+  styled,
+  alpha,
+  darken,
+  lighten,
+  useThemeStyled
+};
+
+// Colors
+export const MuiColors = {
+  colors,
+  blue,
+  green,
+  red,
+  yellow,
+  grey,
+  common,
+  purple,
+  orange,
+  pink,
+  teal,
+  cyan,
+  indigo,
+  lime,
+  brown,
+  deepOrange,
+  deepPurple,
+  amber,
+  blueGrey,
+  lightBlue,
+  lightGreen
+};
+
+// ============================================================
+// DEFAULT EXPORT - COMMONLY USED COMPONENTS
+// ============================================================
+
+export default {
+  // Core
   Box,
   Typography,
   Paper,
@@ -36,10 +754,9 @@ const {
   Card,
   CardContent,
   Divider,
-  Autocomplete
-} = MuiCore;
-
-const {
+  Autocomplete,
+  
+  // Icons
   SaveIcon,
   CloseIcon,
   DeleteIcon,
@@ -47,426 +764,22 @@ const {
   AddIcon,
   RefreshIcon,
   SearchIcon,
-  AssignmentIcon,
-  ScheduleIcon,
-  DirectionsCarIcon,
-  DescriptionIcon,
-  LocationOnIcon,
-  SwapHorizIcon,
-  ScaleIcon,
-  AttachMoneyIcon,
-  CommentIcon,
-  TollIcon,
-  ReceiptIcon,
-  BusinessIcon,
-  WarehouseIcon,
-  RouteIcon
-} = MuiIcons;
-
-const { LoadingButton, LocalizationProvider, DateTimePicker, DatePicker, TimePicker } = MuiLab;
-const { DataGrid, AdapterDayjs } = MuiX;
-const { styled, alpha } = MuiStyled;
-const { colors } = MuiColors;
-
-// ============================================================
-// FORM STYLES - Using centralized imports
-// ============================================================
-
-export const formStyles = {
-  // Card styles
-  card: {
-    variant: 'outlined',
-    sx: { mb: 1.5 }
-  },
   
-  cardContent: {
-    sx: { p: 1.5, '&:last-child': { pb: 1.5 } }
-  },
+  // Lab
+  LoadingButton,
+  LocalizationProvider,
+  DateTimePicker,
+  DatePicker,
+  TimePicker,
   
-  cardHeader: {
-    sx: { 
-      p: 1.5, 
-      pb: 0,
-      '& .MuiCardHeader-title': { 
-        fontSize: '0.9rem', 
-        fontWeight: 600 
-      }
-    }
-  },
+  // X
+  DataGrid,
+  AdapterDayjs,
   
-  // Section styles
-  sectionHeader: {
-    direction: 'row',
-    alignItems: 'center',
-    spacing: 0.75,
-    mb: 1.5,
-    sx: {
-      '& .MuiSvgIcon-root': {
-        fontSize: '1rem'
-      }
-    }
-  },
+  // Styled
+  styled,
+  alpha,
   
-  // Form control styles
-  formControl: {
-    fullWidth: true,
-    size: 'small',
-    sx: {
-      '& .MuiInputLabel-root': {
-        fontSize: '0.75rem'
-      },
-      '& .MuiSelect-select': {
-        fontSize: '0.75rem'
-      }
-    }
-  },
-  
-  textField: {
-    fullWidth: true,
-    size: 'small',
-    sx: {
-      '& .MuiInputLabel-root': {
-        fontSize: '0.75rem'
-      },
-      '& .MuiInputBase-root': {
-        fontSize: '0.8rem'
-      }
-    }
-  },
-  
-  select: {
-    fullWidth: true,
-    size: 'small',
-    sx: {
-      fontSize: '0.75rem',
-      '& .MuiSelect-select': {
-        fontSize: '0.75rem'
-      }
-    }
-  },
-  
-  menuItem: {
-    sx: { fontSize: '0.75rem' }
-  },
-  
-  // Grid styles
-  gridContainer: {
-    spacing: 1.5
-  },
-  
-  // Icon styles
-  icon: {
-    fontSize: '1rem'
-  },
-  
-  // Helper text styles
-  helperText: {
-    fontSize: '0.65rem'
-  },
-  
-  errorHelper: {
-    fontSize: '0.65rem',
-    color: 'error.main'
-  },
-  
-  // Button styles
-  button: {
-    size: 'small',
-    sx: { fontSize: '0.8rem' }
-  },
-  
-  primaryButton: {
-    variant: 'contained',
-    size: 'small',
-    sx: { fontSize: '0.8rem' }
-  },
-  
-  secondaryButton: {
-    variant: 'outlined',
-    size: 'small',
-    sx: { fontSize: '0.8rem' }
-  },
-  
-  // Dialog styles
-  dialogTitle: {
-    sx: { 
-      borderBottom: 1, 
-      borderColor: 'divider', 
-      py: 1.5, 
-      px: 2,
-      fontSize: '1rem',
-      fontWeight: 600
-    }
-  },
-  
-  dialogContent: {
-    sx: { 
-      overflowY: 'auto', 
-      p: 2 
-    }
-  },
-  
-  dialogActions: {
-    sx: { 
-      borderTop: 1, 
-      borderColor: 'divider', 
-      p: 1.5 
-    }
-  },
-  
-  // Chip styles
-  chip: {
-    size: 'small',
-    sx: { 
-      height: 20, 
-      fontSize: '0.6rem' 
-    }
-  },
-  
-  // Alert styles
-  alert: {
-    sx: { 
-      mb: 2, 
-      fontSize: '0.8rem' 
-    }
-  },
-  
-  successAlert: {
-    severity: 'success',
-    sx: { 
-      mb: 2, 
-      fontSize: '0.8rem' 
-    }
-  },
-  
-  errorAlert: {
-    severity: 'error',
-    sx: { 
-      mb: 2, 
-      fontSize: '0.8rem' 
-    }
-  },
-  
-  // Loading styles
-  loadingBox: {
-    display: 'flex',
-    justifyContent: 'center',
-    p: 3
-  },
-  
-  // Label styles
-  label: {
-    fontSize: '0.75rem'
-  }
-};
-
-// ============================================================
-// PAGE STYLES
-// ============================================================
-
-export const pageStyles = {
-  container: {
-    p: 3,
-    maxWidth: 'xl',
-    mx: 'auto'
-  },
-  
-  header: {
-    mb: 3,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 2
-  },
-  
-  title: {
-    variant: 'h5',
-    fontWeight: 600,
-    sx: { fontSize: '1.5rem' }
-  },
-  
-  toolbar: {
-    display: 'flex',
-    gap: 1,
-    flexWrap: 'wrap'
-  },
-  
-  tableContainer: {
-    sx: { 
-      mt: 2,
-      '& .MuiTableHead-root': {
-        backgroundColor: 'grey.50'
-      }
-    }
-  },
-  
-  pagination: {
-    sx: { 
-      mt: 2,
-      display: 'flex',
-      justifyContent: 'flex-end'
-    }
-  },
-  
-  loadingBox: {
-    display: 'flex',
-    justifyContent: 'center',
-    p: 3
-  },
-  
-  errorAlert: {
-    severity: 'error',
-    sx: { mb: 2, fontSize: '0.8rem' }
-  },
-  
-  successAlert: {
-    severity: 'success',
-    sx: { mb: 2, fontSize: '0.8rem' }
-  },
-  
-  // Filter bar styles
-  filterBar: {
-    sx: { 
-      mt: 2, 
-      display: 'flex', 
-      gap: 2, 
-      flexWrap: 'wrap' 
-    }
-  },
-  
-  filterTextField: {
-    label: 'Search',
-    variant: 'outlined',
-    size: 'small',
-    sx: { flexGrow: 1, minWidth: 200 }
-  },
-  
-  filterSelect: {
-    size: 'small',
-    sx: { minWidth: 150 }
-  },
-  
-  // Tab styles
-  tabs: {
-    sx: { borderBottom: 1, borderColor: 'divider' }
-  },
-  
-  tab: {
-    sx: { fontSize: '0.8rem' }
-  },
-  
-  // Card styles
-  pageCard: {
-    sx: { mt: 2 }
-  },
-  
-  pageCardContent: {
-    sx: { p: 2 }
-  }
-};
-
-// ============================================================
-// TABLE STYLES
-// ============================================================
-
-export const tableStyles = {
-  container: {
-    component: Paper,
-    sx: { 
-      '& .MuiTableHead-root': {
-        backgroundColor: 'grey.50'
-      }
-    }
-  },
-  
-  headCell: {
-    sx: { 
-      fontWeight: 600,
-      fontSize: '0.75rem'
-    }
-  },
-  
-  bodyCell: {
-    sx: { fontSize: '0.8rem' }
-  },
-  
-  row: {
-    hover: true,
-    sx: { '&:hover': { backgroundColor: 'grey.50' } }
-  },
-  
-  actionsCell: {
-    sx: { 
-      '& .MuiIconButton-root': {
-        padding: 0.5
-      }
-    }
-  },
-  
-  statusChip: {
-    size: 'small',
-    sx: { fontSize: '0.65rem' }
-  },
-  
-  emptyState: {
-    colSpan: 999,
-    align: 'center',
-    sx: { py: 3 }
-  },
-  
-  emptyText: {
-    variant: 'body2',
-    color: 'text.secondary'
-  }
-};
-
-// ============================================================
-// DIALOG STYLES
-// ============================================================
-
-export const dialogStyles = {
-  paper: {
-    sx: { maxHeight: '90vh' }
-  },
-  
-  title: {
-    sx: { 
-      borderBottom: 1, 
-      borderColor: 'divider', 
-      py: 1.5, 
-      px: 2 
-    }
-  },
-  
-  titleText: {
-    variant: 'h6',
-    sx: { fontSize: '1rem', fontWeight: 600 }
-  },
-  
-  content: {
-    sx: { 
-      overflowY: 'auto', 
-      p: 2 
-    }
-  },
-  
-  actions: {
-    sx: { 
-      borderTop: 1, 
-      borderColor: 'divider', 
-      p: 1.5 
-    }
-  }
-};
-
-// ============================================================
-// EXPORT ALL STYLES
-// ============================================================
-
-export default {
-  formStyles,
-  pageStyles,
-  tableStyles,
-  dialogStyles
+  // Colors
+  colors
 };
