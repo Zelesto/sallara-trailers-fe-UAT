@@ -25,8 +25,7 @@ import {
   Divider,
   CircularProgress,
   LinearProgress,
-  useTheme,
-  useMediaQuery,
+  // REMOVE: useTheme, useMediaQuery - they're not being used
   List,
   ListItem,
   ListItemText,
@@ -415,7 +414,7 @@ const LowStockAlert = ({ items }) => {
 };
 
 // ============================================================
-// MAIN DASHBOARD COMPONENT
+// MAIN DASHBOARD COMPONENT - FIXED
 // ============================================================
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -426,8 +425,8 @@ const Dashboard = () => {
   const [lowStockItems, setLowStockItems] = useState([]);
   const [activeTrips, setActiveTrips] = useState([]);
 
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // REMOVED: const theme = useTheme();
+  // REMOVED: const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const fetchActiveTrips = async () => {
     try {
