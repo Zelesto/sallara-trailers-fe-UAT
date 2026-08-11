@@ -667,6 +667,126 @@ export const MuiColors = {
   lightGreen
 };
 
+// src/styles/formStyles.js
+// Add this to your existing file
+
+export const dialogStyles = {
+  // Dialog paper styling
+  paper: {
+    borderRadius: 2,
+    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+    padding: 0,
+    overflow: 'hidden',
+    minWidth: { xs: '90%', sm: 500, md: 600 },
+    maxWidth: { xs: '95%', sm: 600, md: 800 },
+  },
+  
+  // Dialog title styling
+  title: {
+    padding: '20px 24px 16px 24px',
+    borderBottom: '1px solid rgba(0,0,0,0.08)',
+    '& .MuiTypography-root': {
+      fontWeight: 600,
+      fontSize: '1.25rem',
+      color: '#1a1a1a',
+    },
+  },
+  
+  // Dialog content styling
+  content: {
+    padding: '24px',
+    '&:first-of-type': {
+      paddingTop: 24,
+    },
+    '& .MuiFormControl-root': {
+      marginBottom: 16,
+    },
+    '& .MuiFormControl-root:last-child': {
+      marginBottom: 0,
+    },
+  },
+  
+  // Dialog actions styling
+  actions: {
+    padding: '16px 24px 20px 24px',
+    borderTop: '1px solid rgba(0,0,0,0.06)',
+    gap: 8,
+    '& .MuiButton-root': {
+      minWidth: 80,
+      borderRadius: 1.5,
+      textTransform: 'none',
+      fontWeight: 500,
+    },
+    '& .MuiButton-contained': {
+      backgroundColor: '#1976d2',
+      '&:hover': {
+        backgroundColor: '#1565c0',
+      },
+    },
+  },
+  
+  // Responsive adjustments
+  fullScreen: {
+    '& .MuiDialog-paper': {
+      margin: 0,
+      width: '100%',
+      height: '100%',
+      maxHeight: '100%',
+      maxWidth: '100%',
+      borderRadius: 0,
+    },
+  },
+  
+  // Loading state overlay
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    zIndex: 10,
+  },
+  
+  // Form field spacing
+  formField: {
+    marginBottom: 2.5,
+    '&:last-child': {
+      marginBottom: 0,
+    },
+  },
+  
+  // Submit button
+  submitButton: {
+    minWidth: 120,
+    padding: '8px 24px',
+  },
+  
+  // Cancel button
+  cancelButton: {
+    minWidth: 80,
+    color: '#666',
+    '&:hover': {
+      backgroundColor: 'rgba(0,0,0,0.04)',
+    },
+  },
+};
+
+// Make sure formStyles is also exported
+export const formStyles = {
+  // Your existing form styles here
+  // If you don't have this, add a basic one:
+  form: {
+    width: '100%',
+    '& .MuiFormControl-root': {
+      marginBottom: 2.5,
+    },
+  },
+};
+
 // ============================================================
 // DEFAULT EXPORT - COMMONLY USED COMPONENTS
 // ============================================================
