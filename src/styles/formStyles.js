@@ -251,8 +251,7 @@ import {
 // ============================================================
 
 import {
-  Alert as AlertLab,
-  AlertTitle,
+
   Autocomplete as AutocompleteLab,
   AvatarGroup,
   // Badge removed - now imported from @mui/material
