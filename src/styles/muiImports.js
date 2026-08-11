@@ -316,19 +316,19 @@ import {
 } from '@mui/x-data-grid';
 
 import {
-  BarChart,
+
   BarPlot,
   ChartsXAxis,
   ChartsYAxis,
   ChartsTooltip,
   ChartsLegend,
-  LineChart,
+
   LinePlot,
-  PieChart,
+
   PiePlot,
   ScatterChart,
   ScatterPlot
-} from '@mui/x-charts';
+// Removed: @mui/x-charts not needed
 
 import {
   DateCalendar,
@@ -664,15 +664,15 @@ export const MuiX = {
   GridToolbarExport,
   GridToolbarQuickFilter,
   useGridApiRef,
-  BarChart,
+
   BarPlot,
   ChartsXAxis,
   ChartsYAxis,
   ChartsTooltip,
   ChartsLegend,
-  LineChart,
+
   LinePlot,
-  PieChart,
+
   PiePlot,
   ScatterChart,
   ScatterPlot,
@@ -792,3 +792,4 @@ export default {
   // Colors
   colors
 };
+
