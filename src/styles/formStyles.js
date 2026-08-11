@@ -247,31 +247,13 @@ import {
 } from '@mui/icons-material';
 
 // ============================================================
-// MATERIAL-UI LAB IMPORTS
+// MATERIAL-UI LAB IMPORTS (Only what's still needed)
 // ============================================================
 
 import {
-
-  //Autocomplete as AutocompleteLab,
-  //AvatarGroup,
-  // Badge removed - now imported from @mui/material
-  //Chip as ChipLab,
-  ClockPicker,
-  DatePicker,
-  DateTimePicker,
-  DateTimePicker as DateTimePickerLab,
-  DesktopDatePicker,
-  DesktopDateTimePicker,
-  DesktopTimePicker,
+  // Only keep components that still exist in @mui/lab v7
+  // Most have been moved to @mui/material or @mui/x-date-pickers
   LoadingButton,
-  LocalizationProvider,
-  MobileDatePicker,
-  MobileDateTimePicker,
-  MobileTimePicker,
-  PickersDay,
-  StaticDatePicker,
-  StaticDateTimePicker,
-  StaticTimePicker,
   TabContext,
   TabList,
   TabPanel,
@@ -282,10 +264,8 @@ import {
   TimelineItem,
   TimelineOppositeContent,
   TimelineSeparator,
-  TimePicker,
   TreeItem,
-  TreeView,
-  YearPicker
+  TreeView
 } from '@mui/lab';
 
 // ============================================================
