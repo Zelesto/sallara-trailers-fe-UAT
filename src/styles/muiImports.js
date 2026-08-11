@@ -328,6 +328,7 @@ import {
   PiePlot,
   ScatterChart,
   ScatterPlot
+  } from '@mui/x-data-grid';
 // Removed: @mui/x-charts not needed
 
 import {
