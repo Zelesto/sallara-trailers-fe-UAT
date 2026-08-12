@@ -1123,26 +1123,28 @@ const MainLayout = () => {
       </Box>
 
       <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: { xs: 1, sm: 1.5, md: 2 },
-          width: { md: `calc(100% - ${sidebarCollapsed ? collapsedDrawerWidth : drawerWidth}px)` },
-          transition: theme.transitions.create(['width', 'margin'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
-          backgroundColor: '#F7F7FC',
-          minHeight: '100vh',
-          overflowX: 'hidden',
-        }}
-      >
-        <Toolbar sx={{ minHeight: { xs: 48, sm: 52 } }} />
-
-        <Breadcrumbs />
-
-        <Outlet />
-      </Box>
+  component="main"
+  sx={{
+    flexGrow: 1,
+    p: 0, // ← Remove all padding
+    width: { md: `calc(100% - ${sidebarCollapsed ? collapsedDrawerWidth : drawerWidth}px)` },
+    transition: theme.transitions.create(['width', 'margin'], {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
+    backgroundColor: '#F7F7FC',
+    minHeight: '100vh',
+    overflowX: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+  }}
+>
+  <Toolbar sx={{ minHeight: { xs: 48, sm: 52 } }} />
+  <Breadcrumbs />
+  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <Outlet />
+  </Box>
+</Box>
 
       <TripForm
         open={tripModalOpen}
