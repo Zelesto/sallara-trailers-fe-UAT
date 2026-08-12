@@ -7,15 +7,8 @@ let enumCacheTime = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export const enumService = {
-    // ============================================================
-    // READ OPERATIONS
-    // ============================================================
-
     /**
-     * Get enums by module and category
-     * @param {string} moduleName - e.g., 'trip', 'vehicle', 'driver'
-     * @param {string} category - e.g., 'status', 'type', 'approval'
-     * @param {boolean} includeInactive - Include inactive enums
+     * Get enums from the database
      */
     getEnums: async (moduleName, category, includeInactive = false) => {
         const cacheKey = `${moduleName}:${category}:${includeInactive}`;
@@ -29,10 +22,14 @@ export const enumService = {
         }
 
         try {
+            // Add timestamp to prevent caching issues
+            const timestamp = Date.now();
             const response = await api.get(`/enums/${moduleName}/${category}`, {
-                params: { includeInactive }
+                params: { includeInactive, _t: timestamp }
             });
-            const data = response.data?.data || [];
+            
+            // Check if response has the expected structure
+            const data = response?.data?.data || response?.data || [];
             
             // Cache the result
             enumCache[cacheKey] = data;
@@ -40,6 +37,11 @@ export const enumService = {
             
             return data;
         } catch (error) {
+            // If 401, re-throw so the context can handle it
+            if (error.response?.status === 401) {
+                console.warn(`⚠️ Auth required for enums: ${moduleName}/${category}`);
+                throw error;
+            }
             console.error('Failed to fetch enums:', error);
             return [];
         }
