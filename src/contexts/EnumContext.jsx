@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { enumService } from '../services/enumService';
 import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
+import { useAuth } from './AuthContext';
 
 const EnumContext = createContext();
 
@@ -15,42 +16,46 @@ export const useEnums = () => {
 };
 
 export const EnumProvider = ({ children }) => {
+  const { isAuthenticated, token } = useAuth();
   const [enums, setEnums] = useState({
-    // Trip enums
     tripStatuses: [],
     tripTypes: [],
     approvalStatuses: [],
-    // Driver enums
     driverStatuses: [],
-    // Vehicle enums
     vehicleStatuses: [],
     vehicleTypes: [],
     fuelTypes: [],
-    // Load enums
     loadStatuses: [],
-    // POD enums
     podStatuses: [],
-    // Entities
     drivers: [],
     vehicles: [],
     supervisors: [],
   });
   
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastFetched, setLastFetched] = useState(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Load all enums and entities
   const loadEnums = useCallback(async (forceRefresh = false) => {
+    // Only load if authenticated
+    if (!isAuthenticated) {
+      console.log('⏳ EnumProvider: Not authenticated, skipping load');
+      return;
+    }
+
     // Check if we should use cached data
     if (!forceRefresh && lastFetched) {
       const now = Date.now();
       const cacheAge = now - lastFetched;
       if (cacheAge < 300000) { // 5 minutes cache
+        console.log('📦 EnumProvider: Using cached enums');
         return;
       }
     }
 
+    console.log('🔄 EnumProvider: Loading enums...');
     setLoading(true);
     setError(null);
 
@@ -70,7 +75,6 @@ export const EnumProvider = ({ children }) => {
         vehicles,
         supervisors
       ] = await Promise.all([
-        // Enums from enumService
         enumService.getEnums('trip', 'status').catch(() => []),
         enumService.getEnums('trip', 'type').catch(() => []),
         enumService.getEnums('trip', 'approval').catch(() => []),
@@ -80,41 +84,63 @@ export const EnumProvider = ({ children }) => {
         enumService.getEnums('fuel', 'type').catch(() => []),
         enumService.getEnums('load', 'status').catch(() => []),
         enumService.getEnums('pod', 'status').catch(() => []),
-        // Entities from services
         driverService.getAllDrivers({ status: 'AVAILABLE' }).catch(() => []),
         vehicleService.getAllVehicles({ status: 'AVAILABLE' }).catch(() => []),
-        // Supervisors would come from a user service
         Promise.resolve([]), // Replace with userService.getSupervisors() when available
       ]);
 
       setEnums({
-        tripStatuses,
-        tripTypes,
-        approvalStatuses,
-        driverStatuses,
-        vehicleStatuses,
-        vehicleTypes,
-        fuelTypes,
-        loadStatuses,
-        podStatuses,
+        tripStatuses: tripStatuses || [],
+        tripTypes: tripTypes || [],
+        approvalStatuses: approvalStatuses || [],
+        driverStatuses: driverStatuses || [],
+        vehicleStatuses: vehicleStatuses || [],
+        vehicleTypes: vehicleTypes || [],
+        fuelTypes: fuelTypes || [],
+        loadStatuses: loadStatuses || [],
+        podStatuses: podStatuses || [],
         drivers: Array.isArray(drivers) ? drivers : [],
         vehicles: Array.isArray(vehicles) ? vehicles : [],
         supervisors: Array.isArray(supervisors) ? supervisors : [],
       });
       
       setLastFetched(Date.now());
+      setInitialLoadDone(true);
+      console.log('✅ EnumProvider: Enums loaded successfully');
     } catch (err) {
-      console.error('Failed to load enums:', err);
+      console.error('❌ EnumProvider: Failed to load enums:', err);
       setError(err.message || 'Failed to load enums');
     } finally {
       setLoading(false);
     }
-  }, [lastFetched]);
+  }, [isAuthenticated, lastFetched]);
 
-  // Load enums on mount
+  // Load enums when authentication state changes
   useEffect(() => {
-    loadEnums();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isAuthenticated && token) {
+      console.log('🔐 EnumProvider: User authenticated, loading enums...');
+      loadEnums();
+    } else {
+      console.log('🚫 EnumProvider: User not authenticated, clearing enums');
+      // Reset enums when logged out
+      setEnums({
+        tripStatuses: [],
+        tripTypes: [],
+        approvalStatuses: [],
+        driverStatuses: [],
+        vehicleStatuses: [],
+        vehicleTypes: [],
+        fuelTypes: [],
+        loadStatuses: [],
+        podStatuses: [],
+        drivers: [],
+        vehicles: [],
+        supervisors: [],
+      });
+      setInitialLoadDone(false);
+      setLastFetched(null);
+    }
+  }, [isAuthenticated, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper function to map enum data to options for select inputs
   const mapToOptions = useCallback((items, valueKey = 'code', labelKey = 'displayName') => {
@@ -146,6 +172,7 @@ export const EnumProvider = ({ children }) => {
     loading,
     error,
     refreshEnums,
+    isReady: initialLoadDone && !loading,
     // Helper functions
     mapToOptions,
     mapEntityToOptions,
