@@ -1,5 +1,5 @@
 // src/pages/TripForm.jsx
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import BaseForm from '../components/base/BaseForm';
 import { tripService } from '../services/tripService';
 import { useEnums } from '../contexts/EnumContext';
@@ -16,7 +16,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
     getSupervisorOptions,
   } = useEnums();
 
-  // Province options (static, could also come from enums)
+  // Province options
   const provinceOptions = [
     { value: 'Eastern Cape', label: 'Eastern Cape' },
     { value: 'Free State', label: 'Free State' },
@@ -36,9 +36,24 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
     { value: 'URGENT', label: 'Urgent' }
   ];
 
-  // Build form sections with dynamic enum data - only when open
+  // Get default planned dates
+  const getDefaultPlannedDates = useMemo(() => {
+    const now = new Date();
+    // Round to nearest hour
+    const startDate = new Date(now);
+    startDate.setMinutes(0, 0, 0);
+    
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + 8);
+    
+    return {
+      plannedStartDate: startDate.toISOString(),
+      plannedEndDate: endDate.toISOString()
+    };
+  }, []);
+
+  // Build form sections with dynamic enum data
   const sections = useMemo(() => {
-    // Don't build sections if form is closed
     if (!open) return [];
 
     const typeOptions = getTripTypeOptions();
@@ -47,6 +62,8 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
     const driverOptions = getDriverOptions();
     const vehicleOptions = getVehicleOptions();
     const supervisorOptions = getSupervisorOptions();
+
+    const isCreate = mode === 'create';
 
     return [
       {
@@ -107,23 +124,49 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
         ]
       },
       {
-        title: 'Schedule',
+        title: 'Planned Schedule',
+        subtitle: 'These are the planned/scheduled dates for the trip',
         fields: [
           {
             name: 'plannedStartDate',
-            label: 'Start Date',
+            label: 'Planned Start Date',
             type: 'datetime',
             required: true,
             size: 6,
-            // Set a default value for new trips
-            defaultValue: null
+            defaultValue: isCreate ? getDefaultPlannedDates.plannedStartDate : null,
+            helperText: 'Scheduled start date & time'
           },
           {
             name: 'plannedEndDate',
-            label: 'End Date',
+            label: 'Planned End Date',
             type: 'datetime',
             size: 6,
-            defaultValue: null
+            defaultValue: isCreate ? getDefaultPlannedDates.plannedEndDate : null,
+            helperText: 'Scheduled end date & time (8 hours after start)'
+          }
+        ]
+      },
+      {
+        title: 'Actual Schedule',
+        subtitle: 'These will be updated when the trip actually starts and ends',
+        fields: [
+          {
+            name: 'actualStartDate',
+            label: 'Actual Start Date',
+            type: 'datetime',
+            size: 6,
+            defaultValue: null,
+            helperText: 'Will be set when trip starts',
+            disabled: mode === 'create' // Disabled on create, can be updated later
+          },
+          {
+            name: 'actualEndDate',
+            label: 'Actual End Date',
+            type: 'datetime',
+            size: 6,
+            defaultValue: null,
+            helperText: 'Will be set when trip ends',
+            disabled: mode === 'create' // Disabled on create, can be updated later
           }
         ]
       },
@@ -184,7 +227,9 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
     ];
   }, [
     open,
+    mode,
     enumsLoading,
+    getDefaultPlannedDates,
     getTripTypeOptions,
     getTripStatusOptions,
     getApprovalStatusOptions,
@@ -207,7 +252,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
     const errors = {};
     if (!data.originCity) errors.originCity = 'Origin city is required';
     if (!data.destinationCity) errors.destinationCity = 'Destination city is required';
-    if (!data.plannedStartDate) errors.plannedStartDate = 'Start date is required';
+    if (!data.plannedStartDate) errors.plannedStartDate = 'Planned start date is required';
     if (!data.vehicleId) errors.vehicleId = 'Vehicle is required';
     if (!data.driverId) errors.driverId = 'Driver is required';
     if (!data.tripType) errors.tripType = 'Trip type is required';
