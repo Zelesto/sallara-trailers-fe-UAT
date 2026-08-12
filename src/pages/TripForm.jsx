@@ -1,5 +1,5 @@
 // src/pages/TripForm.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import BaseForm from '../components/base/BaseForm';
 import { tripService } from '../services/tripService';
 import { useEnums } from '../contexts/EnumContext';
@@ -8,8 +8,6 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
   const { 
     enums, 
     loading: enumsLoading,
-    mapToOptions,
-    mapEntityToOptions,
     getTripTypeOptions,
     getTripStatusOptions,
     getApprovalStatusOptions,
@@ -38,8 +36,11 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
     { value: 'URGENT', label: 'Urgent' }
   ];
 
-  // Build form sections with dynamic enum data
+  // Build form sections with dynamic enum data - only when open
   const sections = useMemo(() => {
+    // Don't build sections if form is closed
+    if (!open) return [];
+
     const typeOptions = getTripTypeOptions();
     const statusOptions = getTripStatusOptions();
     const approvalOptions = getApprovalStatusOptions();
@@ -113,13 +114,16 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
             label: 'Start Date',
             type: 'datetime',
             required: true,
-            size: 6
+            size: 6,
+            // Set a default value for new trips
+            defaultValue: null
           },
           {
             name: 'plannedEndDate',
             label: 'End Date',
             type: 'datetime',
-            size: 6
+            size: 6,
+            defaultValue: null
           }
         ]
       },
@@ -179,6 +183,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
       }
     ];
   }, [
+    open,
     enumsLoading,
     getTripTypeOptions,
     getTripStatusOptions,
@@ -210,6 +215,9 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
     if (!data.approvalStatus) errors.approvalStatus = 'Approval status is required';
     return errors;
   };
+
+  // Don't render anything if form is closed
+  if (!open) return null;
 
   return (
     <BaseForm
