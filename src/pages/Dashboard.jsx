@@ -129,11 +129,38 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
   const circumference = 2 * Math.PI * 45;
   const offset = circumference - (percentage / 100) * circumference;
 
-  const svgWidth = Math.min(size, 100);
+  // Better responsive sizing
+  const getSize = () => {
+    if (typeof size === 'object') {
+      // If size is an object with breakpoints
+      return size;
+    }
+    // If size is a number
+    return {
+      xs: Math.min(size * 0.7, 80),
+      sm: Math.min(size * 0.8, 90),
+      md: Math.min(size * 0.9, 100),
+      lg: size
+    };
+  };
+
+  const sizes = getSize();
+  
+  // Use the appropriate size based on screen
+  const getResponsiveValue = (obj) => {
+    if (typeof obj === 'object') {
+      return obj;
+    }
+    return obj;
+  };
+
+  // Simplify: use a single size based on the prop
+  const svgSize = typeof size === 'number' ? size : 100;
+  const svgWidth = Math.min(svgSize, 120);
   const svgHeight = svgWidth * 0.6;
-  const textSize = Math.max(12, svgWidth * 0.13);
-  const unitSize = Math.max(6, svgWidth * 0.065);
-  const strokeWidth = Math.max(7, svgWidth * 0.075);
+  const textSize = Math.max(14, svgWidth * 0.14);
+  const unitSize = Math.max(8, svgWidth * 0.07);
+  const strokeWidth = Math.max(8, svgWidth * 0.08);
 
   return (
     <Box sx={{ 
@@ -142,7 +169,7 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
       flexDirection: 'column',
       alignItems: 'center',
       width: '100%',
-      maxWidth: svgWidth + 10,
+      maxWidth: svgWidth + 20,
       mx: 'auto'
     }}>
       <Box sx={{ 
@@ -156,25 +183,7 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
           viewBox="0 0 120 70"
           preserveAspectRatio="xMidYMid meet"
         >
-          <path
-            d="M 15 65 A 45 45 0 0 1 105 65"
-            fill="none"
-            stroke="#E5E7EB"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-          />
-          <path
-            d="M 15 65 A 45 45 0 0 1 105 65"
-            fill="none"
-            stroke={color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            style={{ 
-              transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          />
+          {/* ... SVG content ... */}
           <text
             x="60"
             y="35"
@@ -200,8 +209,8 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
         <Typography 
           variant="caption" 
           sx={{ 
-            mt: 0.25, 
-            fontSize: '0.5rem', 
+            mt: 0.5, 
+            fontSize: '0.6rem', 
             color: '#6B7280',
             fontWeight: 500,
             letterSpacing: '0.3px',
@@ -282,7 +291,7 @@ const StatCard = React.memo(({
     <Card
       sx={{
         bgcolor: '#FFFFFF',
-        borderRadius: { xs: '12px', sm: '16px' },
+        borderRadius: { xs: '12px', sm: '14px', md: '16px' },
         border: '1px solid #ECECEC',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         height: '100%',
@@ -290,17 +299,17 @@ const StatCard = React.memo(({
         position: 'relative',
         overflow: 'visible',
         '&:hover': onClick ? {
-          transform: 'translateY(-3px)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
           borderColor: iconColor,
         } : {},
       }}
       onClick={onClick}
     >
-      <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
         {loading && (
-          <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}>
-            <CircularProgress size={14} thickness={4} />
+          <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
+            <CircularProgress size={16} thickness={4} />
           </Box>
         )}
 
@@ -312,7 +321,7 @@ const StatCard = React.memo(({
                 color: '#6B7280',
                 fontWeight: 600,
                 textTransform: 'uppercase',
-                fontSize: { xs: '0.5rem', sm: '0.55rem' },
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
                 letterSpacing: '0.5px',
                 display: 'block',
                 opacity: loading ? 0.7 : 1,
@@ -327,7 +336,12 @@ const StatCard = React.memo(({
               sx={{
                 fontWeight: 700,
                 color: '#111827',
-                fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
+                fontSize: { 
+                  xs: '1.2rem', 
+                  sm: '1.4rem', 
+                  md: '1.6rem', 
+                  lg: '1.8rem' 
+                },
                 lineHeight: 1.2,
                 opacity: loading ? 0.7 : 1,
                 wordBreak: 'break-word',
@@ -343,7 +357,7 @@ const StatCard = React.memo(({
                   color: '#6B7280',
                   display: 'block',
                   mt: 0.25,
-                  fontSize: { xs: '0.55rem', sm: '0.6rem' },
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
                   opacity: loading ? 0.7 : 1,
                 }}
               >
@@ -355,8 +369,8 @@ const StatCard = React.memo(({
           <Box
             sx={{
               bgcolor: bgColor,
-              borderRadius: { xs: '10px', sm: '12px' },
-              p: { xs: 1, sm: 1.25 },
+              borderRadius: { xs: '10px', sm: '12px', md: '14px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -369,43 +383,51 @@ const StatCard = React.memo(({
           >
             <SafeIcon sx={{ 
               color: iconColor, 
-              fontSize: { xs: '1.2rem', sm: '1.3rem', md: '1.5rem' },
+              fontSize: { 
+                xs: '1.2rem', 
+                sm: '1.4rem', 
+                md: '1.6rem', 
+                lg: '1.8rem' 
+              },
               transition: 'all 0.3s ease',
             }} />
           </Box>
         </Stack>
 
+        {/* Gauge */}
         {gauge && (
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            mt: 1,
-            opacity: loading ? 0.7 : 1,
-          }}>
-            <Gauge 
-              value={gauge.value || 0} 
-              max={gauge.max || 100} 
-              color={iconColor} 
-              unit={gauge.unit || '%'} 
-              size={80}
-            />
-          </Box>
-        )}
+  <Box sx={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    mt: { xs: 1, sm: 1.5, md: 2 },
+    opacity: loading ? 0.7 : 1,
+  }}>
+    <Gauge 
+      value={gauge.value || 0} 
+      max={gauge.max || 100} 
+      color={iconColor} 
+      unit={gauge.unit || '%'} 
+      size={100} // Fixed size instead of responsive
+    />
+  </Box>
+)}
 
+        {/* Trend Chip */}
         {trendLabel && (
           <Chip
             label={trendLabel}
             size="small"
             sx={{
-              mt: 1,
+              mt: { xs: 0.5, sm: 1, md: 1.5 },
               bgcolor: trendColor,
               color: trendTextColor,
               fontWeight: 600,
-              fontSize: '0.55rem',
-              height: 18,
-              borderRadius: '4px',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              height: { xs: 18, sm: 20, md: 22 },
+              borderRadius: '6px',
+              transition: 'all 0.3s ease',
               '& .MuiChip-icon': {
-                fontSize: '0.6rem',
+                fontSize: { xs: '0.6rem', sm: '0.65rem', md: '0.7rem' },
                 color: trendTextColor,
               },
             }}
@@ -601,72 +623,93 @@ const Dashboard = () => {
   const summary = dashboardData?.summary || {};
 
   return (
+  <Box sx={{ 
+    bgcolor: '#F7F7FC', 
+    minHeight: '100vh',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 } // Better padding breakpoints
+  }}>
     <Box sx={{ 
-      bgcolor: '#F7F7FC', 
-      minHeight: '100%',
-      height: '100%',
+      maxWidth: '1600px', // Slightly wider
+      margin: '0 auto',
+      flex: 1,
+      width: '100%',
       display: 'flex',
-      flexDirection: 'column',
-      p: { xs: 1.5, sm: 2, md: 3 }
+      flexDirection: 'column'
     }}>
-      <Box sx={{ 
-        maxWidth: '1440px', 
-        margin: '0 auto',
-        flex: 1,
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        {/* Header */}
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          justifyContent="space-between"
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          mb={{ xs: 2, sm: 2.5, md: 3 }}
-          spacing={{ xs: 1, sm: 0 }}
-        >
-          <Box>
-            <Typography variant="h5" fontWeight="700" sx={{ fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' } }}>
-              Fleet Dashboard
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' } }}>
-              Real-time fleet insights and analytics
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
-              onClick={() => fetchDashboardData(true)}
-              disabled={refreshing}
-              size="small"
-              sx={{
-                borderRadius: '10px',
-                fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                textTransform: 'none',
-                py: 0.5,
-                px: { xs: 1, sm: 2 },
-              }}
-            >
-              {refreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
-            <Select
-              size="small"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              sx={{
-                minWidth: { xs: 80, sm: 100 },
-                borderRadius: '10px',
-                fontSize: { xs: '0.65rem', sm: '0.75rem' },
-              }}
-            >
-              <MenuItem value="7days" sx={{ fontSize: '0.75rem' }}>7 Days</MenuItem>
-              <MenuItem value="30days" sx={{ fontSize: '0.75rem' }}>30 Days</MenuItem>
-              <MenuItem value="90days" sx={{ fontSize: '0.75rem' }}>90 Days</MenuItem>
-              <MenuItem value="365days" sx={{ fontSize: '0.75rem' }}>Year</MenuItem>
-            </Select>
-          </Stack>
+      {/* Header */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        mb={{ xs: 2, sm: 2.5, md: 3 }}
+        spacing={{ xs: 1, sm: 0 }}
+      >
+        <Box>
+          <Typography 
+            variant="h5" 
+            fontWeight="700" 
+            sx={{ 
+              fontSize: { 
+                xs: '1.1rem', 
+                sm: '1.3rem', 
+                md: '1.4rem', 
+                lg: '1.5rem' 
+              } 
+            }}
+          >
+            Fleet Dashboard
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: { 
+                xs: '0.7rem', 
+                sm: '0.8rem', 
+                md: '0.85rem' 
+              } 
+            }}
+          >
+            Real-time fleet insights and analytics
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<Refresh sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' } }} />}
+            onClick={() => fetchDashboardData(true)}
+            disabled={refreshing}
+            size="small"
+            sx={{
+              borderRadius: '10px',
+              fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+              textTransform: 'none',
+              py: { xs: 0.5, sm: 0.75 },
+              px: { xs: 1.5, sm: 2 },
+            }}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Select
+            size="small"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            sx={{
+              minWidth: { xs: 90, sm: 100, md: 120 },
+              borderRadius: '10px',
+              fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+            }}
+          >
+            <MenuItem value="7days">7 Days</MenuItem>
+            <MenuItem value="30days">30 Days</MenuItem>
+            <MenuItem value="90days">90 Days</MenuItem>
+            <MenuItem value="365days">Year</MenuItem>
+          </Select>
         </Stack>
+      </Stack>
 
         {/* Error Alert */}
         {error && (
@@ -721,17 +764,17 @@ const Dashboard = () => {
         )}
 
         {/* Key Metrics with Gauges */}
-        <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }} sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Active Vehicles"
-              value={availability.activeVehicles}
-              icon={DirectionsCar}
-              color="primary"
-              subtitle={`${availability.availableVehicles} available`}
-              loading={refreshing}
-              gauge={{ value: summary.fuelEfficiency || 0, max: 20, unit: 'km/L' }}
-            />
+        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Active Vehicles"
+            value={availability.activeVehicles}
+            icon={DirectionsCar}
+            color="primary"
+            subtitle={`${availability.availableVehicles} available`}
+            loading={refreshing}
+            gauge={{ value: summary.fuelEfficiency || 0, max: 20, unit: 'km/L' }}
+          />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
