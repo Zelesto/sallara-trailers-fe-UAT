@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Typography,
   Box,
@@ -269,15 +269,26 @@ const StatCard = React.memo(({
   onClick,
 }) => {
   // Safe icon handling - prevents crashes from undefined icons
- const SafeIcon = useMemo(() => {
-  if (Icon && typeof Icon === 'function') {
-    return Icon;
-  }
-  if (DashboardIcon && typeof DashboardIcon === 'function') {
-    return DashboardIcon;
-  }
-  return () => null; // Ultimate fallback
-}, [Icon]);
+  const SafeIcon = useMemo(() => {
+    if (Icon && typeof Icon === 'function') {
+      return Icon;
+    }
+    if (DashboardIcon && typeof DashboardIcon === 'function') {
+      return DashboardIcon;
+    }
+    // Ultimate fallback - returns a simple div with the icon color
+    return () => (
+      <Box 
+        sx={{ 
+          width: 24, 
+          height: 24, 
+          borderRadius: '50%', 
+          bgcolor: iconColor,
+          opacity: 0.3,
+        }} 
+      />
+    );
+  }, [Icon]);
 
   // Safe color handling
   const safeColor = color || 'primary';
