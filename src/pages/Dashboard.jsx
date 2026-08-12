@@ -121,7 +121,7 @@ const safeFormatDate = (date) => {
 };
 
 // ============================================================
-// GAUGE COMPONENT
+// GAUGE COMPONENT - FIXED WITH PROPER PATHS
 // ============================================================
 const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = '%' }) => {
   const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
@@ -129,34 +129,7 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
   const circumference = 2 * Math.PI * 45;
   const offset = circumference - (percentage / 100) * circumference;
 
-  // Better responsive sizing
-  const getSize = () => {
-    if (typeof size === 'object') {
-      // If size is an object with breakpoints
-      return size;
-    }
-    // If size is a number
-    return {
-      xs: Math.min(size * 0.7, 80),
-      sm: Math.min(size * 0.8, 90),
-      md: Math.min(size * 0.9, 100),
-      lg: size
-    };
-  };
-
-  const sizes = getSize();
-  
-  // Use the appropriate size based on screen
-  const getResponsiveValue = (obj) => {
-    if (typeof obj === 'object') {
-      return obj;
-    }
-    return obj;
-  };
-
-  // Simplify: use a single size based on the prop
-  const svgSize = typeof size === 'number' ? size : 100;
-  const svgWidth = Math.min(svgSize, 120);
+  const svgWidth = Math.min(size, 120);
   const svgHeight = svgWidth * 0.6;
   const textSize = Math.max(14, svgWidth * 0.14);
   const unitSize = Math.max(8, svgWidth * 0.07);
@@ -183,7 +156,30 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
           viewBox="0 0 120 70"
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* ... SVG content ... */}
+          {/* Background arc - THIS WAS MISSING */}
+          <path
+            d="M 15 65 A 45 45 0 0 1 105 65"
+            fill="none"
+            stroke="#E5E7EB"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+          
+          {/* Foreground arc - THIS WAS MISSING */}
+          <path
+            d="M 15 65 A 45 45 0 0 1 105 65"
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ 
+              transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
+          
+          {/* Value text */}
           <text
             x="60"
             y="35"
@@ -194,6 +190,8 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
           >
             {safeValue.toFixed(1)}
           </text>
+          
+          {/* Unit text */}
           <text
             x="60"
             y="50"
@@ -629,16 +627,20 @@ const Dashboard = () => {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 } // Better padding breakpoints
+    p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
+    width: '100%',
+    overflowX: 'hidden' 
   }}>
     <Box sx={{ 
-      maxWidth: '1600px', // Slightly wider
+      maxWidth: '1600px', 
       margin: '0 auto',
       flex: 1,
       width: '100%',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      px: { xs: 0, sm: 0, md: 0 }, 
     }}>
+      
       {/* Header */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
@@ -764,135 +766,228 @@ const Dashboard = () => {
         )}
 
         {/* Key Metrics with Gauges */}
-        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Active Vehicles"
-            value={availability.activeVehicles}
-            icon={DirectionsCar}
-            color="primary"
-            subtitle={`${availability.availableVehicles} available`}
-            loading={refreshing}
-            gauge={{ value: summary.fuelEfficiency || 0, max: 20, unit: 'km/L' }}
-          />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Active Drivers"
-              value={availability.activeDrivers}
-              icon={People}
-              color="success"
-              subtitle={`${availability.availableDrivers} available`}
-              loading={refreshing}
-              gauge={{ value: availability.activeDrivers / Math.max(summary.totalDrivers || 1, 1) * 100, max: 100, unit: '% Utilized' }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Fuel Efficiency"
-              value={efficiency}
-              icon={LocalGasStation}
-              unit="km/L"
-              color="warning"
-              subtitle="Fleet average"
-              loading={refreshing}
-              gauge={{ value: efficiency, max: 10, unit: 'km/L' }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Total Distance"
-              value={totalKm}
-              icon={Map}
-              unit="km"
-              color="purple"
-              subtitle="Lifetime distance"
-              loading={refreshing}
-              gauge={{ value: Math.min(totalKm / 10000 * 100, 100), max: 100, unit: '% of 10,000km' }}
-            />
-          </Grid>
-        </Grid>
+        <Grid 
+  container 
+  spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }} 
+  sx={{ 
+    mb: { xs: 2, sm: 2.5, md: 3 },
+    width: '100%',
+    marginLeft: 0,
+    marginRight: 0,
+  }}
+>
+  <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+    <StatCard
+      title="Active Vehicles"
+      value={availability.activeVehicles}
+      icon={DirectionsCar}
+      color="primary"
+      subtitle={`${availability.availableVehicles} available`}
+      loading={refreshing}
+      gauge={{ value: summary.fuelEfficiency || 0, max: 20, unit: 'km/L' }}
+    />
+  </Grid>
+  <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+    <StatCard
+      title="Active Drivers"
+      value={availability.activeDrivers}
+      icon={People}
+      color="success"
+      subtitle={`${availability.availableDrivers} available`}
+      loading={refreshing}
+      gauge={{ value: availability.activeDrivers / Math.max(summary.totalDrivers || 1, 1) * 100, max: 100, unit: '% Utilized' }}
+    />
+  </Grid>
+  <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+    <StatCard
+      title="Fuel Efficiency"
+      value={efficiency}
+      icon={LocalGasStation}
+      unit="km/L"
+      color="warning"
+      subtitle="Fleet average"
+      loading={refreshing}
+      gauge={{ value: efficiency, max: 10, unit: 'km/L' }}
+    />
+  </Grid>
+  <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+    <StatCard
+      title="Total Distance"
+      value={totalKm}
+      icon={Map}
+      unit="km"
+      color="purple"
+      subtitle="Lifetime distance"
+      loading={refreshing}
+      gauge={{ value: Math.min(totalKm / 10000 * 100, 100), max: 100, unit: '% of 10,000km' }}
+    />
+  </Grid>
+</Grid>
 
-        {/* Detailed Analytics */}
-        <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
-          <Grid item xs={12} lg={8}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 2, sm: 2.5, md: 3 },
-                borderRadius: { xs: '12px', sm: '16px' },
-                border: '1px solid #ECECEC',
-                bgcolor: '#FFFFFF',
-                height: '100%',
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' }, mb: 2 }}>
-                Top Performing Drivers
+        {/* Detailed Analytics - FIXED */}
+<Grid 
+  container 
+  spacing={{ xs: 1.5, sm: 2, md: 3 }}
+  sx={{ 
+    width: '100%',
+    marginLeft: 0,
+    marginRight: 0,
+  }}
+>
+  <Grid item xs={12} lg={8} sx={{ display: 'flex' }}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 2, sm: 2.5, md: 3 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        width: '100%', // Ensure full width
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' }, mb: 2 }}>
+        Top Performing Drivers
+      </Typography>
+      <TableContainer sx={{ flex: 1 }}>
+        <Table size="small" stickyHeader>
+          <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+            <TableRow>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }}>Driver</TableCell>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Efficiency</TableCell>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Trips</TableCell>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Cost/km</TableCell>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Rating</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {(dashboardData?.topDrivers || []).slice(0, 5).map((driver, index) => (
+              <TableRow key={index} hover>
+                <TableCell>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Avatar sx={{ width: { xs: 24, sm: 28 }, height: { xs: 24, sm: 28 }, bgcolor: '#4F46E5', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                      {driver.name?.charAt(0) || 'D'}
+                    </Avatar>
+                    <Typography sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}>
+                      {driver.name || `Driver ${index + 1}`}
+                    </Typography>
+                  </Stack>
+                </TableCell>
+                <TableCell align="center">
+                  <Chip
+                    label={`${(driver.efficiency || 0).toFixed(1)} km/L`}
+                    size="small"
+                    sx={{
+                      fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                      height: { xs: 18, sm: 20 },
+                      bgcolor: driver.efficiency > 8 ? '#D1FAE5' : '#FEF3C7',
+                      color: driver.efficiency > 8 ? '#065F46' : '#92400E',
+                    }}
+                  />
+                </TableCell>
+                <TableCell align="center" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 600 }}>
+                  {driver.tripsCompleted || 0}
+                </TableCell>
+                <TableCell align="center" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                  {formatCurrency(driver.costPerKm || 0)}/km
+                </TableCell>
+                <TableCell align="center">
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const rating = driver.rating || 0;
+                      return star <= Math.round(rating) ? (
+                        <Star key={star} sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#F59E0B' }} />
+                      ) : (
+                        <StarBorder key={star} sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#D1D5DB' }} />
+                      );
+                    })}
+                    <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280', ml: 0.5 }}>
+                      {(driver.rating || 0).toFixed(1)}
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
+  </Grid>
+
+  <Grid item xs={12} lg={4} sx={{ display: 'flex' }}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 2, sm: 2.5, md: 3 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        width: '100%', // Ensure full width
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' }, mb: 2 }}>
+        Recent Activity
+      </Typography>
+      <Stack spacing={1.5} sx={{ flex: 1 }}>
+        {(dashboardData?.recentActivities || [
+          { type: 'info', message: 'System is operational', time: 'Just now' },
+        ]).slice(0, 5).map((activity, index) => (
+          <Paper
+            key={index}
+            sx={{
+              p: { xs: 1, sm: 1.5 },
+              borderRadius: '8px',
+              border: '1px solid #ECECEC',
+              bgcolor: '#F9FAFB',
+              '&:hover': { bgcolor: '#F3F4F6' },
+            }}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Box
+                sx={{
+                  bgcolor: activity.status === 'success' ? '#D1FAE5' :
+                           activity.status === 'warning' ? '#FEF3C7' :
+                           activity.status === 'error' ? '#FEE2E2' : '#DBEAFE',
+                  borderRadius: '8px',
+                  p: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {activity.type === 'fuel' && <LocalGasStation sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#4F46E5' }} />}
+                {activity.type === 'trip' && <Route sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#4F46E5' }} />}
+                {activity.type === 'driver' && <People sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#4F46E5' }} />}
+                {activity.type === 'completion' && <CheckCircle sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#22C55E' }} />}
+                {activity.type === 'warning' && <WarningIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#F59E0B' }} />}
+                {!activity.type && <Notifications sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#4F46E5' }} />}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}>
+                  {activity.message}
+                </Typography>
+                {activity.vehicle && (
+                  <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}>
+                    Vehicle: {activity.vehicle}
+                  </Typography>
+                )}
+              </Box>
+              <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280', flexShrink: 0 }}>
+                {activity.time || 'Recently'}
               </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead sx={{ bgcolor: '#F9FAFB' }}>
-                    <TableRow>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }}>Driver</TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Efficiency</TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Trips</TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Cost/km</TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280' }} align="center">Rating</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(dashboardData?.topDrivers || []).slice(0, 5).map((driver, index) => (
-                      <TableRow key={index} hover>
-                        <TableCell>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Avatar sx={{ width: { xs: 24, sm: 28 }, height: { xs: 24, sm: 28 }, bgcolor: '#4F46E5', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-                              {driver.name?.charAt(0) || 'D'}
-                            </Avatar>
-                            <Typography sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}>
-                              {driver.name || `Driver ${index + 1}`}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={`${(driver.efficiency || 0).toFixed(1)} km/L`}
-                            size="small"
-                            sx={{
-                              fontSize: { xs: '0.5rem', sm: '0.6rem' },
-                              height: { xs: 18, sm: 20 },
-                              bgcolor: driver.efficiency > 8 ? '#D1FAE5' : '#FEF3C7',
-                              color: driver.efficiency > 8 ? '#065F46' : '#92400E',
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 600 }}>
-                          {driver.tripsCompleted || 0}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-                          {formatCurrency(driver.costPerKm || 0)}/km
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                            {[1, 2, 3, 4, 5].map((star) => {
-                              const rating = driver.rating || 0;
-                              return star <= Math.round(rating) ? (
-                                <Star key={star} sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#F59E0B' }} />
-                              ) : (
-                                <StarBorder key={star} sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#D1D5DB' }} />
-                              );
-                            })}
-                            <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280', ml: 0.5 }}>
-                              {(driver.rating || 0).toFixed(1)}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          </Grid>
+            </Stack>
+          </Paper>
+        ))}
+      </Stack>
+    </Paper>
+  </Grid>
+</Grid>
 
           <Grid item xs={12} lg={4}>
             <Paper
