@@ -147,8 +147,16 @@ function BaseForm({
         sections.forEach(section => {
           if (section.fields && Array.isArray(section.fields)) {
             section.fields.forEach(field => {
-              if (field.required && !formData[field.name]) {
-                newErrors[field.name] = `${field.label || field.name} is required`;
+              if (field.required) {
+                const value = formData[field.name];
+                // Check for empty values (including empty strings, null, undefined)
+                if (value === undefined || value === null || value === '') {
+                  newErrors[field.name] = `${field.label || field.name} is required`;
+                }
+                // For arrays/selects with options, check if a valid option is selected
+                if (field.type === 'select' && (!value || value === '')) {
+                  newErrors[field.name] = `Please select a ${field.label || field.name}`;
+                }
               }
             });
           }
@@ -213,6 +221,35 @@ function BaseForm({
     }
   };
 
+  // Safe date parser function
+  const safeParseDate = (value) => {
+    if (!value) return null;
+    try {
+      const parsed = dayjs(value);
+      if (parsed && typeof parsed.isValid === 'function' && parsed.isValid()) {
+        return parsed;
+      }
+      return null;
+    } catch (e) {
+      console.warn('Invalid date value:', value);
+      return null;
+    }
+  };
+
+  // Safe date value getter
+  const getSafeDateValue = (value) => {
+    if (!value) return null;
+    try {
+      const parsed = dayjs(value);
+      if (parsed && typeof parsed.isValid === 'function' && parsed.isValid()) {
+        return parsed;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
   // Render field based on type
   const renderField = (field, sectionIndex, fieldIndex) => {
     const {
@@ -232,6 +269,7 @@ function BaseForm({
     const value = formData[name] ?? '';
     const error = errors[name];
     const isTouched = touched[name];
+    const isFieldDisabled = disabled || isSubmitting || loading;
 
     if (CustomComponent) {
       return React.cloneElement(CustomComponent, {
@@ -242,7 +280,7 @@ function BaseForm({
         error: !!error,
         helperText: error || helperText,
         required,
-        disabled: disabled || isSubmitting || loading,
+        disabled: isFieldDisabled,
         label,
         placeholder,
       });
@@ -258,7 +296,7 @@ function BaseForm({
       error: !!error,
       helperText: error || helperText,
       required,
-      disabled: disabled || isSubmitting || loading,
+      disabled: isFieldDisabled,
       label,
       placeholder,
     };
@@ -292,14 +330,17 @@ function BaseForm({
           />
         );
 
-      case 'select':
+      case 'select': {
+        // Ensure options is always an array
+        const selectOptions = Array.isArray(options) ? options : [];
+        
         return (
           <FormControl
             fullWidth
             size="small"
             required={required}
             error={!!error}
-            disabled={disabled || isSubmitting || loading}
+            disabled={isFieldDisabled}
           >
             <InputLabel>{label}</InputLabel>
             <Select
@@ -308,17 +349,26 @@ function BaseForm({
               onChange={(e) => handleFieldChange(name, e.target.value)}
               label={label}
             >
-              <MenuItem value="">Select {label}</MenuItem>
-              {options?.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label || option.value}
+              <MenuItem value="">
+                <em>Select {label}</em>
+              </MenuItem>
+              {selectOptions.length > 0 ? (
+                selectOptions.map((option) => (
+                  <MenuItem key={option.value || option.id} value={option.value || option.id}>
+                    {option.label || option.name || option}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem value="" disabled>
+                  No options available
                 </MenuItem>
-              ))}
+              )}
             </Select>
             {helperText && <FormHelperText>{helperText}</FormHelperText>}
             {error && <FormHelperText error>{error}</FormHelperText>}
           </FormControl>
         );
+      }
 
       case 'checkbox':
         return (
@@ -328,7 +378,7 @@ function BaseForm({
               <Checkbox
                 checked={!!value}
                 onChange={(e) => handleFieldChange(name, e.target.checked)}
-                disabled={disabled || isSubmitting || loading}
+                disabled={isFieldDisabled}
               />
             }
             label={label}
@@ -343,30 +393,34 @@ function BaseForm({
               <Switch
                 checked={!!value}
                 onChange={(e) => handleFieldChange(name, e.target.checked)}
-                disabled={disabled || isSubmitting || loading}
+                disabled={isFieldDisabled}
               />
             }
             label={label}
           />
         );
 
-      case 'date':
-        // SAFE: Always use null if value is not a valid date
-        const dateValue = value ? dayjs(value) : null;
-        const isValidDate = dateValue && dateValue.isValid();
+      case 'date': {
+        const safeDateValue = getSafeDateValue(value);
         
         return (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
               {...fieldProps}
               label={label}
-              value={isValidDate ? dateValue : null}
+              value={safeDateValue}
               onChange={(newValue) => {
-                // Handle both dayjs object and null safely
-                const val = newValue && newValue.isValid() ? newValue.toISOString() : null;
-                handleFieldChange(name, val);
+                try {
+                  const val = newValue && typeof newValue.isValid === 'function' && newValue.isValid() 
+                    ? newValue.toISOString() 
+                    : null;
+                  handleFieldChange(name, val);
+                } catch (e) {
+                  console.warn(`Error handling date change for ${name}:`, e);
+                  handleFieldChange(name, null);
+                }
               }}
-              disabled={disabled || isSubmitting || loading}
+              disabled={isFieldDisabled}
               slotProps={{
                 textField: {
                   ...commonProps,
@@ -378,24 +432,29 @@ function BaseForm({
             />
           </LocalizationProvider>
         );
+      }
 
-      case 'datetime':
-        // SAFE: Always use null if value is not a valid date
-        const datetimeValue = value ? dayjs(value) : null;
-        const isValidDatetime = datetimeValue && datetimeValue.isValid();
+      case 'datetime': {
+        const safeDateTimeValue = getSafeDateValue(value);
         
         return (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DateTimePicker
               {...fieldProps}
               label={label}
-              value={isValidDatetime ? datetimeValue : null}
+              value={safeDateTimeValue}
               onChange={(newValue) => {
-                // Handle both dayjs object and null safely
-                const val = newValue && newValue.isValid() ? newValue.toISOString() : null;
-                handleFieldChange(name, val);
+                try {
+                  const val = newValue && typeof newValue.isValid === 'function' && newValue.isValid() 
+                    ? newValue.toISOString() 
+                    : null;
+                  handleFieldChange(name, val);
+                } catch (e) {
+                  console.warn(`Error handling datetime change for ${name}:`, e);
+                  handleFieldChange(name, null);
+                }
               }}
-              disabled={disabled || isSubmitting || loading}
+              disabled={isFieldDisabled}
               slotProps={{
                 textField: {
                   ...commonProps,
@@ -407,6 +466,7 @@ function BaseForm({
             />
           </LocalizationProvider>
         );
+      }
 
       default:
         return (
