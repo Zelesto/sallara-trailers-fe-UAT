@@ -11,6 +11,7 @@ import { CircularProgress, Box } from "@mui/material";
 import Layout from "./components/Layout/Layout";
 import PrivateRoute from "./components/Layout/PrivateRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { EnumProvider } from "./contexts/EnumContext"; // ← ADD THIS
 import api from "./services/api";
 
 /* -------------------------------------------------------------------------- */
@@ -37,11 +38,12 @@ const VehicleDashboard = lazy(() => import("./pages/VehicleDashboard"));
 
 // Fuel Slip Pages
 const FuelSlips = lazy(() => import("./pages/FuelSlips"));
-const FuelSlipDetails = lazy(() => import("./pages/FuelSlipDetails"));  // ← ADD THIS
-const FuelSlipForm = lazy(() => import("./pages/FuelSlipForm"));        // ← ADD THIS
+const FuelSlipDetails = lazy(() => import("./pages/FuelSlipDetails"));
+const FuelSlipForm = lazy(() => import("./pages/FuelSlipForm"));
 
 const TripList = lazy(() => import("./pages/TripList"));
 const TripDetails = lazy(() => import("./pages/TripDetails"));
+const TripForm = lazy(() => import("./pages/TripForm")); // ← ADD THIS if not already
 
 const LoadList = lazy(() => import("./pages/load/LoadList"));
 const LoadDetails = lazy(() => import("./pages/load/LoadDetails"));
@@ -178,116 +180,122 @@ function App() {
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <Router>
             <AuthProvider>
-              <SessionExpiryHandler />
-              <Suspense fallback={<LoadingFallback />}>
-                <Routes>
-                  {/* Public Routes - Login must be first */}
-                  <Route path="/login" element={<Login />} />
+              {/* ← ADD EnumProvider here */}
+              <EnumProvider>
+                <SessionExpiryHandler />
+                <Suspense fallback={<LoadingFallback />}>
+                  <Routes>
+                    {/* Public Routes - Login must be first */}
+                    <Route path="/login" element={<Login />} />
 
-                  {/* Private Routes */}
-                  <Route
-                    path="/"
-                    element={
-                      <PrivateRoute>
-                        <Layout />
-                      </PrivateRoute>
-                    }
-                  >
-                    {/* Dashboard */}
-                    <Route index element={<Navigate to="/dashboard" replace />} />
-                    <Route path="dashboard" element={<Dashboard />} />
+                    {/* Private Routes */}
+                    <Route
+                      path="/"
+                      element={
+                        <PrivateRoute>
+                          <Layout />
+                        </PrivateRoute>
+                      }
+                    >
+                      {/* Dashboard */}
+                      <Route index element={<Navigate to="/dashboard" replace />} />
+                      <Route path="dashboard" element={<Dashboard />} />
 
-                    {/* Profile */}
-                    <Route path="me" element={<MyProfileRoute />} />
-                    <Route path="users/:id" element={<UserProfile isSelfView={false} />} />
+                      {/* Profile */}
+                      <Route path="me" element={<MyProfileRoute />} />
+                      <Route path="users/:id" element={<UserProfile isSelfView={false} />} />
 
-                    <Route path="/users/new" element={<UserForm mode="create" />} />
-                    <Route path="/users/:id/edit" element={<UserForm mode="edit" />} />
+                      <Route path="/users/new" element={<UserForm mode="create" />} />
+                      <Route path="/users/:id/edit" element={<UserForm mode="edit" />} />
 
-                    {/* Settings */}
-                    <Route path="settings" element={<SettingsPage />} />
+                      {/* Settings */}
+                      <Route path="settings" element={<SettingsPage />} />
 
-                    {/* Users */}
-                    <Route path="users" element={<UserList />} />
-                    <Route path="users/:id/details" element={<UserDetails />} />
+                      {/* Users */}
+                      <Route path="users" element={<UserList />} />
+                      <Route path="users/:id/details" element={<UserDetails />} />
 
-                    {/* Drivers */}
-                    <Route path="drivers" element={<DriverList />} />
-                    <Route path="drivers/new" element={<DriverForm />} />
-                    <Route path="drivers/:id" element={<DriverDetails />} />
-                    <Route path="drivers/:id/edit" element={<DriverForm />} />
-                    <Route path="driverManagement/:id" element={<DriverDashboard />} />
+                      {/* Drivers */}
+                      <Route path="drivers" element={<DriverList />} />
+                      <Route path="drivers/new" element={<DriverForm />} />
+                      <Route path="drivers/:id" element={<DriverDetails />} />
+                      <Route path="drivers/:id/edit" element={<DriverForm />} />
+                      <Route path="driverManagement/:id" element={<DriverDashboard />} />
 
-                    {/* Vehicles */}
-                    <Route path="vehicles" element={<VehicleList />} />
-                    <Route path="vehicles/new" element={<VehicleForm />} />
-                    <Route path="vehicles/:id" element={<VehicleDetails />} />
-                    <Route path="vehicles/:id/edit" element={<VehicleForm />} />
-                    <Route path="vehicleManagement/:id" element={<VehicleDashboard />} />
+                      {/* Vehicles */}
+                      <Route path="vehicles" element={<VehicleList />} />
+                      <Route path="vehicles/new" element={<VehicleForm />} />
+                      <Route path="vehicles/:id" element={<VehicleDetails />} />
+                      <Route path="vehicles/:id/edit" element={<VehicleForm />} />
+                      <Route path="vehicleManagement/:id" element={<VehicleDashboard />} />
 
-                    {/* Trips */}
-                    <Route path="trips" element={<TripList />} />
-                    <Route path="trips/:id" element={<TripDetails />} />
-                    <Route path="trips/:id/finalize" element={<TripDetails />} />
+                      {/* Trips */}
+                      <Route path="trips" element={<TripList />} />
+                      <Route path="trips/:id" element={<TripDetails />} />
+                      <Route path="trips/:id/finalize" element={<TripDetails />} />
+                      <Route path="trips/new" element={<TripForm mode="create" />} /> {/* ← ADD THIS */}
+                      <Route path="trips/:id/edit" element={<TripForm mode="edit" />} /> {/* ← ADD THIS */}
 
-                    {/* Loads */}
-                    <Route path="loads" element={<LoadList />} />
-                    <Route path="loads/new" element={<LoadForm />} />
-                    <Route path="loads/:loadNumber" element={<LoadDetails />} />
-                    <Route path="loads/merge" element={<LoadMerge />} />
+                      {/* Loads */}
+                      <Route path="loads" element={<LoadList />} />
+                      <Route path="loads/new" element={<LoadForm />} />
+                      <Route path="loads/:loadNumber" element={<LoadDetails />} />
+                      <Route path="loads/merge" element={<LoadMerge />} />
 
-                    {/* Customer */}
-                    <Route path="customers" element={<CustomerList />} />
-                    <Route path="customers/new" element={<CustomerForm />} />
-                    <Route path="customers/:id" element={<CustomerDetails />} />
-                    <Route path="customers/:id/edit" element={<CustomerForm />} />
+                      {/* Customer */}
+                      <Route path="customers" element={<CustomerList />} />
+                      <Route path="customers/new" element={<CustomerForm />} />
+                      <Route path="customers/:id" element={<CustomerDetails />} />
+                      <Route path="customers/:id/edit" element={<CustomerForm />} />
 
-                    {/* ============================================================ */}
-                    {/* FUEL SLIP ROUTES - FIXED */}
-                    {/* ============================================================ */}
-                    <Route path="fuel/slips" element={<FuelSlips />} />
-                    <Route path="fuel/slips/add" element={<FuelSlipForm />} />
-                    <Route path="fuel/slips/:id" element={<FuelSlipDetails />} />
-                    <Route path="fuel/slips/:id/edit" element={<FuelSlipForm />} />
-                    <Route path="fuel/slips/driver/:id" element={<FuelSlips />} />
-                    <Route path="fuel/slips/vehicle/:id" element={<FuelSlips />} />
-                    <Route path="fuel/slips/trip/:id" element={<FuelSlips />} />
+                      {/* ============================================================ */}
+                      {/* FUEL SLIP ROUTES */}
+                      {/* ============================================================ */}
+                      <Route path="fuel/slips" element={<FuelSlips />} />
+                      <Route path="fuel/slips/add" element={<FuelSlipForm />} />
+                      <Route path="fuel/slips/:id" element={<FuelSlipDetails />} />
+                      <Route path="fuel/slips/:id/edit" element={<FuelSlipForm />} />
+                      <Route path="fuel/slips/driver/:id" element={<FuelSlips />} />
+                      <Route path="fuel/slips/vehicle/:id" element={<FuelSlips />} />
+                      <Route path="fuel/slips/trip/:id" element={<FuelSlips />} />
 
-                    {/* POD */}
-                    <Route path="pods" element={<PODList />} />
-                    <Route path="pods/new" element={<PodForm />} />
-                    <Route path="pods/:id" element={<PodDetails />} />
-                    <Route path="/pods/:id/edit" element={<PodForm />} />
-                    <Route path="pods/trip/:tripId" element={<PODList />} />
-                    <Route path="/pods/scan" element={<ScanPOD />} />
-                    <Route path="/pods/:id/debrief" element={<DebriefPOD />} />
+                      {/* POD */}
+                      <Route path="pods" element={<PODList />} />
+                      <Route path="pods/new" element={<PodForm />} />
+                      <Route path="pods/:id" element={<PodDetails />} />
+                      <Route path="/pods/:id/edit" element={<PodForm />} />
+                      <Route path="pods/trip/:tripId" element={<PODList />} />
+                      <Route path="/pods/scan" element={<ScanPOD />} />
+                      <Route path="/pods/:id/debrief" element={<DebriefPOD />} />
 
-                    {/* Finance */}
-                    <Route path="finance" element={<FinanceDashboard />} />
-                    <Route path="finance/accounts" element={<AccountsPage />} />
-                    <Route path="finance/expenses" element={<ExpensesPage />} />
-                    <Route path="finance/invoices" element={<InvoicesPage />} />
-                    <Route path="finance/receivables" element={<ReceivablesPage />} />
-                    <Route path="finance/payables" element={<PayablesPage />} />
+                      {/* Finance */}
+                      <Route path="finance" element={<FinanceDashboard />} />
+                      <Route path="finance/accounts" element={<AccountsPage />} />
+                      <Route path="finance/expenses" element={<ExpensesPage />} />
+                      <Route path="finance/invoices" element={<InvoicesPage />} />
+                      <Route path="finance/receivables" element={<ReceivablesPage />} />
+                      <Route path="finance/payables" element={<PayablesPage />} />
 
-                    {/* Reports */}
-                    <Route path="reports/trips" element={<TripReports />} />
-                    <Route path="analytics/trips" element={<TripAnalytics />} />
-                    <Route path="reports" element={<Reports />} />
+                      {/* Reports */}
+                      <Route path="reports/trips" element={<TripReports />} />
+                      <Route path="analytics/trips" element={<TripAnalytics />} />
+                      <Route path="reports" element={<Reports />} />
 
-                    {/* Other */}
-                    <Route path="billing" element={<Billing />} />
-                    <Route path="logs" element={<Logs />} />
-                    <Route path="inventory" element={<Inventory />} />
-                    <Route path="inventory/movements" element={<MovementHistory />} />
-                    <Route path="inventory/movements/new" element={<StockMovementForm />} />
-                    <Route path="inventory/movements/:id" element={<StockMovementForm />} />
-                  </Route>
+                      {/* Other */}
+                      <Route path="billing" element={<Billing />} />
+                      <Route path="logs" element={<Logs />} />
+                      <Route path="inventory" element={<Inventory />} />
+                      <Route path="inventory/movements" element={<MovementHistory />} />
+                      <Route path="inventory/movements/new" element={<StockMovementForm />} />
+                      <Route path="inventory/movements/:id" element={<StockMovementForm />} />
+                    </Route>
 
-                  {/* Fallback - Redirect to dashboard or login */}
-                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-              </Suspense>
+                    {/* Fallback - Redirect to dashboard or login */}
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                  </Routes>
+                </Suspense>
+              </EnumProvider>
+              {/* ← END EnumProvider */}
             </AuthProvider>
           </Router>
         </LocalizationProvider>
