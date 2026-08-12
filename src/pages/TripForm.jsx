@@ -1,114 +1,51 @@
 // src/pages/TripForm.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import BaseForm from '../components/base/BaseForm';
 import { tripService } from '../services/tripService';
-import { enumService } from '../services/enumService';
+import { useEnums } from '../contexts/EnumContext';
 
 function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
-  const [loadingEnums, setLoadingEnums] = useState(true);
-  const [tripStatuses, setTripStatuses] = useState([]);
-  const [tripTypes, setTripTypes] = useState([]);
-  const [approvalStatuses, setApprovalStatuses] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
-  const [drivers, setDrivers] = useState([]);
-  const [supervisors, setSupervisors] = useState([]);
+  const { 
+    enums, 
+    loading: enumsLoading,
+    mapToOptions,
+    mapEntityToOptions,
+    getTripTypeOptions,
+    getTripStatusOptions,
+    getApprovalStatusOptions,
+    getDriverOptions,
+    getVehicleOptions,
+    getSupervisorOptions,
+  } = useEnums();
 
-  // Load enums when form opens
-  useEffect(() => {
-    if (open) {
-      loadEnums();
-    }
-  }, [open]);
+  // Province options (static, could also come from enums)
+  const provinceOptions = [
+    { value: 'Eastern Cape', label: 'Eastern Cape' },
+    { value: 'Free State', label: 'Free State' },
+    { value: 'Gauteng', label: 'Gauteng' },
+    { value: 'KwaZulu-Natal', label: 'KwaZulu-Natal' },
+    { value: 'Limpopo', label: 'Limpopo' },
+    { value: 'Mpumalanga', label: 'Mpumalanga' },
+    { value: 'Northern Cape', label: 'Northern Cape' },
+    { value: 'North West', label: 'North West' },
+    { value: 'Western Cape', label: 'Western Cape' }
+  ];
 
-  const loadEnums = async () => {
-    setLoadingEnums(true);
-    try {
-      // Load all enums in parallel
-      const [
-        statuses,
-        types,
-        approvals,
-        vehicleData,
-        driverData,
-        supervisorData
-      ] = await Promise.all([
-        enumService.getEnums('trip', 'status'),
-        enumService.getEnums('trip', 'type'),
-        enumService.getEnums('trip', 'approval'),
-        // These would come from their respective services
-        // For now, we'll use empty arrays or fetch from vehicle/driver services
-        Promise.resolve([]), // Replace with vehicleService.getVehicles()
-        Promise.resolve([]), // Replace with driverService.getDrivers()
-        Promise.resolve([]), // Replace with userService.getSupervisors()
-      ]);
-
-      setTripStatuses(statuses);
-      setTripTypes(types);
-      setApprovalStatuses(approvals);
-      setVehicles(vehicleData);
-      setDrivers(driverData);
-      setSupervisors(supervisorData);
-    } catch (error) {
-      console.error('Failed to load enums:', error);
-      // Set empty arrays as fallback
-      setTripStatuses([]);
-      setTripTypes([]);
-      setApprovalStatuses([]);
-      setVehicles([]);
-      setDrivers([]);
-      setSupervisors([]);
-    } finally {
-      setLoadingEnums(false);
-    }
-  };
-
-  // Helper function to map enum data to options
-  const mapToOptions = (items) => {
-    if (!items || !Array.isArray(items)) return [];
-    return items.map(item => ({
-      value: item.code || item.id,
-      label: item.displayName || item.name || item.code,
-      ...item
-    }));
-  };
-
-  // Helper function to map entity data to options (for vehicles, drivers, etc.)
-  const mapEntityToOptions = (items, labelKey = 'name', valueKey = 'id') => {
-    if (!items || !Array.isArray(items)) return [];
-    return items.map(item => ({
-      value: item[valueKey],
-      label: item[labelKey] || item.name || item.id,
-      ...item
-    }));
-  };
+  const priorityOptions = [
+    { value: 'LOW', label: 'Low' },
+    { value: 'MEDIUM', label: 'Medium' },
+    { value: 'HIGH', label: 'High' },
+    { value: 'URGENT', label: 'Urgent' }
+  ];
 
   // Build form sections with dynamic enum data
   const sections = useMemo(() => {
-    const statusOptions = mapToOptions(tripStatuses);
-    const typeOptions = mapToOptions(tripTypes);
-    const approvalOptions = mapToOptions(approvalStatuses);
-    const vehicleOptions = mapEntityToOptions(vehicles, 'registrationNumber', 'id');
-    const driverOptions = mapEntityToOptions(drivers, 'fullName', 'id');
-    const supervisorOptions = mapEntityToOptions(supervisors, 'fullName', 'id');
-
-    const provinceOptions = [
-      { value: 'Eastern Cape', label: 'Eastern Cape' },
-      { value: 'Free State', label: 'Free State' },
-      { value: 'Gauteng', label: 'Gauteng' },
-      { value: 'KwaZulu-Natal', label: 'KwaZulu-Natal' },
-      { value: 'Limpopo', label: 'Limpopo' },
-      { value: 'Mpumalanga', label: 'Mpumalanga' },
-      { value: 'Northern Cape', label: 'Northern Cape' },
-      { value: 'North West', label: 'North West' },
-      { value: 'Western Cape', label: 'Western Cape' }
-    ];
-
-    const priorityOptions = [
-      { value: 'LOW', label: 'Low' },
-      { value: 'MEDIUM', label: 'Medium' },
-      { value: 'HIGH', label: 'High' },
-      { value: 'URGENT', label: 'Urgent' }
-    ];
+    const typeOptions = getTripTypeOptions();
+    const statusOptions = getTripStatusOptions();
+    const approvalOptions = getApprovalStatusOptions();
+    const driverOptions = getDriverOptions();
+    const vehicleOptions = getVehicleOptions();
+    const supervisorOptions = getSupervisorOptions();
 
     return [
       {
@@ -121,7 +58,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
             required: true,
             size: 6,
             options: typeOptions,
-            loading: loadingEnums
+            loading: enumsLoading
           },
           {
             name: 'priority',
@@ -196,7 +133,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
             required: true,
             size: 4,
             options: vehicleOptions,
-            loading: loadingEnums
+            loading: enumsLoading
           },
           {
             name: 'driverId',
@@ -205,7 +142,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
             required: true,
             size: 4,
             options: driverOptions,
-            loading: loadingEnums
+            loading: enumsLoading
           },
           {
             name: 'supervisorId',
@@ -213,7 +150,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
             type: 'select',
             size: 4,
             options: supervisorOptions,
-            loading: loadingEnums
+            loading: enumsLoading
           }
         ]
       },
@@ -227,7 +164,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
             required: true,
             size: 6,
             options: statusOptions,
-            loading: loadingEnums
+            loading: enumsLoading
           },
           {
             name: 'approvalStatus',
@@ -236,19 +173,19 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
             required: true,
             size: 6,
             options: approvalOptions,
-            loading: loadingEnums
+            loading: enumsLoading
           }
         ]
       }
     ];
   }, [
-    tripStatuses,
-    tripTypes,
-    approvalStatuses,
-    vehicles,
-    drivers,
-    supervisors,
-    loadingEnums
+    enumsLoading,
+    getTripTypeOptions,
+    getTripStatusOptions,
+    getApprovalStatusOptions,
+    getDriverOptions,
+    getVehicleOptions,
+    getSupervisorOptions
   ]);
 
   // Handle submit
@@ -287,7 +224,7 @@ function TripForm({ open, onClose, mode, initialData, onSuccess, fetchTrips }) {
       title={mode === 'create' ? 'Create Trip' : 'Edit Trip'}
       submitLabel={mode === 'create' ? 'Create Trip' : 'Update Trip'}
       maxWidth="lg"
-      loading={loadingEnums}
+      loading={enumsLoading}
     />
   );
 }
