@@ -54,7 +54,7 @@ import { inventoryNotificationService } from '../services/inventoryNotificationS
 import { tripService } from '../services/tripService';
 
 // ============================================================
-// UTILITY FUNCTIONS - DEFINED FIRST
+// UTILITY FUNCTIONS
 // ============================================================
 
 const formatCurrency = (amount) => {
@@ -121,7 +121,7 @@ const safeFormatDate = (date) => {
 };
 
 // ============================================================
-// GAUGE COMPONENT - FIXED WITH PROPER PATHS
+// GAUGE COMPONENT
 // ============================================================
 const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = '%' }) => {
   const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
@@ -156,7 +156,6 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
           viewBox="0 0 120 70"
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Background arc */}
           <path
             d="M 15 65 A 45 45 0 0 1 105 65"
             fill="none"
@@ -164,8 +163,6 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
             strokeWidth={strokeWidth}
             strokeLinecap="round"
           />
-          
-          {/* Foreground arc */}
           <path
             d="M 15 65 A 45 45 0 0 1 105 65"
             fill="none"
@@ -178,8 +175,6 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
               transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
-          
-          {/* Value text */}
           <text
             x="60"
             y="35"
@@ -190,8 +185,6 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
           >
             {safeValue.toFixed(1)}
           </text>
-          
-          {/* Unit text */}
           <text
             x="60"
             y="50"
@@ -293,6 +286,7 @@ const StatCard = React.memo(({
         border: '1px solid #ECECEC',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         height: '100%',
+        width: '100%',
         cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
         overflow: 'visible',
@@ -392,7 +386,6 @@ const StatCard = React.memo(({
           </Box>
         </Stack>
 
-        {/* Gauge */}
         {gauge && (
           <Box sx={{ 
             display: 'flex', 
@@ -410,7 +403,6 @@ const StatCard = React.memo(({
           </Box>
         )}
 
-        {/* Trend Chip */}
         {trendLabel && (
           <Chip
             label={trendLabel}
@@ -456,6 +448,7 @@ const LowStockAlert = ({ items }) => {
         borderRadius: { xs: '12px', sm: '16px' },
         border: '1px solid #FEE2E2',
         bgcolor: '#FEF2F2',
+        width: '100%',
       }}
     >
       <Stack direction="row" alignItems="center" spacing={1} mb={1}>
@@ -489,7 +482,7 @@ const LowStockAlert = ({ items }) => {
       {expanded && (
         <Grid container spacing={1}>
           {items.slice(0, 6).map((item, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
               <Paper
                 sx={{
                   p: 1.5,
@@ -529,7 +522,7 @@ const LowStockAlert = ({ items }) => {
 };
 
 // ============================================================
-// MAIN DASHBOARD COMPONENT - FULLY RESPONSIVE
+// MAIN DASHBOARD COMPONENT - MUI v7 COMPATIBLE
 // ============================================================
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -658,7 +651,6 @@ const Dashboard = () => {
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        px: { xs: 0, sm: 0, md: 0 }, 
       }}>
         
         {/* Header */}
@@ -737,7 +729,7 @@ const Dashboard = () => {
         {error && (
           <Alert
             severity="error"
-            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }}
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem', width: '100%' }}
             action={
               <Button color="inherit" size="small" onClick={() => fetchDashboardData(true)}>
                 Retry
@@ -760,6 +752,7 @@ const Dashboard = () => {
               borderRadius: '12px',
               bgcolor: '#EEF2FF',
               border: '1px solid #C7D2FE',
+              width: '100%',
             }}
           >
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 1.5 }}>
@@ -785,18 +778,17 @@ const Dashboard = () => {
           </Paper>
         )}
 
-        {/* Key Metrics with Gauges */}
+        {/* Key Metrics with Gauges - MUI v7 Grid */}
         <Grid 
           container 
-          spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }} 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
           sx={{ 
             mb: { xs: 2, sm: 2.5, md: 3 },
             width: '100%',
-            marginLeft: 0,
-            marginRight: 0,
+            margin: 0,
           }}
         >
-          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Active Vehicles"
               value={availability.activeVehicles}
@@ -807,7 +799,7 @@ const Dashboard = () => {
               gauge={{ value: summary.fuelEfficiency || 0, max: 20, unit: 'km/L' }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Active Drivers"
               value={availability.activeDrivers}
@@ -818,7 +810,7 @@ const Dashboard = () => {
               gauge={{ value: availability.activeDrivers / Math.max(summary.totalDrivers || 1, 1) * 100, max: 100, unit: '% Utilized' }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Fuel Efficiency"
               value={efficiency}
@@ -830,7 +822,7 @@ const Dashboard = () => {
               gauge={{ value: efficiency, max: 10, unit: 'km/L' }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Total Distance"
               value={totalKm}
@@ -844,17 +836,17 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-        {/* Detailed Analytics - FIXED (Removed duplicate) */}
+        {/* Detailed Analytics - MUI v7 Grid */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 3 }}
           sx={{ 
             width: '100%',
-            marginLeft: 0,
-            marginRight: 0,
+            margin: 0,
+            flex: 1,
           }}
         >
-          <Grid item xs={12} lg={8} sx={{ display: 'flex' }}>
+          <Grid size={{ xs: 12, lg: 8 }} sx={{ display: 'flex' }}>
             <Paper
               elevation={0}
               sx={{
@@ -936,7 +928,7 @@ const Dashboard = () => {
             </Paper>
           </Grid>
 
-          <Grid item xs={12} lg={4} sx={{ display: 'flex' }}>
+          <Grid size={{ xs: 12, lg: 4 }} sx={{ display: 'flex' }}>
             <Paper
               elevation={0}
               sx={{
@@ -1013,7 +1005,8 @@ const Dashboard = () => {
         <Box sx={{ 
           mt: 'auto',
           pt: { xs: 1.5, sm: 2 }, 
-          borderTop: '1px solid #ECECEC' 
+          borderTop: '1px solid #ECECEC',
+          width: '100%',
         }}>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
