@@ -53,7 +53,72 @@ import { analyticsService } from '../services/analyticsService';
 import { inventoryNotificationService } from '../services/inventoryNotificationService';
 import { tripService } from '../services/tripService';
 
-// ... (keep all utility functions: formatCurrency, formatNumber, getColor, getColorBg, safeFormatDate)
+// ============================================================
+// UTILITY FUNCTIONS - DEFINED FIRST
+// ============================================================
+
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-ZA', {
+    style: 'currency',
+    currency: 'ZAR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numAmount);
+};
+
+const formatNumber = (num, decimals = 0) => {
+  if (num === null || num === undefined || isNaN(num)) return '0';
+  const number = typeof num === 'string' ? parseFloat(num) : num;
+  return new Intl.NumberFormat('en-ZA', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(number);
+};
+
+const getColor = (color) => {
+  const colors = {
+    primary: '#4F46E5',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6',
+    secondary: '#6B7280',
+    purple: '#8B5CF6',
+    pink: '#EC4899',
+    teal: '#14B8A6',
+    indigo: '#6366F1',
+  };
+  return colors[color] || colors.primary;
+};
+
+const getColorBg = (color) => {
+  const colors = {
+    primary: '#EEF2FF',
+    success: '#D1FAE5',
+    warning: '#FEF3C7',
+    error: '#FEE2E2',
+    info: '#DBEAFE',
+    secondary: '#F3F4F6',
+    purple: '#EDE9FE',
+    pink: '#FCE7F3',
+    teal: '#CCFBF1',
+    indigo: '#E0E7FF',
+  };
+  return colors[color] || colors.primary;
+};
+
+const safeFormatDate = (date) => {
+  if (!date) return 'N/A';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleString('en-ZA');
+  } catch (e) {
+    return 'N/A';
+  }
+};
 
 // ============================================================
 // GAUGE COMPONENT
@@ -64,7 +129,6 @@ const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = 
   const circumference = 2 * Math.PI * 45;
   const offset = circumference - (percentage / 100) * circumference;
 
-  // Responsive sizing
   const svgWidth = Math.min(size, 100);
   const svgHeight = svgWidth * 0.6;
   const textSize = Math.max(12, svgWidth * 0.13);
