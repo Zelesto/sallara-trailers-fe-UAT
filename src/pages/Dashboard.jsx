@@ -141,60 +141,111 @@ const safeFormatDate = (date) => {
 };
 
 // ============================================================
-// GAUGE COMPONENT
+// GAUGE COMPONENT - FIXED
 // ============================================================
 const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = '%' }) => {
-  const percentage = Math.min((value / max) * 100, 100);
+  // Ensure value is a number and within bounds
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+  const percentage = Math.min(Math.max((safeValue / max) * 100, 0), 100);
   const circumference = 2 * Math.PI * 45;
   const offset = circumference - (percentage / 100) * circumference;
 
+  // Responsive sizing
+  const responsiveSize = Math.min(size, 120);
+  const textSize = Math.max(14, responsiveSize * 0.14);
+  const unitSize = Math.max(7, responsiveSize * 0.07);
+  const strokeWidth = Math.max(8, responsiveSize * 0.08);
+
   return (
-    <Box sx={{ textAlign: 'center', position: 'relative' }}>
-      <Box sx={{ position: 'relative', display: 'inline-block' }}>
-        <svg width={size} height={size * 0.6} viewBox="0 0 120 70">
-          {/* Background arc */}
+    <Box sx={{ 
+      textAlign: 'center', 
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      maxWidth: responsiveSize + 20,
+      mx: 'auto'
+    }}>
+      <Box sx={{ 
+        position: 'relative', 
+        display: 'inline-block',
+        width: '100%',
+        maxWidth: responsiveSize,
+      }}>
+        <svg 
+          width="100%" 
+          height="auto" 
+          viewBox="0 0 120 70"
+          preserveAspectRatio="xMidYMid meet"
+          style={{ display: 'block' }}
+        >
+          {/* Background arc - always visible */}
           <path
             d="M 15 65 A 45 45 0 0 1 105 65"
             fill="none"
             stroke="#E5E7EB"
-            strokeWidth="10"
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
           />
-          {/* Foreground arc */}
+          
+          {/* Foreground arc - animated */}
           <path
             d="M 15 65 A 45 45 0 0 1 105 65"
             fill="none"
             stroke={color}
-            strokeWidth="10"
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
-            style={{ transition: 'stroke-dashoffset 1s ease' }}
+            style={{ 
+              transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              transform: 'rotate(-90deg)',
+              transformOrigin: 'center',
+            }}
           />
+          
           {/* Value text */}
           <text
             x="60"
-            y="35"
+            y="32"
             textAnchor="middle"
-            fontSize="16"
+            fontSize={textSize}
             fontWeight="700"
             fill="#111827"
+            style={{ fontFamily: 'inherit' }}
           >
-            {typeof value === 'number' ? value.toFixed(1) : value}
+            {safeValue.toFixed(1)}
           </text>
+          
+          {/* Unit text */}
           <text
             x="60"
-            y="50"
+            y="48"
             textAnchor="middle"
-            fontSize="8"
+            fontSize={unitSize}
             fill="#6B7280"
+            style={{ fontFamily: 'inherit' }}
           >
             {unit}
           </text>
         </svg>
       </Box>
+      
       {label && (
-        <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontSize: '0.6rem', color: '#6B7280' }}>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            display: 'block', 
+            mt: 0.5, 
+            fontSize: '0.55rem', 
+            color: '#6B7280',
+            fontWeight: 500,
+            letterSpacing: '0.3px',
+            textTransform: 'uppercase'
+          }}
+        >
           {label}
         </Typography>
       )}
@@ -203,7 +254,7 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
 };
 
 // ============================================================
-// STAT CARD COMPONENT
+// STAT CARD COMPONENT - FIXED
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -217,9 +268,61 @@ const StatCard = React.memo(({
   gauge = null,
   onClick,
 }) => {
-  // Default icon if none provided
-  const DefaultIcon = DashboardIcon;
-  const IconComponent = (Icon && typeof Icon === 'function') ? Icon : DefaultIcon;
+  // Safe icon handling - prevents crashes from undefined icons
+ const SafeIcon = useMemo(() => {
+  if (Icon && typeof Icon === 'function') {
+    return Icon;
+  }
+  if (DashboardIcon && typeof DashboardIcon === 'function') {
+    return DashboardIcon;
+  }
+  return () => null; // Ultimate fallback
+}, [Icon]);
+
+  // Safe color handling
+  const safeColor = color || 'primary';
+  const iconColor = getColor(safeColor);
+  const bgColor = getColorBg(safeColor);
+
+  // Safe value formatting
+  const formatDisplayValue = useMemo(() => {
+    if (typeof value === 'number') {
+      switch (unit) {
+        case 'currency': return formatCurrency(value);
+        case 'km': return `${formatNumber(value)} km`;
+        case 'liters': return `${formatNumber(value)} L`;
+        case 'km/L': return `${value.toFixed(1)} km/L`;
+        case '%': return `${value.toFixed(0)}%`;
+        default: return formatNumber(value, 1);
+      }
+    }
+    return value || 'N/A';
+  }, [value, unit]);
+
+  // Safe trend formatting
+  const trendLabel = useMemo(() => {
+    if (trend === undefined || trend === null || isNaN(trend)) return null;
+    return trend > 0 ? `+${trend.toFixed(1)}%` : `${trend.toFixed(1)}%`;
+  }, [trend]);
+
+  const trendColor = useMemo(() => {
+    if (trend === undefined || trend === null || isNaN(trend)) return '#DBEAFE';
+    return trend > 0 ? '#D1FAE5' : trend < 0 ? '#FEE2E2' : '#DBEAFE';
+  }, [trend]);
+
+  const trendTextColor = useMemo(() => {
+    if (trend === undefined || trend === null || isNaN(trend)) return '#1E40AF';
+    return trend > 0 ? '#065F46' : trend < 0 ? '#991B1B' : '#1E40AF';
+  }, [trend]);
+
+  const trendIcon = useMemo(() => {
+    if (trend === undefined || trend === null || isNaN(trend)) {
+      return <Timeline sx={{ fontSize: '0.7rem' }} />;
+    }
+    return trend > 0 
+      ? <TrendingUp sx={{ fontSize: '0.7rem' }} />
+      : <TrendingDown sx={{ fontSize: '0.7rem' }} />;
+  }, [trend]);
 
   return (
     <Card
@@ -227,28 +330,35 @@ const StatCard = React.memo(({
         backgroundColor: '#FFFFFF',
         borderRadius: '16px',
         border: '1px solid #ECECEC',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         height: '100%',
         cursor: onClick ? 'pointer' : 'default',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-          borderColor: getColor(color),
-        },
         position: 'relative',
         overflow: 'visible',
+        '&:hover': onClick ? {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          borderColor: iconColor,
+        } : {},
       }}
       onClick={onClick}
     >
       <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+        {/* Loading indicator */}
         {loading && (
-          <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
-            <CircularProgress size={16} />
+          <Box sx={{ 
+            position: 'absolute', 
+            top: 12, 
+            right: 12,
+            zIndex: 1
+          }}>
+            <CircularProgress size={16} thickness={4} />
           </Box>
         )}
 
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-          <Box>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+          {/* Left content */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="caption"
               sx={{
@@ -259,73 +369,104 @@ const StatCard = React.memo(({
                 letterSpacing: '0.5px',
                 display: 'block',
                 opacity: loading ? 0.7 : 1,
+                mb: 0.25,
               }}
             >
               {title || 'Stat'}
             </Typography>
+            
             <Typography
               variant="h4"
               sx={{
                 fontWeight: 700,
                 color: '#111827',
                 fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
-                mt: 0.5,
+                lineHeight: 1.2,
                 opacity: loading ? 0.7 : 1,
+                wordBreak: 'break-word',
               }}
             >
-              {typeof value === 'number' ? (
-                unit === 'currency' ? formatCurrency(value) :
-                unit === 'km' ? `${formatNumber(value)} km` :
-                unit === 'liters' ? `${formatNumber(value)} L` :
-                unit === 'km/L' ? `${value.toFixed(1)} km/L` :
-                unit === '%' ? `${value.toFixed(0)}%` :
-                formatNumber(value, 1)
-              ) : value || 'N/A'}
+              {formatDisplayValue}
             </Typography>
+            
             {subtitle && (
               <Typography
                 variant="caption"
-                sx={{ color: '#6B7280', display: 'block', mt: 0.25, fontSize: '0.65rem' }}
+                sx={{
+                  color: '#6B7280',
+                  display: 'block',
+                  mt: 0.25,
+                  fontSize: '0.65rem',
+                  opacity: loading ? 0.7 : 1,
+                }}
               >
                 {subtitle}
               </Typography>
             )}
           </Box>
+
+          {/* Icon */}
           <Box
             sx={{
-              bgcolor: getColorBg(color),
+              bgcolor: bgColor,
               borderRadius: '12px',
               p: 1.5,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)',
+              },
             }}
           >
-            <IconComponent sx={{ color: getColor(color), fontSize: '1.5rem' }} />
+            <SafeIcon sx={{ 
+              color: iconColor, 
+              fontSize: '1.5rem',
+              transition: 'all 0.3s ease',
+            }} />
           </Box>
         </Stack>
 
+        {/* Gauge */}
         {gauge && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-            <Gauge value={gauge.value || 0} max={gauge.max || 100} color={getColor(color)} unit={gauge.unit || '%'} />
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            mt: 1.5,
+            opacity: loading ? 0.7 : 1,
+          }}>
+            <Gauge 
+              value={gauge.value || 0} 
+              max={gauge.max || 100} 
+              color={iconColor} 
+              unit={gauge.unit || '%'} 
+              size={100}
+            />
           </Box>
         )}
 
-        {trend !== undefined && trend !== null && !isNaN(trend) && (
+        {/* Trend Chip */}
+        {trendLabel && (
           <Chip
-            label={trend > 0 ? `+${trend.toFixed(1)}%` : `${trend.toFixed(1)}%`}
+            label={trendLabel}
             size="small"
             sx={{
-              mt: 1,
-              bgcolor: trend > 0 ? '#D1FAE5' : trend < 0 ? '#FEE2E2' : '#DBEAFE',
-              color: trend > 0 ? '#065F46' : trend < 0 ? '#991B1B' : '#1E40AF',
+              mt: 1.5,
+              bgcolor: trendColor,
+              color: trendTextColor,
               fontWeight: 600,
               fontSize: '0.6rem',
               height: 20,
+              borderRadius: '6px',
+              transition: 'all 0.3s ease',
+              '& .MuiChip-icon': {
+                fontSize: '0.7rem',
+                color: trendTextColor,
+              },
             }}
-            icon={trend > 0 ? <TrendingUp sx={{ fontSize: '0.7rem' }} /> :
-                   trend < 0 ? <TrendingDown sx={{ fontSize: '0.7rem' }} /> :
-                   <Timeline sx={{ fontSize: '0.7rem' }} />}
+            icon={trendIcon}
           />
         )}
       </CardContent>
