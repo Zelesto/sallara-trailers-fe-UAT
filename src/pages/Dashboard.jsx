@@ -141,7 +141,7 @@ const safeFormatDate = (date) => {
 };
 
 // ============================================================
-// GAUGE COMPONENT - FIXED
+// GAUGE COMPONENT - FIXED SVG HEIGHT
 // ============================================================
 const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = '%' }) => {
   // Ensure value is a number and within bounds
@@ -150,11 +150,12 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
   const circumference = 2 * Math.PI * 45;
   const offset = circumference - (percentage / 100) * circumference;
 
-  // Responsive sizing
-  const responsiveSize = Math.min(size, 120);
-  const textSize = Math.max(14, responsiveSize * 0.14);
-  const unitSize = Math.max(7, responsiveSize * 0.07);
-  const strokeWidth = Math.max(8, responsiveSize * 0.08);
+  // Calculate responsive sizes
+  const svgWidth = Math.min(size, 120);
+  const svgHeight = svgWidth * 0.6;
+  const textSize = Math.max(14, svgWidth * 0.14);
+  const unitSize = Math.max(7, svgWidth * 0.07);
+  const strokeWidth = Math.max(8, svgWidth * 0.08);
 
   return (
     <Box sx={{ 
@@ -165,23 +166,24 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
       alignItems: 'center',
       justifyContent: 'center',
       width: '100%',
-      maxWidth: responsiveSize + 20,
+      maxWidth: svgWidth + 20,
       mx: 'auto'
     }}>
       <Box sx={{ 
         position: 'relative', 
         display: 'inline-block',
-        width: '100%',
-        maxWidth: responsiveSize,
+        width: svgWidth,
+        height: svgHeight,
+        flexShrink: 0,
       }}>
         <svg 
-          width="100%" 
-          height="auto" 
+          width={svgWidth}
+          height={svgHeight}
           viewBox="0 0 120 70"
           preserveAspectRatio="xMidYMid meet"
           style={{ display: 'block' }}
         >
-          {/* Background arc - always visible */}
+          {/* Background arc */}
           <path
             d="M 15 65 A 45 45 0 0 1 105 65"
             fill="none"
@@ -201,15 +203,13 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
             strokeDashoffset={offset}
             style={{ 
               transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              transform: 'rotate(-90deg)',
-              transformOrigin: 'center',
             }}
           />
           
           {/* Value text */}
           <text
             x="60"
-            y="32"
+            y="35"
             textAnchor="middle"
             fontSize={textSize}
             fontWeight="700"
@@ -222,7 +222,7 @@ const Gauge = ({ value, max = 100, size = 120, color = '#4F46E5', label, unit = 
           {/* Unit text */}
           <text
             x="60"
-            y="48"
+            y="50"
             textAnchor="middle"
             fontSize={unitSize}
             fill="#6B7280"
