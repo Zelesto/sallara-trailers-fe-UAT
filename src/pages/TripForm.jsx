@@ -61,6 +61,8 @@ import { vehicleService } from '../services/vehicleService';
 import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
 import { depotService } from '../services/depotService';
+import { useEnums } from '../contexts/EnumContext';
+import { enumService } from '../services/enumService';
 
 /* ============================================================
    CONSTANTS & CONFIGURATIONS
@@ -73,25 +75,6 @@ const PRIORITY_OPTIONS = [
   { value: 'URGENT', label: 'Urgent', color: 'error' }
 ];
 
-const STATUS_OPTIONS = [
-  'DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 
-  'COMPLETED', 'ACTIVE', 'PENDING', 'CANCELLED', 'CLOSED', 'FINALIZED'
-];
-
-const APPROVAL_STATUS_OPTIONS = [
-  'PENDING', 'APPROVED', 'REJECTED', 'UNDER_REVIEW'
-];
-
-const TRIP_TYPE_OPTIONS = ['FREIGHT', 'RETURN', 'EMPTY', 'MAINTENANCE'];
-
-const COMMODITY_OPTIONS = [
-  'General Freight', 'Refrigerated Goods', 'Dangerous Goods',
-  'Chemicals', 'Construction Materials', 'Agricultural Products',
-  'Livestock', 'Automotive', 'Electronics', 'Furniture',
-  'Textiles', 'Pharmaceuticals', 'Food Products', 'Beverages',
-  'Fuel', 'Waste Materials', 'Other'
-];
-
 const PROVINCES = [
   'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
   'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
@@ -101,6 +84,14 @@ const DEPARTURE_OPTIONS = [
   { value: 'DEPOT', label: 'Depot' },
   { value: 'LAST_DROP', label: 'Last Drop Off Location' },
   { value: 'FREEHAND', label: 'Freehand / Custom Location' }
+];
+
+const COMMODITY_OPTIONS = [
+  'General Freight', 'Refrigerated Goods', 'Dangerous Goods',
+  'Chemicals', 'Construction Materials', 'Agricultural Products',
+  'Livestock', 'Automotive', 'Electronics', 'Furniture',
+  'Textiles', 'Pharmaceuticals', 'Food Products', 'Beverages',
+  'Fuel', 'Waste Materials', 'Other'
 ];
 
 /* ============================================================
@@ -166,6 +157,21 @@ const getDefaultFormState = () => ({
 const getDefaultAddress = () => ({
   street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
 });
+
+// Get default planned dates (today and 8 hours later)
+const getDefaultPlannedDates = () => {
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setMinutes(0, 0, 0);
+  
+  const endDate = new Date(startDate);
+  endDate.setHours(endDate.getHours() + 8);
+  
+  return {
+    plannedStartDate: startDate.toISOString(),
+    plannedEndDate: endDate.toISOString()
+  };
+};
 
 /* ============================================================
    COMPONENT: AddressSection
@@ -467,6 +473,19 @@ function DepotSection({
    ============================================================ */
 
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
+  const {
+    enums,
+    loading: enumsLoading,
+    getTripTypeOptions,
+    getTripStatusOptions,
+    getApprovalStatusOptions,
+    getDriverStatusOptions,
+    getVehicleStatusOptions,
+    getDriverOptions,
+    getVehicleOptions,
+    getSupervisorOptions,
+  } = useEnums();
+
   // Loading States
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -497,6 +516,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
   // Form State
   const [form, setForm] = useState(getDefaultFormState);
+
+  // Get enum options
+  const tripTypeOptions = getTripTypeOptions();
+  const statusOptions = getTripStatusOptions();
+  const approvalOptions = getApprovalStatusOptions();
+  const driverOptions = getDriverOptions();
+  const vehicleOptions = getVehicleOptions();
+  const supervisorOptions = getSupervisorOptions();
 
   /* ============================================================
      DATA LOADING
@@ -645,6 +672,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         supervisorId: initialData.supervisorId || '',
         customerId: initialData.customerId || '',
         referenceNumber: initialData.referenceNumber || '',
+        // Set planned dates from initialData or use defaults
+        plannedStartDate: initialData.plannedStartDate || getDefaultPlannedDates().plannedStartDate,
+        plannedEndDate: initialData.plannedEndDate || getDefaultPlannedDates().plannedEndDate,
       }));
 
       if (initialData.departedFrom) setDepartureType(initialData.departedFrom);
@@ -675,6 +705,18 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       }
     }
   }, [initialData, open]);
+
+  // Set default planned dates for new trip
+  useEffect(() => {
+    if (open && mode === 'create' && !initialData) {
+      const defaults = getDefaultPlannedDates();
+      setForm(prev => ({
+        ...prev,
+        plannedStartDate: defaults.plannedStartDate,
+        plannedEndDate: defaults.plannedEndDate,
+      }));
+    }
+  }, [open, mode, initialData]);
 
   /* ============================================================
      FORM VALIDATION
@@ -751,7 +793,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   };
 
   /* ============================================================
-     FORM SUBMISSION - FIXED
+     FORM SUBMISSION
    ============================================================ */
 
   const handleSubmit = useCallback(async () => {
@@ -856,14 +898,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
       setIsSuccess(true);
 
-      // Call onSuccess with the result
       if (onSuccess) {
         console.log('📤 Calling onSuccess with result ID:', result.id);
         onSuccess(result);
       }
 
       await new Promise(resolve => setTimeout(resolve, 300));
-      // Refresh parent data
       if (fetchTrips) {
         await new Promise(resolve => setTimeout(resolve, 500));
         console.log('🔄 Refreshing trip list...');
@@ -872,11 +912,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           console.log('✅ Trip list refreshed');
         } catch (refreshError) {
           console.error('⚠️ Error refreshing trip list:', refreshError);
-          // Don't fail the whole operation - the trip was created successfully
         }
       }
 
-      // Close after delay
       setTimeout(() => {
         if (onClose) onClose();
       }, 1500);
@@ -885,7 +923,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       console.error('❌ Trip error:', err);
       let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
 
-      // Check if it's a 404 error (trip created but not found)
       if (err.response?.status === 404) {
         if (err.response?.data?.detail?.includes('Trip not found')) {
           console.warn('⚠️ Trip was created but not found on refresh - race condition');
@@ -938,23 +975,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     </Alert>
   );
 
-  const fetchTripWithRetry = async (id, maxRetries = 3) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const trip = await tripService.getTripById(id);
-      return trip;
-    } catch (error) {
-      if (error.response?.status === 404 && attempt < maxRetries) {
-        console.log(`⏳ Trip ${id} not found, retrying (${attempt}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error(`Failed to fetch trip ${id} after ${maxRetries} attempts`);
-};
-
   /* ============================================================
      MAIN RENDER
    ============================================================ */
@@ -975,7 +995,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         </DialogTitle>
 
         <DialogContent dividers sx={{ overflowY: 'auto', p: 2 }}>
-          {loading ? renderLoading() : (
+          {loading || enumsLoading ? renderLoading() : (
             <>
               {renderError()}
               {renderSuccess()}
@@ -992,8 +1012,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         onChange={(e) => handleFieldChange('tripType', e.target.value)}
                         sx={{ fontSize: '0.75rem' }}
                       >
-                        {TRIP_TYPE_OPTIONS.map(type => (
-                          <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>{type}</MenuItem>
+                        {tripTypeOptions.map(option => (
+                          <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                            {option.label}
+                          </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
@@ -1280,9 +1302,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             sx={{ fontSize: '0.75rem' }}
                           >
                             <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select vehicle</em></MenuItem>
-                            {vehicles.map(v => (
-                              <MenuItem key={v.id} value={v.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                                {v.registrationNumber} - {v.make} {v.model}
+                            {vehicleOptions.map(v => (
+                              <MenuItem key={v.value} value={v.value} sx={{ fontSize: '0.75rem' }}>
+                                {v.label}
                               </MenuItem>
                             ))}
                           </Select>
@@ -1299,9 +1321,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             sx={{ fontSize: '0.75rem' }}
                           >
                             <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select driver</em></MenuItem>
-                            {drivers.map(d => (
-                              <MenuItem key={d.id} value={d.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                                {d.firstName} {d.lastName}
+                            {driverOptions.map(d => (
+                              <MenuItem key={d.value} value={d.value} sx={{ fontSize: '0.75rem' }}>
+                                {d.label}
                               </MenuItem>
                             ))}
                           </Select>
@@ -1318,9 +1340,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             sx={{ fontSize: '0.75rem' }}
                           >
                             <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select supervisor</em></MenuItem>
-                            {supervisors.map(s => (
-                              <MenuItem key={s.id} value={s.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                                {s.firstName} {s.lastName}
+                            {supervisorOptions.map(s => (
+                              <MenuItem key={s.value} value={s.value} sx={{ fontSize: '0.75rem' }}>
+                                {s.label}
                               </MenuItem>
                             ))}
                           </Select>
@@ -1537,8 +1559,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             onChange={(e) => handleFieldChange('status', e.target.value)}
                             sx={{ fontSize: '0.75rem' }}
                           >
-                            {STATUS_OPTIONS.map(s => (
-                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
+                            {statusOptions.map(option => (
+                              <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                                {option.label}
+                              </MenuItem>
                             ))}
                           </Select>
                         </FormControl>
@@ -1552,8 +1576,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
                             sx={{ fontSize: '0.75rem' }}
                           >
-                            {APPROVAL_STATUS_OPTIONS.map(s => (
-                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
+                            {approvalOptions.map(option => (
+                              <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                                {option.label}
+                              </MenuItem>
                             ))}
                           </Select>
                         </FormControl>
