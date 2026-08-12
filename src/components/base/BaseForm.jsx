@@ -149,13 +149,8 @@ function BaseForm({
             section.fields.forEach(field => {
               if (field.required) {
                 const value = formData[field.name];
-                // Check for empty values (including empty strings, null, undefined)
                 if (value === undefined || value === null || value === '') {
                   newErrors[field.name] = `${field.label || field.name} is required`;
-                }
-                // For arrays/selects with options, check if a valid option is selected
-                if (field.type === 'select' && (!value || value === '')) {
-                  newErrors[field.name] = `Please select a ${field.label || field.name}`;
                 }
               }
             });
@@ -221,7 +216,10 @@ function BaseForm({
     }
   };
 
-  // Safe date parser function
+  // ============================================================
+  // SAFE DATE HELPERS
+  // ============================================================
+  
   const safeParseDate = (value) => {
     if (!value) return null;
     try {
@@ -236,8 +234,7 @@ function BaseForm({
     }
   };
 
-  // Safe date value getter
-  const getSafeDateValue = (value) => {
+  const safeFormatDate = (value) => {
     if (!value) return null;
     try {
       const parsed = dayjs(value);
@@ -331,8 +328,8 @@ function BaseForm({
         );
 
       case 'select': {
-        // Ensure options is always an array
         const selectOptions = Array.isArray(options) ? options : [];
+        const isLoading = field.loading || false;
         
         return (
           <FormControl
@@ -340,7 +337,7 @@ function BaseForm({
             size="small"
             required={required}
             error={!!error}
-            disabled={isFieldDisabled}
+            disabled={isFieldDisabled || isLoading}
           >
             <InputLabel>{label}</InputLabel>
             <Select
@@ -350,9 +347,13 @@ function BaseForm({
               label={label}
             >
               <MenuItem value="">
-                <em>Select {label}</em>
+                <em>{isLoading ? 'Loading...' : `Select ${label}`}</em>
               </MenuItem>
-              {selectOptions.length > 0 ? (
+              {isLoading ? (
+                <MenuItem value="" disabled>
+                  <em>Loading options...</em>
+                </MenuItem>
+              ) : selectOptions.length > 0 ? (
                 selectOptions.map((option) => (
                   <MenuItem key={option.value || option.id} value={option.value || option.id}>
                     {option.label || option.name || option}
@@ -360,7 +361,7 @@ function BaseForm({
                 ))
               ) : (
                 <MenuItem value="" disabled>
-                  No options available
+                  <em>No options available</em>
                 </MenuItem>
               )}
             </Select>
@@ -401,14 +402,15 @@ function BaseForm({
         );
 
       case 'date': {
-        const safeDateValue = getSafeDateValue(value);
+        // SAFE: Parse date value, return null if invalid
+        const dateValue = safeFormatDate(value);
         
         return (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
               {...fieldProps}
               label={label}
-              value={safeDateValue}
+              value={dateValue}
               onChange={(newValue) => {
                 try {
                   const val = newValue && typeof newValue.isValid === 'function' && newValue.isValid() 
@@ -435,14 +437,15 @@ function BaseForm({
       }
 
       case 'datetime': {
-        const safeDateTimeValue = getSafeDateValue(value);
+        // SAFE: Parse datetime value, return null if invalid
+        const datetimeValue = safeFormatDate(value);
         
         return (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DateTimePicker
               {...fieldProps}
               label={label}
-              value={safeDateTimeValue}
+              value={datetimeValue}
               onChange={(newValue) => {
                 try {
                   const val = newValue && typeof newValue.isValid === 'function' && newValue.isValid() 
