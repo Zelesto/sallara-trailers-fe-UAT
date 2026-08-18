@@ -1,4 +1,4 @@
-// src/pages/TripDetails.jsx - Fixed with proper error handling
+// src/pages/TripDetails.jsx - Fixed imports
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -31,7 +31,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   MoreVert as MoreVertIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
@@ -41,6 +42,7 @@ import dayjs from 'dayjs';
 
 import { tripService } from '../services/tripService';
 import IncidentDialog from './IncidentDialog';
+// ✅ FIX: Import from constants file instead of TripList
 import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
 
 /* ============================================================
@@ -225,21 +227,24 @@ const IncidentsTab = ({ tripId, trip }) => {
   const [incidentDialogOpen, setIncidentDialogOpen] = useState(false);
   const [editingIncident, setEditingIncident] = useState(null);
   const [editingIncidentData, setEditingIncidentData] = useState(null);
+  const [apiAvailable, setApiAvailable] = useState(true);
 
   const fetchIncidents = useCallback(async () => {
     if (!tripId) return;
     
     setLoading(true);
     setError(null);
+    setApiAvailable(true);
     
     try {
       const data = await tripService.getTripIncidents(tripId);
       setIncidents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching incidents:', err);
-      // ✅ FIX: Don't show error for 500, just show empty state with message
+      // Check if it's a 500 error
       if (err.response?.status === 500) {
-        setError('Incident management is currently unavailable. Please try again later.');
+        setApiAvailable(false);
+        setError('Incident management is currently unavailable. The service is being updated.');
       } else {
         setError('Failed to load incidents');
       }
@@ -256,6 +261,11 @@ const IncidentsTab = ({ tripId, trip }) => {
   }, [tripId, fetchIncidents]);
 
   const handleReportIncident = async (incidentData) => {
+    if (!apiAvailable) {
+      setError('Incident management is currently unavailable. Please try again later.');
+      return;
+    }
+    
     try {
       const payload = { ...incidentData, tripId };
       
@@ -275,6 +285,10 @@ const IncidentsTab = ({ tripId, trip }) => {
   };
 
   const handleEdit = (incident) => {
+    if (!apiAvailable) {
+      setError('Incident management is currently unavailable. Please try again later.');
+      return;
+    }
     setEditingIncident(incident);
     setEditingIncidentData({
       incidentType: incident.incidentType || '',
@@ -287,6 +301,10 @@ const IncidentsTab = ({ tripId, trip }) => {
   };
 
   const handleDelete = async (incidentId) => {
+    if (!apiAvailable) {
+      setError('Incident management is currently unavailable. Please try again later.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this incident?')) return;
     
     try {
@@ -316,6 +334,31 @@ const IncidentsTab = ({ tripId, trip }) => {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={150}>
         <CircularProgress size={30} />
+      </Box>
+    );
+  }
+
+  // Show maintenance message when API is unavailable
+  if (!apiAvailable) {
+    return (
+      <Box textAlign="center" py={4}>
+        <ErrorIcon sx={{ fontSize: 48, color: 'warning.main', mb: 2 }} />
+        <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500, fontSize: '1rem' }}>
+          Incidents Service Unavailable
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', mt: 1, maxWidth: 400, mx: 'auto' }}>
+          The incident management service is currently being updated. 
+          Please check back later or contact support if you need immediate assistance.
+        </Typography>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />}
+          onClick={fetchIncidents}
+          sx={{ mt: 2, fontSize: '0.75rem' }}
+        >
+          Retry
+        </Button>
       </Box>
     );
   }
@@ -420,7 +463,7 @@ const IncidentsTab = ({ tripId, trip }) => {
       </Stack>
 
       {/* Incidents Table */}
-      {filteredIncidents.length === 0 && !error ? (
+      {filteredIncidents.length === 0 ? (
         <Box textAlign="center" py={3}>
           <IncidentIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
@@ -440,7 +483,7 @@ const IncidentsTab = ({ tripId, trip }) => {
             Report First Incident
           </Button>
         </Box>
-      ) : filteredIncidents.length > 0 ? (
+      ) : (
         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
           <Table size="small">
             <TableHead sx={{ bgcolor: '#f5f5f5' }}>
@@ -504,7 +547,7 @@ const IncidentsTab = ({ tripId, trip }) => {
             </TableBody>
           </Table>
         </TableContainer>
-      ) : null}
+      )}
 
       {/* Incident Dialog */}
       <IncidentDialog
