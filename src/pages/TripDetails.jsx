@@ -1,4 +1,4 @@
-// src/pages/TripDetails.jsx
+// src/pages/TripDetails.jsx - Fixed imports
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -41,7 +41,8 @@ import dayjs from 'dayjs';
 
 import { tripService } from '../services/tripService';
 import IncidentDialog from './IncidentDialog';
-import { STATUS_CONFIG, STATUS_OPTIONS } from './TripList';
+// ✅ FIX: Import from constants file instead of TripList
+import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
 
 /* ============================================================
    UTILITY FUNCTIONS
