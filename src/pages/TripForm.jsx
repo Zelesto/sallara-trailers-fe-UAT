@@ -1,4 +1,4 @@
-// src/pages/TripForm.jsx
+// src/pages/TripForm.jsx - Responsive Version
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dayjs from 'dayjs';
 import {
@@ -27,7 +27,9 @@ import {
   IconButton,
   InputAdornment,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 
 import {
@@ -61,6 +63,7 @@ import { vehicleService } from '../services/vehicleService';
 import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
 import { depotService } from '../services/depotService';
+import { useEnums } from '../contexts/EnumContext';
 
 /* ============================================================
    CONSTANTS & CONFIGURATIONS
@@ -167,6 +170,21 @@ const getDefaultAddress = () => ({
   street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
 });
 
+// Get default planned dates (today and 8 hours later)
+const getDefaultPlannedDates = () => {
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setMinutes(0, 0, 0);
+  
+  const endDate = new Date(startDate);
+  endDate.setHours(endDate.getHours() + 8);
+  
+  return {
+    plannedStartDate: startDate.toISOString(),
+    plannedEndDate: endDate.toISOString()
+  };
+};
+
 /* ============================================================
    COMPONENT: AddressSection
    ============================================================ */
@@ -213,7 +231,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
 
   return (
     <Card variant="outlined" sx={{ mb: 1.5 }}>
-      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
         <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
           <LocationOn fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
           <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -317,7 +335,11 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
               Coordinates (optional)
             </Typography>
-            <Stack direction="row" spacing={1.5} sx={{ mt: 0.75 }}>
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={1.5} 
+              sx={{ mt: 0.75 }}
+            >
               <TextField
                 fullWidth
                 label="Latitude"
@@ -363,7 +385,7 @@ function DepotSection({
 }) {
   return (
     <Card variant="outlined" sx={{ mb: 1.5 }}>
-      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+      <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
         <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
           <WarehouseIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
           <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -467,6 +489,23 @@ function DepotSection({
    ============================================================ */
 
 function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
+  const {
+    enums,
+    loading: enumsLoading,
+    getTripTypeOptions,
+    getTripStatusOptions,
+    getApprovalStatusOptions,
+    getDriverStatusOptions,
+    getVehicleStatusOptions,
+    getDriverOptions,
+    getVehicleOptions,
+    getSupervisorOptions,
+  } = useEnums();
+
   // Loading States
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -497,6 +536,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
   // Form State
   const [form, setForm] = useState(getDefaultFormState);
+
+  // Get enum options
+  const tripTypeOptions = getTripTypeOptions();
+  const statusOptions = getTripStatusOptions();
+  const approvalOptions = getApprovalStatusOptions();
+  const driverOptions = getDriverOptions();
+  const vehicleOptions = getVehicleOptions();
+  const supervisorOptions = getSupervisorOptions();
 
   /* ============================================================
      DATA LOADING
@@ -645,6 +692,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         supervisorId: initialData.supervisorId || '',
         customerId: initialData.customerId || '',
         referenceNumber: initialData.referenceNumber || '',
+        plannedStartDate: initialData.plannedStartDate || getDefaultPlannedDates().plannedStartDate,
+        plannedEndDate: initialData.plannedEndDate || getDefaultPlannedDates().plannedEndDate,
       }));
 
       if (initialData.departedFrom) setDepartureType(initialData.departedFrom);
@@ -675,6 +724,18 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       }
     }
   }, [initialData, open]);
+
+  // Set default planned dates for new trip
+  useEffect(() => {
+    if (open && mode === 'create' && !initialData) {
+      const defaults = getDefaultPlannedDates();
+      setForm(prev => ({
+        ...prev,
+        plannedStartDate: defaults.plannedStartDate,
+        plannedEndDate: defaults.plannedEndDate,
+      }));
+    }
+  }, [open, mode, initialData]);
 
   /* ============================================================
      FORM VALIDATION
@@ -751,7 +812,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   };
 
   /* ============================================================
-     FORM SUBMISSION - FIXED
+     FORM SUBMISSION
    ============================================================ */
 
   const handleSubmit = useCallback(async () => {
@@ -760,6 +821,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
+      setError('Please fix the validation errors before submitting.');
       return;
     }
 
@@ -774,9 +836,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
       const payload = {
         tripType: form.tripType,
-        status: form.status,
+        status: form.status || 'PLANNED',
         approvalStatus: form.approvalStatus || 'PENDING',
-        priority: form.priority,
+        priority: form.priority || 'MEDIUM',
 
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
@@ -837,11 +899,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       });
 
       console.log(`📤 ${mode === 'edit' ? 'Updating' : 'Creating'} trip:`, payload);
-      console.log(`📤 Mode: ${mode}, InitialData ID: ${initialData?.id}`);
 
       let result;
       if (mode === 'edit' && initialData?.id) {
-        console.log(`📤 Sending update to trip ID: ${initialData.id}`);
         result = await tripService.updateTrip(initialData.id, payload);
         console.log('✅ Trip updated successfully:', result);
         setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
@@ -849,56 +909,57 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         console.log('📤 Creating new trip...');
         result = await tripService.createTrip(payload);
         console.log('✅ Trip created successfully:', result);
-        console.log('   - ID:', result.id);
-        console.log('   - Number:', result.tripNumber);
         setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
       }
 
       setIsSuccess(true);
 
-      // Call onSuccess with the result
       if (onSuccess) {
-        console.log('📤 Calling onSuccess with result ID:', result.id);
         onSuccess(result);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300));
-      // Refresh parent data
       if (fetchTrips) {
-        await new Promise(resolve => setTimeout(resolve, 500));
         console.log('🔄 Refreshing trip list...');
         try {
+          await new Promise(resolve => setTimeout(resolve, 500));
           await fetchTrips();
-          console.log('✅ Trip list refreshed');
+          console.log('✅ Trip list refreshed successfully');
         } catch (refreshError) {
           console.error('⚠️ Error refreshing trip list:', refreshError);
-          // Don't fail the whole operation - the trip was created successfully
         }
       }
 
-      // Close after delay
       setTimeout(() => {
         if (onClose) onClose();
       }, 1500);
 
     } catch (err) {
       console.error('❌ Trip error:', err);
+      
+      if (err.response?.status === 404 && err.response?.data?.detail?.includes('Trip not found')) {
+        console.warn('⚠️ Trip was created but not found on refresh - race condition');
+        setSuccessMessage('Trip created successfully!');
+        setIsSuccess(true);
+        
+        if (fetchTrips) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await fetchTrips();
+          } catch (refreshError) {
+            console.error('⚠️ Error refreshing trip list after race condition:', refreshError);
+          }
+        }
+        
+        setTimeout(() => {
+          if (onClose) onClose();
+        }, 1500);
+        setSubmitting(false);
+        return;
+      }
+
       let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
 
-      // Check if it's a 404 error (trip created but not found)
-      if (err.response?.status === 404) {
-        if (err.response?.data?.detail?.includes('Trip not found')) {
-          console.warn('⚠️ Trip was created but not found on refresh - race condition');
-          setSuccessMessage('Trip created successfully!');
-          setIsSuccess(true);
-          setTimeout(() => {
-            if (onClose) onClose();
-          }, 1500);
-          setSubmitting(false);
-          return;
-        }
-        errorMessage = 'Resource not found. The trip may have been created but is not yet available.';
-      } else if (err.response?.status === 409) {
+      if (err.response?.status === 409) {
         errorMessage = 'Duplicate trip detected.';
       } else if (err.response?.status === 400) {
         errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
@@ -938,25 +999,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     </Alert>
   );
 
-  const fetchTripWithRetry = async (id, maxRetries = 3) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const trip = await tripService.getTripById(id);
-      return trip;
-    } catch (error) {
-      if (error.response?.status === 404 && attempt < maxRetries) {
-        console.log(`⏳ Trip ${id} not found, retrying (${attempt}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error(`Failed to fetch trip ${id} after ${maxRetries} attempts`);
-};
-
   /* ============================================================
-     MAIN RENDER
+     MAIN RENDER - Responsive Dialog
    ============================================================ */
 
   return (
@@ -966,24 +1010,75 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         onClose={onClose} 
         maxWidth="lg" 
         fullWidth
-        PaperProps={{ sx: { maxHeight: '90vh' } }}
+        PaperProps={{ 
+          sx: { 
+            maxHeight: '90vh',
+            width: '100%',
+            m: isMobile ? 1 : 2,
+            borderRadius: isMobile ? 1 : 2,
+          } 
+        }}
       >
-        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', py: 1.5, px: 2 }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+        <DialogTitle sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          py: isMobile ? 1 : 1.5, 
+          px: isMobile ? 1.5 : 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1
+        }}>
+          <Typography variant="h6" sx={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: 600 }}>
             {mode === 'create' ? 'Create New Trip' : 'Edit Trip'}
           </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button 
+              startIcon={<Close />} 
+              onClick={onClose} 
+              disabled={submitting}
+              size="small"
+              sx={{ fontSize: '0.75rem' }}
+            >
+              {isMobile ? '' : 'Cancel'}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
+              disabled={submitting || loading || isSuccess}
+              size="small"
+              sx={{ fontSize: '0.75rem' }}
+            >
+              {submitting ? 'Saving...' : isSuccess ? '✓ Saved' : (isMobile ? 'Save' : (mode === 'create' ? 'Create Trip' : 'Update Trip'))}
+            </Button>
+          </Box>
         </DialogTitle>
 
-        <DialogContent dividers sx={{ overflowY: 'auto', p: 2 }}>
-          {loading ? renderLoading() : (
+        <DialogContent 
+          dividers 
+          sx={{ 
+            overflowY: 'auto', 
+            p: isMobile ? 1.5 : 2,
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: '#b0b0b0',
+              borderRadius: '3px',
+            },
+          }}
+        >
+          {loading || enumsLoading ? renderLoading() : (
             <>
               {renderError()}
               {renderSuccess()}
 
               <Stack spacing={2}>
-                {/* Trip Type & Priority */}
+                {/* Trip Type & Priority - Responsive Grid */}
                 <Grid container spacing={1.5}>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth size="small">
                       <InputLabel sx={{ fontSize: '0.75rem' }}>Trip Type</InputLabel>
                       <Select
@@ -992,13 +1087,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         onChange={(e) => handleFieldChange('tripType', e.target.value)}
                         sx={{ fontSize: '0.75rem' }}
                       >
-                        {TRIP_TYPE_OPTIONS.map(type => (
-                          <MenuItem key={type} value={type} sx={{ fontSize: '0.75rem' }}>{type}</MenuItem>
+                        {tripTypeOptions.map(option => (
+                          <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                            {option.label}
+                          </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth size="small">
                       <InputLabel sx={{ fontSize: '0.75rem' }}>Priority</InputLabel>
                       <Select
@@ -1024,7 +1121,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Customer Selection */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
                       <BusinessIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1065,9 +1162,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                       sx={{ 
                         bgcolor: 'background.paper', 
                         boxShadow: 1,
-                        width: 28,
-                        height: 28,
-                        '& .MuiSvgIcon-root': { fontSize: '1rem' }
+                        width: isMobile ? 32 : 36,
+                        height: isMobile ? 32 : 36,
+                        '& .MuiSvgIcon-root': { fontSize: isMobile ? '0.9rem' : '1rem' }
                       }}
                     >
                       <SwapHoriz />
@@ -1095,7 +1192,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Depot Distance Fields */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
                       <RouteIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1105,7 +1202,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
 
                     <Grid container spacing={1.5}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="From Depot (km)"
@@ -1127,7 +1224,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="To Depot (km)"
@@ -1171,7 +1268,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Schedule */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" spacing={0.75} mb={1.5}>
                       <ScheduleIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1180,7 +1277,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
 
                     <Grid container spacing={1.5}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <DateTimePicker
                           label="Planned Start Date & Time *"
                           value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
@@ -1197,7 +1294,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <DateTimePicker
                           label="Planned End Date & Time"
                           value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
@@ -1213,7 +1310,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <TextField
                           fullWidth
                           label="Est. Duration (hours)"
@@ -1227,7 +1324,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <TextField
                           fullWidth
                           label="Planned Distance (km)"
@@ -1241,7 +1338,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <TextField
                           fullWidth
                           label="Planned Duration (hours)"
@@ -1261,7 +1358,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Assignment */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" spacing={0.75} mb={1.5}>
                       <DirectionsCar fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1270,7 +1367,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
 
                     <Grid container spacing={1.5}>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
                           <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
                           <Select
@@ -1280,16 +1377,16 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             sx={{ fontSize: '0.75rem' }}
                           >
                             <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select vehicle</em></MenuItem>
-                            {vehicles.map(v => (
-                              <MenuItem key={v.id} value={v.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                                {v.registrationNumber} - {v.make} {v.model}
+                            {vehicleOptions.map(v => (
+                              <MenuItem key={v.value} value={v.value} sx={{ fontSize: '0.75rem' }}>
+                                {v.label}
                               </MenuItem>
                             ))}
                           </Select>
                           {formErrors.vehicleId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.vehicleId}</FormHelperText>}
                         </FormControl>
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
                           <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
                           <Select
@@ -1299,16 +1396,16 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             sx={{ fontSize: '0.75rem' }}
                           >
                             <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select driver</em></MenuItem>
-                            {drivers.map(d => (
-                              <MenuItem key={d.id} value={d.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                                {d.firstName} {d.lastName}
+                            {driverOptions.map(d => (
+                              <MenuItem key={d.value} value={d.value} sx={{ fontSize: '0.75rem' }}>
+                                {d.label}
                               </MenuItem>
                             ))}
                           </Select>
                           {formErrors.driverId && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.driverId}</FormHelperText>}
                         </FormControl>
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <FormControl fullWidth size="small">
                           <InputLabel sx={{ fontSize: '0.75rem' }}>Supervisor</InputLabel>
                           <Select
@@ -1318,9 +1415,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             sx={{ fontSize: '0.75rem' }}
                           >
                             <MenuItem value="" sx={{ fontSize: '0.75rem' }}><em>Select supervisor</em></MenuItem>
-                            {supervisors.map(s => (
-                              <MenuItem key={s.id} value={s.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                                {s.firstName} {s.lastName}
+                            {supervisorOptions.map(s => (
+                              <MenuItem key={s.value} value={s.value} sx={{ fontSize: '0.75rem' }}>
+                                {s.label}
                               </MenuItem>
                             ))}
                           </Select>
@@ -1332,7 +1429,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Commodity & Cargo */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" spacing={0.75} mb={1.5}>
                       <Description fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1341,7 +1438,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
 
                     <Grid container spacing={1.5}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <FormControl fullWidth size="small" required error={!!formErrors.commodityType}>
                           <InputLabel sx={{ fontSize: '0.75rem' }}>Commodity Type *</InputLabel>
                           <Select
@@ -1358,7 +1455,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           {formErrors.commodityType && <FormHelperText sx={{ fontSize: '0.65rem' }}>{formErrors.commodityType}</FormHelperText>}
                         </FormControl>
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Cargo Description"
@@ -1368,7 +1465,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <TextField
                           fullWidth
                           label="Weight (kg)"
@@ -1383,7 +1480,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <TextField
                           fullWidth
                           label="Value (ZAR)"
@@ -1397,7 +1494,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid item xs={12} sm={4}>
                         <TextField
                           fullWidth
                           label="Pallet Count"
@@ -1417,7 +1514,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Financial Estimates */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" spacing={0.75} mb={1.5}>
                       <Receipt fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1426,7 +1523,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
 
                     <Grid container spacing={1.5}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Est. Toll Cost (ZAR)"
@@ -1440,7 +1537,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Est. Other Expenses (ZAR)"
@@ -1460,7 +1557,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Notes */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" spacing={0.75} mb={1.5}>
                       <Comment fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1469,7 +1566,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
 
                     <Grid container spacing={1.5}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Reference Number"
@@ -1479,7 +1576,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Purchase Order Number"
@@ -1519,7 +1616,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
                 {/* Status */}
                 <Card variant="outlined">
-                  <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
                     <Stack direction="row" spacing={0.75} mb={1.5}>
                       <AssignmentIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                       <Typography variant="subtitle2" fontWeight="600" sx={{ fontSize: '0.8rem' }}>
@@ -1528,7 +1625,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Stack>
 
                     <Grid container spacing={1.5}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <FormControl fullWidth size="small">
                           <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
                           <Select
@@ -1537,13 +1634,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             onChange={(e) => handleFieldChange('status', e.target.value)}
                             sx={{ fontSize: '0.75rem' }}
                           >
-                            {STATUS_OPTIONS.map(s => (
-                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
+                            {statusOptions.map(option => (
+                              <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                                {option.label}
+                              </MenuItem>
                             ))}
                           </Select>
                         </FormControl>
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <FormControl fullWidth size="small">
                           <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
                           <Select
@@ -1552,8 +1651,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
                             sx={{ fontSize: '0.75rem' }}
                           >
-                            {APPROVAL_STATUS_OPTIONS.map(s => (
-                              <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{s}</MenuItem>
+                            {approvalOptions.map(option => (
+                              <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                                {option.label}
+                              </MenuItem>
                             ))}
                           </Select>
                         </FormControl>
@@ -1565,28 +1666,6 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
             </>
           )}
         </DialogContent>
-
-        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', p: 1.5 }}>
-          <Button 
-            startIcon={<Close />} 
-            onClick={onClose} 
-            disabled={submitting}
-            size="small"
-            sx={{ fontSize: '0.8rem' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
-            disabled={submitting || loading || isSuccess}
-            size="small"
-            sx={{ fontSize: '0.8rem' }}
-          >
-            {submitting ? 'Saving...' : isSuccess ? '✓ Saved' : (mode === 'create' ? 'Create Trip' : 'Update Trip')}
-          </Button>
-        </DialogActions>
       </Dialog>
     </LocalizationProvider>
   );
