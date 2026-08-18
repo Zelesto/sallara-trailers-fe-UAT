@@ -813,6 +813,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
+      setError('Please fix the validation errors before submitting.');
       return;
     }
 
@@ -827,9 +828,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
       const payload = {
         tripType: form.tripType,
-        status: form.status,
+        status: form.status || 'PLANNED',
         approvalStatus: form.approvalStatus || 'PENDING',
-        priority: form.priority,
+        priority: form.priority || 'MEDIUM',
 
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
@@ -909,44 +910,66 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
       setIsSuccess(true);
 
+      // ============================================================
+      // FIX: Properly handle onSuccess and refresh
+      // ============================================================
+      console.log('📤 Calling onSuccess with result ID:', result.id);
+      
+      // First, call onSuccess if provided
       if (onSuccess) {
-        console.log('📤 Calling onSuccess with result ID:', result.id);
         onSuccess(result);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Then, refresh the trip list if fetchTrips is provided
       if (fetchTrips) {
-        await new Promise(resolve => setTimeout(resolve, 500));
         console.log('🔄 Refreshing trip list...');
         try {
+          // Wait a moment for the backend to process
+          await new Promise(resolve => setTimeout(resolve, 500));
           await fetchTrips();
-          console.log('✅ Trip list refreshed');
+          console.log('✅ Trip list refreshed successfully');
         } catch (refreshError) {
           console.error('⚠️ Error refreshing trip list:', refreshError);
         }
       }
 
+      // Close the dialog after a delay
       setTimeout(() => {
-        if (onClose) onClose();
+        if (onClose) {
+          console.log('🔚 Closing dialog');
+          onClose();
+        }
       }, 1500);
 
     } catch (err) {
       console.error('❌ Trip error:', err);
+      
+      // Check if it's a race condition (trip was created but not found on refresh)
+      if (err.response?.status === 404 && err.response?.data?.detail?.includes('Trip not found')) {
+        console.warn('⚠️ Trip was created but not found on refresh - race condition');
+        setSuccessMessage('Trip created successfully!');
+        setIsSuccess(true);
+        
+        // Still try to refresh if fetchTrips is provided
+        if (fetchTrips) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await fetchTrips();
+          } catch (refreshError) {
+            console.error('⚠️ Error refreshing trip list after race condition:', refreshError);
+          }
+        }
+        
+        setTimeout(() => {
+          if (onClose) onClose();
+        }, 1500);
+        setSubmitting(false);
+        return;
+      }
+
       let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
 
-      if (err.response?.status === 404) {
-        if (err.response?.data?.detail?.includes('Trip not found')) {
-          console.warn('⚠️ Trip was created but not found on refresh - race condition');
-          setSuccessMessage('Trip created successfully!');
-          setIsSuccess(true);
-          setTimeout(() => {
-            if (onClose) onClose();
-          }, 1500);
-          setSubmitting(false);
-          return;
-        }
-        errorMessage = 'Resource not found. The trip may have been created but is not yet available.';
-      } else if (err.response?.status === 409) {
+      if (err.response?.status === 409) {
         errorMessage = 'Duplicate trip detected.';
       } else if (err.response?.status === 400) {
         errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
