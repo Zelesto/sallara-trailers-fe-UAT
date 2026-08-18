@@ -1,956 +1,937 @@
 // src/pages/TripList.jsx
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import dayjs from 'dayjs';
-import { tripService } from '../services/tripService';
-import TripNoticeWizard from '../components/TripNoticeWizard';
-import TripForm from './TripForm';
-import TripMetricsForm from './TripMetricsForm';
-import TripDetails from './TripDetails';
-
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Typography, CircularProgress, Box, Select, MenuItem, FormControl, InputLabel,
-  Chip, IconButton, Button, Card, CardContent, Tooltip,
-  TablePagination, TextField, Alert, Stack, Popover, Divider,
-  Avatar, LinearProgress, Badge, Collapse, Fade, Grow,
+  Box,
+  Button,
+  IconButton,
+  Tooltip,
+  Chip,
+  TextField,
+  InputAdornment,
+  Stack,
+  Paper,
+  Typography,
   Grid,
+  Alert,
+  CircularProgress,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
-
 import {
-  Add, Edit, Delete, Visibility, CheckCircle, Refresh,
-  Search as SearchIcon, Dashboard, PlayArrow, Stop,
-  Warning as WarningIcon, LocationCity,
-  Person as PersonIcon, Business as BusinessIcon,
-  Receipt, Assignment, DirectionsCar,
-  ArrowBack, Close, FilterList, Clear,
-  Route as RouteIcon, CalendarToday, Speed, LocalGasStation,
-  Star, StarBorder, MoreVert, Download, Print,
+  Add as AddIcon,
+  Search as SearchIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  Refresh as RefreshIcon,
+  FileDownload as ExportIcon,
+  DirectionsCar,
+  Person,
+  LocationOn,
+  Schedule as ScheduleIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Pending as PendingIcon,
 } from '@mui/icons-material';
+import { DataGrid } from '@mui/x-data-grid';
+import { tripService } from '../services/tripService';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
-/* ============================================================
-   CONSTANTS & CONFIGURATIONS
-   ============================================================ */
+// ============================================================
+// STAT CARD COMPONENT (Matches Dashboard)
+// ============================================================
+const StatCard = React.memo(({
+  title,
+  value,
+  icon: Icon,
+  color = 'primary',
+  subtitle,
+}) => {
+  const colors = {
+    primary: '#4F46E5',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6',
+    purple: '#8B5CF6',
+  };
 
-export const STATUS_CONFIG = {
-  DRAFT: { color: '#9e9e9e', bgColor: '#f5f5f5', label: 'Draft', icon: '✏️' },
-  PLANNED: { color: '#0288d1', bgColor: '#e3f2fd', label: 'Planned', icon: '📅' },
-  ASSIGNED: { color: '#7b1fa2', bgColor: '#f3e5f5', label: 'Assigned', icon: '👤' },
-  IN_PROGRESS: { color: '#ed6c02', bgColor: '#fff3e0', label: 'In Progress', icon: '🚚' },
-  ACTIVE: { color: '#2e7d32', bgColor: '#e8f5e8', label: 'Active', icon: '✅' },
-  PENDING: { color: '#ff9800', bgColor: '#fff3e0', label: 'Pending', icon: '⏳' },
-  COMPLETED: { color: '#0097a7', bgColor: '#e0f7fa', label: 'Completed', icon: '🏁' },
-  CANCELLED: { color: '#d32f2f', bgColor: '#ffebee', label: 'Cancelled', icon: '❌' },
-  CLOSED: { color: '#5d4037', bgColor: '#efebe9', label: 'Closed', icon: '🔒' },
-  FINALIZED: { color: '#388e3c', bgColor: '#e8f5e8', label: 'Finalized', icon: '📊' }
-};
+  const getColor = (c) => colors[c] || colors.primary;
+  const getColorBg = (c) => {
+    const bgColors = {
+      primary: '#EEF2FF',
+      success: '#D1FAE5',
+      warning: '#FEF3C7',
+      error: '#FEE2E2',
+      info: '#DBEAFE',
+      purple: '#EDE9FE',
+    };
+    return bgColors[c] || bgColors.primary;
+  };
 
-export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
 
-const STATUS_KEYS = {
-  CAN_START: ['PLANNED', 'ASSIGNED', 'DRAFT'],
-  CAN_END: ['IN_PROGRESS', 'ACTIVE'],
-  CAN_REPORT_INCIDENT: ['IN_PROGRESS', 'ACTIVE'],
-  CAN_FINALIZE: ['COMPLETED'],
-  CAN_EDIT: ['DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 'ACTIVE', 'PENDING'],
-  CAN_DELETE: ['DRAFT', 'PLANNED', 'ASSIGNED', 'PENDING']
-};
-
-/* ============================================================
-   UI COMPONENTS
-   ============================================================ */
-
-const StatusChip = ({ status }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
-  
   return (
-    <Chip
-      label={config.label}
-      size="small"
+    <Paper
+      elevation={0}
       sx={{
-        backgroundColor: config.bgColor,
-        color: config.color,
-        fontWeight: 600,
-        fontSize: '0.65rem',
-        height: 22,
-        border: `1px solid ${config.color}20`,
-        '& .MuiChip-label': { px: 1, py: 0.25 },
-        '& .MuiChip-icon': { fontSize: '0.8rem', ml: 0.5 }
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        height: '100%',
+        width: '100%',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+          borderColor: iconColor,
+        },
       }}
-      icon={<span>{config.icon}</span>}
-    />
-  );
-};
-
-const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
-  
-  const displayCity = city || 
-    (fullAddress ? fullAddress.split(',')[0] : null) || 
-    'No location provided';
-  
-  const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => setAnchorEl(null);
-  
-  return (
-    <>
-      <Box 
-        onClick={handleClick}
-        sx={{ 
-          cursor: 'pointer',
-          '&:hover': { textDecoration: 'underline', color: 'primary.main' }
-        }}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.25}>
-          <LocationCity sx={{ fontSize: 12, color: 'text.secondary' }} />
-          <Typography sx={{ fontSize: '0.75rem' }}>{displayCity}</Typography>
-        </Stack>
-      </Box>
-      
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-      >
-        <Box sx={{ p: 1.5, maxWidth: 280 }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '0.8rem' }} gutterBottom>
-            {type === 'origin' ? '📍 Origin Details' : '🏁 Destination Details'}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: '#6B7280',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              letterSpacing: '0.5px',
+              display: 'block',
+              mb: 0.25,
+            }}
+          >
+            {title}
           </Typography>
-          <Divider sx={{ my: 0.75 }} />
-          <Stack spacing={0.75}>
-            <InfoRow label="City" value={displayCity} />
-            {zipCode && <InfoRow label="Postal Code" value={zipCode} />}
-            {province && <InfoRow label="Province" value={province} />}
-            {fullAddress && <InfoRow label="Full Address" value={fullAddress} />}
-          </Stack>
+          
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 700,
+              color: '#111827',
+              fontSize: { 
+                xs: '1.2rem', 
+                sm: '1.4rem', 
+                md: '1.6rem', 
+                lg: '1.8rem' 
+              },
+              lineHeight: 1.2,
+            }}
+          >
+            {value || 0}
+          </Typography>
+          
+          {subtitle && (
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#6B7280',
+                display: 'block',
+                mt: 0.25,
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              }}
+            >
+              {subtitle}
+            </Typography>
+          )}
         </Box>
-      </Popover>
-    </>
+
+        <Box
+          sx={{
+            bgcolor: bgColor,
+            borderRadius: { xs: '10px', sm: '12px' },
+            p: { xs: 1, sm: 1.25, md: 1.5 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Icon sx={{ 
+            color: iconColor, 
+            fontSize: { 
+              xs: '1.2rem', 
+              sm: '1.4rem', 
+              md: '1.6rem' 
+            },
+          }} />
+        </Box>
+      </Stack>
+    </Paper>
   );
-};
+});
 
-const InfoRow = ({ label, value }) => (
-  <Box>
-    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-      {label}
-    </Typography>
-    <Typography variant="body2" sx={{ fontSize: '0.75rem', wordBreak: 'break-word' }}>
-      {value}
-    </Typography>
-  </Box>
-);
+// ============================================================
+// MAIN COMPONENT: TripList
+// ============================================================
+const TripList = () => {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-const StatCard = ({ title, value, subtitle, icon, color = '#4F46E5', loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2,
-      borderRadius: '12px',
-      border: '1px solid #ECECEC',
-      backgroundColor: '#FFFFFF',
-      height: '100%',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        transform: 'translateY(-2px)',
-      },
-    }}
-  >
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-      <Box>
-        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.5px' }}>
-          {title}
-        </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mt: 0.5 }}>
-          {value || 'N/A'}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: '0.65rem' }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      <Box
-        sx={{
-          bgcolor: `${color}15`,
-          borderRadius: '10px',
-          p: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {icon}
-      </Box>
-    </Stack>
-  </Paper>
-);
-
-const useSimpleNotification = () => {
-  const [notification, setNotification] = useState(null);
-  const showNotification = useCallback((message, type = 'info') => {
-    setNotification({ message, type });
-    const timer = setTimeout(() => setNotification(null), 3000);
-    return () => clearTimeout(timer);
-  }, []);
-  return { notification, showNotification };
-};
-
-/* ============================================================
-   MAIN COMPONENT
-   ============================================================ */
-
-function TripList() {
-  const { notification, showNotification } = useSimpleNotification();
-  
+  // State
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [cityFilter, setCityFilter] = useState('');
-  const [customerFilter, setCustomerFilter] = useState('');
-  const [selectedTrip, setSelectedTrip] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showMetricsModal, setShowMetricsModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showNoticeWizard, setShowNoticeWizard] = useState(false);
-  const [selectedTripForNotice, setSelectedTripForNotice] = useState(null);
-  const [pagination, setPagination] = useState({ page: 0, pageSize: 10, total: 0 });
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterType, setFilterType] = useState('ALL');
   
-  const fetchTimerRef = useRef(null);
+  // Pagination state
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 20,
+  });
+  const [rowCount, setRowCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const uniqueCities = useMemo(
-    () => [...new Set(trips.map(t => t.originCity).filter(Boolean))],
-    [trips]
-  );
+  // Delete Dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const uniqueCustomers = useMemo(
-    () => [...new Set(trips.map(t => t.customer?.name || t.customerName).filter(Boolean))],
-    [trips]
-  );
+  // Debounce search
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  // ✅ FIXED: fetchTrips with proper status handling
-  const fetchTrips = useCallback(async ({
-    page = 0,
-    size = pagination.pageSize,
-    search = searchText,
-    status = statusFilter,
-    city = cityFilter,
-    customer = customerFilter
-  } = {}) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Load trips
+  const loadTrips = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       const params = {
-        page: Number(page),
-        size: Number(size),
-        sort: 'id,desc',
+        page: paginationModel.page,
+        size: paginationModel.pageSize,
+        sort: 'createdAt,desc',
       };
       
-      // ✅ Only add status if it's not 'all' and has a value
-      if (status && status !== 'all' && status !== 'undefined') {
-        params.status = status;
+      if (filterStatus !== 'ALL') {
+        params.status = filterStatus;
       }
       
-      if (search) params.search = search;
-      if (city) params.city = city;
-      if (customer) params.customer = customer;
-
-      console.log('📤 Fetching trips with params:', params);
+      if (debouncedSearchTerm) {
+        params.search = debouncedSearchTerm;
+      }
 
       const response = await tripService.getAllTrips(params);
       
-      console.log('📥 Response:', {
-        page: response.number,
-        totalElements: response.totalElements,
-        totalPages: response.totalPages,
-        contentLength: response.content?.length
-      });
-
-      // ✅ DEBUG: Log first trip to check driver data
-      if (response.content && response.content.length > 0) {
-        console.log('🔍 First trip sample:', response.content[0]);
-        console.log('🔍 Driver data in first trip:', {
-          driver: response.content[0].driver,
-          driverId: response.content[0].driverId,
-          driverName: response.content[0].driverName,
-          assignedDriver: response.content[0].assignedDriver
-        });
-      }
-
-      setTrips(response.content || []);
-      setPagination({
-        page: response.number ?? page,
-        pageSize: response.size ?? size,
-        total: response.totalElements ?? 0
-      });
+      const data = response?.content || [];
+      const total = response?.totalElements || 0;
+      const pages = response?.totalPages || 0;
+      
+      const transformedData = data.map(trip => ({
+        ...trip,
+        status: trip.status || 'DRAFT',
+        tripType: trip.tripType || 'FREIGHT',
+        driverName: trip.driver?.name || trip.driverName || 'Unassigned',
+        vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleReg || 'N/A',
+        customerName: trip.customer?.name || trip.customerName || 'N/A',
+        originCity: trip.originCity || trip.origin?.city || 'N/A',
+        destinationCity: trip.destinationCity || trip.destination?.city || 'N/A',
+      }));
+      
+      setTrips(transformedData);
+      setRowCount(total);
+      setTotalPages(pages);
     } catch (err) {
-      console.error('Error fetching trips:', err);
-      showNotification('Failed to load trips', 'error');
-      setTrips([]);
+      console.error('Error loading trips:', err);
+      setError('Failed to load trips');
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
+  }, [paginationModel.page, paginationModel.pageSize, filterStatus, debouncedSearchTerm]);
 
-
-  // ✅ FIXED: Initial fetch with no filters
   useEffect(() => {
-    fetchTrips({ page: 0, status: 'all' });
-  }, []);
+    loadTrips();
+  }, [loadTrips]);
 
-  // ✅ FIXED: Debounced filter changes
-  useEffect(() => {
-    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
-    fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
-    return () => clearTimeout(fetchTimerRef.current);
-  }, [searchText, statusFilter, cityFilter, customerFilter]);
-
-  // ✅ FIXED: handleStartTrip function (was missing)
-  const handleStartTrip = (trip) => {
-    if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
-    
-    const startOdometer = prompt('Enter starting odometer reading (km):');
-    if (!startOdometer) return;
-
-    tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
-      .then(() => {
-        showNotification('Trip started successfully!', 'success');
-        fetchTrips({ page: pagination.page });
-      })
-      .catch(err => {
-        console.error('Error starting trip:', err);
-        showNotification(err.message || 'Failed to start trip', 'error');
-      });
+  // ============================================================
+  // HANDLERS
+  // ============================================================
+  const handleDeleteClick = (id) => {
+    setDeleteId(id);
+    setDeleteDialogOpen(true);
   };
 
-  const handleEndTrip = (trip) => {
-    if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
-    
-    const endOdometer = prompt('Enter ending odometer reading (km):');
-    if (!endOdometer) return;
-
-    const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
-    
-    tripService.endTrip(trip.id, {
-      actualEndOdometer: parseFloat(endOdometer),
-      endReason: endReason || 'COMPLETED'
-    })
-      .then(() => {
-        showNotification('Trip ended successfully!', 'success');
-        fetchTrips({ page: pagination.page });
-      })
-      .catch(err => {
-        console.error('Error ending trip:', err);
-        showNotification(err.message || 'Failed to end trip', 'error');
-      });
-  };
-
-  const handleOpenNoticeWizard = (trip) => {
-    setSelectedTripForNotice(trip);
-    setShowNoticeWizard(true);
-  };
-
-  const handleCloseNoticeWizard = () => {
-    setShowNoticeWizard(false);
-    setSelectedTripForNotice(null);
-    fetchTrips({ page: pagination.page });
-  };
-
-   const handleMetricsSuccess = () => {
-    console.log('🔄 Metrics updated, refreshing trip list...');
-    setShowMetricsModal(false);
-    // Force refresh with current page
-    setTimeout(() => {
-      fetchTrips({ page: pagination.page });
-      showNotification('Trip metrics updated successfully!', 'success');
-    }, 500);
-  };
-  
-  const handleViewTrip = (trip) => {
-    setSelectedTrip(trip);
-    setShowDetailsModal(true);
-  };
-
-  const handleEditTrip = (trip) => {
-    setSelectedTrip(trip);
-    setShowEditModal(true);
-  };
-
-  const handleOpenMetrics = (trip) => {
-    console.log('📊 Opening metrics for trip:', trip.id);
-    setSelectedTrip(trip);
-    setShowMetricsModal(true);
-  };
-
-  const handleFinalizeTrip = async (trip) => {
-    if (!window.confirm('Are you sure you want to finalize this trip?')) return;
-    
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
     try {
-      await tripService.finalizeTrip(trip.id);
-      showNotification('Trip finalized successfully!', 'success');
-      fetchTrips({ page: pagination.page });
+      await tripService.deleteTrip(deleteId);
+      setDeleteDialogOpen(false);
+      setDeleteId(null);
+      setSuccessMessage('Trip deleted successfully');
+      loadTrips();
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      console.error('Error finalizing trip:', err);
-      showNotification('Failed to finalize trip', 'error');
+      setError('Failed to delete trip');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const handleDeleteTrip = async (trip) => {
-    if (!window.confirm('Are you sure you want to delete this trip? This action cannot be undone.')) return;
-    
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setDeleteId(null);
+  };
+
+  const handleEditClick = (tripId) => {
+    navigate(`/trips/${tripId}/edit`);
+  };
+
+  const handleViewClick = (tripId) => {
+    navigate(`/trips/${tripId}`);
+  };
+
+  const handlePaginationModelChange = (newModel) => {
+    setPaginationModel(newModel);
+  };
+
+  const handleRefresh = () => {
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    loadTrips();
+  };
+
+  const handleExport = async () => {
     try {
-      await tripService.deleteTrip(trip.id);
-      showNotification('Trip deleted successfully', 'success');
-      fetchTrips({ page: 0 });
-    } catch (err) {
-      console.error('Error deleting trip:', err);
-      showNotification('Failed to delete trip', 'error');
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://sallara-trailers-be-UAT.onrender.com/api';
+      const timestamp = new Date().getTime();
+      const exportUrl = `${baseUrl}/trips/export?format=csv&_t=${timestamp}`;
+      window.open(exportUrl, '_blank');
+    } catch (error) {
+      console.error('Error exporting trips:', error);
+      setError('Failed to export trips. Please try again.');
     }
   };
 
-  // ✅ FIXED: Clear filters resets to 'all'
-  const handleClearFilters = () => {
-    setSearchText('');
-    setStatusFilter('all');
-    setCityFilter('');
-    setCustomerFilter('');
-  };
-
-   const handleModalClose = (callback) => () => {
-    callback();
-    // ✅ Force refresh after modal closes
-    setTimeout(() => {
-      fetchTrips({ page: pagination.page });
-    }, 300);
-  };
-
- const getTripDisplay = (trip) => {
-    // DEBUG: Log trip for driver data
-    console.log('🔍 getTripDisplay - Trip:', {
-      id: trip.id,
-      tripNumber: trip.tripNumber,
-      driver: trip.driver,
-      driverId: trip.driverId,
-      driverName: trip.driverName,
-      assignedDriver: trip.assignedDriver
-    });
-
-    let driverName = 'N/A';
-    
-    // Check for nested driver object
-    if (trip.driver) {
-      if (trip.driver.firstName || trip.driver.lastName) {
-        driverName = `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim();
-      } else if (trip.driver.name) {
-        driverName = trip.driver.name;
-      } else if (trip.driver.fullName) {
-        driverName = trip.driver.fullName;
-      } else if (typeof trip.driver === 'string') {
-        driverName = trip.driver;
-      }
-    }
-    
-    // If no driver object, check for direct fields
-    if (driverName === 'N/A' || !driverName) {
-      driverName = trip.driverName || trip.driver_name || trip.assignedDriver || 'N/A';
-    }
-
-    return {
-      customerName: trip.customer?.name || trip.customerName || 'N/A',
-      vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleRegistration || 'N/A',
-      driverName: driverName,
-      canStart: STATUS_KEYS.CAN_START.includes(trip.status),
-      canEnd: STATUS_KEYS.CAN_END.includes(trip.status),
-      canReport: STATUS_KEYS.CAN_REPORT_INCIDENT.includes(trip.status),
-      canFinalize: STATUS_KEYS.CAN_FINALIZE.includes(trip.status),
-      canEdit: STATUS_KEYS.CAN_EDIT.includes(trip.status),
-      canDelete: STATUS_KEYS.CAN_DELETE.includes(trip.status)
+  // ============================================================
+  // COLUMNS
+  // ============================================================
+  const getStatusChip = (status) => {
+    const statusMap = {
+      PLANNED: { color: 'info', label: 'Planned', icon: <ScheduleIcon sx={{ fontSize: '0.7rem' }} /> },
+      ASSIGNED: { color: 'primary', label: 'Assigned', icon: <DirectionsCar sx={{ fontSize: '0.7rem' }} /> },
+      IN_PROGRESS: { color: 'warning', label: 'In Progress', icon: <PendingIcon sx={{ fontSize: '0.7rem' }} /> },
+      ACTIVE: { color: 'warning', label: 'Active', icon: <PendingIcon sx={{ fontSize: '0.7rem' }} /> },
+      COMPLETED: { color: 'success', label: 'Completed', icon: <CheckCircleIcon sx={{ fontSize: '0.7rem' }} /> },
+      CANCELLED: { color: 'error', label: 'Cancelled', icon: <CancelIcon sx={{ fontSize: '0.7rem' }} /> },
+      DRAFT: { color: 'default', label: 'Draft', icon: null },
     };
+    const info = statusMap[status] || { color: 'default', label: status || 'Unknown', icon: null };
+    return (
+      <Chip
+        size="small"
+        label={info.label}
+        color={info.color}
+        icon={info.icon}
+        sx={{ 
+          fontWeight: 500,
+          fontSize: { xs: '0.5rem', sm: '0.65rem' },
+          height: { xs: 16, sm: 20 },
+          '& .MuiChip-label': { px: { xs: 0.5, sm: 1 }, py: 0.25 },
+          '& .MuiChip-icon': { fontSize: { xs: '0.6rem', sm: '0.7rem' }, ml: 0.5 }
+        }}
+      />
+    );
   };
 
-  const getTripCounts = useMemo(() => {
-    const counts = { total: trips.length };
-    trips.forEach(t => {
-      counts[t.status] = (counts[t.status] || 0) + 1;
-    });
-    return counts;
-  }, [trips]);
-
-  if (loading && trips.length === 0) {
+  const getTripTypeChip = (type) => {
+    const typeMap = {
+      FREIGHT: { color: 'primary', label: 'Freight' },
+      RETURN: { color: 'success', label: 'Return' },
+      EMPTY: { color: 'warning', label: 'Empty' },
+      PROJECT: { color: 'purple', label: 'Project' },
+    };
+    const info = typeMap[type] || { color: 'default', label: type || 'N/A' };
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={40} />
-      </Box>
+      <Chip
+        size="small"
+        label={info.label}
+        color={info.color}
+        variant="outlined"
+        sx={{ 
+          fontSize: { xs: '0.45rem', sm: '0.6rem' },
+          height: { xs: 14, sm: 18 },
+        }}
+      />
     );
-  }
+  };
 
-  return (
-    <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
-      <Box sx={{ maxWidth: '1440px', margin: '0 auto' }}>
-        {notification && (
-          <Alert 
-            severity={notification.type} 
-            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }}
-            onClose={() => setNotification(null)}
+  const columns = useMemo(() => [
+    {
+      field: 'tripNumber',
+      headerName: 'Trip #',
+      width: isMobile ? 90 : 140,
+      headerClassName: 'trip-header',
+      renderCell: (params) => (
+        <Typography 
+          variant="body2" 
+          fontWeight={600} 
+          color="primary" 
+          sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
+        >
+          #{params.value || 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'tripType',
+      headerName: 'Type',
+      width: isMobile ? 65 : 90,
+      headerClassName: 'trip-header',
+      renderCell: (params) => getTripTypeChip(params.value),
+    },
+    {
+      field: 'customerName',
+      headerName: 'Customer',
+      flex: 1,
+      minWidth: isMobile ? 80 : 120,
+      headerClassName: 'trip-header',
+      renderCell: (params) => (
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            fontSize: { xs: '0.6rem', sm: '0.75rem' },
+            fontWeight: 500,
+          }}
+        >
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'driverName',
+      headerName: 'Driver',
+      width: isMobile ? 90 : 140,
+      headerClassName: 'trip-header',
+      renderCell: (params) => (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Person sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#6B7280' }} />
+          <Typography 
+            variant="body2" 
+            sx={{ fontSize: { xs: '0.55rem', sm: '0.75rem' } }}
           >
-            {notification.message}
-          </Alert>
-        )}
+            {params.value}
+          </Typography>
+        </Stack>
+      ),
+    },
+    {
+      field: 'vehicleReg',
+      headerName: 'Vehicle',
+      width: isMobile ? 70 : 100,
+      headerClassName: 'trip-header',
+      renderCell: (params) => (
+        <Chip
+          size="small"
+          label={params.value}
+          variant="outlined"
+          sx={{ 
+            fontSize: { xs: '0.45rem', sm: '0.6rem' },
+            height: { xs: 14, sm: 18 },
+          }}
+        />
+      ),
+    },
+    {
+      field: 'originCity',
+      headerName: 'Origin',
+      width: isMobile ? 70 : 110,
+      headerClassName: 'trip-header',
+      renderCell: (params) => (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <LocationOn sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#6B7280' }} />
+          <Typography 
+            variant="body2" 
+            sx={{ fontSize: { xs: '0.55rem', sm: '0.75rem' } }}
+          >
+            {params.value}
+          </Typography>
+        </Stack>
+      ),
+    },
+    {
+      field: 'destinationCity',
+      headerName: 'Dest',
+      width: isMobile ? 70 : 110,
+      headerClassName: 'trip-header',
+      renderCell: (params) => (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <LocationOn sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#6B7280' }} />
+          <Typography 
+            variant="body2" 
+            sx={{ fontSize: { xs: '0.55rem', sm: '0.75rem' } }}
+          >
+            {params.value}
+          </Typography>
+        </Stack>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: isMobile ? 90 : 120,
+      headerClassName: 'trip-header',
+      renderCell: (params) => getStatusChip(params.value),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: isMobile ? 100 : 120,
+      sortable: false,
+      filterable: false,
+      headerClassName: 'trip-header',
+      renderCell: (params) => (
+        <Stack direction="row" spacing={0.25}>
+          <Tooltip title="View">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => handleViewClick(params.row.id)}
+              sx={{ p: { xs: 0.25, sm: 0.5 } }}
+            >
+              <ViewIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              color="secondary"
+              onClick={() => handleEditClick(params.row.id)}
+              sx={{ p: { xs: 0.25, sm: 0.5 } }}
+            >
+              <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => handleDeleteClick(params.row.id)}
+              sx={{ p: { xs: 0.25, sm: 0.5 } }}
+            >
+              <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
+    },
+  ], [isMobile]);
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
-          <Box>
-            <Typography variant="h5" fontWeight="700" sx={{ fontSize: '1.25rem' }}>
-              Trip Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-              Manage and track all trips • {pagination.total} total trips
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1}>
-            <Button
-              startIcon={<Refresh sx={{ fontSize: '0.9rem' }} />}
-              onClick={() => fetchTrips({ page: pagination.page })}
-              variant="outlined"
-              size="small"
-              sx={{ fontSize: '0.75rem', py: 1, borderRadius: '10px', textTransform: 'none' }}
-            >
-              Refresh
-            </Button>
-            <Button
-              startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-              onClick={() => setShowCreateModal(true)}
-              variant="contained"
-              size="small"
-              sx={{ 
-                fontSize: '0.75rem', 
-                py: 1, 
-                borderRadius: '10px',
-                textTransform: 'none',
-                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
-                },
-              }}
-            >
-              New Trip
-            </Button>
-          </Stack>
+  // ============================================================
+  // STATS
+  // ============================================================
+  const stats = useMemo(() => {
+    const total = rowCount;
+    const active = trips.filter(t => ['ACTIVE', 'IN_PROGRESS', 'ASSIGNED', 'PLANNED'].includes(t.status)).length;
+    const completed = trips.filter(t => t.status === 'COMPLETED').length;
+    const cancelled = trips.filter(t => t.status === 'CANCELLED').length;
+    return { total, active, completed, cancelled };
+  }, [trips, rowCount]);
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  return (
+    <ResponsiveContainer>
+      {/* Header */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        mb={{ xs: 2, sm: 2.5, md: 3 }}
+        spacing={{ xs: 1, sm: 0 }}
+      >
+        <Box>
+          <Typography 
+            variant="h5" 
+            fontWeight="700" 
+            sx={{ 
+              fontSize: { 
+                xs: '1.1rem', 
+                sm: '1.3rem', 
+                md: '1.4rem', 
+                lg: '1.5rem' 
+              } 
+            }}
+          >
+            Trips
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: { 
+                xs: '0.7rem', 
+                sm: '0.8rem', 
+                md: '0.85rem' 
+              } 
+            }}
+          >
+            Manage and track all trips
+          </Typography>
         </Box>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+            onClick={() => navigate('/trips/new')}
+            size="small"
+            sx={{
+              borderRadius: '10px',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              textTransform: 'none',
+              py: { xs: 0.5, sm: 0.75 },
+              px: { xs: 1.5, sm: 2 },
+            }}
+          >
+            {isMobile ? 'New' : 'Create Trip'}
+          </Button>
+        </Stack>
+      </Stack>
 
-        {/* Stats Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Total Trips"
-              value={pagination.total}
-              subtitle="All trips"
-              icon={<RouteIcon sx={{ color: '#4F46E5', fontSize: '1.3rem' }} />}
-              color="#4F46E5"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Active"
-              value={getTripCounts.ACTIVE || 0}
-              subtitle="Currently active"
-              icon={<DirectionsCar sx={{ color: '#22C55E', fontSize: '1.3rem' }} />}
-              color="#22C55E"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="In Progress"
-              value={getTripCounts.IN_PROGRESS || 0}
-              subtitle="Ongoing trips"
-              icon={<Speed sx={{ color: '#F59E0B', fontSize: '1.3rem' }} />}
-              color="#F59E0B"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard
-              title="Completed"
-              value={getTripCounts.COMPLETED || 0}
-              subtitle="Finished trips"
-              icon={<CheckCircle sx={{ color: '#8B5CF6', fontSize: '1.3rem' }} />}
-              color="#8B5CF6"
-            />
-          </Grid>
+      {/* Alerts */}
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+          onClose={() => setError(null)}
+        >
+          {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert 
+          severity="success" 
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+          onClose={() => setSuccessMessage('')}
+        >
+          {successMessage}
+        </Alert>
+      )}
+
+      {/* Stats Cards */}
+      <Grid 
+        container 
+        spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+        sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}
+      >
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Total Trips"
+            value={stats.total}
+            icon={ScheduleIcon}
+            color="primary"
+          />
         </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Active"
+            value={stats.active}
+            icon={DirectionsCar}
+            color="warning"
+            subtitle="In progress"
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Completed"
+            value={stats.completed}
+            icon={CheckCircleIcon}
+            color="success"
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Cancelled"
+            value={stats.cancelled}
+            icon={CancelIcon}
+            color="error"
+          />
+        </Grid>
+      </Grid>
 
-        {/* Filters */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            mb: 3,
-            borderRadius: '16px',
-            border: '1px solid #ECECEC',
-            bgcolor: '#FFFFFF',
-          }}
+      {/* Filters */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          mb: 2,
+          borderRadius: { xs: '12px', sm: '16px' },
+          border: '1px solid #ECECEC',
+          bgcolor: '#FFFFFF',
+          width: '100%',
+        }}
+      >
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          spacing={{ xs: 1, sm: 1.5 }}
         >
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-            <TextField
-              size="small"
-              label="Search"
-              placeholder="Trip #, City, Customer..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon sx={{ mr: 0.5, fontSize: '0.9rem', color: 'text.secondary' }} />
-              }}
-              sx={{ 
-                minWidth: 200, 
-                '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                '& .MuiInputBase-root': { fontSize: '0.8rem', borderRadius: '10px' },
-              }}
-            />
-
-            <FormControl size="small" sx={{ minWidth: 130 }}>
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                label="Status"
-                sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
-              >
-                <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Statuses</MenuItem>
-                {STATUS_OPTIONS.map(status => (
-                  <MenuItem key={status} value={status} sx={{ fontSize: '0.75rem' }}>
-                    {STATUS_CONFIG[status]?.label || status}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {uniqueCities.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>City</InputLabel>
-                <Select
-                  value={cityFilter}
-                  onChange={(e) => setCityFilter(e.target.value)}
-                  label="City"
-                  sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Cities</MenuItem>
-                  {uniqueCities.map(city => (
-                    <MenuItem key={city} value={city} sx={{ fontSize: '0.75rem' }}>{city}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {uniqueCustomers.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Customer</InputLabel>
-                <Select
-                  value={customerFilter}
-                  onChange={(e) => setCustomerFilter(e.target.value)}
-                  label="Customer"
-                  sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Customers</MenuItem>
-                  {uniqueCustomers.map(customer => (
-                    <MenuItem key={customer} value={customer} sx={{ fontSize: '0.75rem' }}>{customer}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            <Button 
-              onClick={handleClearFilters}
-              disabled={!searchText && statusFilter === 'all' && !cityFilter && !customerFilter}
-              variant="outlined"
-              size="small"
-              startIcon={<Clear sx={{ fontSize: '0.8rem' }} />}
-              sx={{ fontSize: '0.7rem', py: 1, borderRadius: '10px', textTransform: 'none' }}
-            >
-              Clear Filters
-            </Button>
-          </Stack>
-        </Paper>
-
-        {/* Table */}
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: '16px',
-            border: '1px solid #ECECEC',
-            overflow: 'hidden',
-            bgcolor: '#FFFFFF',
-          }}
-        >
-          <TableContainer>
-            <Table size="small">
-              <TableHead sx={{ bgcolor: '#F9FAFB' }}>
-                <TableRow>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Trip #</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Customer</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Vehicle</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Driver</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Status</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Origin</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Destination</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Distance</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Date</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {trips.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-                        <Typography variant="body1" color="text.secondary">
-                          {searchText || statusFilter !== 'all' || cityFilter || customerFilter
-                            ? 'No trips match your filters'
-                            : 'No trips found'}
-                        </Typography>
-                        {(searchText || statusFilter !== 'all' || cityFilter || customerFilter) && (
-                          <Button onClick={handleClearFilters} sx={{ mt: 1, fontSize: '0.7rem' }} size="small">
-                            Clear Filters
-                          </Button>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  trips.map(trip => {
-                    const display = getTripDisplay(trip);
-                    
-                    return (
-                      <TableRow key={trip.id} hover sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
-                          <Typography fontWeight="600" sx={{ fontSize: '0.75rem', color: '#4F46E5' }}>
-                            {trip.tripNumber}
-                          </Typography>
-                          {trip.referenceNumber && (
-                            <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#6B7280', display: 'block' }}>
-                              REF: {trip.referenceNumber}
-                            </Typography>
-                          )}
-                        </TableCell>
-
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
-                          {display.customerName !== 'N/A' ? (
-                            <Typography sx={{ fontSize: '0.75rem' }}>{display.customerName}</Typography>
-                          ) : (
-                            <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
-                          )}
-                        </TableCell>
-
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
-                          {display.vehicleReg !== 'N/A' ? (
-                            <Typography sx={{ fontSize: '0.75rem' }}>{display.vehicleReg}</Typography>
-                          ) : (
-                            <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
-                          )}
-                        </TableCell>
-
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
-                        {display.driverName !== 'N/A' ? (
-                          <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <PersonIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-                            <Typography sx={{ fontSize: '0.75rem' }}>{display.driverName}</Typography>
-                          </Stack>
-                        ) : (
-                          <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
-                        )}
-                      </TableCell>
-
-                        <TableCell sx={{ py: 0.5 }}>
-                          <StatusChip status={trip.status} />
-                        </TableCell>
-
-                        <TableCell sx={{ py: 0.5 }}>
-                          <LocationDisplay
-                            city={trip.originCity}
-                            zipCode={trip.originZipCode}
-                            province={trip.originProvince}
-                            fullAddress={trip.originLocation}
-                            type="origin"
-                          />
-                        </TableCell>
-
-                        <TableCell sx={{ py: 0.5 }}>
-                          <LocationDisplay
-                            city={trip.destinationCity}
-                            zipCode={trip.destinationZipCode}
-                            province={trip.destinationProvince}
-                            fullAddress={trip.destinationLocation}
-                            type="destination"
-                          />
-                        </TableCell>
-
-                        <TableCell sx={{ py: 0.5 }}>
-                          {trip.plannedDistanceKm ? (
-                            <Chip
-                              size="small"
-                              label={`${trip.plannedDistanceKm} km`}
-                              variant="outlined"
-                              sx={{ fontSize: '0.65rem', height: 20 }}
-                            />
-                          ) : (
-                            <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>-</Typography>
-                          )}
-                        </TableCell>
-
-                        <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
-                          {trip.plannedStartDate 
-                            ? dayjs(trip.plannedStartDate).format('DD MMM YYYY')
-                            : '-'}
-                        </TableCell>
-
-                        <TableCell sx={{ py: 0.5 }}>
-                          <Box display="flex" gap={0.25} flexWrap="wrap">
-                            {display.canStart && (
-                              <Tooltip title="Start Trip" arrow>
-                                <IconButton size="small" color="success" onClick={() => handleStartTrip(trip)} sx={{ p: 0.5 }}>
-                                  <PlayArrow sx={{ fontSize: '0.9rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {display.canEnd && (
-                              <Tooltip title="End Trip" arrow>
-                                <IconButton size="small" color="error" onClick={() => handleEndTrip(trip)} sx={{ p: 0.5 }}>
-                                  <Stop sx={{ fontSize: '0.9rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {display.canReport && (
-                              <Tooltip title="Add Notice" arrow>
-                                <IconButton size="small" color="warning" onClick={() => handleOpenNoticeWizard(trip)} sx={{ p: 0.5 }}>
-                                  <WarningIcon sx={{ fontSize: '0.9rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            <Tooltip title="View Details" arrow>
-                              <IconButton size="small" onClick={() => handleViewTrip(trip)} sx={{ p: 0.5 }}>
-                                <Visibility sx={{ fontSize: '0.9rem' }} />
-                              </IconButton>
-                            </Tooltip>
-
-                            {display.canEdit && (
-                              <Tooltip title="Edit Trip" arrow>
-                                <IconButton size="small" onClick={() => handleEditTrip(trip)} sx={{ p: 0.5 }}>
-                                  <Edit sx={{ fontSize: '0.9rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            <Tooltip title="Trip Metrics" arrow>
-                              <IconButton size="small" onClick={() => handleOpenMetrics(trip)} sx={{ p: 0.5 }}>
-                                <Dashboard sx={{ fontSize: '0.9rem' }} />
-                              </IconButton>
-                            </Tooltip>
-
-                            {display.canFinalize && (
-                              <Tooltip title="Finalize Trip" arrow>
-                                <IconButton size="small" color="success" onClick={() => handleFinalizeTrip(trip)} sx={{ p: 0.5 }}>
-                                  <CheckCircle sx={{ fontSize: '0.9rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {display.canDelete && (
-                              <Tooltip title="Delete Trip" arrow>
-                                <IconButton size="small" color="error" onClick={() => handleDeleteTrip(trip)} sx={{ p: 0.5 }}>
-                                  <Delete sx={{ fontSize: '0.9rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {trips.length > 0 && (
-            <TablePagination
-              component="div"
-              count={pagination.total}
-              page={pagination.page}
-              onPageChange={(_, newPage) => fetchTrips({ page: newPage })}
-              rowsPerPage={pagination.pageSize}
-              onRowsPerPageChange={(event) => {
-                const newSize = parseInt(event.target.value, 10);
-                fetchTrips({ page: 0, size: newSize });
-              }}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage="Trips per page:"
-              sx={{
-                borderTop: '1px solid #ECECEC',
-                '& .MuiTablePagination-selectLabel': { fontSize: '0.75rem' },
-                '& .MuiTablePagination-displayedRows': { fontSize: '0.75rem' },
-                '& .MuiTablePagination-select': { fontSize: '0.75rem' },
-                '& .MuiTablePagination-actions button': { fontSize: '0.75rem' },
-              }}
-            />
-          )}
-        </Paper>
-
-        {/* Modals */}
-        {showCreateModal && (
-          <TripForm
-            open={showCreateModal}
-            mode="create"
-            onClose={() => setShowCreateModal(false)}
-            onSuccess={handleModalClose(() => setShowCreateModal(false))}
-          />
-        )}
-
-        {showEditModal && selectedTrip && (
-          <TripForm
-            open={showEditModal}
-            mode="edit"
-            initialData={selectedTrip}
-            onClose={() => setShowEditModal(false)}
-            onSuccess={handleModalClose(() => setShowEditModal(false))}
-          />
-        )}
-
-        {showMetricsModal && selectedTrip && (
-    <TripMetricsForm
-      open={showMetricsModal}
-      tripId={selectedTrip.id}
-      tripData={selectedTrip}
-      onClose={() => setShowMetricsModal(false)}
-      onSuccess={handleMetricsSuccess}  // Use the new handler
-    />
-  )}
-        {showDetailsModal && selectedTrip && (
-          <TripDetails
-            open={showDetailsModal}
-            tripId={selectedTrip.id}
-            onClose={() => setShowDetailsModal(false)}
-            onUpdate={() => fetchTrips({ page: pagination.page })}
-          />
-        )}
-
-        {showNoticeWizard && selectedTripForNotice && (
-          <TripNoticeWizard
-            open={showNoticeWizard}
-            onClose={handleCloseNoticeWizard}
-            trip={selectedTripForNotice}
-            onSuccess={() => {
-              showNotification('Notice submitted successfully!', 'success');
-              handleCloseNoticeWizard();
+          <TextField
+            placeholder="Search trips..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            sx={{ 
+              flex: 1,
+              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />
+                </InputAdornment>
+              ),
             }}
           />
-        )}
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+              Status
+            </InputLabel>
+            <Select
+              value={filterStatus}
+              label="Status"
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPaginationModel(prev => ({ ...prev, page: 0 }));
+              }}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+            >
+              <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                All Status
+              </MenuItem>
+              <MenuItem value="PLANNED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Planned
+              </MenuItem>
+              <MenuItem value="ASSIGNED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Assigned
+              </MenuItem>
+              <MenuItem value="IN_PROGRESS" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                In Progress
+              </MenuItem>
+              <MenuItem value="COMPLETED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Completed
+              </MenuItem>
+              <MenuItem value="CANCELLED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Cancelled
+              </MenuItem>
+            </Select>
+          </FormControl>
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="outlined" 
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />} 
+              onClick={handleRefresh}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 2 },
+              }}
+            >
+              {isMobile ? '' : 'Refresh'}
+            </Button>
+            <Button 
+              variant="outlined" 
+              startIcon={<ExportIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={handleExport}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 2 },
+              }}
+            >
+              {isMobile ? '' : 'Export'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+
+      {/* Data Grid */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: { xs: '12px', sm: '16px' },
+          border: '1px solid #ECECEC',
+          bgcolor: '#FFFFFF',
+          width: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        <DataGrid
+          rows={trips}
+          columns={columns}
+          pagination
+          paginationMode="server"
+          rowCount={rowCount}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          pageSizeOptions={[5, 10, 20, 50, 100]}
+          checkboxSelection={false}
+          disableRowSelectionOnClick
+          getRowId={(row) => row.id}
+          density="compact"
+          loading={loading}
+          sx={{
+            height: { xs: 350, sm: 400, md: 450, lg: 500 },
+            border: 'none',
+            fontSize: { xs: '0.65rem', sm: '0.7rem', md: '0.75rem' },
+            '& .MuiDataGrid-cell': {
+              borderRight: '1px solid #f0f0f0',
+              display: 'flex',
+              alignItems: 'center',
+              padding: { xs: '0 4px', sm: '0 8px' },
+              fontSize: { xs: '0.6rem', sm: '0.7rem', md: '0.75rem' },
+            },
+            '& .MuiDataGrid-columnHeaders': {
+              backgroundColor: '#f8f9fa',
+              borderBottom: '2px solid #e0e0e0',
+              minHeight: { xs: '32px !important', sm: '36px !important' },
+            },
+            '& .trip-header': {
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              fontWeight: 600,
+              color: '#333',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: '#f5f5f5',
+            },
+            '& .MuiDataGrid-cell:focus': {
+              outline: 'none',
+            },
+            '& .MuiDataGrid-columnHeader:focus': {
+              outline: 'none',
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 600,
+              color: '#333',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              textTransform: 'uppercase',
+              letterSpacing: '0.3px',
+            },
+            '& .MuiDataGrid-virtualScroller': {
+              '& .MuiDataGrid-row': {
+                minHeight: { xs: '32px !important', sm: '36px !important' },
+              },
+            },
+            '& .MuiDataGrid-footerContainer': {
+              minHeight: { xs: '40px', sm: '52px' },
+              borderTop: '1px solid #e0e0e0',
+            },
+            '& .MuiTablePagination-root': {
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
+            },
+            '& .MuiTablePagination-select': {
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
+            },
+            '& .MuiTablePagination-displayedRows': {
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
+            },
+          }}
+        />
+      </Paper>
+
+      {/* Footer */}
+      <Box sx={{ 
+        mt: { xs: 1, sm: 2 },
+        pt: { xs: 1, sm: 1.5 }, 
+        borderTop: '1px solid #ECECEC',
+        width: '100%',
+      }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={{ xs: 0.5, sm: 0 }}
+        >
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              fontSize: { xs: '0.5rem', sm: '0.6rem' }, 
+              color: '#6B7280' 
+            }}
+          >
+            Showing {trips.length} of {rowCount} trips
+          </Typography>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              fontSize: { xs: '0.5rem', sm: '0.6rem' }, 
+              color: '#6B7280' 
+            }}
+          >
+            Page {paginationModel.page + 1} of {totalPages || 1}
+          </Typography>
+        </Stack>
       </Box>
-    </Box>
+
+      {/* Delete Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+          <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
+          Delete Trip
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+            Are you sure you want to delete this trip? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={handleDeleteCancel} 
+            size="small" 
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleting}
+            size="small"
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          >
+            {deleting ? <CircularProgress size={18} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </ResponsiveContainer>
   );
-}
+};
 
 export default TripList;
