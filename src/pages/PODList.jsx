@@ -13,8 +13,6 @@ import {
   Paper,
   Typography,
   Grid,
-  Card,
-  CardContent,
   Alert,
   CircularProgress,
   MenuItem,
@@ -27,6 +25,8 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -49,71 +49,171 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
-// Compact Stat Card Component
-const StatCard = ({ title, value, color = 'primary', icon: Icon, badge = null }) => (
-  <Card sx={{ 
-    bgcolor: `${color}.main`, 
-    color: 'white',
-    height: '100%',
-    transition: 'transform 0.2s ease',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: 4
-    }
-  }}>
-    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Typography sx={{ 
-            color: 'rgba(255,255,255,0.8)', 
-            fontSize: '0.65rem',
-            fontWeight: 500,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
-          }}>
+// ============================================================
+// STAT CARD COMPONENT (Matches Dashboard)
+// ============================================================
+const StatCard = React.memo(({
+  title,
+  value,
+  icon: Icon,
+  color = 'primary',
+  subtitle,
+  badge = null,
+}) => {
+  const colors = {
+    primary: '#4F46E5',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6',
+    purple: '#8B5CF6',
+  };
+
+  const getColor = (c) => colors[c] || colors.primary;
+  const getColorBg = (c) => {
+    const bgColors = {
+      primary: '#EEF2FF',
+      success: '#D1FAE5',
+      warning: '#FEF3C7',
+      error: '#FEE2E2',
+      info: '#DBEAFE',
+      purple: '#EDE9FE',
+    };
+    return bgColors[c] || bgColors.primary;
+  };
+
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        height: '100%',
+        width: '100%',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+          borderColor: iconColor,
+        },
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: '#6B7280',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              letterSpacing: '0.5px',
+              display: 'block',
+              mb: 0.25,
+            }}
+          >
             {title}
           </Typography>
-          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem', mt: 0.25 }}>
-            {value}
+          
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 700,
+              color: '#111827',
+              fontSize: { 
+                xs: '1.2rem', 
+                sm: '1.4rem', 
+                md: '1.6rem', 
+                lg: '1.8rem' 
+              },
+              lineHeight: 1.2,
+            }}
+          >
+            {value || 0}
           </Typography>
+          
+          {subtitle && (
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#6B7280',
+                display: 'block',
+                mt: 0.25,
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              }}
+            >
+              {subtitle}
+            </Typography>
+          )}
         </Box>
-        {Icon && (
-          <Badge badgeContent={badge} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}>
-            <Box sx={{ 
-              bgcolor: 'rgba(255,255,255,0.15)', 
-              borderRadius: 1,
-              p: 0.5,
-              display: 'flex'
-            }}>
-              <Icon sx={{ fontSize: '1.1rem' }} />
-            </Box>
-          </Badge>
-        )}
-      </Stack>
-    </CardContent>
-  </Card>
-);
 
+        <Badge
+          badgeContent={badge}
+          color="error"
+          sx={{
+            '& .MuiBadge-badge': {
+              fontSize: { xs: '0.5rem', sm: '0.6rem' },
+              height: { xs: 16, sm: 20 },
+              minWidth: { xs: 16, sm: 20 },
+            }
+          }}
+        >
+          <Box
+            sx={{
+              bgcolor: bgColor,
+              borderRadius: { xs: '10px', sm: '12px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon sx={{ 
+              color: iconColor, 
+              fontSize: { 
+                xs: '1.2rem', 
+                sm: '1.4rem', 
+                md: '1.6rem' 
+              },
+            }} />
+          </Box>
+        </Badge>
+      </Stack>
+    </Paper>
+  );
+});
+
+// ============================================================
+// MAIN COMPONENT: PODList
+// ============================================================
 const PODList = () => {
   const navigate = useNavigate();
-  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
   // State
   const [pods, setPods] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterType, setFilterType] = useState('ALL');
   const [scanningStats, setScanningStats] = useState({
     scannedToday: 0,
     pendingDebrief: 0,
   });
   
-  // Filter state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('ALL');
-  const [filterType, setFilterType] = useState('ALL');
-  
-  // Pagination state - INITIALIZE with proper values
+  // Pagination state
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 20,
@@ -121,7 +221,7 @@ const PODList = () => {
   const [rowCount, setRowCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Delete Dialog State
+  // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -129,16 +229,14 @@ const PODList = () => {
   // Debounce search
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
     }, 500);
-
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Load PODs function - use useCallback to prevent recreation
+  // Load PODs
   const loadPods = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -158,18 +256,11 @@ const PODList = () => {
         params.search = debouncedSearchTerm;
       }
 
-      console.log('📊 Fetching PODs with params:', params);
-      
       const response = await podService.getAllPods(params);
       
-      console.log('📊 Response:', response);
-      
-      // Extract data from response
       const data = response?.content || [];
       const total = response?.totalElements || 0;
       const pages = response?.totalPages || 0;
-      
-      console.log(`📊 Received ${data.length} items, total: ${total}, pages: ${pages}`);
       
       const transformedData = data.map(pod => ({
         ...pod,
@@ -185,10 +276,7 @@ const PODList = () => {
       setTotalPages(pages);
     } catch (err) {
       console.error('Error loading PODs:', err);
-      setError('Failed to load PODs: ' + (err.message || 'Unknown error'));
-      setPods([]);
-      setRowCount(0);
-      setTotalPages(0);
+      setError('Failed to load PODs');
     } finally {
       setLoading(false);
     }
@@ -207,14 +295,14 @@ const PODList = () => {
     }
   }, []);
 
-  // Load data when dependencies change
   useEffect(() => {
-    console.log('🔄 useEffect triggered with pagination:', paginationModel);
     loadPods();
     loadScanningStats();
   }, [loadPods, loadScanningStats]);
 
-  // Delete functions
+  // ============================================================
+  // HANDLERS
+  // ============================================================
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setDeleteDialogOpen(true);
@@ -228,7 +316,6 @@ const PODList = () => {
       setDeleteDialogOpen(false);
       setDeleteId(null);
       setSuccessMessage('POD deleted successfully');
-      // Reload current page
       loadPods();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
@@ -244,30 +331,43 @@ const PODList = () => {
     setDeleteId(null);
   };
 
-  // Navigation functions
   const handleEditClick = (podId) => {
-    console.log('📝 Editing POD ID:', podId);
     navigate(`/pods/${podId}/edit`);
   };
 
   const handleViewClick = (podId) => {
-    console.log('👁️ Viewing POD ID:', podId);
     navigate(`/pods/${podId}`);
   };
 
   const handleDebriefClick = (podId) => {
-    console.log('📋 Debriefing POD ID:', podId);
     navigate(`/pods/${podId}/debrief`);
   };
 
-  // ============================================================
-  // FIX: Handle pagination model change
-  // ============================================================
   const handlePaginationModelChange = (newModel) => {
-    console.log('📄 Pagination model changing from:', paginationModel, 'to:', newModel);
     setPaginationModel(newModel);
   };
 
+  const handleRefresh = () => {
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    loadPods();
+    loadScanningStats();
+  };
+
+  const handleExport = async () => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://sallara-trailers-be-UAT.onrender.com/api';
+      const timestamp = new Date().getTime();
+      const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
+      window.open(exportUrl, '_blank');
+    } catch (error) {
+      console.error('Error exporting PODs:', error);
+      setError('Failed to export PODs. Please try again.');
+    }
+  };
+
+  // ============================================================
+  // COLUMNS
+  // ============================================================
   const getStatusChip = (status) => {
     const statusMap = {
       SCANNED: { color: 'info', label: 'Scanned', icon: <ScanIcon sx={{ fontSize: '0.7rem' }} /> },
@@ -286,10 +386,10 @@ const PODList = () => {
         icon={info.icon}
         sx={{ 
           fontWeight: 500,
-          fontSize: '0.65rem',
-          height: 20,
-          '& .MuiChip-label': { px: 1, py: 0.25 },
-          '& .MuiChip-icon': { fontSize: '0.7rem', ml: 0.5 }
+          fontSize: { xs: '0.5rem', sm: '0.65rem' },
+          height: { xs: 16, sm: 20 },
+          '& .MuiChip-label': { px: { xs: 0.5, sm: 1 }, py: 0.25 },
+          '& .MuiChip-icon': { fontSize: { xs: '0.6rem', sm: '0.7rem' }, ml: 0.5 }
         }}
       />
     );
@@ -297,24 +397,29 @@ const PODList = () => {
 
   const getDocumentIcon = (type) => {
     const icons = {
-      PDF: <PdfIcon sx={{ fontSize: '0.8rem' }} />,
-      IMAGE: <ImageIcon sx={{ fontSize: '0.8rem' }} />,
-      JPG: <ImageIcon sx={{ fontSize: '0.8rem' }} />,
-      PNG: <ImageIcon sx={{ fontSize: '0.8rem' }} />,
-      DOC: <DescriptionIcon sx={{ fontSize: '0.8rem' }} />,
-      DOCX: <DescriptionIcon sx={{ fontSize: '0.8rem' }} />,
+      PDF: <PdfIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' } }} />,
+      IMAGE: <ImageIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' } }} />,
+      JPG: <ImageIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' } }} />,
+      PNG: <ImageIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' } }} />,
+      DOC: <DescriptionIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' } }} />,
+      DOCX: <DescriptionIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' } }} />,
     };
-    return icons[type] || <ReceiptIcon sx={{ fontSize: '0.8rem' }} />;
+    return icons[type] || <ReceiptIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' } }} />;
   };
 
   const columns = useMemo(() => [
     {
       field: 'podNumber',
-      headerName: 'POD Number',
-      width: 140,
+      headerName: 'POD #',
+      width: isMobile ? 90 : 140,
       headerClassName: 'pod-header',
       renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600} color="primary" sx={{ fontSize: '0.75rem' }}>
+        <Typography 
+          variant="body2" 
+          fontWeight={600} 
+          color="primary" 
+          sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
+        >
           {params.value || 'N/A'}
         </Typography>
       ),
@@ -322,39 +427,48 @@ const PODList = () => {
     {
       field: 'tripNumber',
       headerName: 'Trip',
-      width: 140,
+      width: isMobile ? 80 : 120,
       headerClassName: 'pod-header',
-      renderCell: (params) => {
-        const tripValue = params.value || params.row.tripNumber || params.row.trip?.tripNumber || 'N/A';
-        return (
-          <Chip
-            label={`#${tripValue}`}
-            size="small"
-            variant="outlined"
-            sx={{ fontSize: '0.6rem', height: 18 }}
-          />
-        );
-      },
+      renderCell: (params) => (
+        <Chip
+          label={`#${params.value}`}
+          size="small"
+          variant="outlined"
+          sx={{ 
+            fontSize: { xs: '0.5rem', sm: '0.6rem' }, 
+            height: { xs: 16, sm: 18 } 
+          }}
+        />
+      ),
     },
     {
       field: 'customerName',
       headerName: 'Customer',
       flex: 1,
-      minWidth: 120,
+      minWidth: isMobile ? 80 : 120,
       headerClassName: 'pod-header',
       renderCell: (params) => (
-        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-          {params.value || params.row.customer?.name || 'N/A'}
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            fontSize: { xs: '0.6rem', sm: '0.75rem' },
+            fontWeight: 500,
+          }}
+        >
+          {params.value}
         </Typography>
       ),
     },
     {
       field: 'deliveryDate',
-      headerName: 'Delivery Date',
-      width: 110,
+      headerName: 'Date',
+      width: isMobile ? 80 : 110,
       headerClassName: 'pod-header',
       renderCell: (params) => (
-        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+        <Typography 
+          variant="body2" 
+          sx={{ fontSize: { xs: '0.55rem', sm: '0.7rem' } }}
+        >
           {params.value ? new Date(params.value).toLocaleDateString() : 'N/A'}
         </Typography>
       ),
@@ -362,23 +476,23 @@ const PODList = () => {
     {
       field: 'status',
       headerName: 'Status',
-      width: 120,
+      width: isMobile ? 90 : 120,
       headerClassName: 'pod-header',
       renderCell: (params) => getStatusChip(params.value),
     },
     {
       field: 'source',
       headerName: 'Source',
-      width: 90,
+      width: isMobile ? 70 : 90,
       headerClassName: 'pod-header',
       renderCell: (params) => (
         <Chip
           size="small"
-          label={params.value === 'SCANNED' ? '📸 Scan' : '📤 Upload'}
+          label={params.value === 'SCANNED' ? '📸' : '📤'}
           variant="outlined"
           sx={{ 
-            fontSize: '0.55rem', 
-            height: 18,
+            fontSize: { xs: '0.5rem', sm: '0.55rem' }, 
+            height: { xs: 16, sm: 18 },
             borderColor: params.value === 'SCANNED' ? '#1976d2' : '#2e7d32',
             color: params.value === 'SCANNED' ? '#1976d2' : '#2e7d32',
           }}
@@ -387,52 +501,40 @@ const PODList = () => {
     },
     {
       field: 'documentType',
-      headerName: 'Document',
-      width: 100,
+      headerName: 'Doc',
+      width: isMobile ? 60 : 90,
       headerClassName: 'pod-header',
       renderCell: (params) => (
         <Chip
           size="small"
           icon={getDocumentIcon(params.value)}
-          label={params.value || 'N/A'}
+          label={isMobile ? '' : (params.value || 'N/A')}
           variant="outlined"
-          sx={{ fontSize: '0.55rem', height: 18 }}
+          sx={{ 
+            fontSize: { xs: '0.5rem', sm: '0.55rem' }, 
+            height: { xs: 16, sm: 18 },
+            '& .MuiChip-icon': { fontSize: { xs: '0.5rem', sm: '0.6rem' } }
+          }}
         />
-      ),
-    },
-    {
-      field: 'uploadedBy',
-      headerName: 'Uploaded By',
-      width: 120,
-      headerClassName: 'pod-header',
-      renderCell: (params) => (
-        <Box>
-          <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-            {params.value || params.row.uploader?.name || 'N/A'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-            {params.row.uploadedAt ? new Date(params.row.uploadedAt).toLocaleDateString() : ''}
-          </Typography>
-        </Box>
       ),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 160,
+      width: isMobile ? 100 : 160,
       sortable: false,
       filterable: false,
       headerClassName: 'pod-header',
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 0.25 }}>
-          <Tooltip title="View Details">
+        <Stack direction="row" spacing={0.25}>
+          <Tooltip title="View">
             <IconButton
               size="small"
               color="primary"
               onClick={() => handleViewClick(params.row.id)}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 0.25, sm: 0.5 } }}
             >
-              <ViewIcon sx={{ fontSize: '0.9rem' }} />
+              <ViewIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
             </IconButton>
           </Tooltip>
           {params.row.needsDebrief && (
@@ -441,9 +543,9 @@ const PODList = () => {
                 size="small"
                 color="success"
                 onClick={() => handleDebriefClick(params.row.id)}
-                sx={{ p: 0.5 }}
+                sx={{ p: { xs: 0.25, sm: 0.5 } }}
               >
-                <AssignmentIcon sx={{ fontSize: '0.9rem' }} />
+                <AssignmentIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
               </IconButton>
             </Tooltip>
           )}
@@ -452,9 +554,9 @@ const PODList = () => {
               size="small"
               color="secondary"
               onClick={() => handleEditClick(params.row.id)}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 0.25, sm: 0.5 } }}
             >
-              <EditIcon sx={{ fontSize: '0.9rem' }} />
+              <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
@@ -462,17 +564,19 @@ const PODList = () => {
               size="small"
               color="error"
               onClick={() => handleDeleteClick(params.row.id)}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 0.25, sm: 0.5 } }}
             >
-              <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+              <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
             </IconButton>
           </Tooltip>
-        </Box>
+        </Stack>
       ),
     },
-  ], []);
+  ], [isMobile]);
 
-  // Stats
+  // ============================================================
+  // STATS
+  // ============================================================
   const stats = useMemo(() => ({
     total: rowCount,
     scanned: pods.filter(p => p.source === 'SCANNED').length,
@@ -482,110 +586,170 @@ const PODList = () => {
     rejected: pods.filter(p => p.status === 'REJECTED').length,
   }), [pods, rowCount]);
 
-  const handleExport = async () => {
-    try {
-      const baseUrl = process.env.REACT_APP_API_URL || 'https://sallara-trailers-be-UAT.onrender.com/api';
-      const timestamp = new Date().getTime();
-      const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
-      window.open(exportUrl, '_blank');
-    } catch (error) {
-      console.error('Error exporting PODs:', error);
-      setError('Failed to export PODs. Please try again.');
-    }
-  };
-
-  const handleRefresh = () => {
-    console.log('🔄 Manual refresh');
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-    loadPods();
-  };
-
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
-    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+    <ResponsiveContainer>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        mb={{ xs: 2, sm: 2.5, md: 3 }}
+        spacing={{ xs: 1, sm: 0 }}
+      >
         <Box>
-          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
-            Proof of Delivery (POD)
+          <Typography 
+            variant="h5" 
+            fontWeight="700" 
+            sx={{ 
+              fontSize: { 
+                xs: '1.1rem', 
+                sm: '1.3rem', 
+                md: '1.4rem', 
+                lg: '1.5rem' 
+              } 
+            }}
+          >
+            Proof of Delivery
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-            Manage proof of delivery documents from drivers and debrief
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: { 
+                xs: '0.7rem', 
+                sm: '0.8rem', 
+                md: '0.85rem' 
+              } 
+            }}
+          >
+            Manage proof of delivery documents
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button
             variant="contained"
-            startIcon={<ScanIcon sx={{ fontSize: '0.9rem' }} />}
+            startIcon={<ScanIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
             onClick={() => navigate('/pods/scan')}
             size="small"
-            sx={{ 
-              borderRadius: 1.5,
-              fontSize: '0.75rem',
-              py: 0.5,
-              px: 1.5,
+            sx={{
+              borderRadius: '10px',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              textTransform: 'none',
+              py: { xs: 0.5, sm: 0.75 },
+              px: { xs: 1.5, sm: 2 },
               bgcolor: '#1976d2',
               '&:hover': { bgcolor: '#1565c0' }
             }}
           >
-            Scan POD
+            {isMobile ? 'Scan' : 'Scan POD'}
           </Button>
           <Button
             variant="contained"
-            startIcon={<AddIcon sx={{ fontSize: '0.9rem' }} />}
+            startIcon={<AddIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
             onClick={() => navigate('/pods/new')}
             size="small"
-            sx={{ 
-              borderRadius: 1.5,
-              fontSize: '0.75rem',
-              py: 0.5,
-              px: 1.5
+            sx={{
+              borderRadius: '10px',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              textTransform: 'none',
+              py: { xs: 0.5, sm: 0.75 },
+              px: { xs: 1.5, sm: 2 },
             }}
           >
-            Upload POD
+            {isMobile ? 'Upload' : 'Upload POD'}
           </Button>
         </Stack>
-      </Box>
+      </Stack>
 
-      {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>{error}</Alert>}
-      {successMessage && <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage('')}>{successMessage}</Alert>}
+      {/* Alerts */}
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+          onClose={() => setError(null)}
+        >
+          {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert 
+          severity="success" 
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+          onClose={() => setSuccessMessage('')}
+        >
+          {successMessage}
+        </Alert>
+      )}
 
       {/* Stats Cards */}
-      <Grid container spacing={1.5} sx={{ mb: 2 }}>
-        <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Total" value={stats.total} color="primary" icon={ReceiptIcon} />
+      <Grid 
+        container 
+        spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+        sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}
+      >
+        <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
+          <StatCard
+            title="Total"
+            value={stats.total}
+            icon={ReceiptIcon}
+            color="primary"
+          />
         </Grid>
-        <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard 
-            title="Scanned" 
-            value={stats.scanned} 
-            color="info" 
+        <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
+          <StatCard
+            title="Scanned"
+            value={stats.scanned}
             icon={ScanIcon}
+            color="info"
             badge={scanningStats.scannedToday > 0 ? scanningStats.scannedToday : null}
           />
         </Grid>
-        <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard 
-            title="Pending" 
-            value={stats.pending} 
-            color="warning" 
+        <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
+          <StatCard
+            title="Pending"
+            value={stats.pending}
             icon={PendingIcon}
+            color="warning"
             badge={scanningStats.pendingDebrief > 0 ? scanningStats.pendingDebrief : null}
           />
         </Grid>
-        <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Delivered" value={stats.delivered} color="success" icon={CheckCircleIcon} />
+        <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
+          <StatCard
+            title="Delivered"
+            value={stats.delivered}
+            icon={CheckCircleIcon}
+            color="success"
+          />
         </Grid>
-        <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Verified" value={stats.verified} color="info" icon={VerifiedIcon} />
-        </Grid>
-        <Grid item xs={6} sm={4} md={2.4}>
-          <StatCard title="Rejected" value={stats.rejected} color="error" icon={CancelIcon} />
+        <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
+          <StatCard
+            title="Rejected"
+            value={stats.rejected}
+            icon={CancelIcon}
+            color="error"
+          />
         </Grid>
       </Grid>
 
       {/* Filters */}
-      <Paper sx={{ p: 1.5, mb: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          mb: 2,
+          borderRadius: { xs: '12px', sm: '16px' },
+          border: '1px solid #ECECEC',
+          bgcolor: '#FFFFFF',
+          width: '100%',
+        }}
+      >
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          spacing={{ xs: 1, sm: 1.5 }}
+        >
           <TextField
             placeholder="Search PODs..."
             value={searchTerm}
@@ -593,15 +757,21 @@ const PODList = () => {
             size="small"
             sx={{ 
               flex: 1,
-              '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-              '& .MuiInputBase-root': { fontSize: '0.8rem' }
+              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
             }}
             InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />
+                </InputAdornment>
+              ),
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 130 }}>
-            <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+              Status
+            </InputLabel>
             <Select
               value={filterStatus}
               label="Status"
@@ -609,18 +779,32 @@ const PODList = () => {
                 setFilterStatus(e.target.value);
                 setPaginationModel(prev => ({ ...prev, page: 0 }));
               }}
-              sx={{ fontSize: '0.75rem' }}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
             >
-              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
-              <MenuItem value="SCANNED" sx={{ fontSize: '0.75rem' }}>Scanned</MenuItem>
-              <MenuItem value="PENDING" sx={{ fontSize: '0.75rem' }}>Pending</MenuItem>
-              <MenuItem value="DELIVERED" sx={{ fontSize: '0.75rem' }}>Delivered</MenuItem>
-              <MenuItem value="VERIFIED" sx={{ fontSize: '0.75rem' }}>Verified</MenuItem>
-              <MenuItem value="REJECTED" sx={{ fontSize: '0.75rem' }}>Rejected</MenuItem>
+              <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                All Status
+              </MenuItem>
+              <MenuItem value="SCANNED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Scanned
+              </MenuItem>
+              <MenuItem value="PENDING" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Pending
+              </MenuItem>
+              <MenuItem value="DELIVERED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Delivered
+              </MenuItem>
+              <MenuItem value="VERIFIED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Verified
+              </MenuItem>
+              <MenuItem value="REJECTED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Rejected
+              </MenuItem>
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 130 }}>
-            <InputLabel sx={{ fontSize: '0.75rem' }}>Type</InputLabel>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+              Type
+            </InputLabel>
             <Select
               value={filterType}
               label="Type"
@@ -628,38 +812,65 @@ const PODList = () => {
                 setFilterType(e.target.value);
                 setPaginationModel(prev => ({ ...prev, page: 0 }));
               }}
-              sx={{ fontSize: '0.75rem' }}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
             >
-              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Types</MenuItem>
-              <MenuItem value="SCANNED" sx={{ fontSize: '0.75rem' }}>📸 Scanned</MenuItem>
-              <MenuItem value="UPLOADED" sx={{ fontSize: '0.75rem' }}>📤 Uploaded</MenuItem>
+              <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                All Types
+              </MenuItem>
+              <MenuItem value="SCANNED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                📸 Scanned
+              </MenuItem>
+              <MenuItem value="UPLOADED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                📤 Uploaded
+              </MenuItem>
             </Select>
           </FormControl>
-          <Stack direction="row" spacing={0.75}>
+          <Stack direction="row" spacing={1}>
             <Button 
               variant="outlined" 
-              startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />} 
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />} 
               onClick={handleRefresh}
               size="small"
-              sx={{ fontSize: '0.75rem', py: 0.5 }}
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 2 },
+              }}
             >
-              Refresh
+              {isMobile ? '' : 'Refresh'}
             </Button>
             <Button 
               variant="outlined" 
-              startIcon={<ExportIcon sx={{ fontSize: '0.9rem' }} />}
+              startIcon={<ExportIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
               onClick={handleExport}
               size="small"
-              sx={{ fontSize: '0.75rem', py: 0.5 }}
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 2 },
+              }}
             >
-              Export
+              {isMobile ? '' : 'Export'}
             </Button>
           </Stack>
         </Stack>
       </Paper>
 
       {/* Data Grid */}
-      <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: { xs: '12px', sm: '16px' },
+          border: '1px solid #ECECEC',
+          bgcolor: '#FFFFFF',
+          width: '100%',
+          overflow: 'hidden',
+        }}
+      >
         <DataGrid
           rows={pods}
           columns={columns}
@@ -675,22 +886,23 @@ const PODList = () => {
           density="compact"
           loading={loading}
           sx={{
+            height: { xs: 350, sm: 400, md: 450, lg: 500 },
             border: 'none',
-            fontSize: '0.75rem',
+            fontSize: { xs: '0.65rem', sm: '0.7rem', md: '0.75rem' },
             '& .MuiDataGrid-cell': {
               borderRight: '1px solid #f0f0f0',
               display: 'flex',
               alignItems: 'center',
-              padding: '0 8px',
-              fontSize: '0.75rem',
+              padding: { xs: '0 4px', sm: '0 8px' },
+              fontSize: { xs: '0.6rem', sm: '0.7rem', md: '0.75rem' },
             },
             '& .MuiDataGrid-columnHeaders': {
               backgroundColor: '#f8f9fa',
               borderBottom: '2px solid #e0e0e0',
-              minHeight: '36px !important',
+              minHeight: { xs: '32px !important', sm: '36px !important' },
             },
             '& .pod-header': {
-              fontSize: '0.65rem',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
               fontWeight: 600,
               color: '#333',
             },
@@ -706,85 +918,112 @@ const PODList = () => {
             '& .MuiDataGrid-columnHeaderTitle': {
               fontWeight: 600,
               color: '#333',
-              fontSize: '0.65rem',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
               textTransform: 'uppercase',
               letterSpacing: '0.3px',
             },
             '& .MuiDataGrid-virtualScroller': {
               '& .MuiDataGrid-row': {
-                minHeight: '36px !important',
+                minHeight: { xs: '32px !important', sm: '36px !important' },
               },
             },
             '& .MuiDataGrid-footerContainer': {
-              minHeight: '52px',
+              minHeight: { xs: '40px', sm: '52px' },
               borderTop: '1px solid #e0e0e0',
             },
             '& .MuiTablePagination-root': {
-              fontSize: '0.75rem',
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
             },
             '& .MuiTablePagination-select': {
-              fontSize: '0.75rem',
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
             },
             '& .MuiTablePagination-displayedRows': {
-              fontSize: '0.75rem',
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
             },
           }}
         />
       </Paper>
 
-      {/* Footer with stats */}
+      {/* Footer */}
       <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mt: 1,
-        p: 1,
-        bgcolor: '#fafafa',
-        borderRadius: 1,
-        border: '1px solid #e0e0e0'
+        mt: { xs: 1, sm: 2 },
+        pt: { xs: 1, sm: 1.5 }, 
+        borderTop: '1px solid #ECECEC',
+        width: '100%',
       }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-          Showing {pods.length} of {rowCount} PODs
-          {scanningStats.scannedToday > 0 && (
-            <Chip 
-              size="small" 
-              label={`📸 ${scanningStats.scannedToday} scanned today`}
-              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
-              color="info"
-            />
-          )}
-          {scanningStats.pendingDebrief > 0 && (
-            <Chip 
-              size="small" 
-              label={`⏳ ${scanningStats.pendingDebrief} pending debrief`}
-              sx={{ ml: 1, fontSize: '0.55rem', height: 18 }}
-              color="warning"
-            />
-          )}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-          Page {paginationModel.page + 1} of {totalPages || 1}
-        </Typography>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={{ xs: 0.5, sm: 0 }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontSize: { xs: '0.5rem', sm: '0.6rem' }, 
+                color: '#6B7280' 
+              }}
+            >
+              Showing {pods.length} of {rowCount} PODs
+            </Typography>
+            {scanningStats.scannedToday > 0 && (
+              <Chip 
+                size="small" 
+                label={`📸 ${scanningStats.scannedToday} scanned today`}
+                sx={{ 
+                  fontSize: { xs: '0.45rem', sm: '0.55rem' }, 
+                  height: { xs: 14, sm: 18 } 
+                }}
+                color="info"
+              />
+            )}
+            {scanningStats.pendingDebrief > 0 && (
+              <Chip 
+                size="small" 
+                label={`⏳ ${scanningStats.pendingDebrief} pending`}
+                sx={{ 
+                  fontSize: { xs: '0.45rem', sm: '0.55rem' }, 
+                  height: { xs: 14, sm: 18 } 
+                }}
+                color="warning"
+              />
+            )}
+          </Stack>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              fontSize: { xs: '0.5rem', sm: '0.6rem' }, 
+              color: '#6B7280' 
+            }}
+          >
+            Page {paginationModel.page + 1} of {totalPages || 1}
+          </Typography>
+        </Stack>
       </Box>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={handleDeleteCancel}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ fontSize: '1rem' }}>
+        <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
           Delete POD
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ fontSize: '0.9rem' }}>
+          <DialogContentText sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
             Are you sure you want to delete this POD? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleDeleteCancel} size="small" sx={{ fontSize: '0.8rem' }}>
+          <Button 
+            onClick={handleDeleteCancel} 
+            size="small" 
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          >
             Cancel
           </Button>
           <Button
@@ -793,13 +1032,13 @@ const PODList = () => {
             color="error"
             disabled={deleting}
             size="small"
-            sx={{ fontSize: '0.8rem' }}
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
           >
             {deleting ? <CircularProgress size={18} /> : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </ResponsiveContainer>
   );
 };
 
