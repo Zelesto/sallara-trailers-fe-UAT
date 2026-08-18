@@ -22,7 +22,6 @@ import {
   InputLabel,
   Select,
   Badge,
-  Pagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -121,10 +120,23 @@ const PODList = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Debounce search to prevent too many API calls
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Load data when dependencies change
   useEffect(() => {
     loadPods();
     loadScanningStats();
-  }, [page, pageSize, filterStatus, filterType, searchTerm]);
+  }, [page, pageSize, filterStatus, filterType, debouncedSearchTerm]);
 
   const loadPods = async () => {
     setLoading(true);
@@ -139,15 +151,41 @@ const PODList = () => {
         params.status = filterStatus;
       }
       
-      if (searchTerm) {
-        params.search = searchTerm;
+      if (debouncedSearchTerm) {
+        params.search = debouncedSearchTerm;
       }
+
+      console.log('📊 Fetching PODs with params:', params);
       
       const response = await podService.getAllPods(params);
       
-      const data = response?.content || response?.data || [];
-      const total = response?.totalElements || response?.total || data.length;
-      const pages = response?.totalPages || Math.ceil(total / pageSize);
+      console.log('📊 Response:', response);
+      
+      // Handle different response structures
+      let data = [];
+      let total = 0;
+      let pages = 0;
+      
+      if (response && typeof response === 'object') {
+        // Check if response is paginated
+        if (response.content && Array.isArray(response.content)) {
+          data = response.content;
+          total = response.totalElements || response.total || data.length;
+          pages = response.totalPages || Math.ceil(total / pageSize);
+        } else if (response.data && Array.isArray(response.data)) {
+          data = response.data;
+          total = response.total || response.totalElements || data.length;
+          pages = response.totalPages || Math.ceil(total / pageSize);
+        } else if (Array.isArray(response)) {
+          data = response;
+          total = data.length;
+          pages = Math.ceil(total / pageSize);
+        } else {
+          data = [];
+          total = 0;
+          pages = 0;
+        }
+      }
       
       const transformedData = (Array.isArray(data) ? data : []).map(pod => ({
         ...pod,
@@ -165,6 +203,9 @@ const PODList = () => {
     } catch (err) {
       setError('Failed to load PODs');
       console.error('Error loading PODs:', err);
+      setPods([]);
+      setTotalElements(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
@@ -463,13 +504,12 @@ const PODList = () => {
     }
   };
 
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage - 1);
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
   };
 
-  const handlePageSizeChange = (event) => {
-    const newSize = parseInt(event.target.value, 10);
-    setPageSize(newSize);
+  const handlePageSizeChange = (newPageSize) => {
+    setPageSize(newPageSize);
     setPage(0);
   };
 
@@ -625,80 +665,84 @@ const PODList = () => {
         </Stack>
       </Paper>
 
-      {/* Data Grid - FIXED: Removed duplicate pagination, using DataGrid's built-in pagination */}
+      {/* Data Grid - FIXED: Proper pagination implementation */}
       <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress size={30} />
-            <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading PODs...</Typography>
-          </Box>
-        ) : (
-          <DataGrid
-            rows={pods}
-            columns={columns}
-            pagination
-            paginationMode="server"
-            rowCount={totalElements}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newPageSize) => {
-              setPageSize(newPageSize);
-              setPage(0);
-            }}
-            rowsPerPageOptions={[5, 10, 20, 50, 100]}
-            checkboxSelection={false}
-            disableRowSelectionOnClick
-            getRowId={(row) => row.id}
-            density="compact"
-            loading={loading}
-            sx={{
-              border: 'none',
+        <DataGrid
+          rows={pods}
+          columns={columns}
+          pagination
+          paginationMode="server"
+          rowCount={totalElements}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          rowsPerPageOptions={[5, 10, 20, 50, 100]}
+          checkboxSelection={false}
+          disableRowSelectionOnClick
+          getRowId={(row) => row.id}
+          density="compact"
+          loading={loading}
+          sx={{
+            border: 'none',
+            fontSize: '0.75rem',
+            '& .MuiDataGrid-cell': {
+              borderRight: '1px solid #f0f0f0',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 8px',
               fontSize: '0.75rem',
-              '& .MuiDataGrid-cell': {
-                borderRight: '1px solid #f0f0f0',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 8px',
-                fontSize: '0.75rem',
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: '#f8f9fa',
-                borderBottom: '2px solid #e0e0e0',
+            },
+            '& .MuiDataGrid-columnHeaders': {
+              backgroundColor: '#f8f9fa',
+              borderBottom: '2px solid #e0e0e0',
+              minHeight: '36px !important',
+            },
+            '& .pod-header': {
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              color: '#333',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: '#f5f5f5',
+            },
+            '& .MuiDataGrid-cell:focus': {
+              outline: 'none',
+            },
+            '& .MuiDataGrid-columnHeader:focus': {
+              outline: 'none',
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 600,
+              color: '#333',
+              fontSize: '0.65rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.3px',
+            },
+            '& .MuiDataGrid-virtualScroller': {
+              '& .MuiDataGrid-row': {
                 minHeight: '36px !important',
               },
-              '& .pod-header': {
-                fontSize: '0.65rem',
-                fontWeight: 600,
-                color: '#333',
-              },
-              '& .MuiDataGrid-row:hover': {
-                backgroundColor: '#f5f5f5',
-              },
-              '& .MuiDataGrid-cell:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeader:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeaderTitle': {
-                fontWeight: 600,
-                color: '#333',
-                fontSize: '0.65rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.3px',
-              },
-              '& .MuiDataGrid-virtualScroller': {
-                '& .MuiDataGrid-row': {
-                  minHeight: '36px !important',
-                },
-              },
-            }}
-          />
-        )}
+            },
+            // Ensure pagination is visible
+            '& .MuiDataGrid-footerContainer': {
+              minHeight: '52px',
+              borderTop: '1px solid #e0e0e0',
+            },
+            '& .MuiTablePagination-root': {
+              fontSize: '0.75rem',
+            },
+            '& .MuiTablePagination-select': {
+              fontSize: '0.75rem',
+            },
+            '& .MuiTablePagination-displayedRows': {
+              fontSize: '0.75rem',
+            },
+          }}
+        />
       </Paper>
 
-      {/* Footer with stats - FIXED: Moved footer outside DataGrid */}
+      {/* Footer with stats */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -729,7 +773,7 @@ const PODList = () => {
           )}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-          Last updated: {new Date().toLocaleString()}
+          Page {page + 1} of {totalPages || 1}
         </Typography>
       </Box>
 
