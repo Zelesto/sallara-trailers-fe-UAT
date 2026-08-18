@@ -1,4 +1,4 @@
-// src/pages/TripList.jsx - Fixed Version
+// src/pages/TripList.jsx - Add missing actions
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -42,6 +42,11 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Pending as PendingIcon,
+  // ✅ ADD THESE MISSING ICONS
+  PlayArrow as PlayArrowIcon,
+  Stop as StopIcon,
+  Warning as WarningIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { tripService } from '../services/tripService';
@@ -57,33 +62,14 @@ export { STATUS_CONFIG, STATUS_OPTIONS };
 // HELPER: Get vehicle registration from various possible structures
 // ============================================================
 const getVehicleRegistration = (trip) => {
-  // Try different possible structures
-  if (trip.vehicle?.registrationNumber) {
-    return trip.vehicle.registrationNumber;
-  }
-  if (trip.vehicle?.registration) {
-    return trip.vehicle.registration;
-  }
-  if (trip.vehicle?.vehicleNumber) {
-    return trip.vehicle.vehicleNumber;
-  }
-  if (trip.vehicle?.name) {
-    return trip.vehicle.name;
-  }
-  if (trip.vehicleReg) {
-    return trip.vehicleReg;
-  }
-  if (trip.vehicleRegistration) {
-    return trip.vehicleRegistration;
-  }
-  // If vehicle is an object with an id but no registration
-  if (trip.vehicle?.id) {
-    return `Vehicle ${trip.vehicle.id}`;
-  }
-  // If vehicleId is present but no vehicle object
-  if (trip.vehicleId) {
-    return `Vehicle ${trip.vehicleId}`;
-  }
+  if (trip.vehicle?.registrationNumber) return trip.vehicle.registrationNumber;
+  if (trip.vehicle?.registration) return trip.vehicle.registration;
+  if (trip.vehicle?.vehicleNumber) return trip.vehicle.vehicleNumber;
+  if (trip.vehicle?.name) return trip.vehicle.name;
+  if (trip.vehicleReg) return trip.vehicleReg;
+  if (trip.vehicleRegistration) return trip.vehicleRegistration;
+  if (trip.vehicle?.id) return `Vehicle ${trip.vehicle.id}`;
+  if (trip.vehicleId) return `Vehicle ${trip.vehicleId}`;
   return 'N/A';
 };
 
@@ -91,28 +77,31 @@ const getVehicleRegistration = (trip) => {
 // HELPER: Get driver name from various possible structures
 // ============================================================
 const getDriverName = (trip) => {
-  // Check for nested driver object
   if (trip.driver) {
     if (trip.driver.firstName || trip.driver.lastName) {
       return `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim();
     }
-    if (trip.driver.name) {
-      return trip.driver.name;
-    }
-    if (trip.driver.fullName) {
-      return trip.driver.fullName;
-    }
-    if (typeof trip.driver === 'string') {
-      return trip.driver;
-    }
+    if (trip.driver.name) return trip.driver.name;
+    if (trip.driver.fullName) return trip.driver.fullName;
+    if (typeof trip.driver === 'string') return trip.driver;
   }
-  
-  // If no driver object, check for direct fields
   if (trip.driverName) return trip.driverName;
   if (trip.driver_name) return trip.driver_name;
   if (trip.assignedDriver) return trip.assignedDriver;
-  
   return 'Unassigned';
+};
+
+// ============================================================
+// STATUS KEYS (for action visibility)
+// ============================================================
+const STATUS_KEYS = {
+  CAN_START: ['PLANNED', 'ASSIGNED', 'DRAFT'],
+  CAN_END: ['IN_PROGRESS', 'ACTIVE'],
+  CAN_REPORT_INCIDENT: ['IN_PROGRESS', 'ACTIVE'],
+  CAN_FINALIZE: ['COMPLETED'],
+  CAN_EDIT: ['DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 'ACTIVE', 'PENDING'],
+  CAN_DELETE: ['DRAFT', 'PLANNED', 'ASSIGNED', 'PENDING'],
+  CAN_METRICS: ['IN_PROGRESS', 'ACTIVE', 'COMPLETED', 'FINALIZED'],
 };
 
 // ============================================================
@@ -249,7 +238,6 @@ const TripList = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   // State
   const [trips, setTrips] = useState([]);
@@ -258,7 +246,6 @@ const TripList = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
-  const [filterType, setFilterType] = useState('ALL');
   
   // Pagination state
   const [paginationModel, setPaginationModel] = useState({
@@ -284,7 +271,7 @@ const TripList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Load trips - FIXED with proper dependencies
+  // Load trips
   const loadTrips = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -304,27 +291,12 @@ const TripList = () => {
         params.search = debouncedSearchTerm;
       }
 
-      console.log('📤 Fetching trips with params:', params);
-
       const response = await tripService.getAllTrips(params);
       
-      console.log('📥 Response:', {
-        page: response.number,
-        totalElements: response.totalElements,
-        totalPages: response.totalPages,
-        contentLength: response.content?.length
-      });
-
-      // DEBUG: Log first trip to check data structure
-      if (response.content && response.content.length > 0) {
-        console.log('🔍 First trip sample:', response.content[0]);
-      }
-
       const data = response?.content || [];
       const total = response?.totalElements || 0;
       const pages = response?.totalPages || 0;
       
-      // ✅ FIXED: Transform data with proper vehicle and driver extraction
       const transformedData = data.map(trip => ({
         ...trip,
         status: trip.status || 'DRAFT',
@@ -336,20 +308,17 @@ const TripList = () => {
         destinationCity: trip.destinationCity || trip.destination?.city || 'N/A',
       }));
       
-      console.log('✅ Transformed trips:', transformedData.length);
-      
       setTrips(transformedData);
       setRowCount(total);
       setTotalPages(pages);
     } catch (err) {
       console.error('Error loading trips:', err);
-      setError('Failed to load trips: ' + (err.message || 'Unknown error'));
+      setError('Failed to load trips');
     } finally {
       setLoading(false);
     }
   }, [paginationModel.page, paginationModel.pageSize, filterStatus, debouncedSearchTerm]);
 
-  // ✅ FIXED: Use debounced effect for filter changes
   useEffect(() => {
     if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     fetchTimerRef.current = setTimeout(() => loadTrips(), 400);
@@ -357,7 +326,82 @@ const TripList = () => {
   }, [loadTrips]);
 
   // ============================================================
-  // HANDLERS
+  // ✅ ADD THESE MISSING ACTION HANDLERS
+  // ============================================================
+  
+  // Start Trip
+  const handleStartTrip = (trip) => {
+    if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
+    
+    const startOdometer = prompt('Enter starting odometer reading (km):');
+    if (!startOdometer) return;
+
+    tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
+      .then(() => {
+        setSuccessMessage('Trip started successfully!');
+        loadTrips();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      })
+      .catch(err => {
+        console.error('Error starting trip:', err);
+        setError('Failed to start trip');
+        setTimeout(() => setError(null), 3000);
+      });
+  };
+
+  // End Trip
+  const handleEndTrip = (trip) => {
+    if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
+    
+    const endOdometer = prompt('Enter ending odometer reading (km):');
+    if (!endOdometer) return;
+
+    const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
+    
+    tripService.endTrip(trip.id, {
+      actualEndOdometer: parseFloat(endOdometer),
+      endReason: endReason || 'COMPLETED'
+    })
+      .then(() => {
+        setSuccessMessage('Trip ended successfully!');
+        loadTrips();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      })
+      .catch(err => {
+        console.error('Error ending trip:', err);
+        setError('Failed to end trip');
+        setTimeout(() => setError(null), 3000);
+      });
+  };
+
+  // Report Incident - navigate to incident page
+  const handleReportIncident = (trip) => {
+    navigate(`/trips/${trip.id}/incident`);
+  };
+
+  // Open Metrics
+  const handleOpenMetrics = (trip) => {
+    navigate(`/trips/${trip.id}/metrics`);
+  };
+
+  // Finalize Trip
+  const handleFinalizeTrip = async (trip) => {
+    if (!window.confirm(`Finalize trip #${trip.tripNumber}?`)) return;
+    
+    try {
+      await tripService.finalizeTrip(trip.id);
+      setSuccessMessage('Trip finalized successfully!');
+      loadTrips();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error finalizing trip:', err);
+      setError('Failed to finalize trip');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  // ============================================================
+  // EXISTING HANDLERS
   // ============================================================
   const handleDeleteClick = (id) => {
     setDeleteId(id);
@@ -417,7 +461,7 @@ const TripList = () => {
   };
 
   // ============================================================
-  // COLUMNS
+  // COLUMNS - ✅ UPDATED with all action icons
   // ============================================================
   const getStatusChip = (status) => {
     const statusMap = {
@@ -589,44 +633,137 @@ const TripList = () => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: isMobile ? 100 : 120,
+      width: isMobile ? 140 : 200, // ✅ Increased width for more icons
       sortable: false,
       filterable: false,
       headerClassName: 'trip-header',
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.25}>
-          <Tooltip title="View">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => handleViewClick(params.row.id)}
-              sx={{ p: { xs: 0.25, sm: 0.5 } }}
-            >
-              <ViewIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Edit">
-            <IconButton
-              size="small"
-              color="secondary"
-              onClick={() => handleEditClick(params.row.id)}
-              sx={{ p: { xs: 0.25, sm: 0.5 } }}
-            >
-              <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => handleDeleteClick(params.row.id)}
-              sx={{ p: { xs: 0.25, sm: 0.5 } }}
-            >
-              <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      ),
+      renderCell: (params) => {
+        const trip = params.row;
+        const status = trip.status || 'DRAFT';
+        
+        // Check which actions are available
+        const canStart = STATUS_KEYS.CAN_START.includes(status);
+        const canEnd = STATUS_KEYS.CAN_END.includes(status);
+        const canReport = STATUS_KEYS.CAN_REPORT_INCIDENT.includes(status);
+        const canFinalize = STATUS_KEYS.CAN_FINALIZE.includes(status);
+        const canEdit = STATUS_KEYS.CAN_EDIT.includes(status);
+        const canDelete = STATUS_KEYS.CAN_DELETE.includes(status);
+        const canMetrics = STATUS_KEYS.CAN_METRICS.includes(status);
+
+        return (
+          <Stack direction="row" spacing={0.25} alignItems="center" flexWrap="wrap">
+            {/* Start */}
+            {canStart && (
+              <Tooltip title="Start Trip" arrow>
+                <IconButton
+                  size="small"
+                  color="success"
+                  onClick={() => handleStartTrip(trip)}
+                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                >
+                  <PlayArrowIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* End */}
+            {canEnd && (
+              <Tooltip title="End Trip" arrow>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleEndTrip(trip)}
+                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                >
+                  <StopIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* Report Incident */}
+            {canReport && (
+              <Tooltip title="Report Incident" arrow>
+                <IconButton
+                  size="small"
+                  color="warning"
+                  onClick={() => handleReportIncident(trip)}
+                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                >
+                  <WarningIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* View */}
+            <Tooltip title="View Details" arrow>
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleViewClick(trip.id)}
+                sx={{ p: { xs: 0.25, sm: 0.5 } }}
+              >
+                <ViewIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+              </IconButton>
+            </Tooltip>
+
+            {/* Edit */}
+            {canEdit && (
+              <Tooltip title="Edit Trip" arrow>
+                <IconButton
+                  size="small"
+                  color="secondary"
+                  onClick={() => handleEditClick(trip.id)}
+                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                >
+                  <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* Metrics */}
+            {canMetrics && (
+              <Tooltip title="Trip Metrics" arrow>
+                <IconButton
+                  size="small"
+                  color="info"
+                  onClick={() => handleOpenMetrics(trip)}
+                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                >
+                  <DashboardIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* Finalize */}
+            {canFinalize && (
+              <Tooltip title="Finalize Trip" arrow>
+                <IconButton
+                  size="small"
+                  color="success"
+                  onClick={() => handleFinalizeTrip(trip)}
+                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                >
+                  <CheckCircleIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {/* Delete */}
+            {canDelete && (
+              <Tooltip title="Delete Trip" arrow>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDeleteClick(trip.id)}
+                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                >
+                  <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+        );
+      },
     },
   ], [isMobile]);
 
