@@ -82,7 +82,7 @@ const APPROVAL_STATUS_OPTIONS = [
   'PENDING', 'APPROVED', 'REJECTED', 'UNDER_REVIEW'
 ];
 
-const TRIP_TYPE_OPTIONS = ['FREIGHT', 'RETURN', 'EMPTY', 'MAINTENANCE'];
+const TRIP_TYPE_OPTIONS = ['FREIGHT', 'RETURN', 'EMPTY', 'PROJECT'];
 
 const COMMODITY_OPTIONS = [
   'General Freight', 'Transformers', 'Big Drums',
