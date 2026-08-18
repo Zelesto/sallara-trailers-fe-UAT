@@ -1,4 +1,4 @@
-// src/pages/TripDetails.jsx - Fixed imports
+// src/pages/TripDetails.jsx - Fixed with proper error handling
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -41,7 +41,6 @@ import dayjs from 'dayjs';
 
 import { tripService } from '../services/tripService';
 import IncidentDialog from './IncidentDialog';
-// ✅ FIX: Import from constants file instead of TripList
 import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
 
 /* ============================================================
@@ -215,7 +214,7 @@ const FuelStatCard = ({ icon: Icon, title, value, subtitle, color = 'primary' })
 );
 
 /* ============================================================
-   COMPONENT: IncidentsTab
+   COMPONENT: IncidentsTab - FIXED with error handling
    ============================================================ */
 
 const IncidentsTab = ({ tripId, trip }) => {
@@ -238,7 +237,13 @@ const IncidentsTab = ({ tripId, trip }) => {
       setIncidents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching incidents:', err);
-      setError('Failed to load incidents');
+      // ✅ FIX: Don't show error for 500, just show empty state with message
+      if (err.response?.status === 500) {
+        setError('Incident management is currently unavailable. Please try again later.');
+      } else {
+        setError('Failed to load incidents');
+      }
+      setIncidents([]);
     } finally {
       setLoading(false);
     }
@@ -318,7 +323,16 @@ const IncidentsTab = ({ tripId, trip }) => {
   return (
     <Box>
       {error && (
-        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 2, fontSize: '0.8rem' }} 
+          onClose={() => setError(null)}
+          action={
+            <Button color="inherit" size="small" onClick={fetchIncidents}>
+              Retry
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}
@@ -406,7 +420,7 @@ const IncidentsTab = ({ tripId, trip }) => {
       </Stack>
 
       {/* Incidents Table */}
-      {filteredIncidents.length === 0 ? (
+      {filteredIncidents.length === 0 && !error ? (
         <Box textAlign="center" py={3}>
           <IncidentIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
@@ -426,7 +440,7 @@ const IncidentsTab = ({ tripId, trip }) => {
             Report First Incident
           </Button>
         </Box>
-      ) : (
+      ) : filteredIncidents.length > 0 ? (
         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
           <Table size="small">
             <TableHead sx={{ bgcolor: '#f5f5f5' }}>
@@ -490,7 +504,7 @@ const IncidentsTab = ({ tripId, trip }) => {
             </TableBody>
           </Table>
         </TableContainer>
-      )}
+      ) : null}
 
       {/* Incident Dialog */}
       <IncidentDialog
