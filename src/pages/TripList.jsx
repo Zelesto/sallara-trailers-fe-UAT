@@ -1,4 +1,4 @@
-// src/pages/TripList.jsx - Add missing actions
+// src/pages/TripList.jsx - Complete with View functionality
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -42,7 +42,6 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Pending as PendingIcon,
-  // ✅ ADD THESE MISSING ICONS
   PlayArrow as PlayArrowIcon,
   Stop as StopIcon,
   Warning as WarningIcon,
@@ -51,6 +50,7 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
+import TripDetails from './TripDetails'; // ✅ Import TripDetails
 import { 
   STATUS_CONFIG, 
   STATUS_OPTIONS,
@@ -59,7 +59,7 @@ import {
 export { STATUS_CONFIG, STATUS_OPTIONS };
 
 // ============================================================
-// HELPER: Get vehicle registration from various possible structures
+// HELPER FUNCTIONS
 // ============================================================
 const getVehicleRegistration = (trip) => {
   if (trip.vehicle?.registrationNumber) return trip.vehicle.registrationNumber;
@@ -73,9 +73,6 @@ const getVehicleRegistration = (trip) => {
   return 'N/A';
 };
 
-// ============================================================
-// HELPER: Get driver name from various possible structures
-// ============================================================
 const getDriverName = (trip) => {
   if (trip.driver) {
     if (trip.driver.firstName || trip.driver.lastName) {
@@ -91,9 +88,6 @@ const getDriverName = (trip) => {
   return 'Unassigned';
 };
 
-// ============================================================
-// STATUS KEYS (for action visibility)
-// ============================================================
 const STATUS_KEYS = {
   CAN_START: ['PLANNED', 'ASSIGNED', 'DRAFT'],
   CAN_END: ['IN_PROGRESS', 'ACTIVE'],
@@ -105,7 +99,7 @@ const STATUS_KEYS = {
 };
 
 // ============================================================
-// STAT CARD COMPONENT (Matches Dashboard)
+// STAT CARD COMPONENT
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -255,6 +249,10 @@ const TripList = () => {
   const [rowCount, setRowCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
+  // ✅ Add these states for TripDetails modal
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -326,10 +324,23 @@ const TripList = () => {
   }, [loadTrips]);
 
   // ============================================================
-  // ✅ ADD THESE MISSING ACTION HANDLERS
+  // ACTION HANDLERS
   // ============================================================
   
-  // Start Trip
+  // ✅ FIXED: View handler - opens TripDetails modal
+  const handleViewClick = (trip) => {
+    console.log('👁️ Viewing trip:', trip);
+    setSelectedTrip(trip);
+    setShowDetailsModal(true);
+  };
+
+  // ✅ FIXED: Close details modal
+  const handleCloseDetails = () => {
+    setShowDetailsModal(false);
+    setSelectedTrip(null);
+    loadTrips(); // Refresh when closing
+  };
+
   const handleStartTrip = (trip) => {
     if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
     
@@ -349,7 +360,6 @@ const TripList = () => {
       });
   };
 
-  // End Trip
   const handleEndTrip = (trip) => {
     if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
     
@@ -374,17 +384,14 @@ const TripList = () => {
       });
   };
 
-  // Report Incident - navigate to incident page
   const handleReportIncident = (trip) => {
     navigate(`/trips/${trip.id}/incident`);
   };
 
-  // Open Metrics
   const handleOpenMetrics = (trip) => {
     navigate(`/trips/${trip.id}/metrics`);
   };
 
-  // Finalize Trip
   const handleFinalizeTrip = async (trip) => {
     if (!window.confirm(`Finalize trip #${trip.tripNumber}?`)) return;
     
@@ -400,9 +407,6 @@ const TripList = () => {
     }
   };
 
-  // ============================================================
-  // EXISTING HANDLERS
-  // ============================================================
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setDeleteDialogOpen(true);
@@ -435,10 +439,6 @@ const TripList = () => {
     navigate(`/trips/${tripId}/edit`);
   };
 
-  const handleViewClick = (tripId) => {
-    navigate(`/trips/${tripId}`);
-  };
-
   const handlePaginationModelChange = (newModel) => {
     setPaginationModel(newModel);
   };
@@ -461,7 +461,7 @@ const TripList = () => {
   };
 
   // ============================================================
-  // COLUMNS - ✅ UPDATED with all action icons
+  // COLUMNS
   // ============================================================
   const getStatusChip = (status) => {
     const statusMap = {
@@ -633,7 +633,7 @@ const TripList = () => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: isMobile ? 140 : 200, // ✅ Increased width for more icons
+      width: isMobile ? 140 : 200,
       sortable: false,
       filterable: false,
       headerClassName: 'trip-header',
@@ -641,7 +641,6 @@ const TripList = () => {
         const trip = params.row;
         const status = trip.status || 'DRAFT';
         
-        // Check which actions are available
         const canStart = STATUS_KEYS.CAN_START.includes(status);
         const canEnd = STATUS_KEYS.CAN_END.includes(status);
         const canReport = STATUS_KEYS.CAN_REPORT_INCIDENT.includes(status);
@@ -652,7 +651,6 @@ const TripList = () => {
 
         return (
           <Stack direction="row" spacing={0.25} alignItems="center" flexWrap="wrap">
-            {/* Start */}
             {canStart && (
               <Tooltip title="Start Trip" arrow>
                 <IconButton
@@ -666,7 +664,6 @@ const TripList = () => {
               </Tooltip>
             )}
 
-            {/* End */}
             {canEnd && (
               <Tooltip title="End Trip" arrow>
                 <IconButton
@@ -680,7 +677,6 @@ const TripList = () => {
               </Tooltip>
             )}
 
-            {/* Report Incident */}
             {canReport && (
               <Tooltip title="Report Incident" arrow>
                 <IconButton
@@ -694,19 +690,18 @@ const TripList = () => {
               </Tooltip>
             )}
 
-            {/* View */}
+            {/* ✅ FIXED: View button now passes the entire trip object */}
             <Tooltip title="View Details" arrow>
               <IconButton
                 size="small"
                 color="primary"
-                onClick={() => handleViewClick(trip.id)}
+                onClick={() => handleViewClick(trip)}
                 sx={{ p: { xs: 0.25, sm: 0.5 } }}
               >
                 <ViewIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
               </IconButton>
             </Tooltip>
 
-            {/* Edit */}
             {canEdit && (
               <Tooltip title="Edit Trip" arrow>
                 <IconButton
@@ -720,7 +715,6 @@ const TripList = () => {
               </Tooltip>
             )}
 
-            {/* Metrics */}
             {canMetrics && (
               <Tooltip title="Trip Metrics" arrow>
                 <IconButton
@@ -734,7 +728,6 @@ const TripList = () => {
               </Tooltip>
             )}
 
-            {/* Finalize */}
             {canFinalize && (
               <Tooltip title="Finalize Trip" arrow>
                 <IconButton
@@ -748,7 +741,6 @@ const TripList = () => {
               </Tooltip>
             )}
 
-            {/* Delete */}
             {canDelete && (
               <Tooltip title="Delete Trip" arrow>
                 <IconButton
@@ -1119,6 +1111,20 @@ const TripList = () => {
           </Typography>
         </Stack>
       </Box>
+
+      {/* ✅ TripDetails Modal */}
+      {showDetailsModal && selectedTrip && (
+        <TripDetails
+          open={showDetailsModal}
+          tripId={selectedTrip.id}
+          onClose={handleCloseDetails}
+          onUpdate={() => {
+            loadTrips();
+            setSuccessMessage('Trip updated successfully!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+          }}
+        />
+      )}
 
       {/* Delete Dialog */}
       <Dialog
