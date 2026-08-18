@@ -64,6 +64,16 @@ import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
 import { depotService } from '../services/depotService';
 import { useEnums } from '../contexts/EnumContext';
+import { 
+  STATUS_CONFIG, 
+  STATUS_OPTIONS,
+  TRIP_TYPE_CONFIG,
+  TRIP_TYPE_OPTIONS,
+  PRIORITY_CONFIG,
+  PRIORITY_OPTIONS,
+  APPROVAL_STATUS_CONFIG,
+  APPROVAL_STATUS_OPTIONS
+} from '../constants/tripConstants';
 
 /* ============================================================
    CONSTANTS & CONFIGURATIONS
