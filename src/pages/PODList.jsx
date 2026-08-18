@@ -22,6 +22,7 @@ import {
   InputLabel,
   Select,
   Badge,
+  Pagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -47,7 +48,7 @@ import {
   Pending as PendingIcon,
   Verified as VerifiedIcon,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
+import { DataGrid, gridPageSelector, gridPageCountSelector } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
 
 // Compact Stat Card Component
@@ -120,10 +121,9 @@ const PODList = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Debounce search to prevent too many API calls
+  // Debounce search
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -134,6 +134,7 @@ const PODList = () => {
 
   // Load data when dependencies change
   useEffect(() => {
+    console.log('🔄 useEffect triggered with:', { page, pageSize, filterStatus, filterType, debouncedSearchTerm });
     loadPods();
     loadScanningStats();
   }, [page, pageSize, filterStatus, filterType, debouncedSearchTerm]);
@@ -159,33 +160,13 @@ const PODList = () => {
       
       const response = await podService.getAllPods(params);
       
-      console.log('📊 Response:', response);
+      console.log('📊 Response received:', response);
       
-      // Handle different response structures
-      let data = [];
-      let total = 0;
-      let pages = 0;
-      
-      if (response && typeof response === 'object') {
-        // Check if response is paginated
-        if (response.content && Array.isArray(response.content)) {
-          data = response.content;
-          total = response.totalElements || response.total || data.length;
-          pages = response.totalPages || Math.ceil(total / pageSize);
-        } else if (response.data && Array.isArray(response.data)) {
-          data = response.data;
-          total = response.total || response.totalElements || data.length;
-          pages = response.totalPages || Math.ceil(total / pageSize);
-        } else if (Array.isArray(response)) {
-          data = response;
-          total = data.length;
-          pages = Math.ceil(total / pageSize);
-        } else {
-          data = [];
-          total = 0;
-          pages = 0;
-        }
-      }
+      // The response is already in the correct format from your logs
+      // { content: Array(20), totalElements: 78, totalPages: 4, ... }
+      const data = response?.content || [];
+      const total = response?.totalElements || 0;
+      const pages = response?.totalPages || 0;
       
       const transformedData = (Array.isArray(data) ? data : []).map(pod => ({
         ...pod,
@@ -196,12 +177,14 @@ const PODList = () => {
         isScanned: pod.source === 'SCANNED' || pod.status === 'SCANNED',
       }));
       
+      console.log(`📊 Set ${transformedData.length} PODs, total: ${total}, pages: ${pages}, current page: ${page}`);
+      
       setPods(transformedData);
       setTotalElements(total);
       setTotalPages(pages);
       setError(null);
     } catch (err) {
-      setError('Failed to load PODs');
+      setError('Failed to load PODs: ' + (err.message || 'Unknown error'));
       console.error('Error loading PODs:', err);
       setPods([]);
       setTotalElements(0);
@@ -223,9 +206,7 @@ const PODList = () => {
     }
   };
 
-  // ============================================================
-  // FIX: Delete functionality with dialog
-  // ============================================================
+  // Delete functions
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setDeleteDialogOpen(true);
@@ -254,28 +235,34 @@ const PODList = () => {
     setDeleteId(null);
   };
 
-  // ============================================================
-  // FIX: Edit navigation - ensures proper routing
-  // ============================================================
+  // Navigation functions
   const handleEditClick = (podId) => {
     console.log('📝 Editing POD ID:', podId);
     navigate(`/pods/${podId}/edit`);
   };
 
-  // ============================================================
-  // FIX: View navigation
-  // ============================================================
   const handleViewClick = (podId) => {
     console.log('👁️ Viewing POD ID:', podId);
     navigate(`/pods/${podId}`);
   };
 
-  // ============================================================
-  // FIX: Debrief navigation
-  // ============================================================
   const handleDebriefClick = (podId) => {
     console.log('📋 Debriefing POD ID:', podId);
     navigate(`/pods/${podId}/debrief`);
+  };
+
+  // ============================================================
+  // FIX: Proper pagination handlers for DataGrid
+  // ============================================================
+  const handlePageChange = (newPage) => {
+    console.log('📄 DataGrid page change requested:', newPage);
+    setPage(newPage);
+  };
+
+  const handlePageSizeChange = (newPageSize) => {
+    console.log('📄 DataGrid page size change requested:', newPageSize);
+    setPageSize(newPageSize);
+    setPage(0); // Reset to first page when changing page size
   };
 
   const getStatusChip = (status) => {
@@ -494,7 +481,7 @@ const PODList = () => {
 
   const handleExport = async () => {
     try {
-      const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://sallara-trailers-be-UAT.onrender.com/api';
       const timestamp = new Date().getTime();
       const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
       window.open(exportUrl, '_blank');
@@ -502,15 +489,6 @@ const PODList = () => {
       console.error('Error exporting PODs:', error);
       setError('Failed to export PODs. Please try again.');
     }
-  };
-
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-  };
-
-  const handlePageSizeChange = (newPageSize) => {
-    setPageSize(newPageSize);
-    setPage(0);
   };
 
   return (
@@ -646,7 +624,10 @@ const PODList = () => {
             <Button 
               variant="outlined" 
               startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />} 
-              onClick={loadPods}
+              onClick={() => {
+                setPage(0);
+                loadPods();
+              }}
               size="small"
               sx={{ fontSize: '0.75rem', py: 0.5 }}
             >
@@ -665,7 +646,7 @@ const PODList = () => {
         </Stack>
       </Paper>
 
-      {/* Data Grid - FIXED: Proper pagination implementation */}
+      {/* Data Grid */}
       <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
         <DataGrid
           rows={pods}
@@ -724,7 +705,6 @@ const PODList = () => {
                 minHeight: '36px !important',
               },
             },
-            // Ensure pagination is visible
             '& .MuiDataGrid-footerContainer': {
               minHeight: '52px',
               borderTop: '1px solid #e0e0e0',
