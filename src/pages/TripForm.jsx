@@ -296,7 +296,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
                 sx={{ fontSize: '0.75rem' }}
               >
                 <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Select province</MenuItem>
-                {PROVINCES.map(p => (
+                {PROVINCE_OPTIONS.map(p => (
                   <MenuItem key={p} value={p} sx={{ fontSize: '0.75rem' }}>{p}</MenuItem>
                 ))}
               </Select>
