@@ -1,5 +1,5 @@
 // src/pages/PODList.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -22,7 +22,6 @@ import {
   InputLabel,
   Select,
   Badge,
-  Pagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -98,22 +97,28 @@ const StatCard = ({ title, value, color = 'primary', icon: Icon, badge = null })
 
 const PODList = () => {
   const navigate = useNavigate();
+  
+  // State
   const [pods, setPods] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('ALL');
-  const [filterType, setFilterType] = useState('ALL');
   const [successMessage, setSuccessMessage] = useState('');
   const [scanningStats, setScanningStats] = useState({
     scannedToday: 0,
     pendingDebrief: 0,
   });
   
-  // Pagination state
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [totalElements, setTotalElements] = useState(0);
+  // Filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterType, setFilterType] = useState('ALL');
+  
+  // Pagination state - INITIALIZE with proper values
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 20,
+  });
+  const [rowCount, setRowCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
   // Delete Dialog State
@@ -121,17 +126,27 @@ const PODList = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    loadPods();
-    loadScanningStats();
-  }, [page, pageSize, filterStatus, filterType, searchTerm]);
+  // Debounce search
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const loadPods = async () => {
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Load PODs function - use useCallback to prevent recreation
+  const loadPods = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       const params = {
-        page: page,
-        size: pageSize,
+        page: paginationModel.page,
+        size: paginationModel.pageSize,
         sort: 'createdAt,desc',
       };
       
@@ -139,17 +154,24 @@ const PODList = () => {
         params.status = filterStatus;
       }
       
-      if (searchTerm) {
-        params.search = searchTerm;
+      if (debouncedSearchTerm) {
+        params.search = debouncedSearchTerm;
       }
+
+      console.log('📊 Fetching PODs with params:', params);
       
       const response = await podService.getAllPods(params);
       
-      const data = response?.content || response?.data || [];
-      const total = response?.totalElements || response?.total || data.length;
-      const pages = response?.totalPages || Math.ceil(total / pageSize);
+      console.log('📊 Response:', response);
       
-      const transformedData = (Array.isArray(data) ? data : []).map(pod => ({
+      // Extract data from response
+      const data = response?.content || [];
+      const total = response?.totalElements || 0;
+      const pages = response?.totalPages || 0;
+      
+      console.log(`📊 Received ${data.length} items, total: ${total}, pages: ${pages}`);
+      
+      const transformedData = data.map(pod => ({
         ...pod,
         tripNumber: pod.tripNumber || pod.trip?.tripNumber || pod.tripId || 'N/A',
         tripId: pod.tripId || pod.trip?.id || null,
@@ -159,18 +181,21 @@ const PODList = () => {
       }));
       
       setPods(transformedData);
-      setTotalElements(total);
+      setRowCount(total);
       setTotalPages(pages);
-      setError(null);
     } catch (err) {
-      setError('Failed to load PODs');
       console.error('Error loading PODs:', err);
+      setError('Failed to load PODs: ' + (err.message || 'Unknown error'));
+      setPods([]);
+      setRowCount(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [paginationModel.page, paginationModel.pageSize, filterStatus, debouncedSearchTerm]);
 
-  const loadScanningStats = async () => {
+  // Load scanning stats
+  const loadScanningStats = useCallback(async () => {
     try {
       const stats = await podService.getPodStatistics('today');
       setScanningStats({
@@ -180,11 +205,16 @@ const PODList = () => {
     } catch (err) {
       console.error('Error loading scanning stats:', err);
     }
-  };
+  }, []);
 
-  // ============================================================
-  // FIX: Delete functionality with dialog
-  // ============================================================
+  // Load data when dependencies change
+  useEffect(() => {
+    console.log('🔄 useEffect triggered with pagination:', paginationModel);
+    loadPods();
+    loadScanningStats();
+  }, [loadPods, loadScanningStats]);
+
+  // Delete functions
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setDeleteDialogOpen(true);
@@ -198,6 +228,7 @@ const PODList = () => {
       setDeleteDialogOpen(false);
       setDeleteId(null);
       setSuccessMessage('POD deleted successfully');
+      // Reload current page
       loadPods();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
@@ -213,28 +244,28 @@ const PODList = () => {
     setDeleteId(null);
   };
 
-  // ============================================================
-  // FIX: Edit navigation - ensures proper routing
-  // ============================================================
+  // Navigation functions
   const handleEditClick = (podId) => {
     console.log('📝 Editing POD ID:', podId);
     navigate(`/pods/${podId}/edit`);
   };
 
-  // ============================================================
-  // FIX: View navigation
-  // ============================================================
   const handleViewClick = (podId) => {
     console.log('👁️ Viewing POD ID:', podId);
     navigate(`/pods/${podId}`);
   };
 
-  // ============================================================
-  // FIX: Debrief navigation
-  // ============================================================
   const handleDebriefClick = (podId) => {
     console.log('📋 Debriefing POD ID:', podId);
     navigate(`/pods/${podId}/debrief`);
+  };
+
+  // ============================================================
+  // FIX: Handle pagination model change
+  // ============================================================
+  const handlePaginationModelChange = (newModel) => {
+    console.log('📄 Pagination model changing from:', paginationModel, 'to:', newModel);
+    setPaginationModel(newModel);
   };
 
   const getStatusChip = (status) => {
@@ -276,7 +307,7 @@ const PODList = () => {
     return icons[type] || <ReceiptIcon sx={{ fontSize: '0.8rem' }} />;
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: 'podNumber',
       headerName: 'POD Number',
@@ -439,21 +470,21 @@ const PODList = () => {
         </Box>
       ),
     },
-  ];
+  ], []);
 
   // Stats
-  const stats = {
-    total: totalElements,
+  const stats = useMemo(() => ({
+    total: rowCount,
     scanned: pods.filter(p => p.source === 'SCANNED').length,
     pending: pods.filter(p => p.status === 'PENDING' || p.status === 'SCANNED').length,
     delivered: pods.filter(p => p.status === 'DELIVERED').length,
     verified: pods.filter(p => p.status === 'VERIFIED').length,
     rejected: pods.filter(p => p.status === 'REJECTED').length,
-  };
+  }), [pods, rowCount]);
 
   const handleExport = async () => {
     try {
-      const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://sallara-trailers-be-UAT.onrender.com/api';
       const timestamp = new Date().getTime();
       const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
       window.open(exportUrl, '_blank');
@@ -463,14 +494,10 @@ const PODList = () => {
     }
   };
 
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage - 1);
-  };
-
-  const handlePageSizeChange = (event) => {
-    const newSize = parseInt(event.target.value, 10);
-    setPageSize(newSize);
-    setPage(0);
+  const handleRefresh = () => {
+    console.log('🔄 Manual refresh');
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    loadPods();
   };
 
   return (
@@ -578,7 +605,10 @@ const PODList = () => {
             <Select
               value={filterStatus}
               label="Status"
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPaginationModel(prev => ({ ...prev, page: 0 }));
+              }}
               sx={{ fontSize: '0.75rem' }}
             >
               <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
@@ -594,7 +624,10 @@ const PODList = () => {
             <Select
               value={filterType}
               label="Type"
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                setPaginationModel(prev => ({ ...prev, page: 0 }));
+              }}
               sx={{ fontSize: '0.75rem' }}
             >
               <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Types</MenuItem>
@@ -606,7 +639,7 @@ const PODList = () => {
             <Button 
               variant="outlined" 
               startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />} 
-              onClick={loadPods}
+              onClick={handleRefresh}
               size="small"
               sx={{ fontSize: '0.75rem', py: 0.5 }}
             >
@@ -625,80 +658,81 @@ const PODList = () => {
         </Stack>
       </Paper>
 
-      {/* Data Grid - FIXED: Removed duplicate pagination, using DataGrid's built-in pagination */}
+      {/* Data Grid */}
       <Paper sx={{ height: 450, width: '100%', borderRadius: 1 }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress size={30} />
-            <Typography sx={{ ml: 2, fontSize: '0.8rem' }}>Loading PODs...</Typography>
-          </Box>
-        ) : (
-          <DataGrid
-            rows={pods}
-            columns={columns}
-            pagination
-            paginationMode="server"
-            rowCount={totalElements}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newPageSize) => {
-              setPageSize(newPageSize);
-              setPage(0);
-            }}
-            rowsPerPageOptions={[5, 10, 20, 50, 100]}
-            checkboxSelection={false}
-            disableRowSelectionOnClick
-            getRowId={(row) => row.id}
-            density="compact"
-            loading={loading}
-            sx={{
-              border: 'none',
+        <DataGrid
+          rows={pods}
+          columns={columns}
+          pagination
+          paginationMode="server"
+          rowCount={rowCount}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          pageSizeOptions={[5, 10, 20, 50, 100]}
+          checkboxSelection={false}
+          disableRowSelectionOnClick
+          getRowId={(row) => row.id}
+          density="compact"
+          loading={loading}
+          sx={{
+            border: 'none',
+            fontSize: '0.75rem',
+            '& .MuiDataGrid-cell': {
+              borderRight: '1px solid #f0f0f0',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 8px',
               fontSize: '0.75rem',
-              '& .MuiDataGrid-cell': {
-                borderRight: '1px solid #f0f0f0',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 8px',
-                fontSize: '0.75rem',
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: '#f8f9fa',
-                borderBottom: '2px solid #e0e0e0',
+            },
+            '& .MuiDataGrid-columnHeaders': {
+              backgroundColor: '#f8f9fa',
+              borderBottom: '2px solid #e0e0e0',
+              minHeight: '36px !important',
+            },
+            '& .pod-header': {
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              color: '#333',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: '#f5f5f5',
+            },
+            '& .MuiDataGrid-cell:focus': {
+              outline: 'none',
+            },
+            '& .MuiDataGrid-columnHeader:focus': {
+              outline: 'none',
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 600,
+              color: '#333',
+              fontSize: '0.65rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.3px',
+            },
+            '& .MuiDataGrid-virtualScroller': {
+              '& .MuiDataGrid-row': {
                 minHeight: '36px !important',
               },
-              '& .pod-header': {
-                fontSize: '0.65rem',
-                fontWeight: 600,
-                color: '#333',
-              },
-              '& .MuiDataGrid-row:hover': {
-                backgroundColor: '#f5f5f5',
-              },
-              '& .MuiDataGrid-cell:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeader:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeaderTitle': {
-                fontWeight: 600,
-                color: '#333',
-                fontSize: '0.65rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.3px',
-              },
-              '& .MuiDataGrid-virtualScroller': {
-                '& .MuiDataGrid-row': {
-                  minHeight: '36px !important',
-                },
-              },
-            }}
-          />
-        )}
+            },
+            '& .MuiDataGrid-footerContainer': {
+              minHeight: '52px',
+              borderTop: '1px solid #e0e0e0',
+            },
+            '& .MuiTablePagination-root': {
+              fontSize: '0.75rem',
+            },
+            '& .MuiTablePagination-select': {
+              fontSize: '0.75rem',
+            },
+            '& .MuiTablePagination-displayedRows': {
+              fontSize: '0.75rem',
+            },
+          }}
+        />
       </Paper>
 
-      {/* Footer with stats - FIXED: Moved footer outside DataGrid */}
+      {/* Footer with stats */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -710,7 +744,7 @@ const PODList = () => {
         border: '1px solid #e0e0e0'
       }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-          Showing {pods.length} of {totalElements} PODs
+          Showing {pods.length} of {rowCount} PODs
           {scanningStats.scannedToday > 0 && (
             <Chip 
               size="small" 
@@ -729,7 +763,7 @@ const PODList = () => {
           )}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-          Last updated: {new Date().toLocaleString()}
+          Page {paginationModel.page + 1} of {totalPages || 1}
         </Typography>
       </Box>
 
