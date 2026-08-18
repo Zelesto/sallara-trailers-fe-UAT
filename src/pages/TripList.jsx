@@ -46,7 +46,19 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
+import { 
+  STATUS_CONFIG, 
+  STATUS_OPTIONS,
+  TRIP_TYPE_CONFIG,
+  TRIP_TYPE_OPTIONS,
+  PRIORITY_CONFIG,
+  PRIORITY_OPTIONS,
+  APPROVAL_STATUS_CONFIG,
+  APPROVAL_STATUS_OPTIONS
+} from '../constants/tripConstants';
 
+
+export { STATUS_CONFIG, STATUS_OPTIONS };
 // ============================================================
 // STAT CARD COMPONENT (Matches Dashboard)
 // ============================================================
