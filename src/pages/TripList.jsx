@@ -1,5 +1,5 @@
-// src/pages/TripList.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// src/pages/TripList.jsx - Fixed Version
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -49,16 +49,72 @@ import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { 
   STATUS_CONFIG, 
   STATUS_OPTIONS,
-  TRIP_TYPE_CONFIG,
-  TRIP_TYPE_OPTIONS,
-  PRIORITY_CONFIG,
-  PRIORITY_OPTIONS,
-  APPROVAL_STATUS_CONFIG,
-  APPROVAL_STATUS_OPTIONS
 } from '../constants/tripConstants';
 
-
 export { STATUS_CONFIG, STATUS_OPTIONS };
+
+// ============================================================
+// HELPER: Get vehicle registration from various possible structures
+// ============================================================
+const getVehicleRegistration = (trip) => {
+  // Try different possible structures
+  if (trip.vehicle?.registrationNumber) {
+    return trip.vehicle.registrationNumber;
+  }
+  if (trip.vehicle?.registration) {
+    return trip.vehicle.registration;
+  }
+  if (trip.vehicle?.vehicleNumber) {
+    return trip.vehicle.vehicleNumber;
+  }
+  if (trip.vehicle?.name) {
+    return trip.vehicle.name;
+  }
+  if (trip.vehicleReg) {
+    return trip.vehicleReg;
+  }
+  if (trip.vehicleRegistration) {
+    return trip.vehicleRegistration;
+  }
+  // If vehicle is an object with an id but no registration
+  if (trip.vehicle?.id) {
+    return `Vehicle ${trip.vehicle.id}`;
+  }
+  // If vehicleId is present but no vehicle object
+  if (trip.vehicleId) {
+    return `Vehicle ${trip.vehicleId}`;
+  }
+  return 'N/A';
+};
+
+// ============================================================
+// HELPER: Get driver name from various possible structures
+// ============================================================
+const getDriverName = (trip) => {
+  // Check for nested driver object
+  if (trip.driver) {
+    if (trip.driver.firstName || trip.driver.lastName) {
+      return `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim();
+    }
+    if (trip.driver.name) {
+      return trip.driver.name;
+    }
+    if (trip.driver.fullName) {
+      return trip.driver.fullName;
+    }
+    if (typeof trip.driver === 'string') {
+      return trip.driver;
+    }
+  }
+  
+  // If no driver object, check for direct fields
+  if (trip.driverName) return trip.driverName;
+  if (trip.driver_name) return trip.driver_name;
+  if (trip.assignedDriver) return trip.assignedDriver;
+  
+  return 'Unassigned';
+};
+
 // ============================================================
 // STAT CARD COMPONENT (Matches Dashboard)
 // ============================================================
@@ -219,6 +275,7 @@ const TripList = () => {
 
   // Debounce search
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const fetchTimerRef = useRef(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -227,7 +284,7 @@ const TripList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Load trips
+  // Load trips - FIXED with proper dependencies
   const loadTrips = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -247,36 +304,56 @@ const TripList = () => {
         params.search = debouncedSearchTerm;
       }
 
+      console.log('📤 Fetching trips with params:', params);
+
       const response = await tripService.getAllTrips(params);
       
+      console.log('📥 Response:', {
+        page: response.number,
+        totalElements: response.totalElements,
+        totalPages: response.totalPages,
+        contentLength: response.content?.length
+      });
+
+      // DEBUG: Log first trip to check data structure
+      if (response.content && response.content.length > 0) {
+        console.log('🔍 First trip sample:', response.content[0]);
+      }
+
       const data = response?.content || [];
       const total = response?.totalElements || 0;
       const pages = response?.totalPages || 0;
       
+      // ✅ FIXED: Transform data with proper vehicle and driver extraction
       const transformedData = data.map(trip => ({
         ...trip,
         status: trip.status || 'DRAFT',
         tripType: trip.tripType || 'FREIGHT',
-        driverName: trip.driver?.name || trip.driverName || 'Unassigned',
-        vehicleReg: trip.vehicle?.registrationNumber || trip.vehicleReg || 'N/A',
+        driverName: getDriverName(trip),
+        vehicleReg: getVehicleRegistration(trip),
         customerName: trip.customer?.name || trip.customerName || 'N/A',
         originCity: trip.originCity || trip.origin?.city || 'N/A',
         destinationCity: trip.destinationCity || trip.destination?.city || 'N/A',
       }));
+      
+      console.log('✅ Transformed trips:', transformedData.length);
       
       setTrips(transformedData);
       setRowCount(total);
       setTotalPages(pages);
     } catch (err) {
       console.error('Error loading trips:', err);
-      setError('Failed to load trips');
+      setError('Failed to load trips: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
   }, [paginationModel.page, paginationModel.pageSize, filterStatus, debouncedSearchTerm]);
 
+  // ✅ FIXED: Use debounced effect for filter changes
   useEffect(() => {
-    loadTrips();
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+    fetchTimerRef.current = setTimeout(() => loadTrips(), 400);
+    return () => clearTimeout(fetchTimerRef.current);
   }, [loadTrips]);
 
   // ============================================================
@@ -603,7 +680,7 @@ const TripList = () => {
               } 
             }}
           >
-            Manage and track all trips
+            Manage and track all trips • {rowCount} total trips
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
