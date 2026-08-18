@@ -1,5 +1,5 @@
 // src/pages/PODList.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -22,7 +22,6 @@ import {
   InputLabel,
   Select,
   Badge,
-  Pagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -48,7 +47,7 @@ import {
   Pending as PendingIcon,
   Verified as VerifiedIcon,
 } from '@mui/icons-material';
-import { DataGrid, gridPageSelector, gridPageCountSelector } from '@mui/x-data-grid';
+import { DataGrid } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
 
 // Compact Stat Card Component
@@ -98,22 +97,28 @@ const StatCard = ({ title, value, color = 'primary', icon: Icon, badge = null })
 
 const PODList = () => {
   const navigate = useNavigate();
+  
+  // State
   const [pods, setPods] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('ALL');
-  const [filterType, setFilterType] = useState('ALL');
   const [successMessage, setSuccessMessage] = useState('');
   const [scanningStats, setScanningStats] = useState({
     scannedToday: 0,
     pendingDebrief: 0,
   });
   
-  // Pagination state
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [totalElements, setTotalElements] = useState(0);
+  // Filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterType, setFilterType] = useState('ALL');
+  
+  // Pagination state - INITIALIZE with proper values
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 20,
+  });
+  const [rowCount, setRowCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
   // Delete Dialog State
@@ -124,6 +129,7 @@ const PODList = () => {
   // Debounce search
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
+  // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -132,19 +138,15 @@ const PODList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Load data when dependencies change
-  useEffect(() => {
-    console.log('🔄 useEffect triggered with:', { page, pageSize, filterStatus, filterType, debouncedSearchTerm });
-    loadPods();
-    loadScanningStats();
-  }, [page, pageSize, filterStatus, filterType, debouncedSearchTerm]);
-
-  const loadPods = async () => {
+  // Load PODs function - use useCallback to prevent recreation
+  const loadPods = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       const params = {
-        page: page,
-        size: pageSize,
+        page: paginationModel.page,
+        size: paginationModel.pageSize,
         sort: 'createdAt,desc',
       };
       
@@ -160,15 +162,16 @@ const PODList = () => {
       
       const response = await podService.getAllPods(params);
       
-      console.log('📊 Response received:', response);
+      console.log('📊 Response:', response);
       
-      // The response is already in the correct format from your logs
-      // { content: Array(20), totalElements: 78, totalPages: 4, ... }
+      // Extract data from response
       const data = response?.content || [];
       const total = response?.totalElements || 0;
       const pages = response?.totalPages || 0;
       
-      const transformedData = (Array.isArray(data) ? data : []).map(pod => ({
+      console.log(`📊 Received ${data.length} items, total: ${total}, pages: ${pages}`);
+      
+      const transformedData = data.map(pod => ({
         ...pod,
         tripNumber: pod.tripNumber || pod.trip?.tripNumber || pod.tripId || 'N/A',
         tripId: pod.tripId || pod.trip?.id || null,
@@ -177,24 +180,22 @@ const PODList = () => {
         isScanned: pod.source === 'SCANNED' || pod.status === 'SCANNED',
       }));
       
-      console.log(`📊 Set ${transformedData.length} PODs, total: ${total}, pages: ${pages}, current page: ${page}`);
-      
       setPods(transformedData);
-      setTotalElements(total);
+      setRowCount(total);
       setTotalPages(pages);
-      setError(null);
     } catch (err) {
-      setError('Failed to load PODs: ' + (err.message || 'Unknown error'));
       console.error('Error loading PODs:', err);
+      setError('Failed to load PODs: ' + (err.message || 'Unknown error'));
       setPods([]);
-      setTotalElements(0);
+      setRowCount(0);
       setTotalPages(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [paginationModel.page, paginationModel.pageSize, filterStatus, debouncedSearchTerm]);
 
-  const loadScanningStats = async () => {
+  // Load scanning stats
+  const loadScanningStats = useCallback(async () => {
     try {
       const stats = await podService.getPodStatistics('today');
       setScanningStats({
@@ -204,7 +205,14 @@ const PODList = () => {
     } catch (err) {
       console.error('Error loading scanning stats:', err);
     }
-  };
+  }, []);
+
+  // Load data when dependencies change
+  useEffect(() => {
+    console.log('🔄 useEffect triggered with pagination:', paginationModel);
+    loadPods();
+    loadScanningStats();
+  }, [loadPods, loadScanningStats]);
 
   // Delete functions
   const handleDeleteClick = (id) => {
@@ -220,6 +228,7 @@ const PODList = () => {
       setDeleteDialogOpen(false);
       setDeleteId(null);
       setSuccessMessage('POD deleted successfully');
+      // Reload current page
       loadPods();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
@@ -252,17 +261,11 @@ const PODList = () => {
   };
 
   // ============================================================
-  // FIX: Proper pagination handlers for DataGrid
+  // FIX: Handle pagination model change
   // ============================================================
-  const handlePageChange = (newPage) => {
-    console.log('📄 DataGrid page change requested:', newPage);
-    setPage(newPage);
-  };
-
-  const handlePageSizeChange = (newPageSize) => {
-    console.log('📄 DataGrid page size change requested:', newPageSize);
-    setPageSize(newPageSize);
-    setPage(0); // Reset to first page when changing page size
+  const handlePaginationModelChange = (newModel) => {
+    console.log('📄 Pagination model changing from:', paginationModel, 'to:', newModel);
+    setPaginationModel(newModel);
   };
 
   const getStatusChip = (status) => {
@@ -304,7 +307,7 @@ const PODList = () => {
     return icons[type] || <ReceiptIcon sx={{ fontSize: '0.8rem' }} />;
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: 'podNumber',
       headerName: 'POD Number',
@@ -467,17 +470,17 @@ const PODList = () => {
         </Box>
       ),
     },
-  ];
+  ], []);
 
   // Stats
-  const stats = {
-    total: totalElements,
+  const stats = useMemo(() => ({
+    total: rowCount,
     scanned: pods.filter(p => p.source === 'SCANNED').length,
     pending: pods.filter(p => p.status === 'PENDING' || p.status === 'SCANNED').length,
     delivered: pods.filter(p => p.status === 'DELIVERED').length,
     verified: pods.filter(p => p.status === 'VERIFIED').length,
     rejected: pods.filter(p => p.status === 'REJECTED').length,
-  };
+  }), [pods, rowCount]);
 
   const handleExport = async () => {
     try {
@@ -489,6 +492,12 @@ const PODList = () => {
       console.error('Error exporting PODs:', error);
       setError('Failed to export PODs. Please try again.');
     }
+  };
+
+  const handleRefresh = () => {
+    console.log('🔄 Manual refresh');
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    loadPods();
   };
 
   return (
@@ -596,7 +605,10 @@ const PODList = () => {
             <Select
               value={filterStatus}
               label="Status"
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPaginationModel(prev => ({ ...prev, page: 0 }));
+              }}
               sx={{ fontSize: '0.75rem' }}
             >
               <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
@@ -612,7 +624,10 @@ const PODList = () => {
             <Select
               value={filterType}
               label="Type"
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                setPaginationModel(prev => ({ ...prev, page: 0 }));
+              }}
               sx={{ fontSize: '0.75rem' }}
             >
               <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Types</MenuItem>
@@ -624,10 +639,7 @@ const PODList = () => {
             <Button 
               variant="outlined" 
               startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />} 
-              onClick={() => {
-                setPage(0);
-                loadPods();
-              }}
+              onClick={handleRefresh}
               size="small"
               sx={{ fontSize: '0.75rem', py: 0.5 }}
             >
@@ -653,12 +665,10 @@ const PODList = () => {
           columns={columns}
           pagination
           paginationMode="server"
-          rowCount={totalElements}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-          rowsPerPageOptions={[5, 10, 20, 50, 100]}
+          rowCount={rowCount}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          pageSizeOptions={[5, 10, 20, 50, 100]}
           checkboxSelection={false}
           disableRowSelectionOnClick
           getRowId={(row) => row.id}
@@ -734,7 +744,7 @@ const PODList = () => {
         border: '1px solid #e0e0e0'
       }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-          Showing {pods.length} of {totalElements} PODs
+          Showing {pods.length} of {rowCount} PODs
           {scanningStats.scannedToday > 0 && (
             <Chip 
               size="small" 
@@ -753,7 +763,7 @@ const PODList = () => {
           )}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-          Page {page + 1} of {totalPages || 1}
+          Page {paginationModel.page + 1} of {totalPages || 1}
         </Typography>
       </Box>
 
