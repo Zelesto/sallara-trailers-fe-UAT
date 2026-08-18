@@ -40,3 +40,25 @@ export const APPROVAL_STATUS_CONFIG = {
 };
 
 export const APPROVAL_STATUS_OPTIONS = Object.keys(APPROVAL_STATUS_CONFIG);
+
+// Commodity options
+export const COMMODITY_OPTIONS = [
+  'General Freight', 'Transformers', 'Big Drums',
+  'Small Drums', 'Meter Boxes', 'Mixed Materials',
+  'Car Parts', 'Circuit Breakers', 'Pallets', 'Poles',
+  'CAT 426', 'CAT 140', '996', '226',
+  'CS11GC', 'Components', 'Oil', 'Other'
+];
+
+// Province options
+export const PROVINCE_OPTIONS = [
+  'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
+  'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
+];
+
+// Departure options
+export const DEPARTURE_OPTIONS = [
+  { value: 'DEPOT', label: 'Depot' },
+  { value: 'LAST_DROP', label: 'Last Drop Off Location' },
+  { value: 'FREEHAND', label: 'Freehand / Custom Location' }
+];
