@@ -85,11 +85,11 @@ const APPROVAL_STATUS_OPTIONS = [
 const TRIP_TYPE_OPTIONS = ['FREIGHT', 'RETURN', 'EMPTY', 'MAINTENANCE'];
 
 const COMMODITY_OPTIONS = [
-  'General Freight', 'Refrigerated Goods', 'Dangerous Goods',
-  'Chemicals', 'Construction Materials', 'Agricultural Products',
-  'Livestock', 'Automotive', 'Electronics', 'Furniture',
-  'Textiles', 'Pharmaceuticals', 'Food Products', 'Beverages',
-  'Fuel', 'Waste Materials', 'Other'
+  'General Freight', 'Transformers', 'Big Drums',
+  'Small Drums', 'Meter Boxes', 'Mixed Materials',
+  'Car Parts', 'Cuircuit Breakers', 'Pallets', 'Poles',
+  'CAT 426', 'CAT 140', '996', '226',
+  'CS11GC', 'Components','Oil', 'Other'
 ];
 
 const PROVINCES = [
