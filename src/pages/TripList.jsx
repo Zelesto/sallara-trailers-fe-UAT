@@ -1,4 +1,4 @@
-// src/pages/TripList.jsx
+// src/pages/TripList.jsx - DEV Version
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
@@ -220,6 +220,8 @@ function TripList() {
   const [selectedTripForNotice, setSelectedTripForNotice] = useState(null);
   const [pagination, setPagination] = useState({ page: 0, pageSize: 10, total: 0 });
   
+  // ✅ Metrics cache for performance
+  const metricsCache = useRef({});
   const fetchTimerRef = useRef(null);
 
   const uniqueCities = useMemo(
@@ -232,14 +234,14 @@ function TripList() {
     [trips]
   );
 
-  // ✅ FIXED: fetchTrips with proper status handling
-  const fetchTrips = useCallback(async ({
-    page = 0,
-    size = pagination.pageSize,
-    search = searchText,
-    status = statusFilter,
-    city = cityFilter,
-    customer = customerFilter
+  // ✅ fetchTrips with metrics fetching
+  const fetchTrips = useCallback(async ({ 
+    page = 0, 
+    size = pagination.pageSize, 
+    search = searchText, 
+    status = statusFilter, 
+    city = cityFilter, 
+    customer = customerFilter 
   } = {}) => {
     setLoading(true);
     try {
@@ -249,7 +251,6 @@ function TripList() {
         sort: 'id,desc',
       };
       
-      // ✅ Only add status if it's not 'all' and has a value
       if (status && status !== 'all' && status !== 'undefined') {
         params.status = status;
       }
@@ -269,18 +270,37 @@ function TripList() {
         contentLength: response.content?.length
       });
 
-      // ✅ DEBUG: Log first trip to check driver data
-      if (response.content && response.content.length > 0) {
-        console.log('🔍 First trip sample:', response.content[0]);
-        console.log('🔍 Driver data in first trip:', {
-          driver: response.content[0].driver,
-          driverId: response.content[0].driverId,
-          driverName: response.content[0].driverName,
-          assignedDriver: response.content[0].assignedDriver
+      // ✅ Fetch metrics for each trip in parallel with caching
+      const tripsWithMetrics = await Promise.all(
+        (response.content || []).map(async (trip) => {
+          // Check cache first
+          if (metricsCache.current[trip.id]) {
+            return { ...trip, metrics: metricsCache.current[trip.id] };
+          }
+          
+          try {
+            const metrics = await tripService.getTripMetrics(trip.id);
+            metricsCache.current[trip.id] = metrics;
+            return { ...trip, metrics };
+          } catch {
+            // No metrics found
+            metricsCache.current[trip.id] = null;
+            return { ...trip, metrics: null };
+          }
+        })
+      );
+
+      // DEBUG: Log first trip with metrics
+      if (tripsWithMetrics.length > 0) {
+        console.log('🔍 First trip with metrics:', {
+          id: tripsWithMetrics[0].id,
+          plannedDistance: tripsWithMetrics[0].plannedDistanceKm,
+          actualDistance: tripsWithMetrics[0].metrics?.totalDistanceKm,
+          hasMetrics: !!tripsWithMetrics[0].metrics
         });
       }
 
-      setTrips(response.content || []);
+      setTrips(tripsWithMetrics);
       setPagination({
         page: response.number ?? page,
         pageSize: response.size ?? size,
@@ -295,20 +315,22 @@ function TripList() {
     }
   }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
 
-
-  // ✅ FIXED: Initial fetch with no filters
+  // ✅ Initial fetch
   useEffect(() => {
     fetchTrips({ page: 0, status: 'all' });
   }, []);
 
-  // ✅ FIXED: Debounced filter changes
+  // ✅ Debounced filter changes
   useEffect(() => {
     if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
     return () => clearTimeout(fetchTimerRef.current);
   }, [searchText, statusFilter, cityFilter, customerFilter]);
 
-  // ✅ FIXED: handleStartTrip function (was missing)
+  // ============================================================
+  // ACTION HANDLERS
+  // ============================================================
+
   const handleStartTrip = (trip) => {
     if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
     
@@ -318,6 +340,7 @@ function TripList() {
     tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
       .then(() => {
         showNotification('Trip started successfully!', 'success');
+        metricsCache.current = {}; // Clear cache
         fetchTrips({ page: pagination.page });
       })
       .catch(err => {
@@ -340,6 +363,7 @@ function TripList() {
     })
       .then(() => {
         showNotification('Trip ended successfully!', 'success');
+        metricsCache.current = {}; // Clear cache
         fetchTrips({ page: pagination.page });
       })
       .catch(err => {
@@ -359,10 +383,12 @@ function TripList() {
     fetchTrips({ page: pagination.page });
   };
 
-   const handleMetricsSuccess = () => {
+  // ✅ Updated: Clear cache and refresh after metrics save
+  const handleMetricsSuccess = () => {
     console.log('🔄 Metrics updated, refreshing trip list...');
     setShowMetricsModal(false);
-    // Force refresh with current page
+    // Clear cache to force fresh fetch
+    metricsCache.current = {};
     setTimeout(() => {
       fetchTrips({ page: pagination.page });
       showNotification('Trip metrics updated successfully!', 'success');
@@ -391,6 +417,7 @@ function TripList() {
     try {
       await tripService.finalizeTrip(trip.id);
       showNotification('Trip finalized successfully!', 'success');
+      metricsCache.current = {}; // Clear cache
       fetchTrips({ page: pagination.page });
     } catch (err) {
       console.error('Error finalizing trip:', err);
@@ -404,6 +431,7 @@ function TripList() {
     try {
       await tripService.deleteTrip(trip.id);
       showNotification('Trip deleted successfully', 'success');
+      metricsCache.current = {}; // Clear cache
       fetchTrips({ page: 0 });
     } catch (err) {
       console.error('Error deleting trip:', err);
@@ -411,7 +439,6 @@ function TripList() {
     }
   };
 
-  // ✅ FIXED: Clear filters resets to 'all'
   const handleClearFilters = () => {
     setSearchText('');
     setStatusFilter('all');
@@ -419,28 +446,17 @@ function TripList() {
     setCustomerFilter('');
   };
 
-   const handleModalClose = (callback) => () => {
+  const handleModalClose = (callback) => () => {
     callback();
-    // ✅ Force refresh after modal closes
     setTimeout(() => {
+      metricsCache.current = {}; // Clear cache
       fetchTrips({ page: pagination.page });
     }, 300);
   };
 
- const getTripDisplay = (trip) => {
-    // DEBUG: Log trip for driver data
-    console.log('🔍 getTripDisplay - Trip:', {
-      id: trip.id,
-      tripNumber: trip.tripNumber,
-      driver: trip.driver,
-      driverId: trip.driverId,
-      driverName: trip.driverName,
-      assignedDriver: trip.assignedDriver
-    });
-
+  const getTripDisplay = (trip) => {
     let driverName = 'N/A';
     
-    // Check for nested driver object
     if (trip.driver) {
       if (trip.driver.firstName || trip.driver.lastName) {
         driverName = `${trip.driver.firstName || ''} ${trip.driver.lastName || ''}`.trim();
@@ -453,7 +469,6 @@ function TripList() {
       }
     }
     
-    // If no driver object, check for direct fields
     if (driverName === 'N/A' || !driverName) {
       driverName = trip.driverName || trip.driver_name || trip.assignedDriver || 'N/A';
     }
@@ -512,7 +527,10 @@ function TripList() {
           <Stack direction="row" spacing={1}>
             <Button
               startIcon={<Refresh sx={{ fontSize: '0.9rem' }} />}
-              onClick={() => fetchTrips({ page: pagination.page })}
+              onClick={() => {
+                metricsCache.current = {}; // Clear cache
+                fetchTrips({ page: pagination.page });
+              }}
               variant="outlined"
               size="small"
               sx={{ fontSize: '0.75rem', py: 1, borderRadius: '10px', textTransform: 'none' }}
@@ -751,15 +769,15 @@ function TripList() {
                         </TableCell>
 
                         <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
-                        {display.driverName !== 'N/A' ? (
-                          <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <PersonIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-                            <Typography sx={{ fontSize: '0.75rem' }}>{display.driverName}</Typography>
-                          </Stack>
-                        ) : (
-                          <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
-                        )}
-                      </TableCell>
+                          {display.driverName !== 'N/A' ? (
+                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                              <PersonIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
+                              <Typography sx={{ fontSize: '0.75rem' }}>{display.driverName}</Typography>
+                            </Stack>
+                          ) : (
+                            <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
+                          )}
+                        </TableCell>
 
                         <TableCell sx={{ py: 0.5 }}>
                           <StatusChip status={trip.status} />
@@ -785,17 +803,55 @@ function TripList() {
                           />
                         </TableCell>
 
+                        {/* ✅ UPDATED: Distance column with actual metrics */}
                         <TableCell sx={{ py: 0.5 }}>
-                          {trip.plannedDistanceKm ? (
-                            <Chip
-                              size="small"
-                              label={`${trip.plannedDistanceKm} km`}
-                              variant="outlined"
-                              sx={{ fontSize: '0.65rem', height: 20 }}
-                            />
-                          ) : (
-                            <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>-</Typography>
-                          )}
+                          {(() => {
+                            const plannedDistance = trip.plannedDistanceKm;
+                            const actualDistance = trip.metrics?.totalDistanceKm || trip.totalDistanceKm;
+                            
+                            // If we have actual distance from metrics
+                            if (actualDistance) {
+                              return (
+                                <Tooltip 
+                                  title={`Actual: ${actualDistance} km${plannedDistance ? ` | Planned: ${plannedDistance} km` : ''}`} 
+                                  arrow
+                                >
+                                  <Chip
+                                    size="small"
+                                    label={`${actualDistance} km`}
+                                    sx={{ 
+                                      fontSize: '0.65rem', 
+                                      height: 20, 
+                                      bgcolor: '#D1FAE5',
+                                      color: '#065F46',
+                                      fontWeight: 600,
+                                      '&:hover': { bgcolor: '#A7F3D0' }
+                                    }}
+                                  />
+                                </Tooltip>
+                              );
+                            }
+                            
+                            // Fallback to planned distance
+                            if (plannedDistance) {
+                              return (
+                                <Chip
+                                  size="small"
+                                  label={`${plannedDistance} km`}
+                                  variant="outlined"
+                                  sx={{ 
+                                    fontSize: '0.65rem', 
+                                    height: 20,
+                                    color: '#6B7280'
+                                  }}
+                                />
+                              );
+                            }
+                            
+                            return (
+                              <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>-</Typography>
+                            );
+                          })()}
                         </TableCell>
 
                         <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
@@ -884,6 +940,7 @@ function TripList() {
               rowsPerPage={pagination.pageSize}
               onRowsPerPageChange={(event) => {
                 const newSize = parseInt(event.target.value, 10);
+                metricsCache.current = {}; // Clear cache
                 fetchTrips({ page: 0, size: newSize });
               }}
               rowsPerPageOptions={[5, 10, 25, 50]}
@@ -920,20 +977,24 @@ function TripList() {
         )}
 
         {showMetricsModal && selectedTrip && (
-    <TripMetricsForm
-      open={showMetricsModal}
-      tripId={selectedTrip.id}
-      tripData={selectedTrip}
-      onClose={() => setShowMetricsModal(false)}
-      onSuccess={handleMetricsSuccess}  // Use the new handler
-    />
-  )}
+          <TripMetricsForm
+            open={showMetricsModal}
+            tripId={selectedTrip.id}
+            tripData={selectedTrip}
+            onClose={() => setShowMetricsModal(false)}
+            onSuccess={handleMetricsSuccess}
+          />
+        )}
+
         {showDetailsModal && selectedTrip && (
           <TripDetails
             open={showDetailsModal}
             tripId={selectedTrip.id}
             onClose={() => setShowDetailsModal(false)}
-            onUpdate={() => fetchTrips({ page: pagination.page })}
+            onUpdate={() => {
+              metricsCache.current = {}; // Clear cache
+              fetchTrips({ page: pagination.page });
+            }}
           />
         )}
 
