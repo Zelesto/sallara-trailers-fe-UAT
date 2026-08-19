@@ -1,4 +1,5 @@
 // src/pages/FuelSlips.jsx - Updated with Dashboard styling and features
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { fuelService } from '../services/fuelService';
