@@ -257,7 +257,7 @@ const DriverList = () => {
           </Box>
         </Box>
       ),
-      valueGetter: (params) => `${params.row.firstName || ''} ${params.row.lastName || ''}`.trim(),
+      //valueGetter: (params) => `${params.row.firstName || ''} ${params.row.lastName || ''}`.trim(),
     },
     {
       field: 'licenseNumber',
