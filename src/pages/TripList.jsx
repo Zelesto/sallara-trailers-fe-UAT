@@ -625,29 +625,51 @@ const TripList = () => {
       ),
     },
     {
-      field: 'destinationCity',
-      headerName: 'Dest',
-      width: isMobile ? 70 : 110,
-      headerClassName: 'trip-header',
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <LocationOn sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#6B7280' }} />
-          <Typography 
-            variant="body2" 
-            sx={{ fontSize: { xs: '0.55rem', sm: '0.75rem' } }}
-          >
-            {params.value}
-          </Typography>
-        </Stack>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: isMobile ? 90 : 120,
-      headerClassName: 'trip-header',
-      renderCell: (params) => getStatusChip(params.value),
-    },
+  field: 'destinationCity',
+  headerName: 'Dest',
+  width: isMobile ? 70 : 110,
+  headerClassName: 'trip-header',
+  renderCell: (params) => (
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      <LocationOn sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#6B7280' }} />
+      <Typography 
+        variant="body2" 
+        sx={{ fontSize: { xs: '0.55rem', sm: '0.75rem' } }}
+      >
+        {params.value}
+      </Typography>
+    </Stack>
+  ),
+},
+// ✅ ADD THIS COLUMN HERE
+{
+  field: 'totalDistance',
+  headerName: 'Distance',
+  width: isMobile ? 70 : 100,
+  headerClassName: 'trip-header',
+  renderCell: (params) => {
+    const distance = params.value || params.row.distance || params.row.distanceKm || params.row.plannedDistanceKm || 0;
+    return (
+      <Typography 
+        variant="body2" 
+        sx={{ 
+          fontSize: { xs: '0.55rem', sm: '0.7rem' },
+          fontWeight: 500,
+          color: '#4F46E5'
+        }}
+      >
+        {typeof distance === 'number' ? distance.toLocaleString() : distance} km
+      </Typography>
+    );
+  },
+},
+{
+  field: 'status',
+  headerName: 'Status',
+  width: isMobile ? 90 : 120,
+  headerClassName: 'trip-header',
+  renderCell: (params) => getStatusChip(params.value),
+},
     {
       field: 'createdAt',
       headerName: 'Created',
