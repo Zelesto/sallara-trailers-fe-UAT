@@ -77,26 +77,69 @@ import documentService from '../services/documentService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 // ============================================================
-// SAFE VALUE HELPER - Convert ANY value to string
+// SAFE VALUE HELPER - ULTRA ROBUST
 // ============================================================
 const toSafeString = (val) => {
+  // Handle null/undefined
   if (val === undefined || val === null) return 'N/A';
+  
+  // Handle strings
   if (typeof val === 'string') return val;
+  
+  // Handle numbers
   if (typeof val === 'number') return String(val);
+  
+  // Handle booleans
   if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+  
+  // Handle dates
   if (val instanceof Date) return val.toLocaleDateString();
+  
+  // Handle objects
   if (typeof val === 'object') {
-    // Try to extract common properties
-    if (val.id !== undefined && val.id !== null) return String(val.id);
-    if (val.name !== undefined && val.name !== null) return String(val.name);
-    if (val.value !== undefined && val.value !== null) return String(val.value);
+    // If it has an id property, use it
+    if (val.id !== undefined && val.id !== null) {
+      return String(val.id);
+    }
+    // If it has a name property, use it
+    if (val.name !== undefined && val.name !== null) {
+      return String(val.name);
+    }
+    // If it has a value property, use it
+    if (val.value !== undefined && val.value !== null) {
+      return String(val.value);
+    }
+    // If it has a registration property (for vehicles)
+    if (val.registration !== undefined && val.registration !== null) {
+      return String(val.registration);
+    }
+    if (val.registrationNumber !== undefined && val.registrationNumber !== null) {
+      return String(val.registrationNumber);
+    }
+    // If it's an array
+    if (Array.isArray(val)) {
+      if (val.length === 0) return 'None';
+      try {
+        return val.map(item => toSafeString(item)).join(', ');
+      } catch {
+        return 'N/A';
+      }
+    }
+    // Last resort - try JSON stringify
     try {
-      return JSON.stringify(val);
+      const jsonStr = JSON.stringify(val);
+      return jsonStr.length > 50 ? jsonStr.substring(0, 50) + '...' : jsonStr;
     } catch {
       return 'N/A';
     }
   }
-  return 'N/A';
+  
+  // Fallback
+  try {
+    return String(val);
+  } catch {
+    return 'N/A';
+  }
 };
 
 // ============================================================
@@ -425,11 +468,16 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 };
 
 // ============================================================
-// INFO ROW - SIMPLE VERSION (like VehicleDashboard)
+// INFO ROW - ULTRA SAFE
 // ============================================================
 const InfoRow = ({ label, value }) => {
-  // Convert value to a safe string
-  const displayValue = toSafeString(value);
+  // Ensure we never render an object
+  let displayValue = toSafeString(value);
+  
+  // Double-check - if it's still an object, convert to string
+  if (typeof displayValue === 'object' && !React.isValidElement(displayValue)) {
+    displayValue = 'N/A';
+  }
   
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
@@ -2393,91 +2441,134 @@ const DriverDashboard = () => {
   }, [id]);
 
   const fetchDriverData = async (driverId) => {
-    setLoading(true);
+  setLoading(true);
+  try {
+    const data = await driverService.getDriverById(driverId);
+    const idNum = parseInt(driverId, 10);
+    let driverTrips = [];
+    
     try {
-      const data = await driverService.getDriverById(driverId);
-      const idNum = parseInt(driverId, 10);
-      let driverTrips = [];
-      
-      try {
-        const tripsResponse = await tripService.getTripsByDriver(idNum);
-        if (tripsResponse && tripsResponse.data) {
-          driverTrips = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
-        } else if (Array.isArray(tripsResponse)) {
-          driverTrips = tripsResponse;
-        }
-      } catch (err) {
-        console.warn('Could not fetch trips by driver, using fallback');
-        const allTrips = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
-        let tripsArray = [];
-        if (allTrips && allTrips.content) {
-          tripsArray = allTrips.content;
-        } else if (Array.isArray(allTrips)) {
-          tripsArray = allTrips;
-        }
-        driverTrips = tripsArray.filter(t => 
-          String(t.driverId) === String(idNum) || 
-          String(t.driver?.id) === String(idNum)
-        );
+      const tripsResponse = await tripService.getTripsByDriver(idNum);
+      if (tripsResponse && tripsResponse.data) {
+        driverTrips = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
+      } else if (Array.isArray(tripsResponse)) {
+        driverTrips = tripsResponse;
       }
-      
-      const totalTrips = driverTrips.length;
-      const completedTrips = driverTrips.filter(t => 
-        t.status === 'COMPLETED' || t.status === 'FINALIZED'
-      ).length;
-      
-      const totalDistance = driverTrips.reduce((sum, t) => {
-        const distance = t.totalDistance || t.distance || t.distanceKm || t.plannedDistanceKm || 0;
-        return sum + (typeof distance === 'number' ? distance : parseFloat(distance) || 0);
-      }, 0);
-      
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const monthlyTrips = driverTrips.filter(t => {
-        const startDate = t.plannedStartDate || t.startDate || t.createdAt;
-        if (!startDate) return false;
-        try {
-          return new Date(startDate) >= thirtyDaysAgo;
-        } catch {
-          return false;
-        }
-      }).length;
-      
-      // Convert ALL values to primitives using toSafeString
-      const enrichedDriver = {
-        id: toSafeString(data.id),
-        firstName: toSafeString(data.firstName),
-        lastName: toSafeString(data.lastName),
-        email: toSafeString(data.email),
-        phoneNumber: toSafeString(data.phoneNumber),
-        status: toSafeString(data.status),
-        employmentType: toSafeString(data.employmentType),
-        licenseNumber: toSafeString(data.licenseNumber),
-        licenseType: toSafeString(data.licenseType),
-        notes: toSafeString(data.notes),
-        assignedVehicleId: toSafeString(data.assignedVehicleId),
-        hireDate: data.hireDate || null,
-        licenseExpiry: data.licenseExpiry || null,
-        totalTrips: totalTrips,
-        completedTrips: completedTrips,
-        totalDistance: Math.round(totalDistance),
-        monthlyTrips: monthlyTrips,
-        performanceScore: typeof data.performanceScore === 'number' ? data.performanceScore : 
-                          typeof data.performanceScore === 'string' ? parseFloat(data.performanceScore) || 0 : 0,
-        safetyScore: typeof data.safetyScore === 'number' ? data.safetyScore : 85,
-        efficiencyScore: typeof data.efficiencyScore === 'number' ? data.efficiencyScore : 0,
-        tripCount: totalTrips,
-      };
-      
-      console.log('✅ Enriched driver data:', enrichedDriver);
-      setDriver(enrichedDriver);
     } catch (err) {
-      console.error('Error fetching driver data:', err);
-      setError('Failed to load driver data');
-    } finally {
-      setLoading(false);
+      console.warn('Could not fetch trips by driver, using fallback');
+      const allTrips = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
+      let tripsArray = [];
+      if (allTrips && allTrips.content) {
+        tripsArray = allTrips.content;
+      } else if (Array.isArray(allTrips)) {
+        tripsArray = allTrips;
+      }
+      driverTrips = tripsArray.filter(t => 
+        String(t.driverId) === String(idNum) || 
+        String(t.driver?.id) === String(idNum)
+      );
     }
-  };
+    
+    const totalTrips = driverTrips.length;
+    const completedTrips = driverTrips.filter(t => 
+      t.status === 'COMPLETED' || t.status === 'FINALIZED'
+    ).length;
+    
+    const totalDistance = driverTrips.reduce((sum, t) => {
+      const distance = t.totalDistance || t.distance || t.distanceKm || t.plannedDistanceKm || 0;
+      return sum + (typeof distance === 'number' ? distance : parseFloat(distance) || 0);
+    }, 0);
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const monthlyTrips = driverTrips.filter(t => {
+      const startDate = t.plannedStartDate || t.startDate || t.createdAt;
+      if (!startDate) return false;
+      try {
+        return new Date(startDate) >= thirtyDaysAgo;
+      } catch {
+        return false;
+      }
+    }).length;
+
+    // ============================================================
+    // CRITICAL: Convert EVERY value using toSafeString
+    // ============================================================
+    
+    // Extract performance score - ensure it's a number
+    let performanceScore = 0;
+    if (data.performanceScore !== undefined && data.performanceScore !== null) {
+      if (typeof data.performanceScore === 'number') {
+        performanceScore = data.performanceScore;
+      } else if (typeof data.performanceScore === 'string') {
+        performanceScore = parseFloat(data.performanceScore) || 0;
+      } else if (typeof data.performanceScore === 'object') {
+        // Try to extract from object
+        performanceScore = data.performanceScore.value || data.performanceScore.score || 0;
+        if (typeof performanceScore === 'string') {
+          performanceScore = parseFloat(performanceScore) || 0;
+        }
+      }
+    } else if (totalTrips > 0) {
+      performanceScore = Math.round((completedTrips / totalTrips) * 100);
+    }
+    
+    // Extract safety score
+    let safetyScore = 85;
+    if (data.safetyScore !== undefined && data.safetyScore !== null) {
+      if (typeof data.safetyScore === 'number') {
+        safetyScore = data.safetyScore;
+      } else if (typeof data.safetyScore === 'string') {
+        safetyScore = parseFloat(data.safetyScore) || 85;
+      }
+    }
+    
+    // Extract efficiency score
+    let efficiencyScore = 0;
+    if (data.efficiencyScore !== undefined && data.efficiencyScore !== null) {
+      if (typeof data.efficiencyScore === 'number') {
+        efficiencyScore = data.efficiencyScore;
+      } else if (typeof data.efficiencyScore === 'string') {
+        efficiencyScore = parseFloat(data.efficiencyScore) || 0;
+      }
+    }
+
+    // ============================================================
+    // Create enriched driver - EVERY value is a primitive
+    // ============================================================
+    const enrichedDriver = {
+      id: toSafeString(data.id),
+      firstName: toSafeString(data.firstName),
+      lastName: toSafeString(data.lastName),
+      email: toSafeString(data.email),
+      phoneNumber: toSafeString(data.phoneNumber),
+      status: toSafeString(data.status),
+      employmentType: toSafeString(data.employmentType),
+      licenseNumber: toSafeString(data.licenseNumber),
+      licenseType: toSafeString(data.licenseType),
+      notes: toSafeString(data.notes),
+      assignedVehicleId: toSafeString(data.assignedVehicleId),
+      hireDate: data.hireDate || null,
+      licenseExpiry: data.licenseExpiry || null,
+      totalTrips: totalTrips,
+      completedTrips: completedTrips,
+      totalDistance: Math.round(totalDistance),
+      monthlyTrips: monthlyTrips,
+      performanceScore: performanceScore,
+      safetyScore: safetyScore,
+      efficiencyScore: efficiencyScore,
+      tripCount: totalTrips,
+    };
+    
+    console.log('✅ Enriched driver data (all primitives):', enrichedDriver);
+    setDriver(enrichedDriver);
+  } catch (err) {
+    console.error('Error fetching driver data:', err);
+    setError('Failed to load driver data');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchTimesheetData = async (driverId) => {
     try {
@@ -2762,22 +2853,33 @@ const DriverDashboard = () => {
 
   // Use safe driver - ensure all values are primitives for rendering
   const safeDriver = useMemo(() => {
-    if (!driver) return null;
-    return {
-      ...driver,
-      firstName: toSafeString(driver.firstName),
-      lastName: toSafeString(driver.lastName),
-      email: toSafeString(driver.email),
-      phoneNumber: toSafeString(driver.phoneNumber),
-      status: toSafeString(driver.status),
-      employmentType: toSafeString(driver.employmentType),
-      licenseNumber: toSafeString(driver.licenseNumber),
-      licenseType: toSafeString(driver.licenseType),
-      assignedVehicleId: toSafeString(driver.assignedVehicleId),
-      performanceScore: typeof driver.performanceScore === 'number' ? driver.performanceScore : 0,
-      totalTrips: typeof driver.totalTrips === 'number' ? driver.totalTrips : 0,
-    };
-  }, [driver]);
+  if (!driver) return null;
+  
+  // Ensure EVERY value is a safe string or number
+  return {
+    id: toSafeString(driver.id),
+    firstName: toSafeString(driver.firstName),
+    lastName: toSafeString(driver.lastName),
+    email: toSafeString(driver.email),
+    phoneNumber: toSafeString(driver.phoneNumber),
+    status: toSafeString(driver.status),
+    employmentType: toSafeString(driver.employmentType),
+    licenseNumber: toSafeString(driver.licenseNumber),
+    licenseType: toSafeString(driver.licenseType),
+    notes: toSafeString(driver.notes),
+    assignedVehicleId: toSafeString(driver.assignedVehicleId),
+    hireDate: driver.hireDate || null,
+    licenseExpiry: driver.licenseExpiry || null,
+    totalTrips: typeof driver.totalTrips === 'number' ? driver.totalTrips : 0,
+    completedTrips: typeof driver.completedTrips === 'number' ? driver.completedTrips : 0,
+    totalDistance: typeof driver.totalDistance === 'number' ? driver.totalDistance : 0,
+    monthlyTrips: typeof driver.monthlyTrips === 'number' ? driver.monthlyTrips : 0,
+    performanceScore: typeof driver.performanceScore === 'number' ? driver.performanceScore : 0,
+    safetyScore: typeof driver.safetyScore === 'number' ? driver.safetyScore : 85,
+    efficiencyScore: typeof driver.efficiencyScore === 'number' ? driver.efficiencyScore : 0,
+    tripCount: typeof driver.tripCount === 'number' ? driver.tripCount : 0,
+  };
+}, [driver]);
 
   if (loading) {
     return (
