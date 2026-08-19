@@ -69,13 +69,13 @@ import {
   Info as InfoIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { vehicleService } from '../../services/vehicleService';
-import { fuelService } from '../../services/fuelService';
-import { certificateService } from '../../services/certificateService';
-import { maintenanceService } from '../../services/maintenanceService';
-import tripService from '../../services/tripService';
-import api from '../../services/api';
-import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { vehicleService } from '../services/vehicleService';
+import { fuelService } from '../services/fuelService';
+import { certificateService } from '../services/certificateService';
+import { maintenanceService } from '../services/maintenanceService';
+import tripService from '../services/tripService';
+import api from '../services/api';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 // ============================================================
 // STAT CARD (Matches Dashboard)
