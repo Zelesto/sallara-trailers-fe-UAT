@@ -63,7 +63,7 @@ import {
   TrendingUp as TrendingUpIcon,
   LocalShipping as LocalShippingIcon,
   TwoWheeler as VanIcon,
-  DirectionsTruck as TruckIcon,
+  LocalShipping as TruckIcon,
   CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
