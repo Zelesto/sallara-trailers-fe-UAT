@@ -63,8 +63,8 @@ import {
   Pending as PendingIcon,
   Search as SearchIcon,
   TrendingUp as TrendingUpIcon,
-  LocalShipping as LocalShippingIcon,
-  TwoWheeler as VanIcon,
+  Commute as LocalShippingIcon,
+  DirectionsCar as VanIcon,
   LocalShipping as TruckIcon,
   CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
