@@ -50,7 +50,8 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
-import TripDetails from './TripDetails'; // ✅ Import TripDetails
+import TripDetails from './TripDetails';
+import TripMetricsForm from './TripMetricsForm';
 import { 
   STATUS_CONFIG, 
   STATUS_OPTIONS,
@@ -249,9 +250,13 @@ const TripList = () => {
   const [rowCount, setRowCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // ✅ Add these states for TripDetails modal
+  // TripDetails modal
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // ✅ Metrics Form state - MOVED INSIDE the component
+  const [metricsFormOpen, setMetricsFormOpen] = useState(false);
+  const [selectedTripForMetrics, setSelectedTripForMetrics] = useState(null);
 
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -327,18 +332,35 @@ const TripList = () => {
   // ACTION HANDLERS
   // ============================================================
   
-  // ✅ FIXED: View handler - opens TripDetails modal
   const handleViewClick = (trip) => {
     console.log('👁️ Viewing trip:', trip);
     setSelectedTrip(trip);
     setShowDetailsModal(true);
   };
 
-  // ✅ FIXED: Close details modal
   const handleCloseDetails = () => {
     setShowDetailsModal(false);
     setSelectedTrip(null);
-    loadTrips(); // Refresh when closing
+    loadTrips();
+  };
+
+  // ✅ Metrics form handlers - MOVED INSIDE the component
+  const handleOpenMetrics = (trip) => {
+    console.log('📊 Opening metrics for trip:', trip.id);
+    setSelectedTripForMetrics(trip);
+    setMetricsFormOpen(true);
+  };
+
+  const handleCloseMetricsForm = () => {
+    setMetricsFormOpen(false);
+    setSelectedTripForMetrics(null);
+    loadTrips();
+  };
+
+  const handleMetricsSaveSuccess = () => {
+    setSuccessMessage('Trip metrics saved successfully!');
+    setTimeout(() => setSuccessMessage(''), 3000);
+    loadTrips();
   };
 
   const handleStartTrip = (trip) => {
@@ -386,10 +408,6 @@ const TripList = () => {
 
   const handleReportIncident = (trip) => {
     navigate(`/trips/${trip.id}/incident`);
-  };
-
-  const handleOpenMetrics = (trip) => {
-    navigate(`/trips/${trip.id}/metrics`);
   };
 
   const handleFinalizeTrip = async (trip) => {
@@ -631,85 +649,83 @@ const TripList = () => {
       renderCell: (params) => getStatusChip(params.value),
     },
     {
-    field: 'createdAt',
-    headerName: 'Created',
-    width: isMobile ? 80 : 110,
-    headerClassName: 'trip-header',
-    renderCell: (params) => {
-      const date = params.value;
-      if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
-      try {
-        const d = new Date(date);
-        if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
-        return (
-          <Box>
-            <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
-              {d.toLocaleDateString()}
-            </Typography>
-            <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
-              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Typography>
-          </Box>
-        );
-      } catch {
-        return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
-      }
+      field: 'createdAt',
+      headerName: 'Created',
+      width: isMobile ? 80 : 110,
+      headerClassName: 'trip-header',
+      renderCell: (params) => {
+        const date = params.value;
+        if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+        try {
+          const d = new Date(date);
+          if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+          return (
+            <Box>
+              <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
+                {d.toLocaleDateString()}
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
+                {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+            </Box>
+          );
+        } catch {
+          return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+        }
+      },
     },
-  },
-  // ✅ ADDED: Actual Start Date column
-  {
-    field: 'actualStartDate',
-    headerName: 'Actual Start',
-    width: isMobile ? 90 : 120,
-    headerClassName: 'trip-header',
-    renderCell: (params) => {
-      const date = params.value;
-      if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>Not started</Typography>;
-      try {
-        const d = new Date(date);
-        if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
-        return (
-          <Box>
-            <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
-              {d.toLocaleDateString()}
-            </Typography>
-            <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
-              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Typography>
-          </Box>
-        );
-      } catch {
-        return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
-      }
+    {
+      field: 'actualStartDate',
+      headerName: 'Actual Start',
+      width: isMobile ? 90 : 120,
+      headerClassName: 'trip-header',
+      renderCell: (params) => {
+        const date = params.value;
+        if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>Not started</Typography>;
+        try {
+          const d = new Date(date);
+          if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+          return (
+            <Box>
+              <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
+                {d.toLocaleDateString()}
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
+                {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+            </Box>
+          );
+        } catch {
+          return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+        }
+      },
     },
-  },
-  // ✅ ADDED: Actual End Date column
-  {
-    field: 'actualEndDate',
-    headerName: 'Actual End',
-    width: isMobile ? 90 : 120,
-    headerClassName: 'trip-header',
-    renderCell: (params) => {
-      const date = params.value;
-      if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>Not ended</Typography>;
-      try {
-        const d = new Date(date);
-        if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
-        return (
-          <Box>
-            <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
-              {d.toLocaleDateString()}
-            </Typography>
-            <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
-              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Typography>
-          </Box>
-        );
-      } catch {
-        return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
-      }
+    {
+      field: 'actualEndDate',
+      headerName: 'Actual End',
+      width: isMobile ? 90 : 120,
+      headerClassName: 'trip-header',
+      renderCell: (params) => {
+        const date = params.value;
+        if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>Not ended</Typography>;
+        try {
+          const d = new Date(date);
+          if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+          return (
+            <Box>
+              <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
+                {d.toLocaleDateString()}
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
+                {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+            </Box>
+          );
+        } catch {
+          return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+        }
+      },
     },
-  },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -770,7 +786,6 @@ const TripList = () => {
               </Tooltip>
             )}
 
-            {/* ✅ FIXED: View button now passes the entire trip object */}
             <Tooltip title="View Details" arrow>
               <IconButton
                 size="small"
@@ -837,7 +852,7 @@ const TripList = () => {
         );
       },
     },
-  ], [isMobile]);
+  ], [isMobile, handleStartTrip, handleEndTrip, handleReportIncident, handleViewClick, handleEditClick, handleOpenMetrics, handleFinalizeTrip, handleDeleteClick]);
 
   // ============================================================
   // STATS
@@ -1192,7 +1207,7 @@ const TripList = () => {
         </Stack>
       </Box>
 
-      {/* ✅ TripDetails Modal */}
+      {/* TripDetails Modal */}
       {showDetailsModal && selectedTrip && (
         <TripDetails
           open={showDetailsModal}
@@ -1205,6 +1220,19 @@ const TripList = () => {
           }}
         />
       )}
+
+      {/* Trip Metrics Form Modal */}
+      <TripMetricsForm
+        open={metricsFormOpen}
+        onClose={handleCloseMetricsForm}
+        onSuccess={handleMetricsSaveSuccess}
+        tripId={selectedTripForMetrics?.id}
+        originLocation={selectedTripForMetrics?.originCity || selectedTripForMetrics?.origin}
+        destinationLocation={selectedTripForMetrics?.destinationCity || selectedTripForMetrics?.destination}
+        vehicleInfo={selectedTripForMetrics?.vehicle}
+        tripData={selectedTripForMetrics}
+        initialMetrics={selectedTripForMetrics?.metrics || {}}
+      />
 
       {/* Delete Dialog */}
       <Dialog
