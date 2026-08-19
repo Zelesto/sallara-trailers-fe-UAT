@@ -77,23 +77,26 @@ import documentService from '../services/documentService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 // ============================================================
-// SAFE VALUE HELPER
+// SAFE VALUE HELPER - Convert ANY value to string
 // ============================================================
-const safeValue = (val) => {
+const toSafeString = (val) => {
   if (val === undefined || val === null) return 'N/A';
   if (typeof val === 'string') return val;
   if (typeof val === 'number') return String(val);
   if (typeof val === 'boolean') return val ? 'Yes' : 'No';
   if (val instanceof Date) return val.toLocaleDateString();
-  if (React.isValidElement(val)) return val;
   if (typeof val === 'object') {
+    // Try to extract common properties
+    if (val.id !== undefined && val.id !== null) return String(val.id);
+    if (val.name !== undefined && val.name !== null) return String(val.name);
+    if (val.value !== undefined && val.value !== null) return String(val.value);
     try {
       return JSON.stringify(val);
     } catch {
       return 'N/A';
     }
   }
-  return String(val);
+  return 'N/A';
 };
 
 // ============================================================
@@ -329,7 +332,7 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 };
 
 // ============================================================
-// STAT CARD (Matches Dashboard)
+// STAT CARD
 // ============================================================
 const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => {
   const displayValue = typeof value === 'object' && value !== null && !React.isValidElement(value) 
@@ -422,70 +425,14 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 };
 
 // ============================================================
-// INFO ROW - COMPLETELY SAFE
+// INFO ROW - SIMPLE VERSION (like VehicleDashboard)
 // ============================================================
 const InfoRow = ({ label, value }) => {
-  let displayValue = 'N/A';
+  // Convert value to a safe string
+  const displayValue = toSafeString(value);
   
-  if (value === undefined || value === null) {
-    displayValue = 'N/A';
-  } else if (typeof value === 'string') {
-    displayValue = value;
-  } else if (typeof value === 'number') {
-    displayValue = String(value);
-  } else if (typeof value === 'boolean') {
-    displayValue = value ? 'Yes' : 'No';
-  } else if (value instanceof Date) {
-    displayValue = value.toLocaleDateString();
-  } else if (React.isValidElement(value)) {
-    displayValue = value;
-  } else if (typeof value === 'object') {
-    if (value.id !== undefined && value.id !== null) {
-      displayValue = String(value.id);
-    } else if (value.name !== undefined && value.name !== null) {
-      displayValue = String(value.name);
-    } else if (value.registration !== undefined && value.registration !== null) {
-      displayValue = String(value.registration);
-    } else if (value.registrationNumber !== undefined && value.registrationNumber !== null) {
-      displayValue = String(value.registrationNumber);
-    } else if (Array.isArray(value)) {
-      if (value.length === 0) {
-        displayValue = 'None';
-      } else {
-        try {
-          displayValue = value.map(item => {
-            if (item === null || item === undefined) return 'N/A';
-            if (typeof item === 'object') {
-              return item.name || item.id || 'Item';
-            }
-            return String(item);
-          }).join(', ');
-        } catch {
-          displayValue = 'N/A';
-        }
-      }
-    } else {
-      try {
-        const jsonStr = JSON.stringify(value);
-        displayValue = jsonStr.length > 50 ? jsonStr.substring(0, 50) + '...' : jsonStr;
-      } catch {
-        displayValue = 'N/A';
-      }
-    }
-  } else {
-    try {
-      displayValue = String(value);
-    } catch {
-      displayValue = 'N/A';
-    }
-  }
-
-  if (typeof displayValue === 'object' && !React.isValidElement(displayValue)) {
-    displayValue = 'N/A';
-  }
-
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
       <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
         {label}
       </Typography>
@@ -673,17 +620,17 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
           </Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <InfoRow label="Full Name" value={String(fullName || 'N/A')} />
-              <InfoRow label="License Number" value={String(driver?.licenseNumber || 'N/A')} />
-              <InfoRow label="License Type" value={String(driver?.licenseType || 'N/A')} />
+              <InfoRow label="Full Name" value={fullName || 'N/A'} />
+              <InfoRow label="License Number" value={driver?.licenseNumber || 'N/A'} />
+              <InfoRow label="License Type" value={driver?.licenseType || 'N/A'} />
               <InfoRow label="License Expiry" value={driver?.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <InfoRow label="Phone" value={String(driver?.phoneNumber || 'N/A')} />
-              <InfoRow label="Email" value={String(driver?.email || 'N/A')} />
+              <InfoRow label="Phone" value={driver?.phoneNumber || 'N/A'} />
+              <InfoRow label="Email" value={driver?.email || 'N/A'} />
               <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
-              <InfoRow label="Years with Company" value={String(`${yearsWithCompany} years`)} />
-              <InfoRow label="Total Distance" value={String(`${(totalDistance || 0).toLocaleString()} km`)} />
+              <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
+              <InfoRow label="Total Distance" value={`${(totalDistance || 0).toLocaleString()} km`} />
             </Grid>
           </Grid>
         </Paper>
@@ -2409,7 +2356,7 @@ const NotesTab = ({ driver }) => {
 };
 
 // ============================================================
-// MAIN DRIVER DASHBOARD - COMPLETE FIX WITH DEBUGGING
+// MAIN DRIVER DASHBOARD
 // ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
@@ -2445,16 +2392,10 @@ const DriverDashboard = () => {
     }
   }, [id]);
 
-  // ============================================================
-  // FETCH DRIVER DATA - COMPLETELY SAFE WITH DEBUGGING
-  // ============================================================
   const fetchDriverData = async (driverId) => {
     setLoading(true);
     try {
-      console.log('🔍 Fetching driver data for ID:', driverId);
       const data = await driverService.getDriverById(driverId);
-      console.log('📦 Raw driver data:', JSON.stringify(data, null, 2));
-      
       const idNum = parseInt(driverId, 10);
       let driverTrips = [];
       
@@ -2502,106 +2443,37 @@ const DriverDashboard = () => {
         }
       }).length;
       
-      // ============================================================
-      // SAFELY EXTRACT ALL VALUES - NO OBJECTS ALLOWED
-      // ============================================================
-      
-      // Helper to safely get string value
-      const safeString = (val, defaultVal = 'N/A') => {
-        if (val === undefined || val === null) return defaultVal;
-        if (typeof val === 'string') return val;
-        if (typeof val === 'number') return String(val);
-        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-        if (val instanceof Date) return val.toLocaleDateString();
-        if (typeof val === 'object') {
-          // Try to extract common properties
-          if (val.id !== undefined) return String(val.id);
-          if (val.name !== undefined) return String(val.name);
-          if (val.value !== undefined) return String(val.value);
-          try {
-            return JSON.stringify(val);
-          } catch {
-            return defaultVal;
-          }
-        }
-        return defaultVal;
-      };
-      
-      // Helper to safely get number value
-      const safeNumber = (val, defaultVal = 0) => {
-        if (val === undefined || val === null) return defaultVal;
-        if (typeof val === 'number') return val;
-        if (typeof val === 'string') {
-          const parsed = parseFloat(val);
-          return isNaN(parsed) ? defaultVal : parsed;
-        }
-        if (typeof val === 'object') {
-          if (val.value !== undefined) return safeNumber(val.value, defaultVal);
-          if (val.score !== undefined) return safeNumber(val.score, defaultVal);
-          if (val.percentage !== undefined) return safeNumber(val.percentage, defaultVal);
-        }
-        return defaultVal;
-      };
-      
-      // SAFELY extract performanceScore
-      const performanceScore = safeNumber(data.performanceScore, 
-        totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0
-      );
-      
-      // SAFELY extract assigned vehicle
-      let assignedVehicleId = 'Not Assigned';
-      if (data.assignedVehicleId !== undefined && data.assignedVehicleId !== null) {
-        if (typeof data.assignedVehicleId === 'object') {
-          assignedVehicleId = safeString(data.assignedVehicleId.id || data.assignedVehicleId.vehicleId, 'Not Assigned');
-        } else {
-          assignedVehicleId = safeString(data.assignedVehicleId, 'Not Assigned');
-        }
-      }
-      
-      // SAFELY extract safetyScore and efficiencyScore
-      const safetyScore = safeNumber(data.safetyScore, 85);
-      const efficiencyScore = safeNumber(data.efficiencyScore, 0);
-      
-      // ============================================================
-      // Create enriched driver with ONLY primitive values
-      // NO SPREAD OPERATOR - every property explicitly defined
-      // ============================================================
+      // Convert ALL values to primitives using toSafeString
       const enrichedDriver = {
-        // Basic info - all strings
-        id: safeString(data.id, null),
-        firstName: safeString(data.firstName, ''),
-        lastName: safeString(data.lastName, ''),
-        email: safeString(data.email, 'N/A'),
-        phoneNumber: safeString(data.phoneNumber, 'N/A'),
-        status: safeString(data.status, 'Unknown'),
-        employmentType: safeString(data.employmentType, 'N/A'),
-        licenseNumber: safeString(data.licenseNumber, 'N/A'),
-        licenseType: safeString(data.licenseType, 'N/A'),
-        notes: safeString(data.notes, ''),
-        
-        // Dates - keep as strings or null
+        id: toSafeString(data.id),
+        firstName: toSafeString(data.firstName),
+        lastName: toSafeString(data.lastName),
+        email: toSafeString(data.email),
+        phoneNumber: toSafeString(data.phoneNumber),
+        status: toSafeString(data.status),
+        employmentType: toSafeString(data.employmentType),
+        licenseNumber: toSafeString(data.licenseNumber),
+        licenseType: toSafeString(data.licenseType),
+        notes: toSafeString(data.notes),
+        assignedVehicleId: toSafeString(data.assignedVehicleId),
         hireDate: data.hireDate || null,
         licenseExpiry: data.licenseExpiry || null,
-        
-        // Stats - all numbers
         totalTrips: totalTrips,
         completedTrips: completedTrips,
         totalDistance: Math.round(totalDistance),
         monthlyTrips: monthlyTrips,
-        performanceScore: performanceScore,
-        safetyScore: safetyScore,
-        efficiencyScore: efficiencyScore,
+        performanceScore: typeof data.performanceScore === 'number' ? data.performanceScore : 
+                          typeof data.performanceScore === 'string' ? parseFloat(data.performanceScore) || 0 : 0,
+        safetyScore: typeof data.safetyScore === 'number' ? data.safetyScore : 85,
+        efficiencyScore: typeof data.efficiencyScore === 'number' ? data.efficiencyScore : 0,
         tripCount: totalTrips,
-        
-        // Assigned vehicle - string
-        assignedVehicleId: assignedVehicleId,
       };
       
-      console.log('✅ Enriched driver data (all primitives):', enrichedDriver);
+      console.log('✅ Enriched driver data:', enrichedDriver);
       setDriver(enrichedDriver);
     } catch (err) {
-      console.error('❌ Error fetching driver data:', err);
-      setError('Failed to load driver data: ' + (err.message || 'Unknown error'));
+      console.error('Error fetching driver data:', err);
+      setError('Failed to load driver data');
     } finally {
       setLoading(false);
     }
@@ -2888,38 +2760,23 @@ const DriverDashboard = () => {
     setOpenApproveDialog(true);
   };
 
-  // ============================================================
-  // Create safe driver object - only used for rendering
-  // ============================================================
+  // Use safe driver - ensure all values are primitives for rendering
   const safeDriver = useMemo(() => {
     if (!driver) return null;
-    
-    // Ensure every value is a primitive
-    const safe = {
-      id: driver.id ? String(driver.id) : null,
-      firstName: driver.firstName ? String(driver.firstName) : '',
-      lastName: driver.lastName ? String(driver.lastName) : '',
-      email: driver.email ? String(driver.email) : 'N/A',
-      phoneNumber: driver.phoneNumber ? String(driver.phoneNumber) : 'N/A',
-      status: driver.status ? String(driver.status) : 'Unknown',
-      employmentType: driver.employmentType ? String(driver.employmentType) : 'N/A',
-      licenseNumber: driver.licenseNumber ? String(driver.licenseNumber) : 'N/A',
-      licenseType: driver.licenseType ? String(driver.licenseType) : 'N/A',
-      notes: driver.notes ? String(driver.notes) : '',
-      hireDate: driver.hireDate || null,
-      licenseExpiry: driver.licenseExpiry || null,
-      totalTrips: typeof driver.totalTrips === 'number' ? driver.totalTrips : 0,
-      completedTrips: typeof driver.completedTrips === 'number' ? driver.completedTrips : 0,
-      totalDistance: typeof driver.totalDistance === 'number' ? driver.totalDistance : 0,
-      monthlyTrips: typeof driver.monthlyTrips === 'number' ? driver.monthlyTrips : 0,
+    return {
+      ...driver,
+      firstName: toSafeString(driver.firstName),
+      lastName: toSafeString(driver.lastName),
+      email: toSafeString(driver.email),
+      phoneNumber: toSafeString(driver.phoneNumber),
+      status: toSafeString(driver.status),
+      employmentType: toSafeString(driver.employmentType),
+      licenseNumber: toSafeString(driver.licenseNumber),
+      licenseType: toSafeString(driver.licenseType),
+      assignedVehicleId: toSafeString(driver.assignedVehicleId),
       performanceScore: typeof driver.performanceScore === 'number' ? driver.performanceScore : 0,
-      safetyScore: typeof driver.safetyScore === 'number' ? driver.safetyScore : 85,
-      efficiencyScore: typeof driver.efficiencyScore === 'number' ? driver.efficiencyScore : 0,
-      tripCount: typeof driver.tripCount === 'number' ? driver.tripCount : 0,
-      assignedVehicleId: driver.assignedVehicleId ? String(driver.assignedVehicleId) : 'Not Assigned',
+      totalTrips: typeof driver.totalTrips === 'number' ? driver.totalTrips : 0,
     };
-    
-    return safe;
   }, [driver]);
 
   if (loading) {
@@ -2954,9 +2811,6 @@ const DriverDashboard = () => {
   const fullName = `${safeDriver.firstName || ''} ${safeDriver.lastName || ''}`.trim();
   const initials = `${safeDriver.firstName?.charAt(0) || ''}${safeDriver.lastName?.charAt(0) || ''}`.toUpperCase();
 
-  // ============================================================
-  // RENDER - Using safeDriver everywhere
-  // ============================================================
   return (
     <ResponsiveContainer>
       <Box sx={{ 
@@ -3025,7 +2879,7 @@ const DriverDashboard = () => {
                   position: 'absolute',
                   bottom: 8,
                   right: -8,
-                  bgcolor: safeDriver.status === 'ACTIVE' ? '#22C55E' : '#EF4444',
+                  bgcolor: safeDriver?.status === 'ACTIVE' ? '#22C55E' : '#EF4444',
                   borderRadius: '50%',
                   width: { xs: 12, sm: 14 },
                   height: { xs: 12, sm: 14 },
@@ -3038,10 +2892,10 @@ const DriverDashboard = () => {
               {fullName || 'Unknown Driver'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              {safeDriver.licenseNumber} • {safeDriver.licenseType}
+              {safeDriver.licenseNumber || 'No license'} • {safeDriver.licenseType || 'N/A'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              {safeDriver.status} • {safeDriver.employmentType}
+              {safeDriver.status || 'Unknown'} • {safeDriver.employmentType || 'N/A'}
             </Typography>
 
             <Button
@@ -3083,7 +2937,7 @@ const DriverDashboard = () => {
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                 Quick Stats
               </Typography>
-              <InfoRow label="Total Trips" value={String(safeDriver.totalTrips)} />
+              <InfoRow label="Total Trips" value={String(safeDriver.totalTrips || 0)} />
               <InfoRow label="Performance Score" value={safeDriver.performanceScore + '%'} />
               <InfoRow label="Hire Date" value={safeDriver.hireDate ? new Date(safeDriver.hireDate).toLocaleDateString() : 'N/A'} />
               <InfoRow label="License Expiry" value={safeDriver.licenseExpiry ? new Date(safeDriver.licenseExpiry).toLocaleDateString() : 'N/A'} />
