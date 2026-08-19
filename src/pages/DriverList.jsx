@@ -13,8 +13,6 @@ import {
   Paper,
   Typography,
   Grid,
-  Card,
-  CardContent,
   Alert,
   CircularProgress,
   MenuItem,
@@ -22,10 +20,8 @@ import {
   InputLabel,
   Select,
   Avatar,
-  AvatarGroup,
-  Fade,
-  Grow,
-  Zoom,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,88 +38,91 @@ import {
   Info as InfoIcon,
   Close as CloseIcon,
   PersonAdd as PersonAddIcon,
-  FilterList as FilterListIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import driverService from '../services/driverService';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
-// Replace the StatCard component with this fixed version:
-
+// Stat Card Component - Updated with Dashboard styling
 const StatCard = ({ title, value, color = '#4F46E5', icon: Icon, subtitle, trend }) => (
-  <Card
+  <Paper
     elevation={0}
     sx={{
-      bgcolor: '#FFFFFF',
+      p: { xs: 1.5, sm: 2, md: 2.5 },
+      borderRadius: { xs: '12px', sm: '16px' },
       border: '1px solid #ECECEC',
-      borderRadius: '12px',
+      bgcolor: '#FFFFFF',
       height: '100%',
-      transition: 'all 0.2s ease',
+      width: '100%',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       '&:hover': {
         transform: 'translateY(-2px)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+        borderColor: color,
       },
       overflow: 'hidden',
       position: 'relative',
     }}
   >
-    <CardContent sx={{ p: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-        <Box>
+    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: '#6B7280',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+            letterSpacing: '0.5px',
+            display: 'block',
+            mb: 0.25,
+          }}
+        >
+          {title}
+        </Typography>
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 700,
+            color: '#111827',
+            fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+            lineHeight: 1.2,
+          }}
+        >
+          {value || 0}
+        </Typography>
+        {subtitle && (
           <Typography
+            variant="caption"
             sx={{
-              color: '#6B7280',
-              fontSize: '0.7rem',
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
+              color: trend === 'up' ? '#22C55E' : trend === 'down' ? '#EF4444' : '#6B7280',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              display: 'block',
+              mt: 0.25,
             }}
           >
-            {title}
+            {subtitle}
           </Typography>
-          <Typography
-            variant="h4"
-            fontWeight="700"
-            sx={{
-              fontSize: '1.5rem',
-              color: '#111827',
-              mt: 0.5,
-              lineHeight: 1.2,
-            }}
-          >
-            {value}
-          </Typography>
-          {subtitle && (
-            <Typography
-              variant="caption"
-              sx={{
-                color: trend === 'up' ? '#22C55E' : trend === 'down' ? '#EF4444' : '#6B7280',
-                fontSize: '0.65rem',
-                display: 'block',
-                mt: 0.25,
-              }}
-            >
-              {subtitle}
-            </Typography>
-          )}
-        </Box>
-        {Icon && (
-          <Box
-            sx={{
-              bgcolor: `${color}15`,
-              borderRadius: '10px',
-              p: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon sx={{ fontSize: '1.3rem', color: color }} />
-          </Box>
         )}
-      </Stack>
-    </CardContent>
-  </Card>
+      </Box>
+      {Icon && (
+        <Box
+          sx={{
+            bgcolor: `${color}15`,
+            borderRadius: { xs: '10px', sm: '12px' },
+            p: { xs: 1, sm: 1.25, md: 1.5 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
+        </Box>
+      )}
+    </Stack>
+  </Paper>
 );
 
 // Status Chip Component
@@ -142,12 +141,12 @@ const StatusChip = ({ status }) => {
       label={info.label}
       sx={{
         fontWeight: 500,
-        fontSize: '0.6rem',
-        height: 22,
+        fontSize: { xs: '0.5rem', sm: '0.6rem' },
+        height: { xs: 18, sm: 22 },
         bgcolor: info.bgcolor,
         color: info.color,
-        '& .MuiChip-icon': { fontSize: '0.6rem', color: info.color, marginLeft: '4px' },
-        '& .MuiChip-label': { px: 0.5 },
+        '& .MuiChip-icon': { fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: info.color, marginLeft: '4px' },
+        '& .MuiChip-label': { px: { xs: 0.5, sm: 0.75 } },
       }}
       icon={info.icon || undefined}
     />
@@ -156,6 +155,9 @@ const StatusChip = ({ status }) => {
 
 const DriverList = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -163,6 +165,13 @@ const DriverList = () => {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
+
+  // Pagination state
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 20,
+  });
+  const [rowCount, setRowCount] = useState(0);
 
   useEffect(() => {
     loadDrivers();
@@ -172,7 +181,9 @@ const DriverList = () => {
     setLoading(true);
     try {
       const response = await driverService.getAllDrivers();
-      setDrivers(response || []);
+      const data = response?.content || response || [];
+      setDrivers(Array.isArray(data) ? data : []);
+      setRowCount(Array.isArray(data) ? data.length : 0);
       setError(null);
     } catch (err) {
       setError('Failed to load drivers');
@@ -204,10 +215,9 @@ const DriverList = () => {
     {
       field: 'id',
       headerName: 'ID',
-      flex: 0.4,
-      minWidth: 50,
+      width: isMobile ? 50 : 70,
       renderCell: (params) => (
-        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem', fontWeight: 500 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 500 }}>
           #{params.value}
         </Typography>
       ),
@@ -216,15 +226,15 @@ const DriverList = () => {
       field: 'fullName',
       headerName: 'Driver',
       flex: 1.3,
-      minWidth: 180,
+      minWidth: isMobile ? 140 : 180,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Avatar
             sx={{
-              width: 32,
-              height: 32,
+              width: { xs: 28, sm: 32 },
+              height: { xs: 28, sm: 32 },
               bgcolor: '#4F46E5',
-              fontSize: '0.75rem',
+              fontSize: { xs: '0.6rem', sm: '0.75rem' },
               fontWeight: 600,
               flexShrink: 0,
             }}
@@ -232,10 +242,10 @@ const DriverList = () => {
             {params.row.firstName?.charAt(0)}{params.row.lastName?.charAt(0)}
           </Avatar>
           <Box>
-            <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem', color: '#111827' }}>
+            <Typography variant="body2" fontWeight={600} sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' }, color: '#111827' }}>
               {params.row.firstName} {params.row.lastName}
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <span>ID: {params.row.id}</span>
               {params.row.licenseNumber && (
                 <>
@@ -252,16 +262,15 @@ const DriverList = () => {
     {
       field: 'licenseNumber',
       headerName: 'License',
-      flex: 0.6,
-      minWidth: 80,
+      width: isMobile ? 70 : 100,
       renderCell: (params) => (
         <Chip
           label={params.value || 'N/A'}
           size="small"
           variant="outlined"
           sx={{
-            fontSize: '0.55rem',
-            height: 20,
+            fontSize: { xs: '0.45rem', sm: '0.55rem' },
+            height: { xs: 16, sm: 20 },
             borderColor: '#E5E7EB',
             color: '#6B7280',
           }}
@@ -271,10 +280,9 @@ const DriverList = () => {
     {
       field: 'licenseExpiry',
       headerName: 'License Expiry',
-      flex: 0.6,
-      minWidth: 90,
+      width: isMobile ? 90 : 120,
       renderCell: (params) => {
-        if (!params.value) return <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#6B7280' }}>N/A</Typography>;
+        if (!params.value) return <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#6B7280' }}>N/A</Typography>;
         const expiryDate = new Date(params.value);
         const today = new Date();
         const isExpired = expiryDate < today;
@@ -285,8 +293,8 @@ const DriverList = () => {
             label={expiryDate.toLocaleDateString()}
             size="small"
             sx={{
-              fontSize: '0.55rem',
-              height: 20,
+              fontSize: { xs: '0.45rem', sm: '0.55rem' },
+              height: { xs: 16, sm: 20 },
               bgcolor: isExpired ? '#FEE2E2' : isExpiringSoon ? '#FEF3C7' : '#D1FAE5',
               color: isExpired ? '#991B1B' : isExpiringSoon ? '#92400E' : '#065F46',
               fontWeight: 500,
@@ -298,12 +306,11 @@ const DriverList = () => {
     {
       field: 'phoneNumber',
       headerName: 'Phone',
-      flex: 0.7,
-      minWidth: 100,
+      width: isMobile ? 90 : 120,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <PhoneIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-          <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#111827' }}>
+          <PhoneIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#6B7280' }} />
+          <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#111827' }}>
             {params.value || 'N/A'}
           </Typography>
         </Box>
@@ -312,12 +319,11 @@ const DriverList = () => {
     {
       field: 'email',
       headerName: 'Email',
-      flex: 0.8,
-      minWidth: 130,
+      width: isMobile ? 100 : 140,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <EmailIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-          <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <EmailIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: '#6B7280' }} />
+          <Typography variant="body2" sx={{ fontSize: { xs: '0.55rem', sm: '0.7rem' }, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {params.value || 'N/A'}
           </Typography>
         </Box>
@@ -326,15 +332,13 @@ const DriverList = () => {
     {
       field: 'status',
       headerName: 'Status',
-      flex: 0.6,
-      minWidth: 80,
+      width: isMobile ? 90 : 110,
       renderCell: (params) => <StatusChip status={params.value} />,
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      flex: 0.7,
-      minWidth: 100,
+      width: isMobile ? 100 : 130,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
@@ -344,12 +348,12 @@ const DriverList = () => {
               size="small"
               onClick={() => navigate(`/driverManagement/${params.row.id}`)}
               sx={{
-                p: 0.5,
+                p: { xs: 0.25, sm: 0.5 },
                 color: '#4F46E5',
                 '&:hover': { bgcolor: '#EEF2FF' },
               }}
             >
-              <ViewIcon sx={{ fontSize: '0.9rem' }} />
+              <ViewIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Edit Driver" arrow>
@@ -357,12 +361,12 @@ const DriverList = () => {
               size="small"
               onClick={() => navigate(`/drivers/${params.row.id}/edit`)}
               sx={{
-                p: 0.5,
+                p: { xs: 0.25, sm: 0.5 },
                 color: '#6B7280',
                 '&:hover': { bgcolor: '#EEF2FF', color: '#4F46E5' },
               }}
             >
-              <EditIcon sx={{ fontSize: '0.9rem' }} />
+              <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete Driver" arrow>
@@ -370,12 +374,12 @@ const DriverList = () => {
               size="small"
               onClick={() => handleDelete(params.row.id)}
               sx={{
-                p: 0.5,
+                p: { xs: 0.25, sm: 0.5 },
                 color: '#6B7280',
                 '&:hover': { bgcolor: '#FEE2E2', color: '#EF4444' },
               }}
             >
-              <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+              <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -408,303 +412,343 @@ const DriverList = () => {
   const hasFilters = searchTerm !== '' || filterStatus !== 'ALL';
 
   return (
-    <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
-      <Box sx={{ maxWidth: '1440px', margin: '0 auto' }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <Typography variant="h5" fontWeight="700" sx={{ fontSize: '1.25rem', color: '#111827' }}>
-              Driver Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-              Manage and monitor your fleet drivers
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<PersonAddIcon sx={{ fontSize: '1rem' }} />}
-            onClick={() => navigate('/drivers/new')}
-            sx={{
-              borderRadius: '10px',
-              fontSize: '0.8rem',
-              py: 1,
-              px: 2.5,
-              textTransform: 'none',
-              fontWeight: 600,
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
-                boxShadow: '0 4px 12px rgba(79,70,229,0.3)',
-              },
+    <ResponsiveContainer>
+      {/* Header */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        mb={{ xs: 2, sm: 2.5, md: 3 }}
+        spacing={{ xs: 1, sm: 0 }}
+      >
+        <Box>
+          <Typography 
+            variant="h5" 
+            fontWeight="700" 
+            sx={{ 
+              fontSize: { 
+                xs: '1.1rem', 
+                sm: '1.3rem', 
+                md: '1.4rem', 
+                lg: '1.5rem' 
+              } 
             }}
           >
-            Add Driver
-          </Button>
+            Driver Management
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: { 
+                xs: '0.7rem', 
+                sm: '0.8rem', 
+                md: '0.85rem' 
+              } 
+            }}
+          >
+            Manage and monitor your fleet drivers • {drivers.length} drivers
+          </Typography>
         </Box>
-
-        {/* Alerts */}
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2, borderRadius: '8px', fontSize: '0.8rem' }}
-            onClose={() => setError(null)}
-            icon={<WarningIcon />}
-          >
-            {error}
-          </Alert>
-        )}
-        {successMessage && (
-          <Alert
-            severity="success"
-            sx={{ mb: 2, borderRadius: '8px', fontSize: '0.8rem' }}
-            onClose={() => setSuccessMessage('')}
-            icon={<CheckCircleIcon />}
-          >
-            {successMessage}
-          </Alert>
-        )}
-
-        {/* Stats Cards - Change from color="..." to color="#..." */}
-<Grid container spacing={2} sx={{ mb: 3 }}>
-  <Grid item xs={6} sm={3}>
-    <StatCard
-      title="Total Drivers"
-      value={stats.total}
-      color="#4F46E5"
-      icon={PersonAddIcon}
-    />
-  </Grid>
-  <Grid item xs={6} sm={3}>
-    <StatCard
-      title="Active"
-      value={stats.active}
-      color="#22C55E"
-      icon={CheckCircleIcon}
-      subtitle={`${stats.active > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% of total`}
-      trend="up"
-    />
-  </Grid>
-  <Grid item xs={6} sm={3}>
-    <StatCard
-      title="Available"
-      value={stats.available}
-      color="#3B82F6"
-      icon={InfoIcon}
-      subtitle={`${stats.available > 0 ? Math.round((stats.available / stats.total) * 100) : 0}% of total`}
-    />
-  </Grid>
-  <Grid item xs={6} sm={3}>
-    <StatCard
-      title="On Leave"
-      value={stats.onLeave}
-      color="#F59E0B"
-      icon={WarningIcon}
-      subtitle={`${stats.onLeave > 0 ? Math.round((stats.onLeave / stats.total) * 100) : 0}% of total`}
-    />
-  </Grid>
-</Grid>
-
-        {/* Expiring Licenses Alert */}
-        {stats.expiringLicenses > 0 && (
-          <Alert
-            severity="warning"
-            sx={{ mb: 2, borderRadius: '8px', fontSize: '0.8rem' }}
-            icon={<WarningIcon />}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap">
-              <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                <strong>{stats.expiringLicenses}</strong> driver{stats.expiringLicenses > 1 ? 's' : ''} ha{stats.expiringLicenses > 1 ? 've' : 's'} license{stats.expiringLicenses > 1 ? 's' : ''} expiring within 30 days.
-              </Typography>
-              <Button
-                size="small"
-                sx={{ fontSize: '0.7rem', color: '#F59E0B', fontWeight: 600 }}
-                onClick={() => setFilterStatus('ACTIVE')}
-              >
-                View Drivers
-              </Button>
-            </Stack>
-          </Alert>
-        )}
-
-        {/* Filters */}
-        <Paper
-          elevation={0}
+        <Button
+          variant="contained"
+          startIcon={<PersonAddIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+          onClick={() => navigate('/drivers/new')}
+          size="small"
           sx={{
-            p: 2,
-            mb: 3,
-            borderRadius: '12px',
-            border: '1px solid #ECECEC',
-            bgcolor: '#FFFFFF',
+            borderRadius: '10px',
+            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+            textTransform: 'none',
+            py: { xs: 0.5, sm: 0.75 },
+            px: { xs: 1.5, sm: 2 },
+            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+            },
           }}
         >
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
-            <TextField
-              placeholder="Search by name, license, or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+          {isMobile ? 'Add' : 'Add Driver'}
+        </Button>
+      </Stack>
+
+      {/* Alerts */}
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          onClose={() => setError(null)}
+          icon={<WarningIcon />}
+        >
+          {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          onClose={() => setSuccessMessage('')}
+          icon={<CheckCircleIcon />}
+        >
+          {successMessage}
+        </Alert>
+      )}
+
+      {/* Stats Cards */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Total Drivers"
+            value={stats.total}
+            color="#4F46E5"
+            icon={PersonAddIcon}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Active"
+            value={stats.active}
+            color="#22C55E"
+            icon={CheckCircleIcon}
+            subtitle={`${stats.active > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% of total`}
+            trend="up"
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Available"
+            value={stats.available}
+            color="#3B82F6"
+            icon={InfoIcon}
+            subtitle={`${stats.available > 0 ? Math.round((stats.available / stats.total) * 100) : 0}% of total`}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="On Leave"
+            value={stats.onLeave}
+            color="#F59E0B"
+            icon={WarningIcon}
+            subtitle={`${stats.onLeave > 0 ? Math.round((stats.onLeave / stats.total) * 100) : 0}% of total`}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Expiring Licenses Alert */}
+      {stats.expiringLicenses > 0 && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          icon={<WarningIcon />}
+        >
+          <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap">
+            <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+              <strong>{stats.expiringLicenses}</strong> driver{stats.expiringLicenses > 1 ? 's' : ''} ha{stats.expiringLicenses > 1 ? 've' : 's'} license{stats.expiringLicenses > 1 ? 's' : ''} expiring within 30 days.
+            </Typography>
+            <Button
               size="small"
-              sx={{
-                flex: 1,
-                '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                '& .MuiInputBase-root': { fontSize: '0.8rem', borderRadius: '8px' },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
-                      <ClearIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
-              <Select
-                value={filterStatus}
-                label="Status"
-                onChange={(e) => setFilterStatus(e.target.value)}
-                sx={{ fontSize: '0.75rem', borderRadius: '8px' }}
-              >
-                <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
-                <MenuItem value="ACTIVE" sx={{ fontSize: '0.75rem' }}>Active</MenuItem>
-                <MenuItem value="AVAILABLE" sx={{ fontSize: '0.75rem' }}>Available</MenuItem>
-                <MenuItem value="ON_LEAVE" sx={{ fontSize: '0.75rem' }}>On Leave</MenuItem>
-                <MenuItem value="INACTIVE" sx={{ fontSize: '0.75rem' }}>Inactive</MenuItem>
-                <MenuItem value="SUSPENDED" sx={{ fontSize: '0.75rem' }}>Suspended</MenuItem>
-              </Select>
-            </FormControl>
-            <Stack direction="row" spacing={1}>
-              {hasFilters && (
-                <Button
-                  variant="outlined"
-                  startIcon={<ClearIcon sx={{ fontSize: '0.9rem' }} />}
-                  onClick={handleClearFilters}
-                  size="small"
-                  sx={{ fontSize: '0.75rem', py: 0.5, borderRadius: '8px' }}
-                >
-                  Clear Filters
-                </Button>
-              )}
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />}
-                onClick={loadDrivers}
-                size="small"
-                sx={{ fontSize: '0.75rem', py: 0.5, borderRadius: '8px' }}
-              >
-                Refresh
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<ExportIcon sx={{ fontSize: '0.9rem' }} />}
-                size="small"
-                sx={{ fontSize: '0.75rem', py: 0.5, borderRadius: '8px' }}
-              >
-                Export
-              </Button>
-            </Stack>
+              sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#F59E0B', fontWeight: 600 }}
+              onClick={() => setFilterStatus('ACTIVE')}
+            >
+              View Drivers
+            </Button>
           </Stack>
-        </Paper>
+        </Alert>
+      )}
 
-        {/* Data Grid */}
-        <Paper
-          elevation={0}
-          sx={{
-            height: 500,
-            width: '100%',
-            borderRadius: '12px',
-            border: '1px solid #ECECEC',
-            overflow: 'hidden',
-            bgcolor: '#FFFFFF',
-          }}
-        >
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress size={36} />
-              <Typography sx={{ ml: 2, fontSize: '0.9rem', color: '#6B7280' }}>
-                Loading drivers...
-              </Typography>
-            </Box>
-          ) : (
-            <DataGrid
-              rows={filteredDrivers}
-              columns={columns}
-              pageSize={10}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              checkboxSelection={false}
-              disableRowSelectionOnClick
-              getRowId={(row) => row.id}
-              density="compact"
-              sx={{
-                border: 'none',
-                fontSize: '0.75rem',
-                '& .MuiDataGrid-cell': {
-                  borderRight: '1px solid #F3F4F6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '0 12px',
-                  fontSize: '0.75rem',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#F9FAFB',
-                  borderBottom: '1px solid #E5E7EB',
-                  minHeight: '44px !important',
-                },
-                '& .MuiDataGrid-columnHeader': {
-                  padding: '0 12px',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 600,
-                  color: '#6B7280',
-                  fontSize: '0.65rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.3px',
-                },
-                '& .MuiDataGrid-row': {
-                  minHeight: '44px !important',
-                  '&:hover': {
-                    backgroundColor: '#F9FAFB',
-                  },
-                },
-                '& .MuiDataGrid-row:nth-of-type(even)': {
-                  backgroundColor: '#FAFAFA',
-                },
-                '& .MuiDataGrid-cell:focus': {
-                  outline: 'none',
-                },
-                '& .MuiDataGrid-columnHeader:focus': {
-                  outline: 'none',
-                },
-                '& .MuiDataGrid-footerContainer': {
-                  borderTop: '1px solid #E5E7EB',
-                  minHeight: '40px',
-                },
-                '& .MuiTablePagination-root': {
-                  fontSize: '0.75rem',
-                },
+      {/* Filters */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          mb: 2,
+          borderRadius: { xs: '12px', sm: '16px' },
+          border: '1px solid #ECECEC',
+          bgcolor: '#FFFFFF',
+          width: '100%',
+        }}
+      >
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 1.5 }}>
+          <TextField
+            placeholder="Search by name, license, or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            sx={{ 
+              flex: 1,
+              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchTerm && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
+                    <ClearIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' }, color: '#6B7280' }} />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Status</InputLabel>
+            <Select
+              value={filterStatus}
+              label="Status"
+              onChange={(e) => setFilterStatus(e.target.value)}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' }}
+            >
+              <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Status</MenuItem>
+              <MenuItem value="ACTIVE" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Active</MenuItem>
+              <MenuItem value="AVAILABLE" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Available</MenuItem>
+              <MenuItem value="ON_LEAVE" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>On Leave</MenuItem>
+              <MenuItem value="INACTIVE" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Inactive</MenuItem>
+              <MenuItem value="SUSPENDED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Suspended</MenuItem>
+            </Select>
+          </FormControl>
+          <Stack direction="row" spacing={1}>
+            {hasFilters && (
+              <Button
+                variant="outlined"
+                startIcon={<ClearIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+                onClick={handleClearFilters}
+                size="small"
+                sx={{ 
+                  fontSize: { xs: '0.65rem', sm: '0.7rem' }, 
+                  borderRadius: '8px',
+                  py: { xs: 0.5, sm: 0.75 },
+                }}
+              >
+                {isMobile ? '' : 'Clear Filters'}
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+              onClick={loadDrivers}
+              size="small"
+              sx={{ 
+                fontSize: { xs: '0.65rem', sm: '0.7rem' }, 
+                borderRadius: '8px',
+                py: { xs: 0.5, sm: 0.75 },
               }}
-            />
-          )}
-        </Paper>
+            >
+              {isMobile ? '' : 'Refresh'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ExportIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+              size="small"
+              sx={{ 
+                fontSize: { xs: '0.65rem', sm: '0.7rem' }, 
+                borderRadius: '8px',
+                py: { xs: 0.5, sm: 0.75 },
+              }}
+            >
+              {isMobile ? '' : 'Export'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
 
-        {/* Footer */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, flexWrap: 'wrap', gap: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+      {/* Data Grid */}
+      <Paper
+        elevation={0}
+        sx={{
+          height: { xs: 350, sm: 400, md: 450, lg: 500 },
+          width: '100%',
+          borderRadius: { xs: '12px', sm: '16px' },
+          border: '1px solid #ECECEC',
+          overflow: 'hidden',
+          bgcolor: '#FFFFFF',
+        }}
+      >
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <CircularProgress size={36} />
+            <Typography sx={{ ml: 2, fontSize: '0.9rem', color: '#6B7280' }}>
+              Loading drivers...
+            </Typography>
+          </Box>
+        ) : (
+          <DataGrid
+            rows={filteredDrivers}
+            columns={columns}
+            pagination
+            paginationMode="client"
+            rowCount={filteredDrivers.length}
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            pageSizeOptions={[5, 10, 20, 50, 100]}
+            checkboxSelection={false}
+            disableRowSelectionOnClick
+            getRowId={(row) => row.id}
+            density="compact"
+            sx={{
+              border: 'none',
+              fontSize: { xs: '0.65rem', sm: '0.7rem', md: '0.75rem' },
+              '& .MuiDataGrid-cell': {
+                borderRight: '1px solid #F3F4F6',
+                display: 'flex',
+                alignItems: 'center',
+                padding: { xs: '0 8px', sm: '0 12px' },
+                fontSize: { xs: '0.6rem', sm: '0.7rem', md: '0.75rem' },
+              },
+              '& .MuiDataGrid-columnHeaders': {
+                backgroundColor: '#F9FAFB',
+                borderBottom: '1px solid #E5E7EB',
+                minHeight: { xs: '36px !important', sm: '44px !important' },
+              },
+              '& .MuiDataGrid-columnHeaderTitle': {
+                fontWeight: 600,
+                color: '#6B7280',
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                textTransform: 'uppercase',
+                letterSpacing: '0.3px',
+              },
+              '& .MuiDataGrid-row': {
+                minHeight: { xs: '36px !important', sm: '44px !important' },
+                '&:hover': { backgroundColor: '#F9FAFB' },
+              },
+              '& .MuiDataGrid-row:nth-of-type(even)': { backgroundColor: '#FAFAFA' },
+              '& .MuiDataGrid-cell:focus': { outline: 'none' },
+              '& .MuiDataGrid-columnHeader:focus': { outline: 'none' },
+              '& .MuiDataGrid-footerContainer': {
+                borderTop: '1px solid #E5E7EB',
+                minHeight: { xs: '40px', sm: '52px' },
+              },
+              '& .MuiTablePagination-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+            }}
+          />
+        )}
+      </Paper>
+
+      {/* Footer */}
+      <Box sx={{ 
+        mt: { xs: 1, sm: 2 },
+        pt: { xs: 1, sm: 1.5 }, 
+        borderTop: '1px solid #ECECEC',
+        width: '100%',
+      }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={{ xs: 0.5, sm: 0 }}
+        >
+          <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}>
             Showing <strong>{filteredDrivers.length}</strong> of <strong>{drivers.length}</strong> drivers
             {hasFilters && ' (filtered)'}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+          <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}>
             Last updated: {new Date().toLocaleString()}
           </Typography>
-        </Box>
+        </Stack>
       </Box>
-    </Box>
+    </ResponsiveContainer>
   );
 };
 
