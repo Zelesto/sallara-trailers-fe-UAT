@@ -424,7 +424,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 };
 
 // ============================================================
-// INFO ROW - FIXED
+// INFO ROW - COMPLETELY FIXED
 // ============================================================
 const InfoRow = ({ label, value }) => {
   // ✅ Convert any value to a renderable string
@@ -454,15 +454,22 @@ const InfoRow = ({ label, value }) => {
   else if (React.isValidElement(value)) {
     displayValue = value;
   } 
-  // Handle objects (including arrays)
+  // Handle objects
   else if (typeof value === 'object') {
     // If it has an id property, try to use that
-    if (value.id !== undefined) {
+    if (value.id !== undefined && value.id !== null) {
       displayValue = String(value.id);
     } 
     // If it has a name property, try to use that
-    else if (value.name !== undefined) {
+    else if (value.name !== undefined && value.name !== null) {
       displayValue = String(value.name);
+    }
+    // If it has a registration property (for vehicles)
+    else if (value.registration !== undefined && value.registration !== null) {
+      displayValue = String(value.registration);
+    }
+    else if (value.registrationNumber !== undefined && value.registrationNumber !== null) {
+      displayValue = String(value.registrationNumber);
     }
     // If it's an array, try to format it
     else if (Array.isArray(value)) {
@@ -470,7 +477,13 @@ const InfoRow = ({ label, value }) => {
         displayValue = 'None';
       } else {
         try {
-          displayValue = value.map(item => String(item)).join(', ');
+          displayValue = value.map(item => {
+            if (item === null || item === undefined) return 'N/A';
+            if (typeof item === 'object') {
+              return item.name || item.id || 'Item';
+            }
+            return String(item);
+          }).join(', ');
         } catch {
           displayValue = 'N/A';
         }
@@ -493,6 +506,11 @@ const InfoRow = ({ label, value }) => {
     } catch {
       displayValue = 'N/A';
     }
+  }
+
+  // Ensure we never return an object
+  if (typeof displayValue === 'object' && !React.isValidElement(displayValue)) {
+    displayValue = 'N/A';
   }
 
   return (
@@ -686,17 +704,17 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
           </Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <InfoRow label="Full Name" value={fullName || 'N/A'} />
-              <InfoRow label="License Number" value={driver?.licenseNumber || 'N/A'} />
-              <InfoRow label="License Type" value={driver?.licenseType || 'N/A'} />
+              <InfoRow label="Full Name" value={String(fullName || 'N/A')} />
+              <InfoRow label="License Number" value={String(driver?.licenseNumber || 'N/A')} />
+              <InfoRow label="License Type" value={String(driver?.licenseType || 'N/A')} />
               <InfoRow label="License Expiry" value={driver?.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <InfoRow label="Phone" value={driver?.phoneNumber || 'N/A'} />
-              <InfoRow label="Email" value={driver?.email || 'N/A'} />
+              <InfoRow label="Phone" value={String(driver?.phoneNumber || 'N/A')} />
+              <InfoRow label="Email" value={String(driver?.email || 'N/A')} />
               <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
-              <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
-              <InfoRow label="Total Distance" value={`${(totalDistance || 0).toLocaleString()} km`} />
+              <InfoRow label="Years with Company" value={String(`${yearsWithCompany} years`)} />
+              <InfoRow label="Total Distance" value={String(`${(totalDistance || 0).toLocaleString()} km`)} />
             </Grid>
           </Grid>
         </Paper>
@@ -2422,7 +2440,7 @@ const NotesTab = ({ driver }) => {
 };
 
 // ============================================================
-// MAIN DRIVER DASHBOARD
+// MAIN DRIVER DASHBOARD - COMPLETE FIX
 // ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
@@ -2509,22 +2527,61 @@ const DriverDashboard = () => {
         }
       }).length;
       
-      const performanceScore = data.performanceScore || 
-        (totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0);
+      // SAFELY extract performance score - ensure it's a number
+      let performanceScore = 0;
+      if (data.performanceScore !== undefined && data.performanceScore !== null) {
+        if (typeof data.performanceScore === 'number') {
+          performanceScore = data.performanceScore;
+        } else if (typeof data.performanceScore === 'string') {
+          performanceScore = parseInt(data.performanceScore, 10) || 0;
+        } else if (typeof data.performanceScore === 'object') {
+          // If it's an object, try to extract a numeric value
+          performanceScore = data.performanceScore.value || data.performanceScore.score || 0;
+          if (typeof performanceScore === 'string') {
+            performanceScore = parseInt(performanceScore, 10) || 0;
+          }
+        }
+      } else if (totalTrips > 0) {
+        performanceScore = Math.round((completedTrips / totalTrips) * 100);
+      }
       
+      // SAFELY extract assigned vehicle
+      let assignedVehicleId = 'Not Assigned';
+      if (data.assignedVehicleId !== undefined && data.assignedVehicleId !== null) {
+        if (typeof data.assignedVehicleId === 'object') {
+          assignedVehicleId = data.assignedVehicleId.id || data.assignedVehicleId.vehicleId || 'Not Assigned';
+          assignedVehicleId = String(assignedVehicleId);
+        } else {
+          assignedVehicleId = String(data.assignedVehicleId);
+        }
+      }
+      
+      // Create enriched driver with ALL primitive values
       const enrichedDriver = {
-  ...data,
-  totalTrips: totalTrips,
-  completedTrips: completedTrips,
-  totalDistance: Math.round(totalDistance),
-  monthlyTrips: monthlyTrips,
-  performanceScore: performanceScore,
-  tripCount: totalTrips,
-  // Ensure these are primitives
-  assignedVehicleId: data.assignedVehicleId !== undefined && data.assignedVehicleId !== null 
-    ? String(data.assignedVehicleId) 
-    : 'Not Assigned',
-};
+        ...data,
+        totalTrips: totalTrips,
+        completedTrips: completedTrips,
+        totalDistance: Math.round(totalDistance),
+        monthlyTrips: monthlyTrips,
+        performanceScore: performanceScore,
+        tripCount: totalTrips,
+        // Ensure ALL values are primitives
+        id: data.id ? String(data.id) : null,
+        firstName: data.firstName ? String(data.firstName) : '',
+        lastName: data.lastName ? String(data.lastName) : '',
+        licenseNumber: data.licenseNumber ? String(data.licenseNumber) : 'N/A',
+        licenseType: data.licenseType ? String(data.licenseType) : 'N/A',
+        phoneNumber: data.phoneNumber ? String(data.phoneNumber) : 'N/A',
+        email: data.email ? String(data.email) : 'N/A',
+        status: data.status ? String(data.status) : 'Unknown',
+        employmentType: data.employmentType ? String(data.employmentType) : 'N/A',
+        assignedVehicleId: assignedVehicleId,
+        hireDate: data.hireDate || null,
+        licenseExpiry: data.licenseExpiry || null,
+        notes: data.notes ? String(data.notes) : '',
+        safetyScore: typeof data.safetyScore === 'number' ? data.safetyScore : 85,
+        efficiencyScore: typeof data.efficiencyScore === 'number' ? data.efficiencyScore : 0,
+      };
       
       setDriver(enrichedDriver);
     } catch (err) {
@@ -2816,6 +2873,25 @@ const DriverDashboard = () => {
     setOpenApproveDialog(true);
   };
 
+  // Create safe driver object with all primitive values for rendering
+  const safeDriver = useMemo(() => {
+    if (!driver) return null;
+    return {
+      ...driver,
+      firstName: driver.firstName ? String(driver.firstName) : '',
+      lastName: driver.lastName ? String(driver.lastName) : '',
+      performanceScore: typeof driver.performanceScore === 'number' ? driver.performanceScore : 0,
+      totalTrips: typeof driver.totalTrips === 'number' ? driver.totalTrips : 0,
+      phoneNumber: driver.phoneNumber ? String(driver.phoneNumber) : 'N/A',
+      email: driver.email ? String(driver.email) : 'N/A',
+      licenseNumber: driver.licenseNumber ? String(driver.licenseNumber) : 'N/A',
+      licenseType: driver.licenseType ? String(driver.licenseType) : 'N/A',
+      status: driver.status ? String(driver.status) : 'Unknown',
+      employmentType: driver.employmentType ? String(driver.employmentType) : 'N/A',
+      assignedVehicleId: driver.assignedVehicleId ? String(driver.assignedVehicleId) : 'Not Assigned',
+    };
+  }, [driver]);
+
   if (loading) {
     return (
       <ResponsiveContainer>
@@ -2827,7 +2903,7 @@ const DriverDashboard = () => {
     );
   }
 
-  if (error || !driver) {
+  if (error || !driver || !safeDriver) {
     return (
       <ResponsiveContainer>
         <Alert severity="error" sx={{ borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
@@ -2845,8 +2921,8 @@ const DriverDashboard = () => {
     );
   }
 
-  const fullName = `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
-  const initials = `${driver.firstName?.charAt(0) || ''}${driver.lastName?.charAt(0) || ''}`.toUpperCase();
+  const fullName = `${safeDriver.firstName || ''} ${safeDriver.lastName || ''}`.trim();
+  const initials = `${safeDriver.firstName?.charAt(0) || ''}${safeDriver.lastName?.charAt(0) || ''}`.toUpperCase();
 
   return (
     <ResponsiveContainer>
@@ -2916,7 +2992,7 @@ const DriverDashboard = () => {
                   position: 'absolute',
                   bottom: 8,
                   right: -8,
-                  bgcolor: driver?.status === 'ACTIVE' ? '#22C55E' : '#EF4444',
+                  bgcolor: safeDriver?.status === 'ACTIVE' ? '#22C55E' : '#EF4444',
                   borderRadius: '50%',
                   width: { xs: 12, sm: 14 },
                   height: { xs: 12, sm: 14 },
@@ -2929,10 +3005,10 @@ const DriverDashboard = () => {
               {fullName || 'Unknown Driver'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              {driver.licenseNumber || 'No license'} • {driver.licenseType || 'N/A'}
+              {safeDriver.licenseNumber || 'No license'} • {safeDriver.licenseType || 'N/A'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              {driver.status || 'Unknown'} • {driver.employmentType || 'N/A'}
+              {safeDriver.status || 'Unknown'} • {safeDriver.employmentType || 'N/A'}
             </Typography>
 
             <Button
@@ -2963,21 +3039,21 @@ const DriverDashboard = () => {
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                 Contact Information
               </Typography>
-              <InfoRow label="Phone" value={driver.phoneNumber || 'N/A'} />
-              <InfoRow label="Email" value={driver.email || 'N/A'} />
-              <InfoRow label="Assigned Vehicle" value={driver.assignedVehicleId || 'Not Assigned'} />
+              <InfoRow label="Phone" value={safeDriver.phoneNumber} />
+              <InfoRow label="Email" value={safeDriver.email} />
+              <InfoRow label="Assigned Vehicle" value={safeDriver.assignedVehicleId} />
             </Stack>
 
             <Divider sx={{ my: 2.5 }} />
-
+            
             <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                 Quick Stats
               </Typography>
-              <InfoRow label="Total Trips" value={driver.totalTrips || 0} />
-              <InfoRow label="Performance Score" value={`${driver.performanceScore || 0}%`} />
-              <InfoRow label="Hire Date" value={driver.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
-              <InfoRow label="License Expiry" value={driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
+              <InfoRow label="Total Trips" value={String(safeDriver.totalTrips || 0)} />
+              <InfoRow label="Performance Score" value={safeDriver.performanceScore + '%'} />
+              <InfoRow label="Hire Date" value={safeDriver.hireDate ? new Date(safeDriver.hireDate).toLocaleDateString() : 'N/A'} />
+              <InfoRow label="License Expiry" value={safeDriver.licenseExpiry ? new Date(safeDriver.licenseExpiry).toLocaleDateString() : 'N/A'} />
             </Stack>
           </Box>
         </Paper>
@@ -3009,7 +3085,7 @@ const DriverDashboard = () => {
 
           {activeTab === 0 && (
             <OverviewTab 
-              driver={driver} 
+              driver={safeDriver} 
               leaveData={leaveData}
               timesheetData={timesheetData}
               loading={loading} 
@@ -3045,7 +3121,7 @@ const DriverDashboard = () => {
           )}
 
           {activeTab === 4 && (
-            <PerformanceTab driver={driver} trips={trips} loading={loading} />
+            <PerformanceTab driver={safeDriver} trips={trips} loading={loading} />
           )}
 
           {activeTab === 5 && (
@@ -3053,7 +3129,7 @@ const DriverDashboard = () => {
           )}
 
           {activeTab === 6 && (
-            <NotesTab driver={driver} />
+            <NotesTab driver={safeDriver} />
           )}
         </Box>
       </Box>
