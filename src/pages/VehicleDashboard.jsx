@@ -35,148 +35,134 @@ import {
   Select,
   MenuItem,
   Tooltip,
-  Badge,
-  Slider,
-  Switch,
   FormControlLabel,
   InputAdornment,
-  Input,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemAvatar,
-  Avatar as MuiAvatar,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
-  People as PeopleIcon,
   DirectionsCar as CarIcon,
   Route as RouteIcon,
-  Assessment as AssessmentIcon,
-  CalendarToday as CalendarIcon,
   Settings as SettingsIcon,
-  Support as SupportIcon,
   ArrowBack as ArrowBackIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  LocationOn as LocationOnIcon,
-  Info as InfoIcon,
-  Close as CloseIcon,
-  WhatsApp as WhatsAppIcon,
-  Sms as SmsIcon,
-  Gmail as GmailIcon,
-  DesktopMac as DesktopIcon,
-  PhoneIphone as MobileIcon,
-  TabletMac as TabletIcon,
-  DevicesOther as OtherIcon,
-  Chat as ChatIcon,
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
   AttachMoney as MoneyIcon,
   TrendingUp as TrendingUpIcon,
-  EventNote as EventNoteIcon,
-  Assignment as AssignmentIcon,
-  PersonAdd as PersonAddIcon,
   Edit as EditIcon,
-  MoreVert as MoreVertIcon,
-  Facebook as FacebookIcon,
-  Instagram as InstagramIcon,
-  LinkedIn as LinkedInIcon,
-  AccessTime as AccessTimeIcon,
-  BeachAccess as BeachAccessIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
-  Print as PrintIcon,
   Speed as SpeedIcon,
   LocalGasStation as FuelIcon,
   Build as BuildIcon,
   Receipt as ReceiptIcon,
   Description as DescriptionIcon,
-  FileCopy as FileCopyIcon,
   Verified as VerifiedIcon,
   Pending as PendingIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
   Save as SaveIcon,
-  GpsFixed as GpsFixedIcon,
-  Speed as SpeedIconAlt,
-  Timer as TimerIcon,
-  Scale as WeightIcon,
-  Scale as ScaleIcon,
   Engineering as EngineeringIcon,
+  Info as InfoIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
-import { vehicleService } from '../services/vehicleService';
-import { fuelService } from '../services/fuelService';
-import { certificateService } from '../services/certificateService';
-import { maintenanceService } from '../services/maintenanceService';
-import tripService from '../services/tripService';
-
-import api from '../services/api'; 
+import { vehicleService } from '../../services/vehicleService';
+import { fuelService } from '../../services/fuelService';
+import { certificateService } from '../../services/certificateService';
+import { maintenanceService } from '../../services/maintenanceService';
+import tripService from '../../services/tripService';
+import api from '../../services/api';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 // ============================================================
-// NAVIGATION TABS
+// STAT CARD (Matches Dashboard)
 // ============================================================
-const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
-  const handleChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  const tabs = [
-    { label: 'Overview', icon: <DashboardIcon /> },
-    { label: 'Specifications', icon: <SettingsIcon /> },
-    { label: 'Fuel Management', icon: <FuelIcon /> },
-    { label: 'Service History', icon: <BuildIcon /> },
-    { label: 'Certificates & Permits', icon: <VerifiedIcon /> },
-    { label: 'Trips', icon: <RouteIcon /> },
-    { label: 'Documents', icon: <DescriptionIcon /> },
-    { label: 'Notes', icon: <InfoIcon /> },
-  ];
-
-  return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, overflowX: 'auto' }}>
-      <Tabs
-        value={activeTab}
-        onChange={handleChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{
-          '& .MuiTab-root': {
-            fontWeight: 500,
-            fontSize: '0.8rem',
-            textTransform: 'capitalize',
-            minWidth: 'auto',
-            px: 2,
-            py: 1.5,
+const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: { xs: 1.5, sm: 2, md: 2.5 },
+      borderRadius: { xs: '12px', sm: '16px' },
+      border: '1px solid #ECECEC',
+      bgcolor: '#FFFFFF',
+      height: '100%',
+      width: '100%',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      '&:hover': {
+        transform: 'translateY(-2px)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+        borderColor: color,
+      },
+    }}
+  >
+    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="caption"
+          sx={{
             color: '#6B7280',
-            '&.Mui-selected': {
-              color: '#4F46E5',
-              fontWeight: 600,
-            },
-          },
-          '& .MuiTabs-indicator': {
-            backgroundColor: '#4F46E5',
-            height: 3,
-            borderRadius: '3px 3px 0 0',
-          },
-        }}
-      >
-        {tabs.map((tab) => (
-          <Tab 
-            key={tab.label} 
-            label={tab.label} 
-            icon={tab.icon} 
-            iconPosition="start"
-          />
-        ))}
-      </Tabs>
-    </Box>
-  );
-};
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+            letterSpacing: '0.5px',
+            display: 'block',
+            mb: 0.25,
+          }}
+        >
+          {title}
+        </Typography>
+        {loading ? (
+          <CircularProgress size={20} sx={{ mt: 0.5 }} />
+        ) : (
+          <>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#111827',
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                lineHeight: 1.2,
+              }}
+            >
+              {value || 'N/A'}
+            </Typography>
+            {subtitle && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#6B7280',
+                  display: 'block',
+                  mt: 0.25,
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </>
+        )}
+      </Box>
+      {Icon && (
+        <Box
+          sx={{
+            bgcolor: `${color}15`,
+            borderRadius: { xs: '10px', sm: '12px' },
+            p: { xs: 1, sm: 1.25, md: 1.5 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
+        </Box>
+      )}
+    </Stack>
+  </Paper>
+);
 
 // ============================================================
 // FUEL TANK CARD
@@ -193,14 +179,14 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
     <Paper
       elevation={0}
       sx={{
-        p: 3,
-        borderRadius: '16px',
+        p: { xs: 2, sm: 3 },
+        borderRadius: { xs: '12px', sm: '16px' },
         border: '1px solid #ECECEC',
-        backgroundColor: '#FFFFFF',
+        bgcolor: '#FFFFFF',
         height: '100%',
       }}
     >
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', mb: 2 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.8rem', sm: '0.9rem' }, mb: 2 }}>
         {title}
       </Typography>
       
@@ -222,9 +208,6 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
               bgcolor: getColor(),
               borderRadius: 12,
               transition: 'width 0.5s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
             }}
           />
           <Box
@@ -264,7 +247,7 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
             gap: 0.5,
           }}
         >
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#111827' }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: '#111827', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
             {percentage.toFixed(0)}%
           </Typography>
         </Box>
@@ -272,44 +255,41 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
 
       <Stack spacing={1.5}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500 }}>
+          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
             Current Level
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#111827' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: '#111827', fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
             {currentLevel.toFixed(1)} {unit}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500 }}>
+          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
             Capacity
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#111827' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: '#111827', fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
             {capacity} {unit}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500 }}>
+          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
             Est. Range
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#4F46E5' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: '#4F46E5', fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
             {(currentLevel * 0.1).toFixed(0)} km
           </Typography>
         </Box>
         <Button
           variant="outlined"
           size="small"
-          startIcon={<RefreshIcon />}
-          onClick={() => {
-            if (typeof onReset === 'function') {
-              onReset();
-            }
-          }}
+          startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+          onClick={() => { if (typeof onReset === 'function') onReset(); }}
           sx={{ 
             mt: 1, 
-            fontSize: '0.7rem',
+            fontSize: { xs: '0.6rem', sm: '0.7rem' },
             borderRadius: '8px',
             borderColor: '#4F46E5',
             color: '#4F46E5',
+            textTransform: 'none',
             '&:hover': {
               borderColor: '#4F46E5',
               bgcolor: '#EEF2FF',
@@ -324,887 +304,49 @@ const FuelTankCard = ({ title, capacity, currentLevel, unit = 'L', color = '#4F4
 };
 
 // ============================================================
-// SPECIFICATIONS TAB
+// INFO ROW
 // ============================================================
-const SpecificationsTab = ({ vehicle }) => {
-  const specs = [
-    { label: 'Engine Capacity', value: vehicle.engineCapacity ? `${vehicle.engineCapacity} L` : 'N/A', icon: <SettingsIcon /> },
-    { label: 'Horsepower', value: vehicle.horsepower ? `${vehicle.horsepower} HP` : 'N/A', icon: <SpeedIcon /> },
-    { label: 'Torque', value: vehicle.torque ? `${vehicle.torque} Nm` : 'N/A', icon: <SpeedIconAlt /> },
-    { label: 'Transmission', value: vehicle.transmissionType || 'N/A', icon: <SettingsIcon /> },
-    { label: 'Axle Configuration', value: vehicle.axleConfiguration || 'N/A', icon: <SettingsIcon /> },
-    { label: 'Gross Vehicle Weight', value: vehicle.grossVehicleWeight ? `${vehicle.grossVehicleWeight} kg` : 'N/A', icon: <WeightIcon /> },
-    { label: 'Tare Weight', value: vehicle.tareWeight ? `${vehicle.tareWeight} kg` : 'N/A', icon: <ScaleIcon /> },
-    { label: 'Payload Capacity', value: vehicle.payloadCapacity ? `${vehicle.payloadCapacity} kg` : 'N/A', icon: <ScaleIcon /> },
-    { label: 'Fuel Capacity', value: vehicle.fuelCapacity ? `${vehicle.fuelCapacity} L` : 'N/A', icon: <FuelIcon /> },
-    { label: 'Color', value: vehicle.color || 'N/A', icon: <InfoIcon /> },
-    { label: 'Number of Axles', value: vehicle.numberOfAxles || 'N/A', icon: <SettingsIcon /> },
-    { label: 'Tire Size', value: vehicle.tireSize || 'N/A', icon: <SettingsIcon /> },
-  ];
-
-  return (
-    <Grid container spacing={2}>
-      {specs.map((spec, index) => (
-        <Grid item xs={12} sm={6} md={4} key={index}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              borderRadius: '12px',
-              border: '1px solid #ECECEC',
-              bgcolor: '#F9FAFB',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <Box
-              sx={{
-                bgcolor: '#EEF2FF',
-                borderRadius: '8px',
-                p: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#4F46E5',
-              }}
-            >
-              {spec.icon}
-            </Box>
-            <Box>
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 600 }}>
-                {spec.label}
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
-                {spec.value}
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
-      ))}
-    </Grid>
-  );
-};
-
-// ============================================================
-// FUEL MANAGEMENT TAB
-// ============================================================
-const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel, onUpdateFuel }) => {
-  const [saving, setSaving] = useState(false);
-
-  const handleConsumptionChange = (type, value) => {
-    setFuelData(prev => ({
-      ...prev,
-      [type]: parseFloat(value) || 0,
-    }));
-  };
-
-  const handleSaveSettings = async () => {
-    setSaving(true);
-    try {
-      // ✅ Use the prop fuelData (don't redeclare)
-      const payload = {
-        fuelLevel: fuelData.tank1Current,
-        avgConsumption: fuelData.avgConsumption,
-        virtualConsumption: fuelData.virtualConsumption,
-        fuelCapacity: fuelData.tank1Capacity,
-      };
-      
-      await onUpdateFuel(payload);
-    } catch (err) {
-      console.error('Error saving fuel settings:', err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Box>
-      <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #ECECEC', mb: 3 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Fuel Consumption Settings
-          </Typography>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleSaveSettings}
-            disabled={saving}
-            sx={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-            }}
-          >
-            {saving ? <CircularProgress size={20} /> : 'Save Settings'}
-          </Button>
-        </Stack>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="User Set Average Consumption (L/100km)"
-              type="number"
-              value={fuelData.avgConsumption}
-              onChange={(e) => handleConsumptionChange('avgConsumption', e.target.value)}
-              size="medium"
-              InputProps={{
-                startAdornment: <InputAdornment position="start"><FuelIcon /></InputAdornment>,
-                endAdornment: <InputAdornment position="end">L/100km</InputAdornment>,
-              }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              Based on user input and manual calculations
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Virtual Average Consumption (L/100km)"
-              type="number"
-              value={fuelData.virtualConsumption}
-              onChange={(e) => handleConsumptionChange('virtualConsumption', e.target.value)}
-              size="medium"
-              InputProps={{
-                startAdornment: <InputAdornment position="start"><TrendingUpIcon /></InputAdornment>,
-                endAdornment: <InputAdornment position="end">L/100km</InputAdornment>,
-              }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              Based on refills and month-end confirmations
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <FuelTankCard
-            title="Main Tank"
-            capacity={fuelData.tank1Capacity}
-            currentLevel={fuelData.tank1Current}
-            color="#4F46E5"
-            onReset={() => onResetFuel(1)}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <FuelTankCard
-            title="Reserve Tank"
-            capacity={fuelData.tank2Capacity}
-            currentLevel={fuelData.tank2Current}
-            color="#8B5CF6"
-            onReset={() => onResetFuel(2)}
-          />
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #ECECEC', mt: 3 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-          Fuel Consumption Comparison
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card sx={{ bgcolor: '#F9FAFB', borderRadius: '12px' }}>
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">User Set Average</Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5', mt: 0.5 }}>
-                      {fuelData.avgConsumption} L/100km
-                    </Typography>
-                  </Box>
-                  <Box sx={{ bgcolor: '#EEF2FF', p: 1, borderRadius: '8px' }}>
-                    <TrendingUpIcon sx={{ color: '#4F46E5' }} />
-                  </Box>
-                </Stack>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Est. Range: {(fuelData.tank1Current / fuelData.avgConsumption * 100).toFixed(0)} km
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Card sx={{ bgcolor: '#F9FAFB', borderRadius: '12px' }}>
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Virtual Average</Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#8B5CF6', mt: 0.5 }}>
-                      {fuelData.virtualConsumption} L/100km
-                    </Typography>
-                  </Box>
-                  <Box sx={{ bgcolor: '#EDE9FE', p: 1, borderRadius: '8px' }}>
-                    <TrendingUpIcon sx={{ color: '#8B5CF6' }} />
-                  </Box>
-                </Stack>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Est. Range: {(fuelData.tank2Current / fuelData.virtualConsumption * 100).toFixed(0)} km
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Paper>
-    </Box>
-  );
-};
-
-// ============================================================
-// SERVICE HISTORY TAB
-// ============================================================
-const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete, onRefresh }) => {
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-        <CircularProgress size={40} />
-      </Box>
-    );
-  }
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Service History
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<RefreshIcon />}
-            onClick={onRefresh}
-            sx={{ fontSize: '0.75rem' }}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={onAdd}
-            sx={{ 
-              fontSize: '0.75rem',
-              borderRadius: '10px',
-              textTransform: 'none',
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-            }}
-          >
-            Add Service Record
-          </Button>
-        </Stack>
-      </Box>
-
-      {serviceRecords.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
-          <BuildIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-          <Typography variant="body1" color="text.secondary">
-            No service records found
-          </Typography>
-          <Button variant="text" onClick={onAdd} sx={{ mt: 1, color: '#4F46E5' }}>
-            Add your first service record
-          </Button>
-        </Paper>
-      ) : (
-        <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
-          <Table>
-            <TableHead sx={{ bgcolor: '#F9FAFB' }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Type</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Odometer</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Cost</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Notes</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {serviceRecords.map((service) => (
-                <TableRow key={service.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-                      {service.type}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                    {service.date ? new Date(service.date).toLocaleDateString() : 'N/A'}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                    {service.odometer ? `${service.odometer.toLocaleString()} km` : 'N/A'}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                    {service.cost ? `R${service.cost.toLocaleString()}` : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={service.status}
-                      size="small"
-                      sx={{
-                        fontSize: '0.6rem',
-                        height: 20,
-                        bgcolor: service.status === 'COMPLETED' ? '#D1FAE5' : 
-                                 service.status === 'SCHEDULED' ? '#DBEAFE' : 
-                                 service.status === 'PENDING' ? '#FEF3C7' : '#FEE2E2',
-                        color: service.status === 'COMPLETED' ? '#065F46' : 
-                               service.status === 'SCHEDULED' ? '#1E40AF' : 
-                               service.status === 'PENDING' ? '#92400E' : '#991B1B',
-                        fontWeight: 600,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                    {service.notes || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5}>
-                      <IconButton size="small" onClick={() => onEdit(service)}>
-                        <EditIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => onDelete(service.id)}>
-                        <DeleteIcon sx={{ fontSize: '0.8rem', color: '#EF4444' }} />
-                      </IconButton>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  );
-};
-
-// ============================================================
-// CERTIFICATES & PERMITS TAB
-// ============================================================
-const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify, onRefresh }) => {
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-        <CircularProgress size={40} />
-      </Box>
-    );
-  }
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Certificates & Permits
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<RefreshIcon />}
-            onClick={onRefresh}
-            sx={{ fontSize: '0.75rem' }}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={onAdd}
-            sx={{ 
-              fontSize: '0.75rem',
-              borderRadius: '10px',
-              textTransform: 'none',
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-            }}
-          >
-            Add Certificate
-          </Button>
-        </Stack>
-      </Box>
-
-      {certificates.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
-          <VerifiedIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-          <Typography variant="body1" color="text.secondary">
-            No certificates or permits found
-          </Typography>
-          <Button variant="text" onClick={onAdd} sx={{ mt: 1, color: '#4F46E5' }}>
-            Add your first certificate
-          </Button>
-        </Paper>
-      ) : (
-        certificates.map((cert) => {
-          const statusColor = cert.status === 'ACTIVE' ? '#22C55E' : 
-                             cert.status === 'EXPIRING' ? '#F59E0B' : '#EF4444';
-          const statusLabel = cert.status === 'ACTIVE' ? 'Active' : 
-                             cert.status === 'EXPIRING' ? 'Expiring Soon' : 'Expired';
-          
-          return (
-            <Paper
-              key={cert.id}
-              elevation={0}
-              sx={{
-                p: 2,
-                mb: 2,
-                borderRadius: '12px',
-                border: '1px solid #ECECEC',
-                '&:last-child': { mb: 0 },
-              }}
-            >
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      bgcolor: `${statusColor}15`,
-                      borderRadius: '10px',
-                      p: 1.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <VerifiedIcon sx={{ color: statusColor, fontSize: '1.5rem' }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827' }}>
-                      {cert.name}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-                      {cert.number || 'No number'}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-                      Expires: {cert.expiryDate ? new Date(cert.expiryDate).toLocaleDateString() : 'N/A'}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip
-                    label={statusLabel}
-                    size="small"
-                    sx={{
-                      fontSize: '0.6rem',
-                      height: 22,
-                      bgcolor: `${statusColor}15`,
-                      color: statusColor,
-                      fontWeight: 600,
-                    }}
-                  />
-                  <Tooltip title="Download">
-                    <IconButton size="small" onClick={() => onDownload(cert)}>
-                      <DownloadIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Verify">
-                    <IconButton size="small" onClick={() => onVerify(cert)}>
-                      <VerifiedIcon sx={{ fontSize: '0.9rem', color: '#4F46E5' }} />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              </Stack>
-            </Paper>
-          );
-        })
-      )}
-    </Box>
-  );
-};
-
-// ============================================================
-// TRIPS TAB
-// ============================================================
-const TripsTab = ({ trips, loading, onViewTrip }) => {
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-        <CircularProgress size={40} />
-      </Box>
-    );
-  }
-
-  if (!trips || trips.length === 0) {
-    return (
-      <Box sx={{ py: 4, textAlign: 'center' }}>
-        <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-        <Typography variant="body1" color="text.secondary">
-          No trips found for this vehicle
-        </Typography>
-      </Box>
-    );
-  }
-
-  return (
-    <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
-      <Table>
-        <TableHead sx={{ bgcolor: '#F9FAFB' }}>
-          <TableRow>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Trip #</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Route</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Driver</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Date</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Distance</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {trips.map((trip) => (
-            <TableRow key={trip.id} hover>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#4F46E5' }}>
-                  {trip.tripNumber || `#${trip.id}`}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {trip.originCity || trip.originLocation} → {trip.destinationCity || trip.destinationLocation}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {trip.driverName || trip.driver?.name || 'N/A'}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={trip.status}
-                  size="small"
-                  sx={{
-                    fontSize: '0.6rem',
-                    height: 20,
-                    bgcolor: trip.status === 'COMPLETED' ? '#D1FAE5' : 
-                             trip.status === 'IN_PROGRESS' ? '#FEF3C7' : 
-                             trip.status === 'CANCELLED' ? '#FEE2E2' : '#DBEAFE',
-                    color: trip.status === 'COMPLETED' ? '#065F46' : 
-                           trip.status === 'IN_PROGRESS' ? '#92400E' : 
-                           trip.status === 'CANCELLED' ? '#991B1B' : '#1E40AF',
-                    fontWeight: 500,
-                  }}
-                />
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.8rem' }}>
-                {trip.plannedStartDate ? new Date(trip.plannedStartDate).toLocaleDateString() : 'N/A'}
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.8rem' }}>
-                {trip.totalDistance ? `${trip.totalDistance} km` : 'N/A'}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-};
-
-// ============================================================
-// OVERVIEW TAB
-// ============================================================
-
-const mockTrailers = [
-  { id: 1, number: 'TR-2024-001', type: 'Refrigerated 48ft', status: 'HOOKED' },
-  { id: 2, number: 'TR-2024-002', type: 'Flatbed 53ft', status: 'AVAILABLE' },
-  { id: 3, number: 'TR-2024-003', type: 'Dry Van 53ft', status: 'HOOKED' },
-  { id: 4, number: 'TR-2024-004', type: 'Tanker 40ft', status: 'AVAILABLE' },
-];
-
-const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => {
-  // Calculate real stats from data
-  const totalTrips = vehicle?.totalTrips || 0;
-  const totalDistance = vehicle?.currentOdometer || 0;
-  const fuelEfficiency = vehicle?.avgConsumption || 0;
-  const completedServices = serviceRecords?.filter(s => s.status === 'COMPLETED').length || 0;
-  const activeCertificates = certificates?.filter(c => c.status === 'ACTIVE').length || 0;
-  
-  // Calculate fuel percentage
-  const totalFuelCapacity = (fuelData?.tank1Capacity || 0) + (fuelData?.tank2Capacity || 0);
-  const totalFuelCurrent = (fuelData?.tank1Current || 0) + (fuelData?.tank2Current || 0);
-  const fuelPercentage = totalFuelCapacity > 0 ? (totalFuelCurrent / totalFuelCapacity) * 100 : 0;
-
-  return (
-    <Box>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Total Distance"
-            value={totalDistance ? `${totalDistance.toLocaleString()} km` : 'N/A'}
-            subtitle="Lifetime distance"
-            icon={RouteIcon}
-            color="#4F46E5"
-            loading={loading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Fuel Efficiency"
-            value={fuelEfficiency ? `${fuelEfficiency} L/100km` : 'N/A'}
-            subtitle="Average consumption"
-            icon={FuelIcon}
-            color="#F59E0B"
-            loading={loading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Service Status"
-            value={completedServices > 0 ? 'Up to date' : 'Due'}
-            subtitle={`${serviceRecords?.filter(s => s.status === 'SCHEDULED').length || 0} scheduled`}
-            icon={BuildIcon}
-            color="#22C55E"
-            loading={loading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Fuel Level"
-            value={`${fuelPercentage.toFixed(0)}%`}
-            subtitle={`${totalFuelCurrent} / ${totalFuelCapacity} L`}
-            icon={FuelIcon}
-            color={fuelPercentage > 60 ? '#22C55E' : fuelPercentage > 25 ? '#F59E0B' : '#EF4444'}
-            loading={loading}
-          />
-        </Grid>
-      </Grid>
-
-      {/* Trailer Hook Card */}
-      <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #ECECEC', mb: 3 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-          Trailer Hook Status
-        </Typography>
-        <Grid container spacing={2}>
-          {mockTrailers.map((trailer) => (
-            <Grid item xs={12} sm={6} md={4} key={trailer.id}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2,
-                  borderRadius: '12px',
-                  border: `2px solid ${trailer.status === 'HOOKED' ? '#22C55E' : '#6B7280'}`,
-                  bgcolor: trailer.status === 'HOOKED' ? '#F0FDF4' : '#F9FAFB',
-                }}
-              >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {trailer.number}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                      {trailer.type}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label={trailer.status === 'HOOKED' ? 'Hooked' : 'Available'}
-                    size="small"
-                    sx={{
-                      fontSize: '0.55rem',
-                      height: 18,
-                      bgcolor: trailer.status === 'HOOKED' ? '#D1FAE5' : '#F3F4F6',
-                      color: trailer.status === 'HOOKED' ? '#065F46' : '#6B7280',
-                    }}
-                  />
-                </Stack>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      </Paper>
-
-      {/* Fuel Tanks */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
-          <FuelTankCard
-            title="Main Tank"
-            capacity={fuelData.tank1Capacity}
-            currentLevel={fuelData.tank1Current}
-            color="#4F46E5"
-            onReset={() => handleResetFuel(1)}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <FuelTankCard
-            title="Reserve Tank"
-            capacity={fuelData.tank2Capacity}
-            currentLevel={fuelData.tank2Current}
-            color="#8B5CF6"
-            onReset={() => handleResetFuel(2)}
-          />
-        </Grid>
-      </Grid>
-
-      {/* Recent Services and Certificates */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-              Recent Services
-            </Typography>
-            {serviceRecords?.slice(0, 3).map(service => (
-              <ServiceListItem key={service.id} service={service} />
-            ))}
-            {(!serviceRecords || serviceRecords.length === 0) && (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                No service records
-              </Typography>
-            )}
-            <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
-              View All Services
-            </Button>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid #ECECEC' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-              Active Certificates
-            </Typography>
-            {certificates?.filter(c => c.status === 'ACTIVE').slice(0, 3).map(cert => (
-              <CertificateListItem key={cert.id} certificate={cert} />
-            ))}
-            {(!certificates || certificates.filter(c => c.status === 'ACTIVE').length === 0) && (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                No active certificates
-              </Typography>
-            )}
-            <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
-              View All Certificates
-            </Button>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-};
-
-// ============================================================
-// STAT CARD
-// ============================================================
-const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2.5,
-      borderRadius: '12px',
-      border: '1px solid #ECECEC',
-      backgroundColor: '#FFFFFF',
-      height: '100%',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        transform: 'translateY(-2px)',
-      },
-    }}
-  >
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-      <Box>
-        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.5px' }}>
-          {title}
-        </Typography>
-        {loading ? (
-          <CircularProgress size={20} sx={{ mt: 1 }} />
-        ) : (
-          <>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mt: 0.5 }}>
-              {value || 'N/A'}
-            </Typography>
-            {subtitle && (
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5 }}>
-                {subtitle}
-              </Typography>
-            )}
-          </>
-        )}
-      </Box>
-      {Icon && (
-        <Box
-          sx={{
-            bgcolor: `${color}15`,
-            borderRadius: '10px',
-            p: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon sx={{ color: color, fontSize: '1.3rem' }} />
-        </Box>
-      )}
-    </Stack>
-  </Paper>
+const InfoRow = ({ label, value }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+    <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ color: '#111827', fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}>
+      {value}
+    </Typography>
+  </Box>
 );
 
 // ============================================================
-// SERVICE LIST ITEM
+// VEHICLE STATUS CHIP
 // ============================================================
-const ServiceListItem = ({ service }) => {
-  const statusColor = service.status === 'COMPLETED' ? '#22C55E' : 
-                     service.status === 'SCHEDULED' ? '#3B82F6' : 
-                     service.status === 'PENDING' ? '#F59E0B' : '#EF4444';
-
+const VehicleStatusChip = ({ status }) => {
+  const statusMap = {
+    AVAILABLE: { color: '#22C55E', bgcolor: '#D1FAE5', label: 'Available' },
+    ASSIGNED: { color: '#3B82F6', bgcolor: '#DBEAFE', label: 'Assigned' },
+    IN_USE: { color: '#8B5CF6', bgcolor: '#EDE9FE', label: 'In Use' },
+    ACTIVE: { color: '#22C55E', bgcolor: '#D1FAE5', label: 'Active' },
+    INACTIVE: { color: '#6B7280', bgcolor: '#F3F4F6', label: 'Inactive' },
+    MAINTENANCE: { color: '#F59E0B', bgcolor: '#FEF3C7', label: 'Maintenance' },
+    REPAIR: { color: '#F59E0B', bgcolor: '#FEF3C7', label: 'Repair' },
+    OUT_OF_SERVICE: { color: '#EF4444', bgcolor: '#FEE2E2', label: 'Out of Service' },
+  };
+  
+  const info = statusMap[status] || { color: '#6B7280', bgcolor: '#F3F4F6', label: status || 'Unknown' };
+  
   return (
-    <Box
+    <Chip
+      size="small"
+      label={info.label}
       sx={{
-        p: 1.5,
-        mb: 1.5,
-        borderRadius: '10px',
-        border: '1px solid #ECECEC',
-        '&:last-child': { mb: 0 },
+        fontWeight: 500,
+        fontSize: { xs: '0.5rem', sm: '0.6rem' },
+        height: { xs: 18, sm: 22 },
+        bgcolor: info.bgcolor,
+        color: info.color,
+        '& .MuiChip-label': { px: { xs: 0.5, sm: 0.75 } },
       }}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
-            {service.type}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-            {service.date ? new Date(service.date).toLocaleDateString() : 'N/A'}
-          </Typography>
-        </Box>
-        <Chip
-          label={service.status}
-          size="small"
-          sx={{
-            fontSize: '0.55rem',
-            height: 18,
-            bgcolor: `${statusColor}15`,
-            color: statusColor,
-            fontWeight: 600,
-          }}
-        />
-      </Stack>
-    </Box>
-  );
-};
-
-// ============================================================
-// CERTIFICATE LIST ITEM
-// ============================================================
-const CertificateListItem = ({ certificate }) => {
-  const statusColor = certificate.status === 'ACTIVE' ? '#22C55E' : '#F59E0B';
-
-  return (
-    <Box
-      sx={{
-        p: 1.5,
-        mb: 1.5,
-        borderRadius: '10px',
-        border: '1px solid #ECECEC',
-        '&:last-child': { mb: 0 },
-      }}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
-            {certificate.name}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
-            {certificate.number || 'No number'}
-          </Typography>
-        </Box>
-        <Chip
-          label={certificate.status === 'ACTIVE' ? 'Active' : 'Expiring'}
-          size="small"
-          sx={{
-            fontSize: '0.55rem',
-            height: 18,
-            bgcolor: `${statusColor}15`,
-            color: statusColor,
-            fontWeight: 600,
-          }}
-        />
-      </Stack>
-    </Box>
+    />
   );
 };
 
@@ -1234,14 +376,14 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
     <Paper
       elevation={0}
       sx={{
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
         mb: 1.5,
-        borderRadius: '12px',
+        borderRadius: { xs: '12px', sm: '16px' },
         border: '1px solid #ECECEC',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        minHeight: '60px',
+        minHeight: { xs: '52px', sm: '60px' },
         backgroundColor: '#FFFFFF',
         transition: 'all 0.2s ease',
         '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
@@ -1252,44 +394,871 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
           sx={{
             bgcolor: getBackgroundColor(),
             borderRadius: '50%',
-            width: 36,
-            height: 36,
+            width: { xs: 30, sm: 36 },
+            height: { xs: 30, sm: 36 },
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: '1.2rem' } })}
+          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: { xs: '1rem', sm: '1.2rem' } } })}
         </Box>
-        <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.85rem' }}>
+        <Typography variant="body2" sx={{ color: '#111827', fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
           {message}
         </Typography>
       </Box>
-      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0 }}>
-        <CloseIcon sx={{ fontSize: '1rem' }} />
+      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0, p: { xs: 0.25, sm: 0.5 } }}>
+        <CloseIcon sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }} />
       </IconButton>
     </Paper>
   );
 };
 
 // ============================================================
+// NAVIGATION TABS
+// ============================================================
+const VehicleNavigationTabs = ({ activeTab, setActiveTab }) => {
+  const tabs = [
+    { label: 'Overview', icon: <DashboardIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Specifications', icon: <SettingsIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Fuel Management', icon: <FuelIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Service History', icon: <BuildIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Certificates', icon: <VerifiedIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Trips', icon: <RouteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Documents', icon: <DescriptionIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Notes', icon: <InfoIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+  ];
+
+  return (
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, overflowX: 'auto' }}>
+      <Tabs
+        value={activeTab}
+        onChange={(e, newValue) => setActiveTab(newValue)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{
+          '& .MuiTab-root': {
+            fontWeight: 500,
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
+            textTransform: 'none',
+            minWidth: 'auto',
+            px: { xs: 1, sm: 2 },
+            py: { xs: 1, sm: 1.5 },
+            color: '#6B7280',
+            '&.Mui-selected': {
+              color: '#4F46E5',
+              fontWeight: 600,
+            },
+          },
+          '& .MuiTabs-indicator': {
+            backgroundColor: '#4F46E5',
+            height: 3,
+            borderRadius: '3px 3px 0 0',
+          },
+        }}
+      >
+        {tabs.map((tab) => (
+          <Tab 
+            key={tab.label} 
+            label={tab.label} 
+            icon={tab.icon} 
+            iconPosition="start"
+            sx={{ '& .MuiTab-iconWrapper': { mr: { xs: 0.5, sm: 1 } } }}
+          />
+        ))}
+      </Tabs>
+    </Box>
+  );
+};
+
+// ============================================================
+// SPECIFICATIONS TAB
+// ============================================================
+const SpecificationsTab = ({ vehicle }) => {
+  const specs = [
+    { label: 'Engine Capacity', value: vehicle.engineCapacity ? `${vehicle.engineCapacity} L` : 'N/A', icon: <SettingsIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'Horsepower', value: vehicle.horsepower ? `${vehicle.horsepower} HP` : 'N/A', icon: <SpeedIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'Transmission', value: vehicle.transmissionType || 'N/A', icon: <SettingsIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'Fuel Capacity', value: vehicle.fuelCapacity ? `${vehicle.fuelCapacity} L` : 'N/A', icon: <FuelIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'Color', value: vehicle.color || 'N/A', icon: <InfoIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'VIN', value: vehicle.vin || 'N/A', icon: <InfoIcon sx={{ fontSize: '0.9rem' }} /> },
+  ];
+
+  return (
+    <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+      {specs.map((spec, index) => (
+        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: { xs: '10px', sm: '12px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#F9FAFB',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <Box
+              sx={{
+                bgcolor: '#EEF2FF',
+                borderRadius: '8px',
+                p: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#4F46E5',
+              }}
+            >
+              {spec.icon}
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.5rem', sm: '0.6rem' }, textTransform: 'uppercase', fontWeight: 600 }}>
+                {spec.label}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                {spec.value}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      ))}
+    </Grid>
+  );
+};
+
+// ============================================================
+// OVERVIEW TAB
+// ============================================================
+const OverviewTab = ({ vehicle, fuelData, serviceRecords, certificates, loading, navigate, id, handleResetFuel }) => {
+  const totalDistance = vehicle?.currentOdometer || 0;
+  const fuelEfficiency = vehicle?.avgConsumption || 0;
+  const completedServices = serviceRecords?.filter(s => s.status === 'COMPLETED').length || 0;
+  const activeCertificates = certificates?.filter(c => c.status === 'ACTIVE').length || 0;
+  
+  const totalFuelCapacity = (fuelData?.tank1Capacity || 0) + (fuelData?.tank2Capacity || 0);
+  const totalFuelCurrent = (fuelData?.tank1Current || 0) + (fuelData?.tank2Current || 0);
+  const fuelPercentage = totalFuelCapacity > 0 ? (totalFuelCurrent / totalFuelCapacity) * 100 : 0;
+
+  return (
+    <Box>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Total Distance"
+            value={totalDistance ? `${totalDistance.toLocaleString()} km` : 'N/A'}
+            subtitle="Lifetime distance"
+            icon={RouteIcon}
+            color="#4F46E5"
+            loading={loading}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Fuel Efficiency"
+            value={fuelEfficiency ? `${fuelEfficiency} L/100km` : 'N/A'}
+            subtitle="Average consumption"
+            icon={FuelIcon}
+            color="#F59E0B"
+            loading={loading}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Services"
+            value={completedServices}
+            subtitle={`${serviceRecords?.filter(s => s.status === 'SCHEDULED').length || 0} scheduled`}
+            icon={BuildIcon}
+            color="#22C55E"
+            loading={loading}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <StatCard
+            title="Fuel Level"
+            value={`${fuelPercentage.toFixed(0)}%`}
+            subtitle={`${totalFuelCurrent} / ${totalFuelCapacity} L`}
+            icon={FuelIcon}
+            color={fuelPercentage > 60 ? '#22C55E' : fuelPercentage > 25 ? '#F59E0B' : '#EF4444'}
+            loading={loading}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Fuel Tanks */}
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FuelTankCard
+            title="Main Tank"
+            capacity={fuelData.tank1Capacity}
+            currentLevel={fuelData.tank1Current}
+            color="#4F46E5"
+            onReset={() => handleResetFuel(1)}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FuelTankCard
+            title="Reserve Tank"
+            capacity={fuelData.tank2Capacity}
+            currentLevel={fuelData.tank2Current}
+            color="#8B5CF6"
+            onReset={() => handleResetFuel(2)}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Recent Services and Certificates */}
+      <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.85rem' }, mb: 2 }}>
+              <BuildIcon sx={{ fontSize: '0.9rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Recent Services
+            </Typography>
+            {serviceRecords?.slice(0, 3).map(service => (
+              <Box
+                key={service.id}
+                sx={{
+                  p: { xs: 1, sm: 1.5 },
+                  mb: 1.5,
+                  borderRadius: '10px',
+                  border: '1px solid #ECECEC',
+                  '&:last-child': { mb: 0 },
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: { xs: '0.7rem', sm: '0.8rem' }, color: '#111827' }}>
+                      {service.type}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                      {service.date ? new Date(service.date).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={service.status}
+                    size="small"
+                    sx={{
+                      fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                      height: { xs: 16, sm: 18 },
+                      bgcolor: service.status === 'COMPLETED' ? '#D1FAE5' : '#FEF3C7',
+                      color: service.status === 'COMPLETED' ? '#065F46' : '#92400E',
+                      fontWeight: 600,
+                    }}
+                  />
+                </Stack>
+              </Box>
+            ))}
+            {(!serviceRecords || serviceRecords.length === 0) && (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2, fontSize: '0.75rem' }}>
+                No service records
+              </Typography>
+            )}
+            <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
+              View All Services
+            </Button>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.85rem' }, mb: 2 }}>
+              <VerifiedIcon sx={{ fontSize: '0.9rem', mr: 0.5, verticalAlign: 'middle' }} />
+              Active Certificates
+            </Typography>
+            {certificates?.filter(c => c.status === 'ACTIVE').slice(0, 3).map(cert => (
+              <Box
+                key={cert.id}
+                sx={{
+                  p: { xs: 1, sm: 1.5 },
+                  mb: 1.5,
+                  borderRadius: '10px',
+                  border: '1px solid #ECECEC',
+                  '&:last-child': { mb: 0 },
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: { xs: '0.7rem', sm: '0.8rem' }, color: '#111827' }}>
+                      {cert.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                      {cert.number || 'No number'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label="Active"
+                    size="small"
+                    sx={{
+                      fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                      height: { xs: 16, sm: 18 },
+                      bgcolor: '#D1FAE5',
+                      color: '#065F46',
+                      fontWeight: 600,
+                    }}
+                  />
+                </Stack>
+              </Box>
+            ))}
+            {(!certificates || certificates.filter(c => c.status === 'ACTIVE').length === 0) && (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2, fontSize: '0.75rem' }}>
+                No active certificates
+              </Typography>
+            )}
+            <Button size="small" sx={{ mt: 1, fontSize: '0.7rem', color: '#4F46E5' }}>
+              View All Certificates
+            </Button>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+// ============================================================
+// FUEL MANAGEMENT TAB
+// ============================================================
+const FuelManagementTab = ({ fuelData, setFuelData, vehicle, onResetFuel, onUpdateFuel }) => {
+  const [saving, setSaving] = useState(false);
+
+  const handleConsumptionChange = (type, value) => {
+    setFuelData(prev => ({
+      ...prev,
+      [type]: parseFloat(value) || 0,
+    }));
+  };
+
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    try {
+      const payload = {
+        fuelLevel: fuelData.tank1Current,
+        avgConsumption: fuelData.avgConsumption,
+        virtualConsumption: fuelData.virtualConsumption,
+        fuelCapacity: fuelData.tank1Capacity,
+      };
+      
+      await onUpdateFuel(payload);
+    } catch (err) {
+      console.error('Error saving fuel settings:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: { xs: '12px', sm: '16px' }, border: '1px solid #ECECEC', mb: 3 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+            Fuel Consumption Settings
+          </Typography>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSaveSettings}
+            disabled={saving}
+            sx={{
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              borderRadius: '10px',
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
+            }}
+          >
+            {saving ? <CircularProgress size={20} /> : 'Save Settings'}
+          </Button>
+        </Stack>
+        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              label="User Set Average Consumption (L/100km)"
+              type="number"
+              value={fuelData.avgConsumption}
+              onChange={(e) => handleConsumptionChange('avgConsumption', e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><FuelIcon sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                endAdornment: <InputAdornment position="end">L/100km</InputAdornment>,
+              }}
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+              Based on user input and manual calculations
+            </Typography>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              label="Virtual Average Consumption (L/100km)"
+              type="number"
+              value={fuelData.virtualConsumption}
+              onChange={(e) => handleConsumptionChange('virtualConsumption', e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><TrendingUpIcon sx={{ fontSize: '0.9rem' }} /></InputAdornment>,
+                endAdornment: <InputAdornment position="end">L/100km</InputAdornment>,
+              }}
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+              Based on refills and month-end confirmations
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FuelTankCard
+            title="Main Tank"
+            capacity={fuelData.tank1Capacity}
+            currentLevel={fuelData.tank1Current}
+            color="#4F46E5"
+            onReset={() => onResetFuel(1)}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FuelTankCard
+            title="Reserve Tank"
+            capacity={fuelData.tank2Capacity}
+            currentLevel={fuelData.tank2Current}
+            color="#8B5CF6"
+            onReset={() => onResetFuel(2)}
+          />
+        </Grid>
+      </Grid>
+
+      <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: { xs: '12px', sm: '16px' }, border: '1px solid #ECECEC', mt: 3 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.8rem', sm: '0.9rem' }, mb: 2 }}>
+          Fuel Consumption Comparison
+        </Typography>
+        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={{ bgcolor: '#F9FAFB', borderRadius: '12px' }}>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                      User Set Average
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
+                      {fuelData.avgConsumption} L/100km
+                    </Typography>
+                  </Box>
+                  <Box sx={{ bgcolor: '#EEF2FF', p: 1, borderRadius: '8px' }}>
+                    <TrendingUpIcon sx={{ color: '#4F46E5' }} />
+                  </Box>
+                </Stack>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                  Est. Range: {(fuelData.tank1Current / fuelData.avgConsumption * 100).toFixed(0)} km
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={{ bgcolor: '#F9FAFB', borderRadius: '12px' }}>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                      Virtual Average
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#8B5CF6', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
+                      {fuelData.virtualConsumption} L/100km
+                    </Typography>
+                  </Box>
+                  <Box sx={{ bgcolor: '#EDE9FE', p: 1, borderRadius: '8px' }}>
+                    <TrendingUpIcon sx={{ color: '#8B5CF6' }} />
+                  </Box>
+                </Stack>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                  Est. Range: {(fuelData.tank2Current / fuelData.virtualConsumption * 100).toFixed(0)} km
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Paper>
+    </Box>
+  );
+};
+
+// ============================================================
+// SERVICE HISTORY TAB
+// ============================================================
+const ServiceHistoryTab = ({ serviceRecords, loading, onAdd, onEdit, onDelete, onRefresh }) => {
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+          Service History
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+            onClick={onRefresh}
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+            onClick={onAdd}
+            sx={{ 
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
+              borderRadius: '8px',
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
+            }}
+          >
+            Add Service
+          </Button>
+        </Stack>
+      </Box>
+
+      {serviceRecords.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
+          <BuildIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+            No service records found
+          </Typography>
+          <Button variant="text" onClick={onAdd} sx={{ mt: 1, color: '#4F46E5', fontSize: '0.8rem' }}>
+            Add your first service record
+          </Button>
+        </Paper>
+      ) : (
+        <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+          <Table size="small">
+            <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Date</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Odometer</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Cost</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {serviceRecords.map((service) => (
+                <TableRow key={service.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                      {service.type}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                    {service.date ? new Date(service.date).toLocaleDateString() : 'N/A'}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                    {service.odometer ? `${service.odometer.toLocaleString()} km` : 'N/A'}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                    {service.cost ? `R${service.cost.toLocaleString()}` : 'N/A'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={service.status}
+                      size="small"
+                      sx={{
+                        fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                        height: { xs: 16, sm: 20 },
+                        bgcolor: service.status === 'COMPLETED' ? '#D1FAE5' : 
+                                 service.status === 'SCHEDULED' ? '#DBEAFE' : 
+                                 service.status === 'PENDING' ? '#FEF3C7' : '#FEE2E2',
+                        color: service.status === 'COMPLETED' ? '#065F46' : 
+                               service.status === 'SCHEDULED' ? '#1E40AF' : 
+                               service.status === 'PENDING' ? '#92400E' : '#991B1B',
+                        fontWeight: 600,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5}>
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => onEdit(service)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
+                          <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' }, color: '#6B7280' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" onClick={() => onDelete(service.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
+                          <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' }, color: '#EF4444' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+};
+
+// ============================================================
+// CERTIFICATES & PERMITS TAB
+// ============================================================
+const CertificatesTab = ({ certificates, loading, onAdd, onDownload, onVerify, onRefresh }) => {
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+          Certificates & Permits
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+            onClick={onRefresh}
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+            onClick={onAdd}
+            sx={{ 
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
+              borderRadius: '8px',
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
+            }}
+          >
+            Add Certificate
+          </Button>
+        </Stack>
+      </Box>
+
+      {certificates.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
+          <VerifiedIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+            No certificates or permits found
+          </Typography>
+          <Button variant="text" onClick={onAdd} sx={{ mt: 1, color: '#4F46E5', fontSize: '0.8rem' }}>
+            Add your first certificate
+          </Button>
+        </Paper>
+      ) : (
+        certificates.map((cert) => {
+          const statusColor = cert.status === 'ACTIVE' ? '#22C55E' : 
+                             cert.status === 'EXPIRING' ? '#F59E0B' : '#EF4444';
+          const statusLabel = cert.status === 'ACTIVE' ? 'Active' : 
+                             cert.status === 'EXPIRING' ? 'Expiring Soon' : 'Expired';
+          
+          return (
+            <Paper
+              key={cert.id}
+              elevation={0}
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                mb: 2,
+                borderRadius: '12px',
+                border: '1px solid #ECECEC',
+                '&:last-child': { mb: 0 },
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      bgcolor: `${statusColor}15`,
+                      borderRadius: '10px',
+                      p: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <VerifiedIcon sx={{ color: statusColor, fontSize: '1.5rem' }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+                      {cert.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                      {cert.number || 'No number'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.55rem', sm: '0.65rem' }, display: 'block' }}>
+                      Expires: {cert.expiryDate ? new Date(cert.expiryDate).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip
+                    label={statusLabel}
+                    size="small"
+                    sx={{
+                      fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                      height: { xs: 18, sm: 22 },
+                      bgcolor: `${statusColor}15`,
+                      color: statusColor,
+                      fontWeight: 600,
+                    }}
+                  />
+                  <Tooltip title="Download">
+                    <IconButton size="small" onClick={() => onDownload(cert)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
+                      <DownloadIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#6B7280' }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Verify">
+                    <IconButton size="small" onClick={() => onVerify(cert)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
+                      <VerifiedIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' }, color: '#4F46E5' }} />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Stack>
+            </Paper>
+          );
+        })
+      )}
+    </Box>
+  );
+};
+
+// ============================================================
+// TRIPS TAB
+// ============================================================
+const TripsTab = ({ trips, loading }) => {
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  if (!trips || trips.length === 0) {
+    return (
+      <Box sx={{ py: 4, textAlign: 'center' }}>
+        <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+        <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+          No trips found for this vehicle
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <Table size="small">
+        <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Trip #</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Route</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Driver</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Date</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Distance</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {trips.map((trip) => (
+            <TableRow key={trip.id} hover>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#4F46E5', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                  {trip.tripNumber || `#${trip.id}`}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
+                  {trip.originCity || trip.originLocation} → {trip.destinationCity || trip.destinationLocation}
+                </Typography>
+              </TableCell>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
+                {trip.driverName || trip.driver?.name || 'N/A'}
+              </TableCell>
+              <TableCell>
+                <Chip
+                  label={trip.status}
+                  size="small"
+                  sx={{
+                    fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                    height: { xs: 16, sm: 20 },
+                    bgcolor: trip.status === 'COMPLETED' ? '#D1FAE5' : 
+                             trip.status === 'IN_PROGRESS' ? '#FEF3C7' : 
+                             trip.status === 'CANCELLED' ? '#FEE2E2' : '#DBEAFE',
+                    color: trip.status === 'COMPLETED' ? '#065F46' : 
+                           trip.status === 'IN_PROGRESS' ? '#92400E' : 
+                           trip.status === 'CANCELLED' ? '#991B1B' : '#1E40AF',
+                    fontWeight: 500,
+                  }}
+                />
+              </TableCell>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
+                {trip.plannedStartDate ? new Date(trip.plannedStartDate).toLocaleDateString() : 'N/A'}
+              </TableCell>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
+                {trip.totalDistance ? `${trip.totalDistance} km` : 'N/A'}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
+// ============================================================
 // PLACEHOLDER TABS
 // ============================================================
-const MaintenanceTab = () => (
-  <Box sx={{ py: 4, textAlign: 'center' }}>
-    <EngineeringIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-    <Typography variant="body1" color="text.secondary">
-      Maintenance schedule and history will be displayed here
-    </Typography>
-  </Box>
-);
-
 const DocumentsTab = () => (
   <Box sx={{ py: 4, textAlign: 'center' }}>
     <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-    <Typography variant="body1" color="text.secondary">
-      Vehicle documents will be displayed here
+    <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+      Documents will be displayed here
     </Typography>
   </Box>
 );
@@ -1297,12 +1266,12 @@ const DocumentsTab = () => (
 const NotesTab = ({ vehicle }) => (
   <Box sx={{ py: 4, textAlign: 'center' }}>
     <InfoIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-    <Typography variant="body1" color="text.secondary">
+    <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
       Vehicle notes will be displayed here
     </Typography>
     {vehicle?.notes && (
       <Paper sx={{ mt: 2, p: 3, textAlign: 'left', borderRadius: '12px', border: '1px solid #ECECEC' }}>
-        <Typography variant="body2" sx={{ color: '#111827' }}>
+        <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.85rem' }}>
           {vehicle.notes}
         </Typography>
       </Paper>
@@ -1352,7 +1321,7 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>
+      <DialogTitle sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
         {service ? 'Edit Service Record' : 'Add Service Record'}
       </DialogTitle>
       <DialogContent>
@@ -1362,9 +1331,9 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
             value={formData.type}
             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
             fullWidth
-            size="medium"
+            size="small"
             required
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
           />
           <TextField
             label="Date"
@@ -1373,8 +1342,8 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             InputLabelProps={{ shrink: true }}
             fullWidth
-            size="medium"
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            size="small"
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
           />
           <TextField
             label="Odometer (km)"
@@ -1382,8 +1351,8 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
             value={formData.odometer}
             onChange={(e) => setFormData({ ...formData, odometer: e.target.value })}
             fullWidth
-            size="medium"
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            size="small"
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             InputProps={{
               endAdornment: <InputAdornment position="end">km</InputAdornment>,
             }}
@@ -1394,24 +1363,24 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
             value={formData.cost}
             onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
             fullWidth
-            size="medium"
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            size="small"
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             InputProps={{
               startAdornment: <InputAdornment position="start">R</InputAdornment>,
             }}
           />
-          <FormControl fullWidth size="medium">
-            <InputLabel sx={{ fontSize: '0.8rem' }}>Status</InputLabel>
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Status</InputLabel>
             <Select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               label="Status"
-              sx={{ fontSize: '0.85rem' }}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
             >
-              <MenuItem value="SCHEDULED">Scheduled</MenuItem>
-              <MenuItem value="PENDING">Pending</MenuItem>
-              <MenuItem value="COMPLETED">Completed</MenuItem>
-              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+              <MenuItem value="SCHEDULED" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Scheduled</MenuItem>
+              <MenuItem value="PENDING" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Pending</MenuItem>
+              <MenuItem value="COMPLETED" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Completed</MenuItem>
+              <MenuItem value="CANCELLED" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Cancelled</MenuItem>
             </Select>
           </FormControl>
           <TextField
@@ -1421,21 +1390,26 @@ const ServiceDialog = ({ open, onClose, service, onSave }) => {
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             fullWidth
-            size="medium"
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            size="small"
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
           />
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ p: 2.5 }}>
-        <Button onClick={onClose} sx={{ color: '#6B7280' }}>Cancel</Button>
+      <DialogActions sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+        <Button onClick={onClose} sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+          Cancel
+        </Button>
         <Button 
           onClick={handleSubmit} 
           variant="contained"
           sx={{
-            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-            textTransform: 'none',
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
             borderRadius: '10px',
-            px: 3,
+            textTransform: 'none',
+            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+            },
           }}
         >
           {service ? 'Update' : 'Add'}
@@ -1484,7 +1458,7 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>
+      <DialogTitle sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
         {certificate ? 'Edit Certificate' : 'Add Certificate'}
       </DialogTitle>
       <DialogContent>
@@ -1494,31 +1468,31 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             fullWidth
-            size="medium"
+            size="small"
             required
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
           />
           <TextField
             label="Certificate Number"
             value={formData.number}
             onChange={(e) => setFormData({ ...formData, number: e.target.value })}
             fullWidth
-            size="medium"
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            size="small"
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
           />
-          <FormControl fullWidth size="medium">
-            <InputLabel sx={{ fontSize: '0.8rem' }}>Type</InputLabel>
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Type</InputLabel>
             <Select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
               label="Type"
-              sx={{ fontSize: '0.85rem' }}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
             >
-              <MenuItem value="roadworthy">Roadworthy</MenuItem>
-              <MenuItem value="permit">Operating Permit</MenuItem>
-              <MenuItem value="insurance">Insurance</MenuItem>
-              <MenuItem value="license">License</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
+              <MenuItem value="roadworthy" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Roadworthy</MenuItem>
+              <MenuItem value="permit" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Operating Permit</MenuItem>
+              <MenuItem value="insurance" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Insurance</MenuItem>
+              <MenuItem value="license" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>License</MenuItem>
+              <MenuItem value="other" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Other</MenuItem>
             </Select>
           </FormControl>
           <TextField
@@ -1528,8 +1502,8 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
             onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
             InputLabelProps={{ shrink: true }}
             fullWidth
-            size="medium"
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            size="small"
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
           />
           <TextField
             label="Expiry Date"
@@ -1538,21 +1512,26 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
             onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
             InputLabelProps={{ shrink: true }}
             fullWidth
-            size="medium"
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            size="small"
+            sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
           />
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ p: 2.5 }}>
-        <Button onClick={onClose} sx={{ color: '#6B7280' }}>Cancel</Button>
+      <DialogActions sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+        <Button onClick={onClose} sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+          Cancel
+        </Button>
         <Button 
           onClick={handleSubmit} 
           variant="contained"
           sx={{
-            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-            textTransform: 'none',
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
             borderRadius: '10px',
-            px: 3,
+            textTransform: 'none',
+            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+            },
           }}
         >
           {certificate ? 'Update' : 'Add'}
@@ -1568,6 +1547,9 @@ const CertificateDialog = ({ open, onClose, certificate, onSave }) => {
 const VehicleDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [activeTab, setActiveTab] = useState(0);
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1690,30 +1672,16 @@ const VehicleDashboard = () => {
   };
 
   const fetchCertificates = async (vehicleId) => {
-  try {
-    const response = await api.get(`/vehicles/${vehicleId}/certificates`);
-    // api.get already returns the data directly (response.data from interceptor)
-    const certs = Array.isArray(response) ? response : [];
-    setCertificates(certs);
-    console.log(`✅ Found ${certs.length} certificates for vehicle ${vehicleId}`);
-  } catch (error) {
-    console.error('Error fetching certificates:', error);
-    setCertificates([]);
-  }
-};
+    try {
+      const response = await api.get(`/vehicles/${vehicleId}/certificates`);
+      const certs = Array.isArray(response) ? response : [];
+      setCertificates(certs);
+    } catch (error) {
+      console.error('Error fetching certificates:', error);
+      setCertificates([]);
+    }
+  };
 
-const fetchMaintenance = async (vehicleId) => {
-  try {
-    const response = await api.get(`/vehicles/${vehicleId}/maintenance`);
-    const records = Array.isArray(response) ? response : [];
-    setServiceRecords(records);
-    console.log(`✅ Found ${records.length} maintenance records for vehicle ${vehicleId}`);
-  } catch (error) {
-    console.error('Error fetching maintenance:', error);
-    setServiceRecords([]);
-  }
-};
-  
   const fetchTrips = async (vehicleId) => {
     try {
       const tripsData = await tripService.getTripsByVehicle(vehicleId);
@@ -1754,27 +1722,26 @@ const fetchMaintenance = async (vehicleId) => {
   };
 
   const handleUpdateFuel = async (fuelData) => {
-  try {
-    // If fuelData is a number, use it as fuelLevel
-    const payload = typeof fuelData === 'number' 
-      ? { fuelLevel: fuelData }
-      : fuelData;
-      
-    await vehicleService.updateFuelLevel(id, payload);
-    const data = await vehicleService.getVehicleById(id);
-    if (data.fuelCapacity) {
-      setFuelData(prev => ({
-        ...prev,
-        tank1Capacity: data.fuelCapacity || 400,
-        tank1Current: data.currentFuelLevel || 320,
-      }));
+    try {
+      const payload = typeof fuelData === 'number' 
+        ? { fuelLevel: fuelData }
+        : fuelData;
+        
+      await vehicleService.updateFuelLevel(id, payload);
+      const data = await vehicleService.getVehicleById(id);
+      if (data.fuelCapacity) {
+        setFuelData(prev => ({
+          ...prev,
+          tank1Capacity: data.fuelCapacity || 400,
+          tank1Current: data.currentFuelLevel || 320,
+        }));
+      }
+    } catch (err) {
+      console.error('Error updating fuel:', err);
+      setError('Failed to update fuel settings');
+      setTimeout(() => setError(null), 3000);
     }
-  } catch (err) {
-    console.error('Error updating fuel:', err);
-    setError('Failed to update fuel settings');
-    setTimeout(() => setError(null), 3000);
-  }
-};
+  };
 
   const handleAddService = () => {
     setEditingService(null);
@@ -1821,17 +1788,21 @@ const fetchMaintenance = async (vehicleId) => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <CircularProgress size={40} />
-        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading vehicle data...</Typography>
-      </Box>
+      <ResponsiveContainer>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress size={40} />
+          <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading vehicle data...</Typography>
+        </Box>
+      </ResponsiveContainer>
     );
   }
 
   if (error || !vehicle) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Alert severity="error" sx={{ fontSize: '0.8rem' }}>{error || 'Vehicle not found'}</Alert>
+      <ResponsiveContainer>
+        <Alert severity="error" sx={{ borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+          {error || 'Vehicle not found'}
+        </Alert>
         <Button
           variant="contained"
           size="small"
@@ -1840,7 +1811,7 @@ const fetchMaintenance = async (vehicleId) => {
         >
           Back to Vehicles
         </Button>
-      </Box>
+      </ResponsiveContainer>
     );
   }
 
@@ -1849,155 +1820,191 @@ const fetchMaintenance = async (vehicleId) => {
   const fuelPercentage = totalFuelCapacity > 0 ? (totalFuelCurrent / totalFuelCapacity) * 100 : 0;
 
   return (
-    <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
-      <Box sx={{ maxWidth: '1440px', margin: '0 auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, gap: 3 }}>
-        
+    <ResponsiveContainer>
+      {/* Header */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        mb={{ xs: 2, sm: 2.5, md: 3 }}
+        spacing={{ xs: 1, sm: 0 }}
+      >
+        <Box>
+          <Typography 
+            variant="h5" 
+            fontWeight="700" 
+            sx={{ 
+              fontSize: { 
+                xs: '1.1rem', 
+                sm: '1.3rem', 
+                md: '1.4rem', 
+                lg: '1.5rem' 
+              } 
+            }}
+          >
+            {vehicle.make} {vehicle.model}
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: { 
+                xs: '0.7rem', 
+                sm: '0.8rem', 
+                md: '0.85rem' 
+              } 
+            }}
+          >
+            {vehicle.registrationNumber} • {vehicle.year} • {vehicle.vehicleType}
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+            onClick={handleBack}
+            size="small"
+            sx={{
+              borderRadius: '10px',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              textTransform: 'none',
+              py: { xs: 0.5, sm: 0.75 },
+              px: { xs: 1.5, sm: 2 },
+            }}
+          >
+            {isMobile ? '' : 'Back to Vehicles'}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<EditIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+            onClick={handleEdit}
+            size="small"
+            sx={{
+              borderRadius: '10px',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              textTransform: 'none',
+              py: { xs: 0.5, sm: 0.75 },
+              px: { xs: 1.5, sm: 2 },
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
+            }}
+          >
+            {isMobile ? 'Edit' : 'Edit Vehicle'}
+          </Button>
+        </Stack>
+      </Stack>
+
+      {/* Two-column layout */}
+      <Box sx={{ 
+        display: 'grid', 
+        gridTemplateColumns: { xs: '1fr', lg: '280px 1fr' }, 
+        gap: 3,
+        width: '100%',
+      }}>
+        {/* Sidebar */}
         <Paper
           elevation={0}
           sx={{
-            borderRadius: '20px',
+            borderRadius: { xs: '12px', sm: '16px' },
             border: '1px solid #ECECEC',
-            p: 3,
+            p: { xs: 2, sm: 2.5 },
             height: 'fit-content',
-            position: 'sticky',
-            top: 24,
-            backgroundColor: '#FFFFFF',
+            bgcolor: '#FFFFFF',
           }}
         >
-          <Button
-            startIcon={<ArrowBackIcon sx={{ fontSize: '0.9rem' }} />}
-            size="small"
-            onClick={handleBack}
-            sx={{ mb: 2.5, fontSize: '0.75rem', color: '#6B7280', '&:hover': { bgcolor: 'transparent' } }}
-          >
-            Back to Vehicles
-          </Button>
-
           <Box sx={{ textAlign: 'center' }}>
-            <Box sx={{ position: 'relative', display: 'inline-block' }}>
-              <Avatar
+            <Avatar
+              sx={{
+                width: { xs: 72, sm: 80, md: 96 },
+                height: { xs: 72, sm: 80, md: 96 },
+                bgcolor: '#4F46E5',
+                fontSize: { xs: 24, sm: 28, md: 32 },
+                fontWeight: 600,
+                mx: 'auto',
+                mb: 2,
+                boxShadow: '0 4px 12px rgba(79,70,229,0.2)',
+              }}
+            >
+              <CarIcon sx={{ fontSize: { xs: 30, sm: 34, md: 40 } }} />
+            </Avatar>
+
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+              {vehicle.make} {vehicle.model}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.75rem' }, mb: 0.5 }}>
+              {vehicle.registrationNumber} • {vehicle.year}
+            </Typography>
+            <VehicleStatusChip status={vehicle.status} />
+          </Box>
+
+          <Divider sx={{ my: 2.5 }} />
+
+          <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+              Vehicle Information
+            </Typography>
+            <InfoRow label="Status" value={vehicle.status || 'Unknown'} />
+            <InfoRow label="Odometer" value={vehicle.currentOdometer ? `${vehicle.currentOdometer.toLocaleString()} km` : 'N/A'} />
+            <InfoRow label="Fuel Type" value={vehicle.fuelType || 'N/A'} />
+            <InfoRow label="Avg Consumption" value={vehicle.avgConsumption ? `${vehicle.avgConsumption} L/100km` : 'N/A'} />
+            <InfoRow label="Fleet Number" value={vehicle.fleetNumber || 'N/A'} />
+            <InfoRow label="VIN" value={vehicle.vin || 'N/A'} />
+          </Stack>
+
+          <Divider sx={{ my: 2.5 }} />
+
+          <Box sx={{ textAlign: 'left' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' }, mb: 1 }}>
+              Fuel Summary
+            </Typography>
+            <Box sx={{ mb: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                  Total Fuel
+                </Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                  {totalFuelCurrent} / {totalFuelCapacity} L
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={fuelPercentage}
                 sx={{
-                  width: 96,
-                  height: 96,
-                  bgcolor: '#4F46E5',
-                  fontSize: 32,
-                  fontWeight: 600,
-                  mx: 'auto',
-                  mb: 2,
-                  boxShadow: '0 4px 12px rgba(79,70,229,0.2)',
-                }}
-              >
-                <CarIcon sx={{ fontSize: 40 }} />
-              </Avatar>
-              <Box
-                sx={{
-                  position: 'absolute',
-                  bottom: 8,
-                  right: -8,
-                  bgcolor: vehicle.status === 'ACTIVE' || vehicle.status === 'AVAILABLE' ? '#22C55E' : '#EF4444',
-                  borderRadius: '50%',
-                  width: 14,
-                  height: 14,
-                  border: '2px solid white',
+                  height: 8,
+                  borderRadius: 4,
+                  bgcolor: '#F3F4F6',
+                  '& .MuiLinearProgress-bar': {
+                    bgcolor: fuelPercentage > 60 ? '#22C55E' : fuelPercentage > 25 ? '#F59E0B' : '#EF4444',
+                    borderRadius: 4,
+                  },
                 }}
               />
             </Box>
-
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827' }}>
-              {vehicle.make} {vehicle.model}
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
-              {vehicle.registrationNumber} • {vehicle.year}
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
-              {vehicle.vehicleType} • {vehicle.fuelType}
-            </Typography>
-
-            <Button
-              variant="outlined"
-              fullWidth
-              startIcon={<EditIcon sx={{ fontSize: '0.9rem' }} />}
-              onClick={handleEdit}
-              sx={{
-                borderRadius: '12px',
-                borderColor: '#ECECEC',
-                color: '#111827',
-                fontSize: '0.8rem',
-                textTransform: 'none',
-                py: 1,
-                mb: 2.5,
-                '&:hover': {
-                  borderColor: '#4F46E5',
-                  bgcolor: '#EEF2FF',
-                },
-              }}
-            >
-              Edit Vehicle
-            </Button>
-
-            <Divider sx={{ mb: 2.5 }} />
-
-            <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
-                Vehicle Information
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
+                Est. Range: {(totalFuelCurrent * 0.1).toFixed(0)} km
               </Typography>
-              <InfoRow label="Status" value={vehicle.status || 'Unknown'} />
-              <InfoRow label="Odometer" value={vehicle.currentOdometer ? `${vehicle.currentOdometer.toLocaleString()} km` : 'N/A'} />
-              <InfoRow label="Fuel Type" value={vehicle.fuelType || 'N/A'} />
-              <InfoRow label="Avg Consumption" value={vehicle.avgConsumption ? `${vehicle.avgConsumption} L/100km` : 'N/A'} />
-              <InfoRow label="Fleet Number" value={vehicle.fleetNumber || 'N/A'} />
-              <InfoRow label="VIN" value={vehicle.vin || 'N/A'} />
-            </Stack>
-
-            <Divider sx={{ my: 2.5 }} />
-
-            <Box sx={{ textAlign: 'left' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem', mb: 1 }}>
-                Fuel Summary
+              <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
+                {fuelPercentage.toFixed(0)}%
               </Typography>
-              <Box sx={{ mb: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: '#6B7280' }}>Total Fuel</Typography>
-                  <Typography variant="caption" sx={{ fontWeight: 600 }}>{totalFuelCurrent} / {totalFuelCapacity} L</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={fuelPercentage}
-                  sx={{
-                    height: 8,
-                    borderRadius: 4,
-                    bgcolor: '#F3F4F6',
-                    '& .MuiLinearProgress-bar': {
-                      bgcolor: fuelPercentage > 60 ? '#22C55E' : fuelPercentage > 25 ? '#F59E0B' : '#EF4444',
-                      borderRadius: 4,
-                    },
-                  }}
-                />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.6rem' }}>
-                  Est. Range: {(totalFuelCurrent * 0.1).toFixed(0)} km
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.6rem' }}>
-                  {fuelPercentage.toFixed(0)}%
-                </Typography>
-              </Box>
             </Box>
-
-            <Divider sx={{ my: 2.5 }} />
-
-            <Stack spacing={1} sx={{ textAlign: 'left' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
-                Quick Stats
-              </Typography>
-              <InfoRow label="Status" value={vehicle.status || 'Unknown'} />
-              <InfoRow label="Total Trips" value={vehicle.totalTrips || 0} />
-              <InfoRow label="Services Done" value={serviceRecords.filter(s => s.status === 'COMPLETED').length} />
-              <InfoRow label="Active Certificates" value={certificates.filter(c => c.status === 'ACTIVE').length} />
-            </Stack>
           </Box>
+
+          <Divider sx={{ my: 2.5 }} />
+
+          <Stack spacing={1} sx={{ textAlign: 'left' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+              Quick Stats
+            </Typography>
+            <InfoRow label="Total Trips" value={vehicle.totalTrips || 0} />
+            <InfoRow label="Services Done" value={serviceRecords.filter(s => s.status === 'COMPLETED').length} />
+            <InfoRow label="Active Certificates" value={certificates.filter(c => c.status === 'ACTIVE').length} />
+          </Stack>
         </Paper>
 
+        {/* Main Content */}
         <Box>
           <VehicleNavigationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -2074,6 +2081,7 @@ const fetchMaintenance = async (vehicleId) => {
         </Box>
       </Box>
 
+      {/* Service Dialog */}
       <ServiceDialog
         open={openServiceDialog}
         onClose={() => setOpenServiceDialog(false)}
@@ -2098,6 +2106,7 @@ const fetchMaintenance = async (vehicleId) => {
         }}
       />
 
+      {/* Certificate Dialog */}
       <CertificateDialog
         open={openCertificateDialog}
         onClose={() => setOpenCertificateDialog(false)}
@@ -2121,22 +2130,8 @@ const fetchMaintenance = async (vehicleId) => {
           }
         }}
       />
-    </Box>
+    </ResponsiveContainer>
   );
 };
-
-// ============================================================
-// HELPER COMPONENTS
-// ============================================================
-const InfoRow = ({ label, value }) => (
-  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-    <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.75rem' }}>
-      {label}
-    </Typography>
-    <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.75rem', fontWeight: 500 }}>
-      {value}
-    </Typography>
-  </Box>
-);
 
 export default VehicleDashboard;
