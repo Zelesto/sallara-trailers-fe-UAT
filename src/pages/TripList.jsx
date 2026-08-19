@@ -631,6 +631,86 @@ const TripList = () => {
       renderCell: (params) => getStatusChip(params.value),
     },
     {
+    field: 'createdAt',
+    headerName: 'Created',
+    width: isMobile ? 80 : 110,
+    headerClassName: 'trip-header',
+    renderCell: (params) => {
+      const date = params.value;
+      if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+      try {
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+        return (
+          <Box>
+            <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
+              {d.toLocaleDateString()}
+            </Typography>
+            <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
+              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Typography>
+          </Box>
+        );
+      } catch {
+        return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+      }
+    },
+  },
+  // ✅ ADDED: Actual Start Date column
+  {
+    field: 'actualStartDate',
+    headerName: 'Actual Start',
+    width: isMobile ? 90 : 120,
+    headerClassName: 'trip-header',
+    renderCell: (params) => {
+      const date = params.value;
+      if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>Not started</Typography>;
+      try {
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+        return (
+          <Box>
+            <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
+              {d.toLocaleDateString()}
+            </Typography>
+            <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
+              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Typography>
+          </Box>
+        );
+      } catch {
+        return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+      }
+    },
+  },
+  // ✅ ADDED: Actual End Date column
+  {
+    field: 'actualEndDate',
+    headerName: 'Actual End',
+    width: isMobile ? 90 : 120,
+    headerClassName: 'trip-header',
+    renderCell: (params) => {
+      const date = params.value;
+      if (!date) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>Not ended</Typography>;
+      try {
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+        return (
+          <Box>
+            <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, fontWeight: 500 }}>
+              {d.toLocaleDateString()}
+            </Typography>
+            <Typography sx={{ fontSize: { xs: '0.4rem', sm: '0.5rem' }, color: '#6B7280' }}>
+              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Typography>
+          </Box>
+        );
+      } catch {
+        return <Typography sx={{ fontSize: { xs: '0.5rem', sm: '0.65rem' }, color: '#6B7280' }}>-</Typography>;
+      }
+    },
+  },
+    {
       field: 'actions',
       headerName: 'Actions',
       width: isMobile ? 140 : 200,
