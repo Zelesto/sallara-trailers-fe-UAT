@@ -1,4 +1,4 @@
-// src/pages/PODForm.jsx
+// src/pages/PODForm.jsx - Responsive version with Dashboard styling
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -18,10 +18,25 @@ import {
   Divider,
   Autocomplete,
   Chip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
-import { ArrowBack, Save, CloudUpload, Search as SearchIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { 
+  ArrowBack, 
+  Save, 
+  CloudUpload, 
+  Search as SearchIcon, 
+  Delete as DeleteIcon,
+  Description as DescriptionIcon,
+  Business as BusinessIcon,
+  CalendarToday as CalendarIcon,
+  Person as PersonIcon,
+  Note as NoteIcon,
+  AttachFile as AttachFileIcon,
+} from '@mui/icons-material';
 import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'Pending', color: 'warning' },
@@ -31,9 +46,29 @@ const STATUS_OPTIONS = [
   { value: 'CANCELLED', label: 'Cancelled', color: 'default' },
 ];
 
+const QUALITY_RATINGS = [
+  { value: 0, label: 'Not Rated', icon: '☆' },
+  { value: 1, label: 'Poor', icon: '⭐' },
+  { value: 2, label: 'Fair', icon: '⭐⭐' },
+  { value: 3, label: 'Good', icon: '⭐⭐⭐' },
+  { value: 4, label: 'Very Good', icon: '⭐⭐⭐⭐' },
+  { value: 5, label: 'Excellent', icon: '⭐⭐⭐⭐⭐' },
+];
+
+const DELIVERY_CONDITIONS = [
+  { value: '', label: 'Select Condition' },
+  { value: 'GOOD', label: 'Good' },
+  { value: 'DAMAGED', label: 'Damaged' },
+  { value: 'PARTIAL', label: 'Partial' },
+  { value: 'REJECTED', label: 'Rejected' },
+];
+
 const PODForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const isEditMode = !!id;
 
   const [loading, setLoading] = useState(isEditMode);
@@ -83,7 +118,6 @@ const PODForm = () => {
       
       let tripsData = response?.content || response || [];
       
-      // For PODs, show trips that are completed or in progress
       const filteredTrips = tripsData.filter(trip => {
         const status = trip.status?.toUpperCase() || '';
         return ['COMPLETED', 'FINALIZED', 'IN_PROGRESS', 'DELIVERED', 'ACTIVE'].includes(status);
@@ -91,7 +125,6 @@ const PODForm = () => {
       
       setTrips(filteredTrips);
       
-      // If in edit mode, set the selected trip
       if (isEditMode && formData.tripId) {
         const foundTrip = filteredTrips.find(t => t.id === parseInt(formData.tripId));
         if (foundTrip) {
@@ -141,7 +174,6 @@ const PODForm = () => {
       setFileName(pod.fileName || '');
       setExistingFileUrl(pod.fileUrl || '');
       
-      // Set selected trip
       if (pod.tripId) {
         const foundTrip = trips.find(t => t.id === parseInt(pod.tripId));
         if (foundTrip) {
@@ -172,7 +204,7 @@ const PODForm = () => {
       setFormData(prev => ({ 
         ...prev, 
         tripId: value.id,
-        customerName: value.customerName || prev.customerName,
+        customerName: value.customerName || value.customer?.name || prev.customerName,
       }));
       
       if (formErrors.tripId) {
@@ -255,7 +287,6 @@ const PODForm = () => {
         return;
       }
 
-      // Prepare base data
       const podData = {
         tripId: tripIdValue,
         customerName: formData.customerName || 'Adhoc Customer',
@@ -273,9 +304,7 @@ const PODForm = () => {
 
       let result;
       if (isEditMode) {
-        // UPDATE: Use the correct method name
         if (file) {
-          // If there's a new file, use FormData
           const formDataPayload = new FormData();
           Object.keys(podData).forEach(key => {
             formDataPayload.append(key, podData[key]);
@@ -284,12 +313,10 @@ const PODForm = () => {
           
           result = await podService.updatePodWithFile(id, formDataPayload);
         } else {
-          // No new file, just update the data
           result = await podService.updatePod(id, podData);
         }
         setSuccess('POD updated successfully!');
       } else {
-        // CREATE: Use FormData for file upload
         const formDataPayload = new FormData();
         Object.keys(podData).forEach(key => {
           formDataPayload.append(key, podData[key]);
@@ -315,7 +342,6 @@ const PODForm = () => {
     }
   };
 
-  // Filter trips for autocomplete
   const filteredTrips = trips.filter(trip => {
     const search = searchTripTerm.toLowerCase();
     return (
@@ -328,51 +354,118 @@ const PODForm = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <CircularProgress size={40} />
-        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading POD data...</Typography>
-      </Box>
+      <ResponsiveContainer>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress size={40} />
+          <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading POD data...</Typography>
+        </Box>
+      </ResponsiveContainer>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+    <ResponsiveContainer>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        mb={{ xs: 2, sm: 2.5, md: 3 }}
+        spacing={{ xs: 1, sm: 0 }}
+      >
         <Box>
-          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
+          <Typography 
+            variant="h5" 
+            fontWeight="700" 
+            sx={{ 
+              fontSize: { 
+                xs: '1.1rem', 
+                sm: '1.3rem', 
+                md: '1.4rem', 
+                lg: '1.5rem' 
+              } 
+            }}
+          >
             {isEditMode ? 'Edit POD' : 'Upload New POD'}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-            {isEditMode ? 'Update POD information' : 'Add a new proof of delivery document'}
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: { 
+                xs: '0.7rem', 
+                sm: '0.8rem', 
+                md: '0.85rem' 
+              } 
+            }}
+          >
+            {isEditMode ? 'Update proof of delivery information' : 'Add a new proof of delivery document'}
           </Typography>
         </Box>
         <Button 
-          startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />} 
+          startIcon={<ArrowBack sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />} 
           onClick={() => navigate('/pods')}
           size="small"
-          sx={{ fontSize: '0.75rem' }}
+          sx={{
+            borderRadius: '10px',
+            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+            textTransform: 'none',
+            py: { xs: 0.5, sm: 0.75 },
+            px: { xs: 1.5, sm: 2 },
+          }}
         >
           Back to PODs
         </Button>
-      </Box>
+      </Stack>
 
-      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+      {/* Form Card */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2, md: 3 },
+          borderRadius: { xs: '12px', sm: '16px' },
+          border: '1px solid #ECECEC',
+          bgcolor: '#FFFFFF',
+          width: '100%',
+        }}
+      >
         <form onSubmit={handleSubmit}>
+          {/* Alerts */}
           {error && (
-            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError('')}>
+            <Alert 
+              severity="error" 
+              sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+              onClose={() => setError('')}
+            >
               {error}
             </Alert>
           )}
           {success && (
-            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess('')}>
+            <Alert 
+              severity="success" 
+              sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+              onClose={() => setSuccess('')}
+            >
               {success}
             </Alert>
           )}
 
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
             {/* Trip Selection */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                <SearchIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                <Typography 
+                  variant="subtitle2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    color: '#111827',
+                  }}
+                >
+                  Select Trip *
+                </Typography>
+              </Stack>
               <Autocomplete
                 options={filteredTrips}
                 loading={loadingTrips}
@@ -388,33 +481,24 @@ const PODForm = () => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Select Trip *"
+                    label="Search Trip"
                     size="small"
                     required
                     error={!!formErrors.tripId}
                     helperText={formErrors.tripId || 'Search by Trip Number or Customer Name'}
-                    sx={{
-                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
-                    }}
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <>
-                          <SearchIcon sx={{ ml: 0.5, mr: -0.5, fontSize: '0.9rem', color: 'text.secondary' }} />
-                          {params.InputProps.startAdornment}
-                        </>
-                      ),
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                      '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                     }}
                   />
                 )}
                 renderOption={(props, option) => (
                   <li {...props}>
                     <Box>
-                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
+                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                         {option.tripNumber || `Trip #${option.id}`}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
                         Customer: {option.customerName || option.customer?.name || 'N/A'} | 
                         Status: {option.status || 'N/A'} | 
                         Date: {option.plannedStartDate ? new Date(option.plannedStartDate).toLocaleDateString() : 'N/A'}
@@ -429,28 +513,55 @@ const PODForm = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            {/* Customer Name */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                <BusinessIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                <Typography 
+                  variant="subtitle2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    color: '#111827',
+                  }}
+                >
+                  Customer Name *
+                </Typography>
+              </Stack>
               <TextField
                 fullWidth
-                label="Customer Name *"
                 name="customerName"
                 value={formData.customerName}
                 onChange={handleChange}
-                required
                 size="small"
+                placeholder="Enter customer name"
+                required
                 error={!!formErrors.customerName}
                 helperText={formErrors.customerName}
-                sx={{
-                  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                  '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                sx={{ 
+                  '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                  '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                 }}
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            {/* Delivery Date */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                <CalendarIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                <Typography 
+                  variant="subtitle2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    color: '#111827',
+                  }}
+                >
+                  Delivery Date *
+                </Typography>
+              </Stack>
               <TextField
                 fullWidth
-                label="Delivery Date *"
                 name="deliveryDate"
                 type="date"
                 value={formData.deliveryDate}
@@ -460,30 +571,49 @@ const PODForm = () => {
                 InputLabelProps={{ shrink: true }}
                 error={!!formErrors.deliveryDate}
                 helperText={formErrors.deliveryDate}
-                sx={{
-                  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                  '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                sx={{ 
+                  '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                  '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                 }}
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            {/* Status */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                <DescriptionIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                <Typography 
+                  variant="subtitle2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    color: '#111827',
+                  }}
+                >
+                  Status
+                </Typography>
+              </Stack>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+                <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                  Status
+                </InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
                   label="Status"
                   onChange={handleChange}
-                  sx={{ fontSize: '0.8rem' }}
+                  sx={{ 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    borderRadius: '8px',
+                  }}
                 >
                   {STATUS_OPTIONS.map(option => (
-                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
+                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                       <Chip
                         label={option.label}
                         color={option.color}
                         size="small"
-                        sx={{ height: 18, fontSize: '0.55rem' }}
+                        sx={{ height: { xs: 16, sm: 18 }, fontSize: { xs: '0.45rem', sm: '0.55rem' } }}
                       />
                     </MenuItem>
                   ))}
@@ -492,23 +622,37 @@ const PODForm = () => {
             </Grid>
 
             {/* File Upload */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                <AttachFileIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                <Typography 
+                  variant="subtitle2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    color: '#111827',
+                  }}
+                >
+                  {isEditMode ? 'Replace Document' : 'Upload Document *'}
+                </Typography>
+              </Stack>
+              
               {isEditMode && existingFileUrl && (
                 <Box sx={{ mb: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
                     Current file: 
                   </Typography>
                   <Chip
                     label={fileName || 'Uploaded file'}
                     size="small"
                     onDelete={handleRemoveFile}
-                    sx={{ ml: 1, fontSize: '0.6rem' }}
+                    sx={{ ml: 1, fontSize: { xs: '0.5rem', sm: '0.6rem' }, height: { xs: 18, sm: 22 } }}
                   />
                   <Button
                     size="small"
                     color="error"
                     onClick={handleRemoveFile}
-                    sx={{ fontSize: '0.65rem', ml: 1 }}
+                    sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, ml: 1 }}
                   >
                     Remove
                   </Button>
@@ -518,16 +662,21 @@ const PODForm = () => {
               <Button
                 variant="outlined"
                 component="label"
-                startIcon={<CloudUpload sx={{ fontSize: '0.9rem' }} />}
+                startIcon={<CloudUpload sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
                 fullWidth
                 sx={{ 
-                  py: 1.5, 
+                  py: { xs: 1, sm: 1.5 },
                   borderStyle: 'dashed',
-                  fontSize: '0.8rem',
-                  borderColor: formErrors.file ? 'error.main' : 'inherit'
+                  fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                  borderRadius: '8px',
+                  borderColor: formErrors.file ? 'error.main' : '#ECECEC',
+                  '&:hover': {
+                    borderColor: '#4F46E5',
+                    bgcolor: '#F7F7FC',
+                  }
                 }}
               >
-                {file ? file.name : (isEditMode ? 'Replace Document' : 'Upload Document *')}
+                {file ? file.name : (isEditMode ? 'Click to replace document' : 'Click to upload document')}
                 <input
                   type="file"
                   hidden
@@ -536,12 +685,12 @@ const PODForm = () => {
                 />
               </Button>
               {formErrors.file && (
-                <Typography color="error" variant="caption" sx={{ fontSize: '0.7rem' }}>
+                <Typography color="error" variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, mt: 0.5, display: 'block' }}>
                   {formErrors.file}
                 </Typography>
               )}
               {file && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.65rem' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
                   File size: {(file.size / 1024).toFixed(2)} KB
                 </Typography>
               )}
@@ -550,79 +699,152 @@ const PODForm = () => {
             {/* Edit Mode Additional Fields */}
             {isEditMode && (
               <>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                    <DescriptionIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Document Type
+                    </Typography>
+                  </Stack>
                   <TextField
                     fullWidth
-                    label="Document Type"
                     name="documentType"
                     value={formData.documentType}
                     onChange={handleChange}
                     size="small"
-                    sx={{
-                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    placeholder="e.g., PDF, IMAGE, DOC"
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                      '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                     }}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                    <PersonIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Received By
+                    </Typography>
+                  </Stack>
                   <TextField
                     fullWidth
-                    label="Received By"
                     name="receivedBy"
                     value={formData.receivedBy}
                     onChange={handleChange}
                     size="small"
                     placeholder="Person who received the delivery"
-                    sx={{
-                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                      '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                     }}
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                    <DescriptionIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Delivery Condition
+                    </Typography>
+                  </Stack>
                   <FormControl fullWidth size="small">
-                    <InputLabel sx={{ fontSize: '0.75rem' }}>Delivery Condition</InputLabel>
+                    <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                      Delivery Condition
+                    </InputLabel>
                     <Select
                       name="deliveryCondition"
                       value={formData.deliveryCondition}
                       label="Delivery Condition"
                       onChange={handleChange}
-                      sx={{ fontSize: '0.8rem' }}
+                      sx={{ 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        borderRadius: '8px',
+                      }}
                     >
-                      <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Condition</MenuItem>
-                      <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
-                      <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
-                      <MenuItem value="PARTIAL" sx={{ fontSize: '0.8rem' }}>Partial</MenuItem>
-                      <MenuItem value="REJECTED" sx={{ fontSize: '0.8rem' }}>Rejected</MenuItem>
+                      {DELIVERY_CONDITIONS.map(option => (
+                        <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                    <StarIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Quality Rating
+                    </Typography>
+                  </Stack>
                   <FormControl fullWidth size="small">
-                    <InputLabel sx={{ fontSize: '0.75rem' }}>Quality Rating</InputLabel>
+                    <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                      Quality Rating
+                    </InputLabel>
                     <Select
                       name="qualityRating"
                       value={formData.qualityRating}
                       label="Quality Rating"
                       onChange={handleChange}
-                      sx={{ fontSize: '0.8rem' }}
+                      sx={{ 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        borderRadius: '8px',
+                      }}
                     >
-                      <MenuItem value={0} sx={{ fontSize: '0.8rem' }}>Not Rated</MenuItem>
-                      <MenuItem value={1} sx={{ fontSize: '0.8rem' }}>⭐ Poor</MenuItem>
-                      <MenuItem value={2} sx={{ fontSize: '0.8rem' }}>⭐⭐ Fair</MenuItem>
-                      <MenuItem value={3} sx={{ fontSize: '0.8rem' }}>⭐⭐⭐ Good</MenuItem>
-                      <MenuItem value={4} sx={{ fontSize: '0.8rem' }}>⭐⭐⭐⭐ Very Good</MenuItem>
-                      <MenuItem value={5} sx={{ fontSize: '0.8rem' }}>⭐⭐⭐⭐⭐ Excellent</MenuItem>
+                      {QUALITY_RATINGS.map(option => (
+                        <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                          {option.icon} {option.label}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                    <NoteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Issues Found
+                    </Typography>
+                  </Stack>
                   <TextField
                     fullWidth
-                    label="Issues Found"
                     name="issuesFound"
                     value={formData.issuesFound}
                     onChange={handleChange}
@@ -630,17 +852,29 @@ const PODForm = () => {
                     multiline
                     rows={2}
                     placeholder="Any issues found during delivery"
-                    sx={{
-                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                      '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                     }}
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                    <NoteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Additional Information
+                    </Typography>
+                  </Stack>
                   <TextField
                     fullWidth
-                    label="Additional Information"
                     name="additionalInfo"
                     value={formData.additionalInfo}
                     onChange={handleChange}
@@ -648,19 +882,32 @@ const PODForm = () => {
                     multiline
                     rows={2}
                     placeholder="Any additional information"
-                    sx={{
-                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                      '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                     }}
                   />
                 </Grid>
               </>
             )}
 
-            <Grid item xs={12}>
+            {/* Notes */}
+            <Grid size={{ xs: 12 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" mb={1}>
+                <NoteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                <Typography 
+                  variant="subtitle2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    color: '#111827',
+                  }}
+                >
+                  Notes
+                </Typography>
+              </Stack>
               <TextField
                 fullWidth
-                label="Notes"
                 name="notes"
                 multiline
                 rows={3}
@@ -668,38 +915,49 @@ const PODForm = () => {
                 onChange={handleChange}
                 size="small"
                 placeholder="Additional notes about this POD..."
-                sx={{
-                  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                  '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                sx={{ 
+                  '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                  '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.8rem' }, borderRadius: '8px' },
                 }}
               />
             </Grid>
 
-            <Grid item xs={12}>
+            {/* Actions */}
+            <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 1.5 }} />
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 1 }}>
+              <Stack 
+                direction={{ xs: 'column', sm: 'row' }} 
+                spacing={{ xs: 1, sm: 1.5 }} 
+                sx={{ mt: 1 }}
+              >
                 <Button
                   type="submit"
                   variant="contained"
-                  size="medium"
-                  startIcon={submitting ? <CircularProgress size={18} /> : <Save sx={{ fontSize: '0.9rem' }} />}
+                  startIcon={submitting ? <CircularProgress size={18} /> : <Save sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
                   disabled={submitting}
                   sx={{ 
                     minWidth: { xs: '100%', sm: 180 },
-                    fontSize: '0.8rem',
-                    py: 0.75
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    py: { xs: 0.5, sm: 0.75 },
+                    borderRadius: '10px',
+                    textTransform: 'none',
+                    background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                    },
                   }}
                 >
                   {submitting ? 'Saving...' : (isEditMode ? 'Update POD' : 'Upload POD')}
                 </Button>
                 <Button
                   variant="outlined"
-                  size="medium"
                   onClick={() => navigate('/pods')}
                   disabled={submitting}
                   sx={{ 
-                    fontSize: '0.8rem',
-                    py: 0.75
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    py: { xs: 0.5, sm: 0.75 },
+                    borderRadius: '10px',
+                    textTransform: 'none',
                   }}
                 >
                   Cancel
@@ -709,7 +967,7 @@ const PODForm = () => {
           </Grid>
         </form>
       </Paper>
-    </Box>
+    </ResponsiveContainer>
   );
 };
 
