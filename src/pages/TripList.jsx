@@ -276,51 +276,58 @@ const TripList = () => {
 
   // Load trips
   const loadTrips = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const params = {
+      page: paginationModel.page,
+      size: paginationModel.pageSize,
+      sort: 'createdAt,desc',
+    };
     
-    try {
-      const params = {
-        page: paginationModel.page,
-        size: paginationModel.pageSize,
-        sort: 'createdAt,desc',
-      };
-      
-      if (filterStatus !== 'ALL') {
-        params.status = filterStatus;
-      }
-      
-      if (debouncedSearchTerm) {
-        params.search = debouncedSearchTerm;
-      }
-
-      const response = await tripService.getAllTrips(params);
-      
-      const data = response?.content || [];
-      const total = response?.totalElements || 0;
-      const pages = response?.totalPages || 0;
-      
-      const transformedData = data.map(trip => ({
-        ...trip,
-        status: trip.status || 'DRAFT',
-        tripType: trip.tripType || 'FREIGHT',
-        driverName: getDriverName(trip),
-        vehicleReg: getVehicleRegistration(trip),
-        customerName: trip.customer?.name || trip.customerName || 'N/A',
-        originCity: trip.originCity || trip.origin?.city || 'N/A',
-        destinationCity: trip.destinationCity || trip.destination?.city || 'N/A',
-      }));
-      
-      setTrips(transformedData);
-      setRowCount(total);
-      setTotalPages(pages);
-    } catch (err) {
-      console.error('Error loading trips:', err);
-      setError('Failed to load trips');
-    } finally {
-      setLoading(false);
+    if (filterStatus !== 'ALL') {
+      params.status = filterStatus;
     }
-  }, [paginationModel.page, paginationModel.pageSize, filterStatus, debouncedSearchTerm]);
+    
+    if (debouncedSearchTerm) {
+      params.search = debouncedSearchTerm;
+    }
+
+    const response = await tripService.getAllTrips(params);
+    
+    const data = response?.content || [];
+    const total = response?.totalElements || 0;
+    const pages = response?.totalPages || 0;
+    
+    const transformedData = data.map(trip => ({
+      ...trip,
+      status: trip.status || 'DRAFT',
+      tripType: trip.tripType || 'FREIGHT',
+      driverName: getDriverName(trip),
+      vehicleReg: getVehicleRegistration(trip),
+      customerName: trip.customer?.name || trip.customerName || 'N/A',
+      originCity: trip.originCity || trip.origin?.city || 'N/A',
+      destinationCity: trip.destinationCity || trip.destination?.city || 'N/A',
+      // ✅ ADD THIS - Get distance from various possible fields
+      totalDistance: trip.totalDistance || 
+                     trip.distance || 
+                     trip.distanceKm || 
+                     trip.plannedDistanceKm || 
+                     trip.estimatedDistance || 
+                     0,
+    }));
+    
+    setTrips(transformedData);
+    setRowCount(total);
+    setTotalPages(pages);
+  } catch (err) {
+    console.error('Error loading trips:', err);
+    setError('Failed to load trips');
+  } finally {
+    setLoading(false);
+  }
+}, [paginationModel.page, paginationModel.pageSize, filterStatus, debouncedSearchTerm]);
 
   useEffect(() => {
     if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
