@@ -69,11 +69,12 @@ import {
   TrendingUp as TrendingUpIcon,
   Timer as TimerIcon,
 } from '@mui/icons-material';
-import driverService from '../services/driverService';
-import timesheetService from '../services/timesheetService';
-import leaveService from '../services/leaveService';
-import tripService from '../services/tripService';
-import documentService from '../services/documentService';
+import driverService from '../../services/driverService';
+import timesheetService from '../../services/timesheetService';
+import leaveService from '../../services/leaveService';
+import tripService from '../../services/tripService';
+import documentService from '../../services/documentService';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 // ============================================================
 // NAVIGATION TABS
@@ -84,13 +85,13 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
   };
 
   const tabs = [
-    { label: 'Overview', icon: <DashboardIcon /> },
-    { label: 'Timesheet', icon: <AccessTimeIcon /> },
-    { label: 'Leave', icon: <BeachAccessIcon /> },
-    { label: 'Trips', icon: <RouteIcon /> },
-    { label: 'Performance', icon: <AssessmentIcon /> },
-    { label: 'Documents', icon: <DescriptionIcon /> },
-    { label: 'Notes', icon: <InfoIcon /> },
+    { label: 'Overview', icon: <DashboardIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Timesheet', icon: <AccessTimeIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Leave', icon: <BeachAccessIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Trips', icon: <RouteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Performance', icon: <AssessmentIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Documents', icon: <DescriptionIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
+    { label: 'Notes', icon: <InfoIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }} /> },
   ];
 
   return (
@@ -103,11 +104,11 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
         sx={{
           '& .MuiTab-root': {
             fontWeight: 500,
-            fontSize: '0.8rem',
-            textTransform: 'capitalize',
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
+            textTransform: 'none',
             minWidth: 'auto',
-            px: 2,
-            py: 1.5,
+            px: { xs: 1, sm: 2 },
+            py: { xs: 1, sm: 1.5 },
             color: '#6B7280',
             '&.Mui-selected': {
               color: '#4F46E5',
@@ -127,6 +128,7 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
             label={tab.label} 
             icon={tab.icon} 
             iconPosition="start"
+            sx={{ '& .MuiTab-iconWrapper': { mr: { xs: 0.5, sm: 1 } } }}
           />
         ))}
       </Tabs>
@@ -139,6 +141,7 @@ const DriverNavigationTabs = ({ activeTab, setActiveTab }) => {
 // ============================================================
 const PunchClock = ({ onPunch, currentStatus, loading }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [punchType, setPunchType] = useState('CLOCK_IN');
 
   const getStatusColor = () => {
@@ -160,10 +163,10 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
   };
 
   const punchOptions = [
-    { value: 'CLOCK_IN', label: 'Clock In', icon: <PlayArrowIcon />, color: '#22C55E' },
-    { value: 'BREAK_START', label: 'Start Break', icon: <CoffeeIcon />, color: '#F59E0B' },
-    { value: 'BREAK_END', label: 'End Break', icon: <LunchDiningIcon />, color: '#3B82F6' },
-    { value: 'CLOCK_OUT', label: 'Clock Out', icon: <StopIcon />, color: '#EF4444' },
+    { value: 'CLOCK_IN', label: 'Clock In', icon: <PlayArrowIcon sx={{ fontSize: '0.9rem' }} />, color: '#22C55E' },
+    { value: 'BREAK_START', label: 'Start Break', icon: <CoffeeIcon sx={{ fontSize: '0.9rem' }} />, color: '#F59E0B' },
+    { value: 'BREAK_END', label: 'End Break', icon: <LunchDiningIcon sx={{ fontSize: '0.9rem' }} />, color: '#3B82F6' },
+    { value: 'CLOCK_OUT', label: 'Clock Out', icon: <StopIcon sx={{ fontSize: '0.9rem' }} />, color: '#EF4444' },
   ];
 
   const handlePunch = () => {
@@ -176,8 +179,8 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
     <Paper
       elevation={0}
       sx={{
-        p: 3,
-        borderRadius: '16px',
+        p: { xs: 2, sm: 3 },
+        borderRadius: { xs: '12px', sm: '16px' },
         border: '1px solid #ECECEC',
         bgcolor: '#FFFFFF',
         textAlign: 'center',
@@ -187,8 +190,8 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
             sx={{
-              width: 12,
-              height: 12,
+              width: { xs: 10, sm: 12 },
+              height: { xs: 10, sm: 12 },
               borderRadius: '50%',
               bgcolor: getStatusColor(),
               animation: currentStatus === 'CLOCKED_IN' ? 'pulse 2s infinite' : 'none',
@@ -199,16 +202,16 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
               },
             }}
           />
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
             {getStatusLabel()}
           </Typography>
         </Box>
 
         <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="h2" sx={{ fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
+          <Typography variant="h2" sx={{ fontWeight: 700, color: '#111827', fontFamily: 'monospace', fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' } }}>
             {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </Typography>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+          <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
             {new Date().toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </Typography>
         </Box>
@@ -223,8 +226,9 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
             '& .MuiToggleButton-root': {
               borderRadius: '8px !important',
               border: '1px solid #ECECEC',
-              px: 2,
-              py: 1,
+              px: { xs: 1, sm: 2 },
+              py: { xs: 0.75, sm: 1 },
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
               '&.Mui-selected': {
                 backgroundColor: '#EEF2FF',
                 borderColor: '#4F46E5',
@@ -235,9 +239,11 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
         >
           {punchOptions.map((option) => (
             <ToggleButton key={option.value} value={option.value}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={0.5} alignItems="center">
                 {option.icon}
-                <Typography variant="body2">{option.label}</Typography>
+                <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
+                  {isMobile ? option.label.replace(' ', '') : option.label}
+                </Typography>
               </Stack>
             </ToggleButton>
           ))}
@@ -249,12 +255,12 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
           onClick={handlePunch}
           disabled={loading}
           sx={{
-            minWidth: 200,
-            py: 1.5,
+            minWidth: { xs: '100%', sm: 200 },
+            py: { xs: 1, sm: 1.5 },
             borderRadius: '12px',
             textTransform: 'none',
             fontWeight: 600,
-            fontSize: '1rem',
+            fontSize: { xs: '0.8rem', sm: '1rem' },
             background: `linear-gradient(135deg, ${punchOptions.find(o => o.value === punchType)?.color || '#4F46E5'} 0%, ${punchOptions.find(o => o.value === punchType)?.color || '#4F46E5'} 100%)`,
             '&:hover': {
               boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
@@ -267,33 +273,33 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
         </Button>
 
         <Box sx={{ width: '100%', mt: 1 }}>
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1 }}>
+          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1, fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
             Today's Activity
           </Typography>
           <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
             <Chip
-              icon={<PlayArrowIcon />}
+              icon={<PlayArrowIcon sx={{ fontSize: '0.6rem' }} />}
               label="Clock In"
               size="small"
-              sx={{ bgcolor: '#D1FAE5', color: '#065F46' }}
+              sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontSize: { xs: '0.5rem', sm: '0.6rem' }, height: { xs: 18, sm: 22 } }}
             />
             <Chip
-              icon={<CoffeeIcon />}
+              icon={<CoffeeIcon sx={{ fontSize: '0.6rem' }} />}
               label="Break Start"
               size="small"
-              sx={{ bgcolor: '#FEF3C7', color: '#92400E' }}
+              sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontSize: { xs: '0.5rem', sm: '0.6rem' }, height: { xs: 18, sm: 22 } }}
             />
             <Chip
-              icon={<LunchDiningIcon />}
+              icon={<LunchDiningIcon sx={{ fontSize: '0.6rem' }} />}
               label="Break End"
               size="small"
-              sx={{ bgcolor: '#DBEAFE', color: '#1E40AF' }}
+              sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontSize: { xs: '0.5rem', sm: '0.6rem' }, height: { xs: 18, sm: 22 } }}
             />
             <Chip
-              icon={<StopIcon />}
+              icon={<StopIcon sx={{ fontSize: '0.6rem' }} />}
               label="Clock Out"
               size="small"
-              sx={{ bgcolor: '#FEE2E2', color: '#991B1B' }}
+              sx={{ bgcolor: '#FEE2E2', color: '#991B1B', fontSize: { xs: '0.5rem', sm: '0.6rem' }, height: { xs: 18, sm: 22 } }}
             />
           </Stack>
         </Box>
@@ -303,9 +309,427 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 };
 
 // ============================================================
+// STAT CARD (Matches Dashboard)
+// ============================================================
+const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: { xs: 1.5, sm: 2, md: 2.5 },
+      borderRadius: { xs: '12px', sm: '16px' },
+      border: '1px solid #ECECEC',
+      bgcolor: '#FFFFFF',
+      height: '100%',
+      width: '100%',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      '&:hover': {
+        transform: 'translateY(-2px)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+        borderColor: color,
+      },
+    }}
+  >
+    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: '#6B7280',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+            letterSpacing: '0.5px',
+            display: 'block',
+            mb: 0.25,
+          }}
+        >
+          {title}
+        </Typography>
+        {loading ? (
+          <CircularProgress size={20} sx={{ mt: 0.5 }} />
+        ) : (
+          <>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#111827',
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                lineHeight: 1.2,
+              }}
+            >
+              {value || 'N/A'}
+            </Typography>
+            {subtitle && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#6B7280',
+                  display: 'block',
+                  mt: 0.25,
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </>
+        )}
+      </Box>
+      {Icon && (
+        <Box
+          sx={{
+            bgcolor: `${color}15`,
+            borderRadius: { xs: '10px', sm: '12px' },
+            p: { xs: 1, sm: 1.25, md: 1.5 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
+        </Box>
+      )}
+    </Stack>
+  </Paper>
+);
+
+// ============================================================
+// INFO ROW
+// ============================================================
+const InfoRow = ({ label, value }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
+    <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ color: '#111827', fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}>
+      {value}
+    </Typography>
+  </Box>
+);
+
+// ============================================================
+// NOTIFICATION BANNER
+// ============================================================
+const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
+  const getBackgroundColor = () => {
+    switch (severity) {
+      case 'warning': return '#FEF3C7';
+      case 'error': return '#FEE2E2';
+      case 'success': return '#D1FAE5';
+      default: return '#DBEAFE';
+    }
+  };
+
+  const getIconColor = () => {
+    switch (severity) {
+      case 'warning': return '#F59E0B';
+      case 'error': return '#EF4444';
+      case 'success': return '#10B981';
+      default: return '#3B82F6';
+    }
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        mb: 1.5,
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: { xs: '52px', sm: '60px' },
+        backgroundColor: '#FFFFFF',
+        transition: 'all 0.2s ease',
+        '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+        <Box
+          sx={{
+            bgcolor: getBackgroundColor(),
+            borderRadius: '50%',
+            width: { xs: 30, sm: 36 },
+            height: { xs: 30, sm: 36 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: { xs: '1rem', sm: '1.2rem' } } })}
+        </Box>
+        <Typography variant="body2" sx={{ color: '#111827', fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
+          {message}
+        </Typography>
+      </Box>
+      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0, p: { xs: 0.25, sm: 0.5 } }}>
+        <CloseIcon sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }} />
+      </IconButton>
+    </Paper>
+  );
+};
+
+// ============================================================
+// OVERVIEW TAB
+// ============================================================
+const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
+  const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
+  const rating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
+  const totalTrips = driver?.totalTrips || 0;
+  const monthlyTrips = driver?.monthlyTrips || 0;
+  const totalDistance = driver?.totalDistance || 0;
+  const hireDate = driver?.hireDate ? new Date(driver.hireDate) : null;
+  const yearsWithCompany = hireDate ? Math.floor((new Date() - hireDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
+
+  const thisWeekHours = timesheetData?.reduce((acc, entry) => {
+    const date = entry.entryDate || entry.date;
+    if (!date) return acc;
+    const entryDate = new Date(date);
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    if (entryDate >= startOfWeek && entryDate <= today) {
+      const start = entry.startTime;
+      const end = entry.endTime;
+      if (start && end) {
+        try {
+          const startTime = new Date(`1970-01-01T${start}`);
+          const endTime = new Date(`1970-01-01T${end}`);
+          acc += (endTime - startTime) / (1000 * 60 * 60);
+        } catch {
+          // Ignore invalid times
+        }
+      }
+    }
+    return acc;
+  }, 0);
+
+  const pendingLeaveCount = leaveData?.filter(l => 
+    l.status === 'PENDING' || l.status === 'pending'
+  ).length || 0;
+
+  return (
+    <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+      <Grid size={{ xs: 6, sm: 3 }}>
+        <StatCard
+          title="Total Trips"
+          value={totalTrips}
+          subtitle={`${monthlyTrips} this month`}
+          icon={<RouteIcon />}
+          color="#4F46E5"
+          loading={loading}
+        />
+      </Grid>
+      <Grid size={{ xs: 6, sm: 3 }}>
+        <StatCard
+          title="Rating"
+          value={`${rating} ★`}
+          subtitle={`${driver?.performanceScore || 0}% performance`}
+          icon={<StarIcon />}
+          color="#F59E0B"
+          loading={loading}
+        />
+      </Grid>
+      <Grid size={{ xs: 6, sm: 3 }}>
+        <StatCard
+          title="This Week"
+          value={`${thisWeekHours.toFixed(1)}h`}
+          subtitle={`${timesheetData?.length || 0} entries`}
+          icon={<AccessTimeIcon />}
+          color="#8B5CF6"
+          loading={loading}
+        />
+      </Grid>
+      <Grid size={{ xs: 6, sm: 3 }}>
+        <StatCard
+          title="Leave Balance"
+          value={`${leaveData?.filter(l => l.status === 'APPROVED' || l.status === 'approved').length || 0} days`}
+          subtitle={`${pendingLeaveCount} pending requests`}
+          icon={<BeachAccessIcon />}
+          color="#22C55E"
+          loading={loading}
+        />
+      </Grid>
+
+      <Grid size={{ xs: 12 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            borderRadius: { xs: '12px', sm: '16px' },
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' }, mb: 2 }}>
+            Driver Information
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Full Name" value={fullName || 'N/A'} />
+              <InfoRow label="License Number" value={driver?.licenseNumber || 'N/A'} />
+              <InfoRow label="License Type" value={driver?.licenseType || 'N/A'} />
+              <InfoRow label="License Expiry" value={driver?.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Phone" value={driver?.phoneNumber || 'N/A'} />
+              <InfoRow label="Email" value={driver?.email || 'N/A'} />
+              <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
+              <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
+              <InfoRow label="Total Distance" value={`${totalDistance.toLocaleString()} km`} />
+            </Grid>
+          </Grid>
+        </Paper>
+      </Grid>
+    </Grid>
+  );
+};
+
+// ============================================================
+// PERFORMANCE TAB
+// ============================================================
+const PerformanceTab = ({ driver, trips, loading }) => {
+  const totalTrips = driver?.totalTrips || trips?.length || 0;
+  const completedTrips = trips?.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED').length || 0;
+  const onTimeRate = totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0;
+  const avgRating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
+  const safetyScore = driver?.safetyScore || 85;
+  const efficiency = driver?.efficiencyScore || 0;
+  
+  const metrics = [
+    { label: 'On-Time Rate', value: `${onTimeRate}%`, color: '#22C55E', icon: <TimerIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'Avg Rating', value: `${avgRating} ★`, color: '#F59E0B', icon: <StarIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'Safety Score', value: `${safetyScore}%`, color: '#4F46E5', icon: <SecurityIcon sx={{ fontSize: '0.9rem' }} /> },
+    { label: 'Efficiency', value: `${efficiency}%`, color: '#8B5CF6', icon: <TrendingUpIcon sx={{ fontSize: '0.9rem' }} /> },
+  ];
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  return (
+    <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
+      <Grid size={{ xs: 12 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            borderRadius: { xs: '12px', sm: '16px' },
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' }, mb: 2 }}>
+            Performance Score
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
+            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+              <CircularProgress
+                variant="determinate"
+                value={driver?.performanceScore || 0}
+                size={120}
+                thickness={8}
+                sx={{ color: '#4F46E5' }}
+              />
+              <Box
+                sx={{
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  right: 0,
+                  position: 'absolute',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography variant="h3" component="div" sx={{ fontWeight: 700, color: '#111827', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
+                  {driver?.performanceScore || 0}%
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 1, fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
+                Overall performance rating based on multiple metrics
+              </Typography>
+              <Grid container spacing={1}>
+                <Grid size={{ xs: 6 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CheckCircleIcon sx={{ color: '#22C55E', fontSize: { xs: '0.8rem', sm: '1rem' } }} />
+                    <Typography variant="caption" sx={{ color: '#111827', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                      {totalTrips} Trips Completed
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <StarIcon sx={{ color: '#F59E0B', fontSize: { xs: '0.8rem', sm: '1rem' } }} />
+                    <Typography variant="caption" sx={{ color: '#111827', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                      {avgRating} ★ Rating
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          </Stack>
+        </Paper>
+      </Grid>
+
+      {metrics.map((metric, index) => (
+        <Grid size={{ xs: 12, sm: 6 }} key={index}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: { xs: '10px', sm: '12px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Box sx={{ color: metric.color }}>{metric.icon}</Box>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                  {metric.label}
+                </Typography>
+              </Stack>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: metric.color, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                {metric.value}
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={parseInt(metric.value)}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                bgcolor: '#F3F4F6',
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: metric.color,
+                  borderRadius: 3,
+                },
+              }}
+            />
+          </Paper>
+        </Grid>
+      ))}
+    </Grid>
+  );
+};
+
+// ============================================================
 // TRIPS TAB
 // ============================================================
-const TripsTab = ({ trips, loading, onViewTrip }) => {
+const TripsTab = ({ trips, loading }) => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
@@ -318,7 +742,7 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
     return (
       <Box sx={{ py: 4, textAlign: 'center' }}>
         <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
           No trips found for this driver
         </Typography>
       </Box>
@@ -353,8 +777,8 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
         label={config.label}
         size="small"
         sx={{
-          fontSize: '0.6rem',
-          height: 20,
+          fontSize: { xs: '0.45rem', sm: '0.55rem' },
+          height: { xs: 16, sm: 20 },
           bgcolor: config.bg,
           color: config.color,
           fontWeight: 500,
@@ -390,40 +814,40 @@ const TripsTab = ({ trips, loading, onViewTrip }) => {
 
   return (
     <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
-      <Table>
+      <Table size="small">
         <TableHead sx={{ bgcolor: '#F9FAFB' }}>
           <TableRow>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Trip #</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Route</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Vehicle</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Date</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Distance</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Trip #</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Route</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Vehicle</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Date</TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Distance</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {trips.map((trip) => (
             <TableRow key={trip.id || trip.tripId} hover>
               <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#4F46E5' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#4F46E5', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                   {getTripNumber(trip)}
                 </Typography>
               </TableCell>
               <TableCell>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                   {getRouteDisplay(trip)}
                 </Typography>
               </TableCell>
               <TableCell>
                 {getStatusChip(trip.status)}
               </TableCell>
-              <TableCell sx={{ fontSize: '0.8rem' }}>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                 {getVehicleDisplay(trip)}
               </TableCell>
-              <TableCell sx={{ fontSize: '0.8rem' }}>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                 {getTripDate(trip)}
               </TableCell>
-              <TableCell sx={{ fontSize: '0.8rem' }}>
+              <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                 {getTripDistance(trip)}
               </TableCell>
             </TableRow>
@@ -453,7 +877,6 @@ const LeaveTab = ({
     notes: '',
   });
 
-  // Calculate leave balances from actual leave data
   const calculateBalances = (data) => {
     const balances = { annual: 21, sick: 10, study: 5, unpaid: 0 };
     const used = { annual: 0, sick: 0, study: 0, unpaid: 0 };
@@ -493,12 +916,10 @@ const LeaveTab = ({
     });
   };
 
-  // Helper to get leave type display name
   const getLeaveTypeLabel = (leave) => {
     return leave.leaveType?.name || leave.leaveType?.type || leave.type || 'N/A';
   };
 
-  // Helper to get leave type color
   const getLeaveTypeColor = (leave) => {
     const type = leave.leaveType?.name || leave.leaveType?.type || leave.type;
     switch(type) {
@@ -520,34 +941,38 @@ const LeaveTab = ({
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           Leave Management
         </Typography>
         <Button
           variant="contained"
           size="small"
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
           onClick={() => setOpenDialog(true)}
           sx={{
-            fontSize: '0.75rem',
+            fontSize: { xs: '0.65rem', sm: '0.75rem' },
             borderRadius: '8px',
+            textTransform: 'none',
             background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+            },
           }}
         >
           Request Leave
         </Button>
       </Box>
 
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.85rem' }, mb: 2 }}>
         Leave Balances
       </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
         {Object.entries(leaveBalances).map(([key, balance]) => (
-          <Grid item xs={6} sm={3} key={key}>
+          <Grid size={{ xs: 6, sm: 3 }} key={key}>
             <Paper
               elevation={0}
               sx={{
-                p: 2.5,
+                p: { xs: 2, sm: 2.5 },
                 borderRadius: '12px',
                 border: '1px solid #ECECEC',
                 textAlign: 'center',
@@ -559,14 +984,14 @@ const LeaveTab = ({
                 },
               }}
             >
-              <Typography variant="caption" sx={{ color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.6rem' }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
                 {key} Leave
               </Typography>
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 0.5, mt: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
                   {balance.remaining}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                   / {balance.total}
                 </Typography>
               </Box>
@@ -584,7 +1009,7 @@ const LeaveTab = ({
                     },
                   }}
                 />
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: '0.6rem' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
                   Used: {balance.used} / Remaining: {balance.remaining}
                 </Typography>
               </Box>
@@ -593,20 +1018,20 @@ const LeaveTab = ({
         ))}
       </Grid>
 
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.85rem' }, mb: 2 }}>
         Leave Requests
       </Typography>
       <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
-        <Table>
+        <Table size="small">
           <TableHead sx={{ bgcolor: '#F9FAFB' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Start Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>End Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Duration</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Reason</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Type</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Start Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>End Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Duration</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Reason</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -625,20 +1050,20 @@ const LeaveTab = ({
                         label={leaveTypeLabel}
                         size="small"
                         sx={{
-                          fontSize: '0.6rem',
-                          height: 20,
+                          fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                          height: { xs: 16, sm: 20 },
                           bgcolor: typeColors.bg,
                           color: typeColors.color,
                         }}
                       />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                    <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                       {new Date(leave.startDate).toLocaleDateString()}
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                    <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                       {new Date(leave.endDate).toLocaleDateString()}
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                    <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 600 }}>
                       {duration} days
                     </TableCell>
                     <TableCell>
@@ -646,8 +1071,8 @@ const LeaveTab = ({
                         label={leave.status}
                         size="small"
                         sx={{
-                          fontSize: '0.6rem',
-                          height: 20,
+                          fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                          height: { xs: 16, sm: 20 },
                           bgcolor: leave.status === 'APPROVED' || leave.status === 'approved' ? '#D1FAE5' :
                                   leave.status === 'PENDING' || leave.status === 'pending' ? '#FEF3C7' :
                                   leave.status === 'REJECTED' || leave.status === 'rejected' ? '#FEE2E2' : '#F3F4F6',
@@ -657,7 +1082,7 @@ const LeaveTab = ({
                         }}
                       />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                    <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>
                       {leave.reason || '-'}
                     </TableCell>
                     <TableCell>
@@ -668,9 +1093,9 @@ const LeaveTab = ({
                               size="small"
                               color="success"
                               onClick={() => onOpenApproveDialog(leave, 'APPROVE')}
-                              sx={{ p: 0.5 }}
+                              sx={{ p: { xs: 0.25, sm: 0.5 } }}
                             >
-                              <CheckCircleIcon sx={{ fontSize: '0.9rem' }} />
+                              <CheckCircleIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Reject" arrow>
@@ -678,9 +1103,9 @@ const LeaveTab = ({
                               size="small"
                               color="error"
                               onClick={() => onOpenApproveDialog(leave, 'REJECT')}
-                              sx={{ p: 0.5 }}
+                              sx={{ p: { xs: 0.25, sm: 0.5 } }}
                             >
-                              <CancelIcon sx={{ fontSize: '0.9rem' }} />
+                              <CancelIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Cancel Request" arrow>
@@ -688,9 +1113,9 @@ const LeaveTab = ({
                               size="small"
                               color="warning"
                               onClick={() => onCancelLeave(leave.id)}
-                              sx={{ p: 0.5 }}
+                              sx={{ p: { xs: 0.25, sm: 0.5 } }}
                             >
-                              <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                              <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />
                             </IconButton>
                           </Tooltip>
                         </Stack>
@@ -700,8 +1125,8 @@ const LeaveTab = ({
                           label={leave.status}
                           size="small"
                           sx={{
-                            fontSize: '0.6rem',
-                            height: 20,
+                            fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                            height: { xs: 16, sm: 20 },
                             bgcolor: leave.status === 'APPROVED' || leave.status === 'approved' ? '#D1FAE5' : 
                                      leave.status === 'REJECTED' || leave.status === 'rejected' ? '#FEE2E2' : '#F3F4F6',
                             color: leave.status === 'APPROVED' || leave.status === 'approved' ? '#065F46' : 
@@ -716,7 +1141,7 @@ const LeaveTab = ({
             ) : (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
                     No leave requests found
                   </Typography>
                 </TableCell>
@@ -726,23 +1151,25 @@ const LeaveTab = ({
         </Table>
       </TableContainer>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth disablePortal>
-        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Request Leave</DialogTitle>
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+          Request Leave
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <FormControl fullWidth size="medium">
-              <InputLabel sx={{ fontSize: '0.8rem' }}>Leave Type</InputLabel>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Leave Type</InputLabel>
               <Select
                 value={newLeave.type}
                 onChange={(e) => setNewLeave({ ...newLeave, type: e.target.value })}
                 label="Leave Type"
-                sx={{ fontSize: '0.85rem' }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
               >
-                <MenuItem value="ANNUAL">Annual Leave</MenuItem>
-                <MenuItem value="SICK">Sick Leave</MenuItem>
-                <MenuItem value="STUDY">Study Leave</MenuItem>
-                <MenuItem value="UNPAID">Unpaid Leave</MenuItem>
-                <MenuItem value="OTHER">Other</MenuItem>
+                <MenuItem value="ANNUAL" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Annual Leave</MenuItem>
+                <MenuItem value="SICK" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Sick Leave</MenuItem>
+                <MenuItem value="STUDY" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Study Leave</MenuItem>
+                <MenuItem value="UNPAID" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Unpaid Leave</MenuItem>
+                <MenuItem value="OTHER" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Other</MenuItem>
               </Select>
             </FormControl>
             <TextField
@@ -752,7 +1179,8 @@ const LeaveTab = ({
               onChange={(e) => setNewLeave({ ...newLeave, startDate: e.target.value })}
               InputLabelProps={{ shrink: true }}
               fullWidth
-              size="medium"
+              size="small"
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             />
             <TextField
               label="End Date"
@@ -761,15 +1189,17 @@ const LeaveTab = ({
               onChange={(e) => setNewLeave({ ...newLeave, endDate: e.target.value })}
               InputLabelProps={{ shrink: true }}
               fullWidth
-              size="medium"
+              size="small"
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             />
             <TextField
               label="Reason"
               value={newLeave.reason}
               onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })}
               fullWidth
-              size="medium"
+              size="small"
               placeholder="Reason for leave request"
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             />
             <TextField
               label="Additional Notes"
@@ -778,20 +1208,26 @@ const LeaveTab = ({
               value={newLeave.notes}
               onChange={(e) => setNewLeave({ ...newLeave, notes: e.target.value })}
               fullWidth
-              size="medium"
+              size="small"
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+            Cancel
+          </Button>
           <Button 
             onClick={handleRequestLeave} 
             variant="contained"
             sx={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-              textTransform: 'none',
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
               borderRadius: '10px',
-              px: 3,
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
             }}
           >
             Submit Request
@@ -850,7 +1286,6 @@ const TimesheetTab = ({
     return Math.ceil((days + startOfYear.getDay() + 1) / 7);
   };
 
-  // Fix: Handle both 'date' and 'entryDate' fields from API
   const getEntryDate = (entry) => {
     return entry.entryDate || entry.date;
   };
@@ -940,7 +1375,6 @@ const TimesheetTab = ({
     }
   };
 
-  // Fix: Format date from API response
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     try {
@@ -950,7 +1384,6 @@ const TimesheetTab = ({
     }
   };
 
-  // Fix: Format time from API response
   const formatTime = (timeStr) => {
     if (!timeStr) return 'N/A';
     try {
@@ -979,77 +1412,81 @@ const TimesheetTab = ({
       </Box>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           Timesheet Entries
         </Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap">
           <Button
             variant="outlined"
             size="small"
-            startIcon={<UploadIcon />}
+            startIcon={<UploadIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
             onClick={() => setOpenImportDialog(true)}
-            sx={{ fontSize: '0.75rem', borderRadius: '8px' }}
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
           >
-            Import
+            {isMobile ? '' : 'Import'}
           </Button>
           <Button
             variant="outlined"
             size="small"
-            startIcon={<DownloadIcon />}
+            startIcon={<DownloadIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
             onClick={handleExport}
-            sx={{ fontSize: '0.75rem', borderRadius: '8px' }}
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
           >
-            Export
+            {isMobile ? '' : 'Export'}
           </Button>
           <Button
             variant="outlined"
             size="small"
-            startIcon={<PrintIcon />}
-            sx={{ fontSize: '0.75rem', borderRadius: '8px' }}
+            startIcon={<PrintIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
           >
-            Print
+            {isMobile ? '' : 'Print'}
           </Button>
           <Button
             variant="contained"
             size="small"
-            startIcon={<AddIcon />}
+            startIcon={<AddIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
             onClick={() => setOpenDialog(true)}
             sx={{ 
-              fontSize: '0.75rem', 
+              fontSize: { xs: '0.65rem', sm: '0.75rem' }, 
               borderRadius: '8px',
+              textTransform: 'none',
               background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
             }}
           >
-            Add Entry
+            {isMobile ? 'Add' : 'Add Entry'}
           </Button>
         </Stack>
       </Box>
 
       {weeklySummary && Object.keys(weeklySummary).length > 0 && (
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.85rem' }, mb: 1.5 }}>
             Weekly Summary
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
             {Object.values(weeklySummary).slice(0, 4).map((week, index) => (
-              <Grid item xs={6} sm={3} key={index}>
+              <Grid size={{ xs: 6, sm: 3 }} key={index}>
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 2,
+                    p: { xs: 1.5, sm: 2 },
                     borderRadius: '12px',
                     border: '1px solid #ECECEC',
                     bgcolor: '#F9FAFB',
                     textAlign: 'center',
                   }}
                 >
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
                     Week {index + 1}
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#4F46E5', mt: 0.5 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#4F46E5', mt: 0.5, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
                     {week.totalHours.toFixed(1)}h
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                  <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
                     {week.entries} entries
                   </Typography>
                 </Paper>
@@ -1061,29 +1498,29 @@ const TimesheetTab = ({
 
       {monthlySummary && Object.keys(monthlySummary).length > 0 && (
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.85rem' }, mb: 1.5 }}>
             Monthly Summary
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
             {Object.values(monthlySummary).slice(0, 3).map((month, index) => (
-              <Grid item xs={4} sm={3} key={index}>
+              <Grid size={{ xs: 6, sm: 3 }} key={index}>
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 2,
+                    p: { xs: 1.5, sm: 2 },
                     borderRadius: '12px',
                     border: '1px solid #ECECEC',
                     bgcolor: '#F9FAFB',
                     textAlign: 'center',
                   }}
                 >
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
                     {month.month}
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#8B5CF6', mt: 0.5 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#8B5CF6', mt: 0.5, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
                     {month.totalHours.toFixed(1)}h
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                  <Typography variant="caption" sx={{ color: '#6B7280', fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
                     {month.entries} entries
                   </Typography>
                 </Paper>
@@ -1094,34 +1531,34 @@ const TimesheetTab = ({
       )}
 
       <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #ECECEC', overflow: 'auto' }}>
-        <Table>
+        <Table size="small">
           <TableHead sx={{ bgcolor: '#F9FAFB' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Start</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>End</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Break (min)</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Hours</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Activity</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Notes</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Start</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>End</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Break (min)</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Hours</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Activity</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Notes</TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {timesheetData?.length > 0 ? (
               timesheetData.map((entry, index) => (
                 <TableRow key={entry.id || index} hover>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                     {formatDate(getEntryDate(entry))}
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                     {formatTime(entry.startTime)}
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                     {formatTime(entry.endTime)}
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>{entry.breakDuration || '-'}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#4F46E5' }}>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>{entry.breakDuration || '-'}</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 600, color: '#4F46E5' }}>
                     {entry.startTime && entry.endTime ? `${calculateHours(entry.startTime, entry.endTime)}h` : 'N/A'}
                   </TableCell>
                   <TableCell>
@@ -1129,8 +1566,8 @@ const TimesheetTab = ({
                       label={entry.activityType || 'N/A'}
                       size="small"
                       sx={{
-                        fontSize: '0.6rem',
-                        height: 20,
+                        fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                        height: { xs: 16, sm: 20 },
                         bgcolor: entry.activityType === 'DRIVING' ? '#DBEAFE' : 
                                 entry.activityType === 'REST' ? '#D1FAE5' : 
                                 entry.activityType === 'LOADING' ? '#FEF3C7' : '#EDE9FE',
@@ -1140,7 +1577,7 @@ const TimesheetTab = ({
                       }}
                     />
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#6B7280' }}>
                     {entry.notes || '-'}
                   </TableCell>
                   <TableCell>
@@ -1148,9 +1585,9 @@ const TimesheetTab = ({
                       size="small"
                       color="error"
                       onClick={() => onDeleteEntry(entry.id)}
-                      sx={{ p: 0.5 }}
+                      sx={{ p: { xs: 0.25, sm: 0.5 } }}
                     >
-                      <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                      <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -1158,7 +1595,7 @@ const TimesheetTab = ({
             ) : (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
                     No timesheet entries found
                   </Typography>
                 </TableCell>
@@ -1168,9 +1605,11 @@ const TimesheetTab = ({
         </Table>
       </TableContainer>
 
-      {/* Dialogs remain the same */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth disablePortal>
-        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Add Timesheet Entry</DialogTitle>
+      {/* Dialogs */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+          Add Timesheet Entry
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
@@ -1180,10 +1619,11 @@ const TimesheetTab = ({
               onChange={(e) => setNewEntry({ ...newEntry, date: e.target.value })}
               InputLabelProps={{ shrink: true }}
               fullWidth
-              size="medium"
+              size="small"
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             />
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
+            <Grid container spacing={{ xs: 1, sm: 2 }}>
+              <Grid size={{ xs: 6 }}>
                 <TextField
                   label="Start Time"
                   type="time"
@@ -1191,10 +1631,11 @@ const TimesheetTab = ({
                   onChange={(e) => setNewEntry({ ...newEntry, startTime: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
-                  size="medium"
+                  size="small"
+                  sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <TextField
                   label="End Time"
                   type="time"
@@ -1202,7 +1643,8 @@ const TimesheetTab = ({
                   onChange={(e) => setNewEntry({ ...newEntry, endTime: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
-                  size="medium"
+                  size="small"
+                  sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
                 />
               </Grid>
             </Grid>
@@ -1212,26 +1654,27 @@ const TimesheetTab = ({
               value={newEntry.breakDuration}
               onChange={(e) => setNewEntry({ ...newEntry, breakDuration: parseInt(e.target.value) })}
               fullWidth
-              size="medium"
+              size="small"
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
               InputProps={{
                 endAdornment: <InputAdornment position="end">min</InputAdornment>,
               }}
             />
-            <FormControl fullWidth size="medium">
-              <InputLabel sx={{ fontSize: '0.8rem' }}>Activity Type</InputLabel>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Activity Type</InputLabel>
               <Select
                 value={newEntry.activityType}
                 onChange={(e) => setNewEntry({ ...newEntry, activityType: e.target.value })}
                 label="Activity Type"
-                sx={{ fontSize: '0.85rem' }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
               >
-                <MenuItem value="DRIVING">Driving</MenuItem>
-                <MenuItem value="REST">Rest</MenuItem>
-                <MenuItem value="LOADING">Loading</MenuItem>
-                <MenuItem value="UNLOADING">Unloading</MenuItem>
-                <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
-                <MenuItem value="TRAINING">Training</MenuItem>
-                <MenuItem value="OTHER">Other</MenuItem>
+                <MenuItem value="DRIVING" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Driving</MenuItem>
+                <MenuItem value="REST" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Rest</MenuItem>
+                <MenuItem value="LOADING" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Loading</MenuItem>
+                <MenuItem value="UNLOADING" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Unloading</MenuItem>
+                <MenuItem value="MAINTENANCE" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Maintenance</MenuItem>
+                <MenuItem value="TRAINING" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Training</MenuItem>
+                <MenuItem value="OTHER" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Other</MenuItem>
               </Select>
             </FormControl>
             <TextField
@@ -1241,20 +1684,26 @@ const TimesheetTab = ({
               value={newEntry.notes}
               onChange={(e) => setNewEntry({ ...newEntry, notes: e.target.value })}
               fullWidth
-              size="medium"
+              size="small"
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+          <Button onClick={() => setOpenDialog(false)} sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+            Cancel
+          </Button>
           <Button 
             onClick={handleAddEntry} 
             variant="contained"
             sx={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-              textTransform: 'none',
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
               borderRadius: '10px',
-              px: 3,
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
             }}
           >
             Add Entry
@@ -1263,7 +1712,9 @@ const TimesheetTab = ({
       </Dialog>
 
       <Dialog open={openImportDialog} onClose={() => setOpenImportDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>Import Timesheet</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+          Import Timesheet
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <Box
@@ -1291,13 +1742,13 @@ const TimesheetTab = ({
                 <IconButton component="span" sx={{ bgcolor: '#EEF2FF', color: '#4F46E5', mb: 2 }}>
                   <CloudUploadIcon sx={{ fontSize: 40 }} />
                 </IconButton>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827' }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.85rem', sm: '0.95rem' } }}>
                   {selectedFile ? selectedFile.name : 'Upload timesheet file'}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                   Supported formats: CSV, Excel (.xlsx, .xls)
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                   Max file size: 5MB
                 </Typography>
                 {selectedFile && (
@@ -1312,7 +1763,7 @@ const TimesheetTab = ({
 
             {importing && (
               <Box>
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1 }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1, fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                   Importing... {importProgress}%
                 </Typography>
                 <LinearProgress variant="determinate" value={importProgress} sx={{ height: 8, borderRadius: 4 }} />
@@ -1320,32 +1771,37 @@ const TimesheetTab = ({
             )}
 
             <Alert severity="info" sx={{ borderRadius: '8px' }}>
-              <Typography variant="caption" sx={{ display: 'block' }}>
+              <Typography variant="caption" sx={{ display: 'block', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                 <strong>Format Requirements:</strong>
               </Typography>
-              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem' }}>
+              <Typography variant="caption" sx={{ display: 'block', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
                 • Columns: Date, Start Time, End Time, Break Duration, Activity Type, Notes
               </Typography>
-              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem' }}>
+              <Typography variant="caption" sx={{ display: 'block', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
                 • Date format: YYYY-MM-DD
               </Typography>
-              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem' }}>
+              <Typography variant="caption" sx={{ display: 'block', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
                 • Time format: HH:mm (24-hour)
               </Typography>
             </Alert>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setOpenImportDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+          <Button onClick={() => setOpenImportDialog(false)} sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+            Cancel
+          </Button>
           <Button 
             onClick={handleImport} 
             variant="contained"
             disabled={!selectedFile || importing}
             sx={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-              textTransform: 'none',
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
               borderRadius: '10px',
-              px: 3,
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
             }}
           >
             {importing ? 'Importing...' : 'Import'}
@@ -1357,399 +1813,9 @@ const TimesheetTab = ({
 };
 
 // ============================================================
-// PERFORMANCE TAB
-// ============================================================
-const PerformanceTab = ({ driver, trips, loading }) => {
-  const totalTrips = driver?.totalTrips || trips?.length || 0;
-  const completedTrips = trips?.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED').length || 0;
-  const onTimeRate = totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0;
-  const avgRating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
-  const safetyScore = driver?.safetyScore || 85;
-  const efficiency = driver?.efficiencyScore || 0;
-  
-  const metrics = [
-    { label: 'On-Time Rate', value: `${onTimeRate}%`, color: '#22C55E', icon: <TimerIcon /> },
-    { label: 'Avg Rating', value: `${avgRating} ★`, color: '#F59E0B', icon: <StarIcon /> },
-    { label: 'Safety Score', value: `${safetyScore}%`, color: '#4F46E5', icon: <SecurityIcon /> },
-    { label: 'Efficiency', value: `${efficiency}%`, color: '#8B5CF6', icon: <TrendingUpIcon /> },
-  ];
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-        <CircularProgress size={40} />
-      </Box>
-    );
-  }
-
-  return (
-    <Grid container spacing={3}>
-      <Grid item xs={12}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            borderRadius: '16px',
-            border: '1px solid #ECECEC',
-            bgcolor: '#FFFFFF',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            Performance Score
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
-            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-              <CircularProgress
-                variant="determinate"
-                value={driver?.performanceScore || 0}
-                size={120}
-                thickness={8}
-                sx={{ color: '#4F46E5' }}
-              />
-              <Box
-                sx={{
-                  top: 0,
-                  left: 0,
-                  bottom: 0,
-                  right: 0,
-                  position: 'absolute',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Typography variant="h3" component="div" sx={{ fontWeight: 700, color: '#111827' }}>
-                  {driver?.performanceScore || 0}%
-                </Typography>
-              </Box>
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
-                Overall performance rating based on multiple metrics
-              </Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CheckCircleIcon sx={{ color: '#22C55E', fontSize: '1rem' }} />
-                    <Typography variant="caption" sx={{ color: '#111827' }}>
-                      {totalTrips} Trips Completed
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <StarIcon sx={{ color: '#F59E0B', fontSize: '1rem' }} />
-                    <Typography variant="caption" sx={{ color: '#111827' }}>
-                      {avgRating} ★ Rating
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Box>
-          </Stack>
-        </Paper>
-      </Grid>
-
-      {metrics.map((metric, index) => (
-        <Grid item xs={12} sm={6} key={index}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2.5,
-              borderRadius: '12px',
-              border: '1px solid #ECECEC',
-              bgcolor: '#FFFFFF',
-            }}
-          >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Box sx={{ color: metric.color }}>{metric.icon}</Box>
-                <Typography variant="body2" sx={{ fontWeight: 500, color: '#111827' }}>
-                  {metric.label}
-                </Typography>
-              </Stack>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: metric.color }}>
-                {metric.value}
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={parseInt(metric.value)}
-              sx={{
-                height: 6,
-                borderRadius: 3,
-                bgcolor: '#F3F4F6',
-                '& .MuiLinearProgress-bar': {
-                  bgcolor: metric.color,
-                  borderRadius: 3,
-                },
-              }}
-            />
-          </Paper>
-        </Grid>
-      ))}
-    </Grid>
-  );
-};
-
-// ============================================================
-// OVERVIEW TAB
-// ============================================================
-const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
-  const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
-  const rating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
-  const totalTrips = driver?.totalTrips || 0;
-  const monthlyTrips = driver?.monthlyTrips || 0;
-  const totalDistance = driver?.totalDistance || 0;
-  const hireDate = driver?.hireDate ? new Date(driver.hireDate) : null;
-  const yearsWithCompany = hireDate ? Math.floor((new Date() - hireDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
-
-  // Calculate this week's hours from timesheet data
-  const thisWeekHours = timesheetData?.reduce((acc, entry) => {
-    const date = entry.entryDate || entry.date;
-    if (!date) return acc;
-    const entryDate = new Date(date);
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    if (entryDate >= startOfWeek && entryDate <= today) {
-      const start = entry.startTime;
-      const end = entry.endTime;
-      if (start && end) {
-        try {
-          const startTime = new Date(`1970-01-01T${start}`);
-          const endTime = new Date(`1970-01-01T${end}`);
-          acc += (endTime - startTime) / (1000 * 60 * 60);
-        } catch {
-          // Ignore invalid times
-        }
-      }
-    }
-    return acc;
-  }, 0);
-
-  const pendingLeaveCount = leaveData?.filter(l => 
-    l.status === 'PENDING' || l.status === 'pending'
-  ).length || 0;
-
-  return (
-    <Grid container spacing={3}>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard
-          title="Total Trips"
-          value={totalTrips}
-          subtitle={`${monthlyTrips} this month`}
-          icon={<RouteIcon />}
-          color="#4F46E5"
-          loading={loading}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard
-          title="Rating"
-          value={`${rating} ★`}
-          subtitle={`${driver?.performanceScore || 0}% performance`}
-          icon={<StarIcon />}
-          color="#F59E0B"
-          loading={loading}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard
-          title="This Week"
-          value={`${thisWeekHours.toFixed(1)}h`}
-          subtitle={`${timesheetData?.length || 0} entries`}
-          icon={<AccessTimeIcon />}
-          color="#8B5CF6"
-          loading={loading}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard
-          title="Leave Balance"
-          value={`${leaveData?.filter(l => l.status === 'APPROVED' || l.status === 'approved').length || 0} days`}
-          subtitle={`${pendingLeaveCount} pending requests`}
-          icon={<BeachAccessIcon />}
-          color="#22C55E"
-          loading={loading}
-        />
-      </Grid>
-
-      <Grid item xs={12}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            borderRadius: '16px',
-            border: '1px solid #ECECEC',
-            bgcolor: '#FFFFFF',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            Driver Information
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <InfoRow label="Full Name" value={fullName || 'N/A'} />
-              <InfoRow label="License Number" value={driver?.licenseNumber || 'N/A'} />
-              <InfoRow label="License Type" value={driver?.licenseType || 'N/A'} />
-              <InfoRow label="License Expiry" value={driver?.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <InfoRow label="Phone" value={driver?.phoneNumber || 'N/A'} />
-              <InfoRow label="Email" value={driver?.email || 'N/A'} />
-              <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
-              <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
-              <InfoRow label="Total Distance" value={`${totalDistance.toLocaleString()} km`} />
-            </Grid>
-          </Grid>
-        </Paper>
-      </Grid>
-    </Grid>
-  );
-};
-
-// ============================================================
-// STAT CARD
-// ============================================================
-const StatCard = ({ title, value, subtitle, icon, color = '#4F46E5', loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2.5,
-      borderRadius: '12px',
-      border: '1px solid #ECECEC',
-      backgroundColor: '#FFFFFF',
-      height: '100%',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        transform: 'translateY(-2px)',
-      },
-    }}
-  >
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-      <Box>
-        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.5px' }}>
-          {title}
-        </Typography>
-        {loading ? (
-          <CircularProgress size={20} sx={{ mt: 1 }} />
-        ) : (
-          <>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mt: 0.5 }}>
-              {value || 'N/A'}
-            </Typography>
-            {subtitle && (
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5 }}>
-                {subtitle}
-              </Typography>
-            )}
-          </>
-        )}
-      </Box>
-      <Box
-        sx={{
-          bgcolor: `${color}15`,
-          borderRadius: '10px',
-          p: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {icon}
-      </Box>
-    </Stack>
-  </Paper>
-);
-
-// ============================================================
-// INFO ROW
-// ============================================================
-const InfoRow = ({ label, value }) => (
-  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
-    <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
-      {label}
-    </Typography>
-    <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.8rem', fontWeight: 500 }}>
-      {value}
-    </Typography>
-  </Box>
-);
-
-// ============================================================
-// NOTIFICATION BANNER
-// ============================================================
-const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
-  const getBackgroundColor = () => {
-    switch (severity) {
-      case 'warning': return '#FEF3C7';
-      case 'error': return '#FEE2E2';
-      case 'success': return '#D1FAE5';
-      default: return '#DBEAFE';
-    }
-  };
-
-  const getIconColor = () => {
-    switch (severity) {
-      case 'warning': return '#F59E0B';
-      case 'error': return '#EF4444';
-      case 'success': return '#10B981';
-      default: return '#3B82F6';
-    }
-  };
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        mb: 1.5,
-        borderRadius: '12px',
-        border: '1px solid #ECECEC',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        minHeight: '60px',
-        backgroundColor: '#FFFFFF',
-        transition: 'all 0.2s ease',
-        '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
-        <Box
-          sx={{
-            bgcolor: getBackgroundColor(),
-            borderRadius: '50%',
-            width: 36,
-            height: 36,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {React.cloneElement(icon, { sx: { color: getIconColor(), fontSize: '1.2rem' } })}
-        </Box>
-        <Typography variant="body2" sx={{ color: '#111827', fontSize: '0.85rem' }}>
-          {message}
-        </Typography>
-      </Box>
-      <IconButton size="small" onClick={onClose} sx={{ color: '#6B7280', flexShrink: 0 }}>
-        <CloseIcon sx={{ fontSize: '1rem' }} />
-      </IconButton>
-    </Paper>
-  );
-};
-
-// ============================================================
-// DOCUMENTS TAB - COMPLETE VERSION (FIXED)
+// DOCUMENTS TAB
 // ============================================================
 const DocumentsTab = ({ driverId }) => {
-
-  console.log('📌 DocumentsTab received driverId:', driverId, 'type:', typeof driverId);
-
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1759,7 +1825,6 @@ const DocumentsTab = ({ driverId }) => {
   const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  
 
   const documentTypes = documentService.getDocumentTypes?.() || [
     { value: 'ID', label: 'ID Document' },
@@ -1770,7 +1835,6 @@ const DocumentsTab = ({ driverId }) => {
     { value: 'INSURANCE', label: 'Insurance Document' },
     { value: 'OTHER', label: 'Other' },
   ];
-
 
   useEffect(() => {
     if (driverId) {
@@ -1804,20 +1868,13 @@ const DocumentsTab = ({ driverId }) => {
   };
 
   const handleUpload = async () => {
-
-    console.log('📌 handleUpload - driverId:', driverId, 'type:', typeof driverId);
-    
     if (!selectedFile) {
       setError('Please select a file');
       return;
     }
 
-    // Parse driverId safely
     const driverIdNum = parseInt(driverId, 10);
-    console.log('📌 Parsed driverId:', driverIdNum);
-    
     if (isNaN(driverIdNum) || driverIdNum <= 0) {
-      console.error('❌ Invalid driver ID in handleUpload:', driverId);
       setError(`Invalid driver ID: ${driverId}`);
       return;
     }
@@ -1827,14 +1884,8 @@ const DocumentsTab = ({ driverId }) => {
     setSuccess(null);
 
     try {
-      console.log(`📤 Uploading document for driver ${driverIdNum}:`, {
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        documentType,
-      });
-
       const result = await documentService.uploadDocument(
-        driverIdNum,  // Use the parsed number
+        driverIdNum,
         selectedFile,
         documentType,
         description
@@ -1845,8 +1896,6 @@ const DocumentsTab = ({ driverId }) => {
       setDocumentType('OTHER');
       setDescription('');
       setOpenUploadDialog(false);
-      
-      // Refresh document list
       await fetchDocuments();
     } catch (err) {
       console.error('Upload error:', err);
@@ -1855,7 +1904,6 @@ const DocumentsTab = ({ driverId }) => {
       setUploading(false);
     }
   };
-
 
   const handleDelete = async (doc) => {
     if (!window.confirm(`Are you sure you want to delete "${doc.fileName}"?`)) {
@@ -1913,18 +1961,22 @@ const DocumentsTab = ({ driverId }) => {
   return (
     <Box sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           Driver Documents
         </Typography>
         <Button
           variant="contained"
           size="small"
-          startIcon={<UploadIcon />}
+          startIcon={<UploadIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
           onClick={() => setOpenUploadDialog(true)}
           sx={{
-            fontSize: '0.75rem',
+            fontSize: { xs: '0.65rem', sm: '0.75rem' },
             borderRadius: '8px',
+            textTransform: 'none',
             background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+            },
           }}
         >
           Upload Document
@@ -1932,12 +1984,12 @@ const DocumentsTab = ({ driverId }) => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+        <Alert severity="success" sx={{ mb: 2, borderRadius: '8px' }} onClose={() => setSuccess(null)}>
           {success}
         </Alert>
       )}
@@ -1945,16 +1997,16 @@ const DocumentsTab = ({ driverId }) => {
       {documents.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #ECECEC' }}>
           <DescriptionIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
             No documents uploaded yet
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, fontSize: '0.8rem' }}>
             Upload driver documents like ID, license, medical certificates, etc.
           </Typography>
           <Button
             variant="contained"
             size="small"
-            startIcon={<UploadIcon />}
+            startIcon={<UploadIcon sx={{ fontSize: '0.8rem' }} />}
             onClick={() => setOpenUploadDialog(true)}
             sx={{ mt: 2 }}
           >
@@ -1964,7 +2016,7 @@ const DocumentsTab = ({ driverId }) => {
       ) : (
         <Grid container spacing={2}>
           {documents.map((doc) => (
-            <Grid item xs={12} sm={6} md={4} key={doc.id || doc.filePath}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={doc.id || doc.filePath}>
               <Paper
                 elevation={0}
                 sx={{
@@ -1991,19 +2043,20 @@ const DocumentsTab = ({ driverId }) => {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        fontSize: { xs: '0.8rem', sm: '0.85rem' },
                       }}
                     >
                       {doc.fileName}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                       {doc.documentType || 'Other'} • {formatFileSize(doc.fileSize)}
                     </Typography>
                     {doc.description && (
-                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                         {doc.description}
                       </Typography>
                     )}
-                    <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block', fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
                       {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : 'N/A'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
@@ -2011,9 +2064,9 @@ const DocumentsTab = ({ driverId }) => {
                         <IconButton
                           size="small"
                           onClick={() => handleDownload(doc)}
-                          sx={{ p: 0.5 }}
+                          sx={{ p: { xs: 0.25, sm: 0.5 } }}
                         >
-                          <DownloadIcon sx={{ fontSize: '0.9rem' }} />
+                          <DownloadIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete" arrow>
@@ -2021,9 +2074,9 @@ const DocumentsTab = ({ driverId }) => {
                           size="small"
                           color="error"
                           onClick={() => handleDelete(doc)}
-                          sx={{ p: 0.5 }}
+                          sx={{ p: { xs: 0.25, sm: 0.5 } }}
                         >
-                          <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+                          <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                         </IconButton>
                       </Tooltip>
                     </Box>
@@ -2037,7 +2090,7 @@ const DocumentsTab = ({ driverId }) => {
 
       {/* Upload Dialog */}
       <Dialog open={openUploadDialog} onClose={() => !uploading && setOpenUploadDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           Upload Document
         </DialogTitle>
         <DialogContent>
@@ -2068,13 +2121,13 @@ const DocumentsTab = ({ driverId }) => {
                 <IconButton component="span" sx={{ bgcolor: '#EEF2FF', color: '#4F46E5', mb: 1 }}>
                   <CloudUploadIcon sx={{ fontSize: 40 }} />
                 </IconButton>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827' }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.85rem', sm: '0.95rem' } }}>
                   {selectedFile ? selectedFile.name : 'Choose a file'}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                   Supported formats: PDF, Word, Excel, Images, Text
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
                   Max file size: 50MB
                 </Typography>
                 {selectedFile && (
@@ -2087,17 +2140,17 @@ const DocumentsTab = ({ driverId }) => {
               </label>
             </Box>
 
-            <FormControl fullWidth>
-              <InputLabel sx={{ fontSize: '0.8rem' }}>Document Type</InputLabel>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Document Type</InputLabel>
               <Select
                 value={documentType}
                 onChange={(e) => setDocumentType(e.target.value)}
                 label="Document Type"
                 disabled={uploading}
-                sx={{ fontSize: '0.85rem' }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
               >
                 {documentTypes.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
+                  <MenuItem key={type.value} value={type.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                     {type.label}
                   </MenuItem>
                 ))}
@@ -2113,12 +2166,12 @@ const DocumentsTab = ({ driverId }) => {
               rows={2}
               disabled={uploading}
               placeholder="Add a description for this document"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+              sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
             />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setOpenUploadDialog(false)} disabled={uploading} sx={{ color: '#6B7280' }}>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+          <Button onClick={() => setOpenUploadDialog(false)} disabled={uploading} sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
             Cancel
           </Button>
           <Button
@@ -2126,10 +2179,13 @@ const DocumentsTab = ({ driverId }) => {
             variant="contained"
             disabled={!selectedFile || uploading}
             sx={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-              textTransform: 'none',
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
               borderRadius: '10px',
-              px: 3,
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              },
             }}
           >
             {uploading ? (
@@ -2145,10 +2201,8 @@ const DocumentsTab = ({ driverId }) => {
 };
 
 // ============================================================
-// PLACEHOLDER TABS
+// NOTES TAB
 // ============================================================
-
-
 const NotesTab = ({ driver }) => {
   const [notes, setNotes] = useState(driver?.notes || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -2168,17 +2222,17 @@ const NotesTab = ({ driver }) => {
 
   return (
     <Box sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           Driver Notes
         </Typography>
         {!isEditing && (
           <Button
             variant="outlined"
             size="small"
-            startIcon={<EditIcon />}
+            startIcon={<EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
             onClick={() => setIsEditing(true)}
-            sx={{ fontSize: '0.75rem' }}
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
           >
             Edit Notes
           </Button>
@@ -2203,7 +2257,13 @@ const NotesTab = ({ driver }) => {
               onClick={handleSave}
               disabled={saving}
               sx={{
+                fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                borderRadius: '8px',
+                textTransform: 'none',
                 background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                },
               }}
             >
               {saving ? <CircularProgress size={20} /> : 'Save Notes'}
@@ -2215,6 +2275,7 @@ const NotesTab = ({ driver }) => {
                 setNotes(driver?.notes || '');
                 setIsEditing(false);
               }}
+              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
             >
               Cancel
             </Button>
@@ -2223,7 +2284,7 @@ const NotesTab = ({ driver }) => {
       ) : (
         <Paper
           sx={{
-            p: 3,
+            p: { xs: 2, sm: 3 },
             borderRadius: '12px',
             border: '1px solid #ECECEC',
             bgcolor: '#F9FAFB',
@@ -2231,11 +2292,11 @@ const NotesTab = ({ driver }) => {
           }}
         >
           {notes ? (
-            <Typography variant="body2" sx={{ color: '#111827', whiteSpace: 'pre-wrap' }}>
+            <Typography variant="body2" sx={{ color: '#111827', whiteSpace: 'pre-wrap', fontSize: { xs: '0.8rem', sm: '0.85rem' } }}>
               {notes}
             </Typography>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', fontSize: '0.85rem' }}>
               No notes added yet. Click "Edit Notes" to add information about this driver.
             </Typography>
           )}
@@ -2250,8 +2311,10 @@ const NotesTab = ({ driver }) => {
 // ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
-  console.log('🔍 DriverDashboard - URL param id:', id, 'type:', typeof id);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [activeTab, setActiveTab] = useState(0);
   const [driver, setDriver] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2398,87 +2461,64 @@ const DriverDashboard = () => {
     }
   };
 
- const fetchTrips = async (driverId) => {
-  try {
-    const id = parseInt(driverId, 10);
-    if (isNaN(id)) {
-      console.error('Invalid driver ID for trips fetch');
-      setTrips([]);
-      return;
-    }
-    
-    console.log(`📤 Fetching trips for driver: ${id}`);
-    const tripsResponse = await tripService.getTripsByDriver(id);
-    console.log(`📥 getTripsByDriver response:`, tripsResponse);
-    
-    let tripsData = [];
-    if (tripsResponse && tripsResponse.data) {
-      tripsData = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
-    } else if (Array.isArray(tripsResponse)) {
-      tripsData = tripsResponse;
-    }
-    
-    console.log(`✅ Found ${tripsData.length} trips for driver ${id}`);
-    setTrips(tripsData);
-  } catch (err) {
-    console.error('Error fetching trips:', err);
-    
+  const fetchTrips = async (driverId) => {
     try {
-      console.log('📤 Attempting fallback: fetching all trips and filtering');
-      const allTripsResponse = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
-      console.log(`📥 getAllTrips response:`, allTripsResponse);
-      
-      let tripsArray = [];
-      if (allTripsResponse && allTripsResponse.content && Array.isArray(allTripsResponse.content)) {
-        tripsArray = allTripsResponse.content;
-      } else if (Array.isArray(allTripsResponse)) {
-        tripsArray = allTripsResponse;
-      } else if (allTripsResponse && allTripsResponse.data && Array.isArray(allTripsResponse.data)) {
-        tripsArray = allTripsResponse.data;
-      } else {
-        console.warn('Unexpected getAllTrips response format:', allTripsResponse);
+      const id = parseInt(driverId, 10);
+      if (isNaN(id)) {
+        console.error('Invalid driver ID for trips fetch');
         setTrips([]);
         return;
       }
       
-      console.log(`📥 Filtering ${tripsArray.length} trips for driver ${id}`);
+      console.log(`📤 Fetching trips for driver: ${id}`);
+      const tripsResponse = await tripService.getTripsByDriver(id);
+      console.log(`📥 getTripsByDriver response:`, tripsResponse);
       
-      // Log all driver IDs to see what's available
-      const driverIdCount = {};
-      tripsArray.forEach(t => {
-        const did = t.driverId || t.driver?.id || 'null';
-        driverIdCount[did] = (driverIdCount[did] || 0) + 1;
-      });
-      console.log('📊 Driver ID distribution in trips:', driverIdCount);
-      
-      // Filter trips for this driver - use loose equality
-      const filtered = tripsArray.filter(trip => {
-        const tripDriverId = trip.driverId;
-        const tripDriverObjId = trip.driver?.id;
-        
-        // Compare as strings to handle type mismatches
-        const match = 
-          String(tripDriverId) === String(id) ||
-          String(tripDriverObjId) === String(id);
-        
-        return match;
-      });
-      
-      console.log(`✅ Found ${filtered.length} trips for driver ${id}`);
-      
-      if (filtered.length > 0) {
-        console.log('📊 Sample filtered trip:', filtered[0]);
-      } else {
-        console.log(`⚠️ No trips found for driver ${id}. Available driver IDs:`, Object.keys(driverIdCount));
+      let tripsData = [];
+      if (tripsResponse && tripsResponse.data) {
+        tripsData = Array.isArray(tripsResponse.data) ? tripsResponse.data : [];
+      } else if (Array.isArray(tripsResponse)) {
+        tripsData = tripsResponse;
       }
       
-      setTrips(filtered);
-    } catch (fallbackErr) {
-      console.error('Fallback trip fetch also failed:', fallbackErr);
-      setTrips([]);
+      console.log(`✅ Found ${tripsData.length} trips for driver ${id}`);
+      setTrips(tripsData);
+    } catch (err) {
+      console.error('Error fetching trips:', err);
+      
+      try {
+        console.log('📤 Attempting fallback: fetching all trips and filtering');
+        const allTripsResponse = await tripService.getAllTrips({ size: 100, sort: 'id,desc' });
+        
+        let tripsArray = [];
+        if (allTripsResponse && allTripsResponse.content && Array.isArray(allTripsResponse.content)) {
+          tripsArray = allTripsResponse.content;
+        } else if (Array.isArray(allTripsResponse)) {
+          tripsArray = allTripsResponse;
+        } else if (allTripsResponse && allTripsResponse.data && Array.isArray(allTripsResponse.data)) {
+          tripsArray = allTripsResponse.data;
+        } else {
+          console.warn('Unexpected getAllTrips response format:', allTripsResponse);
+          setTrips([]);
+          return;
+        }
+        
+        const filtered = tripsArray.filter(trip => {
+          const tripDriverId = trip.driverId;
+          const tripDriverObjId = trip.driver?.id;
+          
+          return String(tripDriverId) === String(id) ||
+                 String(tripDriverObjId) === String(id);
+        });
+        
+        console.log(`✅ Found ${filtered.length} trips for driver ${id}`);
+        setTrips(filtered);
+      } catch (fallbackErr) {
+        console.error('Fallback trip fetch also failed:', fallbackErr);
+        setTrips([]);
+      }
     }
-  }
-};
+  };
 
   const handleNotificationClose = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
@@ -2659,17 +2699,21 @@ const DriverDashboard = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <CircularProgress size={40} />
-        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading driver data...</Typography>
-      </Box>
+      <ResponsiveContainer>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress size={40} />
+          <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading driver data...</Typography>
+        </Box>
+      </ResponsiveContainer>
     );
   }
 
   if (error || !driver) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Alert severity="error" sx={{ fontSize: '0.8rem' }}>{error || 'Driver not found'}</Alert>
+      <ResponsiveContainer>
+        <Alert severity="error" sx={{ borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+          {error || 'Driver not found'}
+        </Alert>
         <Button
           variant="contained"
           size="small"
@@ -2678,7 +2722,7 @@ const DriverDashboard = () => {
         >
           Back to Drivers
         </Button>
-      </Box>
+      </ResponsiveContainer>
     );
   }
 
@@ -2686,26 +2730,31 @@ const DriverDashboard = () => {
   const initials = `${driver.firstName?.charAt(0) || ''}${driver.lastName?.charAt(0) || ''}`.toUpperCase();
 
   return (
-    <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
-      <Box sx={{ maxWidth: '1440px', margin: '0 auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, gap: 3 }}>
-        
+    <ResponsiveContainer>
+      <Box sx={{ 
+        display: 'grid', 
+        gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' }, 
+        gap: 3,
+        width: '100%',
+      }}>
+        {/* Sidebar */}
         <Paper
           elevation={0}
           sx={{
-            borderRadius: '20px',
+            borderRadius: { xs: '12px', sm: '16px' },
             border: '1px solid #ECECEC',
-            p: 3,
+            p: { xs: 2, sm: 2.5 },
             height: 'fit-content',
-            position: 'sticky',
-            top: 24,
+            position: { lg: 'sticky' },
+            top: { lg: 24 },
             backgroundColor: '#FFFFFF',
           }}
         >
           <Button
-            startIcon={<ArrowBackIcon sx={{ fontSize: '0.9rem' }} />}
+            startIcon={<ArrowBackIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
             size="small"
             onClick={handleBack}
-            sx={{ mb: 2.5, fontSize: '0.75rem', color: '#6B7280', '&:hover': { bgcolor: 'transparent' } }}
+            sx={{ mb: 2.5, fontSize: { xs: '0.7rem', sm: '0.75rem' }, color: '#6B7280', '&:hover': { bgcolor: 'transparent' } }}
           >
             Back to Drivers
           </Button>
@@ -2714,10 +2763,10 @@ const DriverDashboard = () => {
             <Box sx={{ position: 'relative', display: 'inline-block' }}>
               <Avatar
                 sx={{
-                  width: 96,
-                  height: 96,
+                  width: { xs: 72, sm: 80, md: 96 },
+                  height: { xs: 72, sm: 80, md: 96 },
                   bgcolor: '#4F46E5',
-                  fontSize: 32,
+                  fontSize: { xs: 24, sm: 28, md: 32 },
                   fontWeight: 600,
                   mx: 'auto',
                   mb: 2,
@@ -2733,15 +2782,15 @@ const DriverDashboard = () => {
                   right: 0,
                   bgcolor: '#F59E0B',
                   borderRadius: '50%',
-                  width: 28,
-                  height: 28,
+                  width: { xs: 24, sm: 28 },
+                  height: { xs: 24, sm: 28 },
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   border: '2px solid white',
                 }}
               >
-                <StarIcon sx={{ fontSize: '0.8rem', color: 'white' }} />
+                <StarIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, color: 'white' }} />
               </Box>
               <Box
                 sx={{
@@ -2750,33 +2799,33 @@ const DriverDashboard = () => {
                   right: -8,
                   bgcolor: driver?.status === 'ACTIVE' ? '#22C55E' : '#EF4444',
                   borderRadius: '50%',
-                  width: 14,
-                  height: 14,
+                  width: { xs: 12, sm: 14 },
+                  height: { xs: 12, sm: 14 },
                   border: '2px solid white',
                 }}
               />
             </Box>
 
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
               {fullName || 'Unknown Driver'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
               {driver.licenseNumber || 'No license'} • {driver.licenseType || 'N/A'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
               {driver.status || 'Unknown'} • {driver.employmentType || 'N/A'}
             </Typography>
 
             <Button
               variant="outlined"
               fullWidth
-              startIcon={<EditIcon sx={{ fontSize: '0.9rem' }} />}
+              startIcon={<EditIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
               onClick={handleEdit}
               sx={{
                 borderRadius: '12px',
                 borderColor: '#ECECEC',
                 color: '#111827',
-                fontSize: '0.8rem',
+                fontSize: { xs: '0.7rem', sm: '0.8rem' },
                 textTransform: 'none',
                 py: 1,
                 mb: 2.5,
@@ -2792,7 +2841,7 @@ const DriverDashboard = () => {
             <Divider sx={{ mb: 2.5 }} />
 
             <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                 Contact Information
               </Typography>
               <InfoRow label="Phone" value={driver.phoneNumber || 'N/A'} />
@@ -2803,7 +2852,7 @@ const DriverDashboard = () => {
             <Divider sx={{ my: 2.5 }} />
 
             <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                 Quick Stats
               </Typography>
               <InfoRow label="Total Trips" value={driver.totalTrips || 0} />
@@ -2814,16 +2863,17 @@ const DriverDashboard = () => {
           </Box>
         </Paper>
 
+        {/* Main Content */}
         <Box>
           <DriverNavigationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
+            <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} onClose={() => setError(null)}>
               {error}
             </Alert>
           )}
           {successMessage && (
-            <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccessMessage('')}>
+            <Alert severity="success" sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} onClose={() => setSuccessMessage('')}>
               {successMessage}
             </Alert>
           )}
@@ -2891,7 +2941,7 @@ const DriverDashboard = () => {
 
       {/* Approve/Reject Leave Dialog */}
       <Dialog open={openApproveDialog} onClose={() => setOpenApproveDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600, color: '#111827' }}>
+        <DialogTitle sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           {approveAction === 'APPROVE' ? 'Approve Leave Request' : 'Reject Leave Request'}
         </DialogTitle>
         <DialogContent>
@@ -2899,20 +2949,28 @@ const DriverDashboard = () => {
             {selectedLeave && (
               <>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Leave Type</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                    Leave Type
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500, fontSize: { xs: '0.8rem', sm: '0.85rem' } }}>
                     {selectedLeave.leaveType?.name || selectedLeave.leaveType?.type || selectedLeave.type || 'N/A'}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Duration</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                    Duration
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500, fontSize: { xs: '0.8rem', sm: '0.85rem' } }}>
                     {new Date(selectedLeave.startDate).toLocaleDateString()} - {new Date(selectedLeave.endDate).toLocaleDateString()}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Reason</Typography>
-                  <Typography variant="body2">{selectedLeave.reason || 'No reason provided'}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                    Reason
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: { xs: '0.8rem', sm: '0.85rem' } }}>
+                    {selectedLeave.reason || 'No reason provided'}
+                  </Typography>
                 </Box>
                 {approveAction === 'REJECT' && (
                   <TextField
@@ -2922,16 +2980,19 @@ const DriverDashboard = () => {
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                     fullWidth
-                    size="medium"
+                    size="small"
                     placeholder="Reason for rejecting the leave request"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } } }}
                   />
                 )}
               </>
             )}
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setOpenApproveDialog(false)} sx={{ color: '#6B7280' }}>Cancel</Button>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+          <Button onClick={() => setOpenApproveDialog(false)} sx={{ color: '#6B7280', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+            Cancel
+          </Button>
           <Button 
             onClick={() => {
               if (approveAction === 'APPROVE') {
@@ -2942,19 +3003,22 @@ const DriverDashboard = () => {
             }} 
             variant="contained"
             sx={{
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
+              borderRadius: '10px',
+              textTransform: 'none',
               background: approveAction === 'APPROVE' 
                 ? 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)'
                 : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-              textTransform: 'none',
-              borderRadius: '10px',
-              px: 3,
+              '&:hover': {
+                opacity: 0.9,
+              },
             }}
           >
             {approveAction === 'APPROVE' ? 'Approve' : 'Reject'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </ResponsiveContainer>
   );
 };
 
