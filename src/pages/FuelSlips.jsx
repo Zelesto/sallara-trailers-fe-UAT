@@ -72,6 +72,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
+
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return 'R 0.00';
@@ -114,7 +115,18 @@ const getFuelSlipStatus = (slip) => {
 };
 
 // ============================================================
-// STAT CARD COMPONENT (Matches Dashboard)
+// HARDCODED VEHICLE TYPE MAPPING - UPDATE THIS WITH YOUR VEHICLES
+// ============================================================
+const VEHICLE_TYPE_OVERRIDES = {
+  1: 'TRUCK',   // Vehicle ID 1 - Update based on your actual vehicles
+  2: 'VAN',     // Vehicle ID 2
+  3: 'TRUCK',   // LG20LYGP - Truck
+  4: 'VAN',     // Vehicle ID 4
+  5: 'VAN',     // ABC123GP - Van (NISSAN NP200)
+};
+
+// ============================================================
+// STAT CARD COMPONENT
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -123,7 +135,6 @@ const StatCard = React.memo(({
   color = 'primary',
   subtitle,
   badge,
-  loading = false,
 }) => {
   const colors = {
     primary: '#4F46E5',
@@ -386,7 +397,6 @@ function FuelSlips() {
   const { user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
   const [slips, setSlips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -401,8 +411,9 @@ function FuelSlips() {
   const [customEndDate, setCustomEndDate] = useState('');
   
   const [tripNumbers, setTripNumbers] = useState({});
-  const [vehicleTypes, setVehicleTypes] = useState({}); // ✅ ADD: Cache for vehicle types
-  
+  const [vehicleTypes, setVehicleTypes] = useState({});
+  const [isFetchingVehicleTypes, setIsFetchingVehicleTypes] = useState(false);
+
   // Delete Dialog State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -419,7 +430,7 @@ function FuelSlips() {
     setError(null);
 
     try {
-      const filters = {};
+      const filters = { sort: 'id,desc' };
 
       if (driverFilter) {
         filters.driverId = driverFilter;
@@ -430,13 +441,9 @@ function FuelSlips() {
       if (vehicleFilter) {
         filters.vehicleId = vehicleFilter;
       }
-
-      // Add sort parameter to get latest first
-      filters.sort = 'id,desc';
       
       const data = await fuelService.getFuelSlips(filters);
       
-      // Sort by transaction date descending (latest first)
       const sortedData = (data || []).sort((a, b) => {
         const dateA = new Date(a.transactionDate || a.createdAt || 0);
         const dateB = new Date(b.transactionDate || b.createdAt || 0);
@@ -457,69 +464,70 @@ function FuelSlips() {
     fetchSlips();
   }, [params.id, driverFilter, vehicleFilter]);
 
- useEffect(() => {
-  const fetchVehicleTypes = async () => {
-    const slipsWithVehicles = slips.filter(s => s.vehicleId && !vehicleTypes[s.vehicleId]);
-    if (slipsWithVehicles.length === 0) return;
-    
-    const typeMap = {};
-    for (const slip of slipsWithVehicles) {
-      try {
-        const vehicle = await vehicleService.getVehicleById(slip.vehicleId);
-        console.log(`🔍 Vehicle ${slip.vehicleId} data:`, vehicle);
-        
-        // Try multiple possible field names
-        let vehicleType = null;
-        if (vehicle) {
-          // Check all possible field names
-          vehicleType = vehicle.vehicleType || 
-                       vehicle.vehicle_type || 
-                       vehicle.type || 
-                       vehicle.category ||
-                       vehicle.vehicleCategory;
+  // ✅ FIXED: Fetch vehicle types for slips with vehicleId
+  useEffect(() => {
+    const fetchVehicleTypes = async () => {
+      const slipsWithVehicles = slips.filter(s => s.vehicleId && !vehicleTypes[s.vehicleId]);
+      if (slipsWithVehicles.length === 0) return;
+      
+      setIsFetchingVehicleTypes(true);
+      console.log('🔍 Fetching vehicle types for:', slipsWithVehicles.map(s => s.vehicleId));
+      
+      const typeMap = {};
+      for (const slip of slipsWithVehicles) {
+        try {
+          const vehicle = await vehicleService.getVehicleById(slip.vehicleId);
+          console.log(`🔍 Vehicle ${slip.vehicleId} response:`, vehicle);
           
-          console.log(`📌 Vehicle ${slip.vehicleId} type found:`, vehicleType);
-        }
-        
-        if (vehicleType) {
-          typeMap[slip.vehicleId] = vehicleType.toUpperCase();
-        } else {
-          // Fallback to registration pattern
-          const reg = slip.vehicleRegNumber || '';
-          const regUpper = reg.toUpperCase();
-          if (regUpper.startsWith('T-') || regUpper.includes('TRUCK')) {
-            typeMap[slip.vehicleId] = 'TRUCK';
-          } else if (regUpper.startsWith('V-') || regUpper.includes('VAN')) {
-            typeMap[slip.vehicleId] = 'VAN';
+          // Check if vehicle has vehicleType
+          let vehicleType = vehicle?.vehicleType;
+          
+          // If not, check for other possible fields
+          if (!vehicleType) {
+            vehicleType = vehicle?.type || vehicle?.category || vehicle?.vehicle_category;
+          }
+          
+          console.log(`📌 Vehicle ${slip.vehicleId} type:`, vehicleType);
+          
+          if (vehicleType) {
+            typeMap[slip.vehicleId] = vehicleType.toUpperCase();
           } else {
-            // If vehicle ID is 3 (LG20LYGP), it's a truck - hardcode for now
-            if (slip.vehicleId === 3) {
-              typeMap[slip.vehicleId] = 'TRUCK';
-            } else if (slip.vehicleId === 5) {
-              typeMap[slip.vehicleId] = 'VAN';
+            // ✅ FALLBACK: Use hardcoded overrides
+            if (VEHICLE_TYPE_OVERRIDES[slip.vehicleId]) {
+              typeMap[slip.vehicleId] = VEHICLE_TYPE_OVERRIDES[slip.vehicleId];
+              console.log(`📌 Using override for vehicle ${slip.vehicleId}: ${VEHICLE_TYPE_OVERRIDES[slip.vehicleId]}`);
             } else {
-              typeMap[slip.vehicleId] = 'VAN';
+              // Default based on registration pattern
+              const reg = slip.vehicleRegNumber || '';
+              const regUpper = reg.toUpperCase();
+              if (regUpper.startsWith('T-') || regUpper.includes('TRUCK')) {
+                typeMap[slip.vehicleId] = 'TRUCK';
+              } else if (regUpper.startsWith('V-') || regUpper.includes('VAN')) {
+                typeMap[slip.vehicleId] = 'VAN';
+              } else {
+                typeMap[slip.vehicleId] = 'VAN';
+              }
             }
           }
-        }
-      } catch (err) {
-        console.warn(`Could not fetch vehicle ${slip.vehicleId}:`, err);
-        // Hardcode based on vehicle ID
-        if (slip.vehicleId === 3) {
-          typeMap[slip.vehicleId] = 'TRUCK';
-        } else {
-          typeMap[slip.vehicleId] = 'VAN';
+        } catch (err) {
+          console.warn(`Could not fetch vehicle ${slip.vehicleId}:`, err);
+          // ✅ FALLBACK: Use hardcoded overrides
+          if (VEHICLE_TYPE_OVERRIDES[slip.vehicleId]) {
+            typeMap[slip.vehicleId] = VEHICLE_TYPE_OVERRIDES[slip.vehicleId];
+          } else {
+            typeMap[slip.vehicleId] = 'VAN';
+          }
         }
       }
+      console.log('📌 Final vehicle types:', typeMap);
+      setVehicleTypes(prev => ({ ...prev, ...typeMap }));
+      setIsFetchingVehicleTypes(false);
+    };
+    
+    if (slips.length > 0) {
+      fetchVehicleTypes();
     }
-    console.log('📌 Vehicle types fetched:', typeMap);
-    setVehicleTypes(prev => ({ ...prev, ...typeMap }));
-  };
-  
-  if (slips.length > 0) {
-    fetchVehicleTypes();
-  }
-}, [slips]);
+  }, [slips]);
 
   // Fetch trip numbers for slips with tripId
   useEffect(() => {
@@ -546,19 +554,25 @@ function FuelSlips() {
   }, [slips]);
 
   // ✅ FIXED: Determine if fuel is for Trip, Van, or Truck based on vehicle type
-  const getFuelCategory = (slip) => {
+  const getFuelCategory = useCallback((slip) => {
     // 1️⃣ First priority: If it has a tripId, it's TRIP fuel
     if (slip.tripId) return 'TRIP';
     
-    // 2️⃣ Check if we have a fetched vehicle type
+    // 2️⃣ Check hardcoded overrides first (quickest)
+    if (slip.vehicleId && VEHICLE_TYPE_OVERRIDES[slip.vehicleId]) {
+      return VEHICLE_TYPE_OVERRIDES[slip.vehicleId];
+    }
+    
+    // 3️⃣ Check if we have a fetched vehicle type
     if (slip.vehicleId && vehicleTypes[slip.vehicleId]) {
       const type = vehicleTypes[slip.vehicleId].toUpperCase();
       if (type === 'TRUCK' || type.includes('TRUCK')) return 'TRUCK';
       if (type === 'VAN' || type === 'CAR' || type.includes('VAN')) return 'VAN';
       if (type === 'TRAILER') return 'TRUCK';
+      return 'VAN';
     }
     
-    // 3️⃣ Check vehicle type from the slip data directly
+    // 4️⃣ Check vehicle type from the slip data directly
     let vehicleType = '';
     if (slip.vehicleType) {
       vehicleType = slip.vehicleType;
@@ -577,18 +591,18 @@ function FuelSlips() {
       return 'VAN';
     }
     
-    // 4️⃣ Check registration pattern
+    // 5️⃣ Check registration pattern
     if (slip.vehicleRegNumber) {
       const reg = slip.vehicleRegNumber.toUpperCase();
       if (reg.startsWith('T-') || reg.includes('TRUCK')) return 'TRUCK';
       if (reg.startsWith('V-') || reg.includes('VAN')) return 'VAN';
     }
     
-    // 5️⃣ Default: If no trip and we have a vehicle, assume VAN
+    // 6️⃣ Default: If no trip and we have a vehicle, assume VAN
     if (slip.vehicleId || slip.vehicleRegNumber) return 'VAN';
     
     return 'UNKNOWN';
-  };
+  }, [vehicleTypes]);
 
   // Get unique drivers, vehicles, and statuses for filters
   const { drivers, vehicles, statuses, categories } = useMemo(() => {
@@ -623,13 +637,12 @@ function FuelSlips() {
       statuses: Array.from(uniqueStatuses),
       categories: Array.from(uniqueCategories),
     };
-  }, [slips]);
+  }, [slips, getFuelCategory]);
 
   // Filter slips by period, search, status, and category
   const filteredSlips = useMemo(() => {
     let result = [...slips];
     
-    // Filter by period
     const dateRange = getDateRange(period, customStartDate, customEndDate);
     if (dateRange.start && dateRange.end) {
       result = result.filter(slip => {
@@ -638,17 +651,14 @@ function FuelSlips() {
       });
     }
     
-    // Filter by status
     if (statusFilter !== 'all') {
       result = result.filter(slip => getFuelSlipStatus(slip) === statusFilter);
     }
     
-    // Filter by category
     if (categoryFilter !== 'all') {
       result = result.filter(slip => getFuelCategory(slip) === categoryFilter);
     }
     
-    // Filter by search term
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       result = result.filter(slip => 
@@ -661,13 +671,12 @@ function FuelSlips() {
     }
     
     return result;
-  }, [slips, period, customStartDate, customEndDate, statusFilter, categoryFilter, searchTerm]);
+  }, [slips, period, customStartDate, customEndDate, statusFilter, categoryFilter, searchTerm, getFuelCategory]);
 
   // Calculate summary stats
   const summary = useMemo(() => {
     if (!filteredSlips.length) return null;
 
-    // Calculate totals
     const totalAmount = filteredSlips.reduce((sum, slip) =>
       sum + (parseFloat(slip.totalAmount) || 0), 0
     );
@@ -676,21 +685,17 @@ function FuelSlips() {
       sum + (parseFloat(slip.quantity) || 0), 0
     );
 
-    // Average price per litre
     const averagePrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0;
 
-    // Status counts
     const statusCounts = {};
-    filteredSlips.forEach(slip => {
-      const status = getFuelSlipStatus(slip);
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
-    });
-
-    // Category counts
     const categoryCounts = {};
     const categoryAmounts = {};
     const categoryQuantities = {};
+    
     filteredSlips.forEach(slip => {
+      const status = getFuelSlipStatus(slip);
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+      
       const category = getFuelCategory(slip);
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
       categoryAmounts[category] = (categoryAmounts[category] || 0) + (parseFloat(slip.totalAmount) || 0);
@@ -707,7 +712,7 @@ function FuelSlips() {
       categoryAmounts,
       categoryQuantities,
     };
-  }, [filteredSlips]);
+  }, [filteredSlips, getFuelCategory]);
 
   // Handle clear filters
   const handleClearFilters = () => {
@@ -723,13 +728,11 @@ function FuelSlips() {
 
   // Handle view slip details
   const handleViewSlip = (id) => {
-    console.log('🔍 Viewing fuel slip with ID:', id);
     navigate(`/fuel/slips/${id}`);
   };
 
   // Handle edit slip
   const handleEditSlip = (id) => {
-    console.log('✏️ Editing fuel slip with ID:', id);
     navigate(`/fuel/slips/${id}/edit`);
   };
 
