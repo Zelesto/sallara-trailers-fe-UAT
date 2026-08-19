@@ -275,35 +275,76 @@ const PODForm = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setUploadStatus(null);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setSuccess('');
+  setUploadStatus(null);
 
-    if (!validateForm()) {
-      const firstErrorField = Object.keys(formErrors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.focus();
-      }
+  if (!validateForm()) {
+    const firstErrorField = Object.keys(formErrors)[0];
+    const element = document.querySelector(`[name="${firstErrorField}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.focus();
+    }
+    return;
+  }
+
+  setSubmitting(true);
+  setUploadProgress(0);
+  
+  try {
+    const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
+    
+    if (!tripIdValue || tripIdValue <= 0) {
+      setError('Please select a valid trip.');
+      setSubmitting(false);
       return;
     }
 
-    setSubmitting(true);
-    setUploadProgress(0);
-    
-    try {
-      const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
-      
-      if (!tripIdValue) {
-        setError('Please select a valid trip.');
-        setSubmitting(false);
-        return;
-      }
+    let result;
 
-      // Prepare the POD data
+    if (isEditMode) {
+      // UPDATE MODE - Keep as is
+      console.log('📤 Updating POD:', id);
+      
+      if (file) {
+        const formDataPayload = new FormData();
+        const podData = {
+          tripId: tripIdValue,
+          customerName: formData.customerName || 'Adhoc Customer',
+          deliveryDate: formData.deliveryDate || new Date().toISOString().split('T')[0],
+          status: formData.status || 'PENDING',
+          notes: formData.notes || '',
+          receivedBy: formData.receivedBy || '',
+          deliveryCondition: formData.deliveryCondition || '',
+          qualityRating: formData.qualityRating || 0,
+          issuesFound: formData.issuesFound || '',
+          additionalInfo: formData.additionalInfo || '',
+        };
+        
+        Object.keys(podData).forEach(key => {
+          formDataPayload.append(key, podData[key]);
+        });
+        formDataPayload.append('file', file);
+        
+        setUploadStatus('uploading');
+        result = await podService.updatePodWithFile(id, formDataPayload, (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(progress);
+        });
+        setUploadStatus('success');
+      } else {
+        result = await podService.updatePod(id, podData);
+      }
+      setSuccess('POD updated successfully!');
+      
+    } else {
+      // ✅ CREATE MODE - WORKAROUND
+      console.log('📤 Creating new POD with file:', file?.name);
+      
+      // ✅ WORKAROUND: First create the POD without the file
       const podData = {
         tripId: tripIdValue,
         customerName: formData.customerName || 'Adhoc Customer',
@@ -317,106 +358,69 @@ const PODForm = () => {
         additionalInfo: formData.additionalInfo || '',
       };
 
-      let result;
-
-      if (isEditMode) {
-        // UPDATE MODE
-        console.log('📤 Updating POD:', id);
+      console.log('📤 Step 1: Creating POD without file...');
+      
+      // Create POD without file first
+      const createResult = await podService.createPod(podData, null);
+      console.log('✅ POD created without file:', createResult);
+      
+      const podId = createResult.id || createResult.data?.id;
+      
+      if (!podId) {
+        throw new Error('POD created but no ID returned');
+      }
+      
+      // Step 2: If there's a file, upload it separately
+      if (file) {
+        console.log('📤 Step 2: Uploading file for POD', podId);
+        setUploadStatus('uploading');
         
-        if (file) {
-          // With file upload
-          const formDataPayload = new FormData();
-          Object.keys(podData).forEach(key => {
-            formDataPayload.append(key, podData[key]);
-          });
-          formDataPayload.append('file', file);
-          
-          setUploadStatus('uploading');
-          result = await podService.updatePodWithFile(id, formDataPayload, (progressEvent) => {
-            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(progress);
-          });
-          setUploadStatus('success');
-        } else {
-          // Without file
-          result = await podService.updatePod(id, podData);
-        }
-        setSuccess('POD updated successfully!');
-      } else {
-        // CREATE MODE
-        console.log('📤 Creating new POD with file:', file?.name);
-        
-        // ✅ FIX: Ensure we're using FormData for creation with file
         const formDataPayload = new FormData();
+        formDataPayload.append('file', file);
         
-        // Add all POD data fields to FormData
-        Object.keys(podData).forEach(key => {
-          const value = podData[key];
-          if (value !== null && value !== undefined && value !== '') {
-            formDataPayload.append(key, value);
-          }
-        });
-        
-        // Add the file
-        if (file) {
-          formDataPayload.append('file', file);
-          setUploadStatus('uploading');
-        } else if (!isEditMode) {
-          setError('Please select a file to upload.');
-          setSubmitting(false);
-          return;
-        }
-
-        // Log the FormData contents for debugging
-        console.log('📤 FormData contents:');
-        for (let pair of formDataPayload.entries()) {
-          if (pair[0] === 'file') {
-            console.log(`  ${pair[0]}: ${pair[1].name} (${pair[1].size} bytes)`);
-          } else {
-            console.log(`  ${pair[0]}: ${pair[1]}`);
-          }
-        }
-
-        // Call the create endpoint with FormData
-        result = await podService.createPod(formDataPayload, (progressEvent) => {
+        // Use the reupload endpoint to add the file
+        await podService.reuploadPodFile(podId, formDataPayload, (progressEvent) => {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(progress);
         });
         
         setUploadStatus('success');
-        setSuccess('POD created successfully!');
-      }
-
-      console.log('✅ POD saved:', result);
-
-      // Wait a moment for the backend to process
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Navigate back to POD list
-      navigate('/pods');
-      
-    } catch (err) {
-      console.error('Error saving POD:', err);
-      setUploadStatus('error');
-      
-      let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
-      
-      // Check if it's a file upload error
-      if (err.response?.status === 413) {
-        errorMessage = 'File too large. Maximum size is 10MB.';
-      } else if (err.response?.status === 415) {
-        errorMessage = 'Unsupported file type. Please upload PDF, JPG, PNG, DOC, or DOCX.';
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.response?.data?.detail) {
-        errorMessage = err.response.data.detail;
+        console.log('✅ File uploaded successfully for POD', podId);
       }
       
-      setError(errorMessage);
-    } finally {
-      setSubmitting(false);
+      result = createResult;
+      setSuccess('POD created successfully!');
     }
-  };
+
+    console.log('✅ POD saved:', result);
+
+    // Wait a moment for the backend to process
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Navigate back to POD list
+    navigate('/pods');
+    
+  } catch (err) {
+    console.error('Error saving POD:', err);
+    setUploadStatus('error');
+    
+    let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
+    
+    if (err.response?.status === 413) {
+      errorMessage = 'File too large. Maximum size is 10MB.';
+    } else if (err.response?.status === 415) {
+      errorMessage = 'Unsupported file type. Please upload PDF, JPG, PNG, DOC, or DOCX.';
+    } else if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    } else if (err.response?.data?.detail) {
+      errorMessage = err.response.data.detail;
+    }
+    
+    setError(errorMessage);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const filteredTrips = trips.filter(trip => {
     const search = searchTripTerm.toLowerCase();
