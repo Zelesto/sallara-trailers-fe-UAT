@@ -47,7 +47,7 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { vehicleService } from '../services/vehicleService';
-import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 // Stat Card - Matches Dashboard
 const StatCard = ({ title, value, color = '#4F46E5', icon: Icon, subtitle }) => (
