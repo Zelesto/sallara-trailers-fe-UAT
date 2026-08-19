@@ -42,7 +42,7 @@ import {
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import driverService from '../services/driverService';
-import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 // Stat Card Component - Updated with Dashboard styling
 const StatCard = ({ title, value, color = '#4F46E5', icon: Icon, subtitle, trend }) => (
