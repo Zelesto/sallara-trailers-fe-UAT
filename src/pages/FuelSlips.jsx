@@ -114,26 +114,71 @@ const getFuelSlipStatus = (slip) => {
 
 // Determine if fuel is for Trip, Van, or Truck based on vehicle type
 const getFuelCategory = (slip) => {
-  // If it has a tripId, it's trip fuel
+  // 1️⃣ First priority: If it has a tripId, it's TRIP fuel
   if (slip.tripId) return 'TRIP';
   
-  // Check vehicle type from vehicle data
-  const vehicleType = slip.vehicleType || slip.vehicle?.type || '';
-  const normalizedType = vehicleType.toUpperCase();
+  // 2️⃣ Check vehicle type from multiple possible sources
+  let vehicleType = '';
   
-  if (normalizedType.includes('TRUCK') || normalizedType.includes('HEAVY')) {
+  // Try different places where vehicle type might be stored
+  if (slip.vehicleType) {
+    vehicleType = slip.vehicleType;
+  } else if (slip.vehicle?.type) {
+    vehicleType = slip.vehicle.type;
+  } else if (slip.vehicle?.vehicleType) {
+    vehicleType = slip.vehicle.vehicleType;
+  } else if (slip.vehicle?.category) {
+    vehicleType = slip.vehicle.category;
+  } else if (slip.category) {
+    vehicleType = slip.category;
+  }
+  
+  const normalizedType = String(vehicleType).toUpperCase();
+  
+  // 3️⃣ Check for Truck/Heavy vehicle keywords
+  if (normalizedType.includes('TRUCK') || 
+      normalizedType.includes('HEAVY') || 
+      normalizedType === 'TRUCK' ||
+      normalizedType === 'HEAVY_TRUCK' ||
+      normalizedType === 'HEAVY_VEHICLE') {
     return 'TRUCK';
   }
   
-  if (normalizedType.includes('VAN') || normalizedType.includes('LIGHT') || normalizedType.includes('CAR')) {
+  // 4️⃣ Check for Van/Light/Car vehicle keywords
+  if (normalizedType.includes('VAN') || 
+      normalizedType.includes('LIGHT') || 
+      normalizedType.includes('CAR') ||
+      normalizedType === 'VAN' ||
+      normalizedType === 'LIGHT_VEHICLE' ||
+      normalizedType === 'PASSENGER') {
     return 'VAN';
   }
   
-  // Default to VAN for passenger vehicles
+  // 5️⃣ Check if vehicle type is in the VEHICLE_TYPES list
+  const vehicleTypeValue = slip.vehicleType || slip.vehicle?.vehicleType || slip.vehicle?.type;
+  if (vehicleTypeValue) {
+    const type = String(vehicleTypeValue).toUpperCase();
+    // From VehicleForm.jsx: VEHICLE_TYPES = ['TRUCK', 'TRAILER', 'VAN', 'CAR']
+    if (type === 'TRUCK') return 'TRUCK';
+    if (type === 'VAN' || type === 'CAR') return 'VAN';
+    if (type === 'TRAILER') return 'TRUCK'; // Trailers are usually pulled by trucks
+  }
+  
+  // 6️⃣ Default: If it has a vehicle registration but no trip, check if it's a truck based on registration pattern
   if (slip.vehicleRegNumber && !slip.tripId) {
+    const reg = slip.vehicleRegNumber.toUpperCase();
+    // Some companies use prefixes for trucks (e.g., "T-" for truck, "V-" for van)
+    if (reg.startsWith('T-') || reg.startsWith('TRK-')) {
+      return 'TRUCK';
+    }
+    if (reg.startsWith('V-') || reg.startsWith('VAN-')) {
+      return 'VAN';
+    }
+    // Default to VAN for passenger vehicles
     return 'VAN';
   }
   
+  // 7️⃣ Fallback: Unknown
   return 'UNKNOWN';
 };
 
