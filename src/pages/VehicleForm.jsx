@@ -41,8 +41,8 @@ import {
   Event as EventIcon,
   Numbers as NumbersIcon,
 } from '@mui/icons-material';
-import { vehicleService } from '../../services/vehicleService';
-import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { vehicleService } from '../services/vehicleService';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 // Form Section Header Component
 const FormSectionHeader = ({ icon, title, subtitle }) => (
