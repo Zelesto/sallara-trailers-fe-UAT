@@ -394,29 +394,36 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
     </Stack>
   </Paper>
 );
-
 // ============================================================
-// INFO ROW - FIXED (This was the main issue)
+// SAFE VALUE HELPER - MOVED TO TOP LEVEL
+// ============================================================
+const safeValue = (val) => {
+  if (val === undefined || val === null) return 'N/A';
+  if (typeof val === 'object' && val !== null) {
+    // If it's a Date object, format it
+    if (val instanceof Date) {
+      return val.toLocaleDateString();
+    }
+    // If it's a React element, return it as-is
+    if (React.isValidElement(val)) {
+      return val;
+    }
+    // Otherwise stringify
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return 'N/A';
+    }
+  }
+  return val;
+};
+// ============================================================
+// INFO ROW - FULLY FIXED
 // ============================================================
 const InfoRow = ({ label, value }) => {
-  // ✅ Ensure value is a string or React node, not an object
-  let displayValue = value;
+  // ✅ Use the safeValue helper
+  const displayValue = safeValue(value);
   
-  // If value is an object, stringify it
-  if (typeof value === 'object' && value !== null) {
-    displayValue = JSON.stringify(value);
-  }
-  
-  // If value is undefined or null, show N/A
-  if (value === undefined || value === null) {
-    displayValue = 'N/A';
-  }
-
-  // If value is a React element, render it directly
-  if (React.isValidElement(value)) {
-    displayValue = value;
-  }
-
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
       <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
@@ -495,7 +502,7 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 };
 
 // ============================================================
-// OVERVIEW TAB
+// OVERVIEW TAB - FIXED
 // ============================================================
 const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
@@ -533,31 +540,30 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
     l.status === 'PENDING' || l.status === 'pending'
   ).length || 0;
 
-  // ✅ Ensure all values are strings or numbers, not objects
-  const safeValue = (val) => {
-  if (val === undefined || val === null) return 'N/A';
-  if (typeof val === 'object' && val !== null) {
-    // If it's a Date object, format it
-    if (val instanceof Date) {
-      return val.toLocaleDateString();
-    }
-    // If it's a React element, return it as-is
-    if (React.isValidElement(val)) {
-      return val;
-    }
-    // Otherwise stringify
-    return JSON.stringify(val);
-  }
-  return val;
-};
+  // ✅ Ensure all values are properly converted
+  const leaveBalanceValue = leaveData?.filter(l => 
+    l.status === 'APPROVED' || l.status === 'approved'
+  ).length || 0;
+
+  // ✅ Create safe values for StatCard
+  const statValues = {
+    totalTrips: safeValue(totalTrips),
+    monthlyTrips: safeValue(monthlyTrips),
+    rating: safeValue(`${rating} ★`),
+    performanceScore: safeValue(`${driver?.performanceScore || 0}%`),
+    thisWeekHours: safeValue(`${thisWeekHours.toFixed(1)}h`),
+    timesheetEntries: safeValue(timesheetData?.length || 0),
+    leaveBalance: safeValue(`${leaveBalanceValue} days`),
+    pendingLeave: safeValue(pendingLeaveCount),
+  };
 
   return (
     <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Total Trips"
-          value={safeValue(totalTrips)}
-          subtitle={`${safeValue(monthlyTrips)} this month`}
+          value={statValues.totalTrips}
+          subtitle={`${statValues.monthlyTrips} this month`}
           icon={<RouteIcon />}
           color="#4F46E5"
           loading={loading}
@@ -566,8 +572,8 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Rating"
-          value={safeValue(`${rating} ★`)}
-          subtitle={`${safeValue(driver?.performanceScore || 0)}% performance`}
+          value={statValues.rating}
+          subtitle={`${statValues.performanceScore} performance`}
           icon={<StarIcon />}
           color="#F59E0B"
           loading={loading}
@@ -576,8 +582,8 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="This Week"
-          value={safeValue(`${thisWeekHours.toFixed(1)}h`)}
-          subtitle={`${safeValue(timesheetData?.length || 0)} entries`}
+          value={statValues.thisWeekHours}
+          subtitle={`${statValues.timesheetEntries} entries`}
           icon={<AccessTimeIcon />}
           color="#8B5CF6"
           loading={loading}
@@ -586,8 +592,8 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Leave Balance"
-          value={safeValue(`${leaveData?.filter(l => l.status === 'APPROVED' || l.status === 'approved').length || 0} days`)}
-          subtitle={`${safeValue(pendingLeaveCount)} pending requests`}
+          value={statValues.leaveBalance}
+          subtitle={`${statValues.pendingLeave} pending requests`}
           icon={<BeachAccessIcon />}
           color="#22C55E"
           loading={loading}
@@ -627,7 +633,6 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
     </Grid>
   );
 };
-
 // ============================================================
 // PERFORMANCE TAB
 // ============================================================
