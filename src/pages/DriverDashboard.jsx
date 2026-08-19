@@ -377,10 +377,22 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 // ============================================================
 // STAT CARD
 // ============================================================
-const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => {
-  const displayValue = typeof value === 'object' && value !== null && !React.isValidElement(value) 
-    ? JSON.stringify(value) 
-    : value;
+const StatCard = ({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  color = '#4F46E5',
+  loading,
+}) => {
+  // Ensure objects are never rendered directly as React children.
+  const displayValue =
+    value !== null &&
+    value !== undefined &&
+    typeof value === 'object' &&
+    !React.isValidElement(value)
+      ? JSON.stringify(value)
+      : value;
 
   return (
     <Paper
@@ -400,7 +412,12 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
         },
       }}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        spacing={1}
+      >
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
             variant="caption"
@@ -408,7 +425,11 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
               color: '#6B7280',
               fontWeight: 600,
               textTransform: 'uppercase',
-              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              fontSize: {
+                xs: '0.55rem',
+                sm: '0.6rem',
+                md: '0.65rem',
+              },
               letterSpacing: '0.5px',
               display: 'block',
               mb: 0.25,
@@ -416,6 +437,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
           >
             {title}
           </Typography>
+
           {loading ? (
             <CircularProgress size={20} sx={{ mt: 0.5 }} />
           ) : (
@@ -425,12 +447,18 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
                 sx={{
                   fontWeight: 700,
                   color: '#111827',
-                  fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                  fontSize: {
+                    xs: '1.2rem',
+                    sm: '1.4rem',
+                    md: '1.6rem',
+                    lg: '1.8rem',
+                  },
                   lineHeight: 1.2,
                 }}
               >
                 {displayValue}
               </Typography>
+
               {subtitle && (
                 <Typography
                   variant="caption"
@@ -438,7 +466,11 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
                     color: '#6B7280',
                     display: 'block',
                     mt: 0.25,
-                    fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                    fontSize: {
+                      xs: '0.55rem',
+                      sm: '0.6rem',
+                      md: '0.65rem',
+                    },
                   }}
                 >
                   {subtitle}
@@ -447,6 +479,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
             </>
           )}
         </Box>
+
         {Icon && (
           <Box
             sx={{
@@ -459,7 +492,16 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
               flexShrink: 0,
             }}
           >
-            <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
+            <Icon
+              sx={{
+                color,
+                fontSize: {
+                  xs: '1.2rem',
+                  sm: '1.4rem',
+                  md: '1.6rem',
+                },
+              }}
+            />
           </Box>
         )}
       </Stack>
@@ -559,51 +601,77 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 // ============================================================
 // OVERVIEW TAB
 // ============================================================
-const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
+const OverviewTab = ({
+  driver,
+  leaveData,
+  timesheetData,
+  loading,
+}) => {
   const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
-  const rating = driver?.performanceScore ? (driver.performanceScore / 20).toFixed(1) : '0.0';
-  const totalTrips = driver?.totalTrips || 0;
-  const monthlyTrips = driver?.monthlyTrips || 0;
-  const totalDistance = driver?.totalDistance || 0;
-  const hireDate = driver?.hireDate ? new Date(driver.hireDate) : null;
-  const yearsWithCompany = hireDate ? Math.floor((new Date() - hireDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
+  const rating = driver?.performanceScore
+    ? (Number(driver.performanceScore) / 20).toFixed(1)
+    : '0.0';
+
+  const totalTrips = Number(driver?.totalTrips) || 0;
+  const monthlyTrips = Number(driver?.monthlyTrips) || 0;
+  const totalDistance = Number(driver?.totalDistance) || 0;
+
+  const hireDate = driver?.hireDate
+    ? new Date(driver.hireDate)
+    : null;
+
+  const yearsWithCompany = hireDate
+    ? Math.floor(
+        (new Date() - hireDate) /
+          (1000 * 60 * 60 * 24 * 365),
+      )
+    : 0;
 
   const thisWeekHours = timesheetData?.reduce((acc, entry) => {
-    const date = entry.entryDate || entry.date;
+    const date = entry?.entryDate || entry?.date;
     if (!date) return acc;
+
     const entryDate = new Date(date);
     const today = new Date();
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay());
+
     if (entryDate >= startOfWeek && entryDate <= today) {
-      const start = entry.startTime;
-      const end = entry.endTime;
+      const start = entry?.startTime;
+      const end = entry?.endTime;
+
       if (start && end) {
-        try {
-          const startTime = new Date(`1970-01-01T${start}`);
-          const endTime = new Date(`1970-01-01T${end}`);
-          acc += (endTime - startTime) / (1000 * 60 * 60);
-        } catch {
-          // Ignore invalid times
+        const startTime = new Date(`1970-01-01T${start}`);
+        const endTime = new Date(`1970-01-01T${end}`);
+
+        if (!Number.isNaN(startTime.getTime()) && !Number.isNaN(endTime.getTime())) {
+          return acc + (endTime - startTime) / (1000 * 60 * 60);
         }
       }
     }
+
     return acc;
-  }, 0);
+  }, 0) || 0;
 
-  const pendingLeaveCount = leaveData?.filter(l => 
-    l.status === 'PENDING' || l.status === 'pending'
-  ).length || 0;
+  const pendingLeaveCount =
+    leaveData?.filter(
+      (leave) =>
+        leave?.status === 'PENDING' ||
+        leave?.status === 'pending',
+    ).length || 0;
 
-  const leaveBalanceValue = leaveData?.filter(l => 
-    l.status === 'APPROVED' || l.status === 'approved'
-  ).length || 0;
+  const leaveBalanceValue =
+    leaveData?.filter(
+      (leave) =>
+        leave?.status === 'APPROVED' ||
+        leave?.status === 'approved',
+    ).length || 0;
 
   const statValues = {
     totalTrips: String(totalTrips),
     monthlyTrips: String(monthlyTrips),
     rating: `${rating} ★`,
-    performanceScore: `${driver?.performanceScore || 0}%`,
+    performanceScore: `${Number(driver?.performanceScore) || 0}%`,
     thisWeekHours: `${thisWeekHours.toFixed(1)}h`,
     timesheetEntries: String(timesheetData?.length || 0),
     leaveBalance: `${leaveBalanceValue} days`,
@@ -611,43 +679,50 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   };
 
   return (
-    <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+    <Grid
+      container
+      spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+      sx={{ mb: 3 }}
+    >
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Total Trips"
           value={statValues.totalTrips}
           subtitle={`${statValues.monthlyTrips} this month`}
-          icon={<RouteIcon />}
+          icon={RouteIcon}
           color="#4F46E5"
           loading={loading}
         />
       </Grid>
+
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Rating"
           value={statValues.rating}
           subtitle={`${statValues.performanceScore} performance`}
-          icon={<StarIcon />}
+          icon={StarIcon}
           color="#F59E0B"
           loading={loading}
         />
       </Grid>
+
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="This Week"
           value={statValues.thisWeekHours}
           subtitle={`${statValues.timesheetEntries} entries`}
-          icon={<AccessTimeIcon />}
+          icon={AccessTimeIcon}
           color="#8B5CF6"
           loading={loading}
         />
       </Grid>
+
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Leave Balance"
           value={statValues.leaveBalance}
           subtitle={`${statValues.pendingLeave} pending requests`}
-          icon={<BeachAccessIcon />}
+          icon={BeachAccessIcon}
           color="#22C55E"
           loading={loading}
         />
@@ -663,22 +738,51 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
             bgcolor: '#FFFFFF',
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' }, mb: 2 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              fontSize: { xs: '0.9rem', sm: '1rem' },
+              mb: 2,
+            }}
+          >
             Driver Information
           </Typography>
+
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
               <InfoRow label="Full Name" value={fullName || 'N/A'} />
               <InfoRow label="License Number" value={driver?.licenseNumber || 'N/A'} />
               <InfoRow label="License Type" value={driver?.licenseType || 'N/A'} />
-              <InfoRow label="License Expiry" value={driver?.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'N/A'} />
+              <InfoRow
+                label="License Expiry"
+                value={
+                  driver?.licenseExpiry
+                    ? new Date(driver.licenseExpiry).toLocaleDateString()
+                    : 'N/A'
+                }
+              />
             </Grid>
+
             <Grid size={{ xs: 12, md: 6 }}>
               <InfoRow label="Phone" value={driver?.phoneNumber || 'N/A'} />
               <InfoRow label="Email" value={driver?.email || 'N/A'} />
-              <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
-              <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
-              <InfoRow label="Total Distance" value={`${(totalDistance || 0).toLocaleString()} km`} />
+              <InfoRow
+                label="Hire Date"
+                value={
+                  driver?.hireDate
+                    ? new Date(driver.hireDate).toLocaleDateString()
+                    : 'N/A'
+                }
+              />
+              <InfoRow
+                label="Years with Company"
+                value={`${yearsWithCompany} years`}
+              />
+              <InfoRow
+                label="Total Distance"
+                value={`${totalDistance.toLocaleString()} km`}
+              />
             </Grid>
           </Grid>
         </Paper>
