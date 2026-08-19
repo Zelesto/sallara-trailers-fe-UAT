@@ -96,7 +96,6 @@ const safeValue = (val) => {
   return String(val);
 };
 
-
 // ============================================================
 // NAVIGATION TABS
 // ============================================================
@@ -333,7 +332,6 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 // STAT CARD (Matches Dashboard)
 // ============================================================
 const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => {
-  // ✅ Ensure value is a string or valid React node
   const displayValue = typeof value === 'object' && value !== null && !React.isValidElement(value) 
     ? JSON.stringify(value) 
     : value;
@@ -424,55 +422,33 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 };
 
 // ============================================================
-// INFO ROW - COMPLETELY FIXED
+// INFO ROW - COMPLETELY SAFE
 // ============================================================
 const InfoRow = ({ label, value }) => {
-  // ✅ Convert any value to a renderable string
   let displayValue = 'N/A';
   
-  // Handle null/undefined
   if (value === undefined || value === null) {
     displayValue = 'N/A';
-  } 
-  // Handle strings
-  else if (typeof value === 'string') {
+  } else if (typeof value === 'string') {
     displayValue = value;
-  } 
-  // Handle numbers
-  else if (typeof value === 'number') {
+  } else if (typeof value === 'number') {
     displayValue = String(value);
-  } 
-  // Handle booleans
-  else if (typeof value === 'boolean') {
+  } else if (typeof value === 'boolean') {
     displayValue = value ? 'Yes' : 'No';
-  } 
-  // Handle dates
-  else if (value instanceof Date) {
+  } else if (value instanceof Date) {
     displayValue = value.toLocaleDateString();
-  } 
-  // Handle React elements (already valid)
-  else if (React.isValidElement(value)) {
+  } else if (React.isValidElement(value)) {
     displayValue = value;
-  } 
-  // Handle objects
-  else if (typeof value === 'object') {
-    // If it has an id property, try to use that
+  } else if (typeof value === 'object') {
     if (value.id !== undefined && value.id !== null) {
       displayValue = String(value.id);
-    } 
-    // If it has a name property, try to use that
-    else if (value.name !== undefined && value.name !== null) {
+    } else if (value.name !== undefined && value.name !== null) {
       displayValue = String(value.name);
-    }
-    // If it has a registration property (for vehicles)
-    else if (value.registration !== undefined && value.registration !== null) {
+    } else if (value.registration !== undefined && value.registration !== null) {
       displayValue = String(value.registration);
-    }
-    else if (value.registrationNumber !== undefined && value.registrationNumber !== null) {
+    } else if (value.registrationNumber !== undefined && value.registrationNumber !== null) {
       displayValue = String(value.registrationNumber);
-    }
-    // If it's an array, try to format it
-    else if (Array.isArray(value)) {
+    } else if (Array.isArray(value)) {
       if (value.length === 0) {
         displayValue = 'None';
       } else {
@@ -488,9 +464,7 @@ const InfoRow = ({ label, value }) => {
           displayValue = 'N/A';
         }
       }
-    }
-    // Otherwise try JSON stringify
-    else {
+    } else {
       try {
         const jsonStr = JSON.stringify(value);
         displayValue = jsonStr.length > 50 ? jsonStr.substring(0, 50) + '...' : jsonStr;
@@ -498,9 +472,7 @@ const InfoRow = ({ label, value }) => {
         displayValue = 'N/A';
       }
     }
-  } 
-  // Fallback
-  else {
+  } else {
     try {
       displayValue = String(value);
     } catch {
@@ -508,7 +480,6 @@ const InfoRow = ({ label, value }) => {
     }
   }
 
-  // Ensure we never return an object
   if (typeof displayValue === 'object' && !React.isValidElement(displayValue)) {
     displayValue = 'N/A';
   }
@@ -524,7 +495,6 @@ const InfoRow = ({ label, value }) => {
     </Box>
   );
 };
-
 
 // ============================================================
 // NOTIFICATION BANNER
@@ -592,7 +562,7 @@ const NotificationBanner = ({ icon, message, onClose, severity = 'info' }) => {
 };
 
 // ============================================================
-// OVERVIEW TAB - FIXED
+// OVERVIEW TAB
 // ============================================================
 const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
   const fullName = `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim();
@@ -634,7 +604,6 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
     l.status === 'APPROVED' || l.status === 'approved'
   ).length || 0;
 
-  // ✅ All values are explicitly converted to strings
   const statValues = {
     totalTrips: String(totalTrips),
     monthlyTrips: String(monthlyTrips),
@@ -1556,7 +1525,7 @@ const TimesheetTab = ({
             onClick={() => setOpenImportDialog(true)}
             sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
           >
-            {isMobile ? '' : 'Import'}
+            Import
           </Button>
           <Button
             variant="outlined"
@@ -1565,7 +1534,7 @@ const TimesheetTab = ({
             onClick={handleExport}
             sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
           >
-            {isMobile ? '' : 'Export'}
+            Export
           </Button>
           <Button
             variant="outlined"
@@ -1573,7 +1542,7 @@ const TimesheetTab = ({
             startIcon={<PrintIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }} />}
             sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, borderRadius: '8px', textTransform: 'none' }}
           >
-            {isMobile ? '' : 'Print'}
+            Print
           </Button>
           <Button
             variant="contained"
@@ -1590,7 +1559,7 @@ const TimesheetTab = ({
               },
             }}
           >
-            {isMobile ? 'Add' : 'Add Entry'}
+            Add Entry
           </Button>
         </Stack>
       </Box>
@@ -2476,6 +2445,9 @@ const DriverDashboard = () => {
     }
   }, [id]);
 
+  // ============================================================
+  // FETCH DRIVER DATA - COMPLETELY SAFE
+  // ============================================================
   const fetchDriverData = async (driverId) => {
     setLoading(true);
     try {
@@ -2527,7 +2499,9 @@ const DriverDashboard = () => {
         }
       }).length;
       
-      // SAFELY extract performance score - ensure it's a number
+      // ============================================================
+      // SAFELY EXTRACT performanceScore - ensure it's a number
+      // ============================================================
       let performanceScore = 0;
       if (data.performanceScore !== undefined && data.performanceScore !== null) {
         if (typeof data.performanceScore === 'number') {
@@ -2545,7 +2519,9 @@ const DriverDashboard = () => {
         performanceScore = Math.round((completedTrips / totalTrips) * 100);
       }
       
-      // SAFELY extract assigned vehicle
+      // ============================================================
+      // SAFELY EXTRACT assigned vehicle
+      // ============================================================
       let assignedVehicleId = 'Not Assigned';
       if (data.assignedVehicleId !== undefined && data.assignedVehicleId !== null) {
         if (typeof data.assignedVehicleId === 'object') {
@@ -2556,31 +2532,59 @@ const DriverDashboard = () => {
         }
       }
       
-      // Create enriched driver with ALL primitive values
+      // ============================================================
+      // SAFELY EXTRACT safetyScore and efficiencyScore
+      // ============================================================
+      let safetyScore = 85;
+      if (data.safetyScore !== undefined && data.safetyScore !== null) {
+        if (typeof data.safetyScore === 'number') {
+          safetyScore = data.safetyScore;
+        } else if (typeof data.safetyScore === 'string') {
+          safetyScore = parseInt(data.safetyScore, 10) || 85;
+        }
+      }
+      
+      let efficiencyScore = 0;
+      if (data.efficiencyScore !== undefined && data.efficiencyScore !== null) {
+        if (typeof data.efficiencyScore === 'number') {
+          efficiencyScore = data.efficiencyScore;
+        } else if (typeof data.efficiencyScore === 'string') {
+          efficiencyScore = parseInt(data.efficiencyScore, 10) || 0;
+        }
+      }
+      
+      // ============================================================
+      // Create enriched driver with ONLY primitive values
+      // ============================================================
       const enrichedDriver = {
-        ...data,
+        // Basic info - all strings
+        id: data.id ? String(data.id) : null,
+        firstName: data.firstName ? String(data.firstName) : '',
+        lastName: data.lastName ? String(data.lastName) : '',
+        email: data.email ? String(data.email) : 'N/A',
+        phoneNumber: data.phoneNumber ? String(data.phoneNumber) : 'N/A',
+        status: data.status ? String(data.status) : 'Unknown',
+        employmentType: data.employmentType ? String(data.employmentType) : 'N/A',
+        licenseNumber: data.licenseNumber ? String(data.licenseNumber) : 'N/A',
+        licenseType: data.licenseType ? String(data.licenseType) : 'N/A',
+        notes: data.notes ? String(data.notes) : '',
+        
+        // Dates - keep as strings or null
+        hireDate: data.hireDate || null,
+        licenseExpiry: data.licenseExpiry || null,
+        
+        // Stats - all numbers
         totalTrips: totalTrips,
         completedTrips: completedTrips,
         totalDistance: Math.round(totalDistance),
         monthlyTrips: monthlyTrips,
         performanceScore: performanceScore,
+        safetyScore: safetyScore,
+        efficiencyScore: efficiencyScore,
         tripCount: totalTrips,
-        // Ensure ALL values are primitives
-        id: data.id ? String(data.id) : null,
-        firstName: data.firstName ? String(data.firstName) : '',
-        lastName: data.lastName ? String(data.lastName) : '',
-        licenseNumber: data.licenseNumber ? String(data.licenseNumber) : 'N/A',
-        licenseType: data.licenseType ? String(data.licenseType) : 'N/A',
-        phoneNumber: data.phoneNumber ? String(data.phoneNumber) : 'N/A',
-        email: data.email ? String(data.email) : 'N/A',
-        status: data.status ? String(data.status) : 'Unknown',
-        employmentType: data.employmentType ? String(data.employmentType) : 'N/A',
+        
+        // Assigned vehicle - string
         assignedVehicleId: assignedVehicleId,
-        hireDate: data.hireDate || null,
-        licenseExpiry: data.licenseExpiry || null,
-        notes: data.notes ? String(data.notes) : '',
-        safetyScore: typeof data.safetyScore === 'number' ? data.safetyScore : 85,
-        efficiencyScore: typeof data.efficiencyScore === 'number' ? data.efficiencyScore : 0,
       };
       
       setDriver(enrichedDriver);
@@ -2873,7 +2877,9 @@ const DriverDashboard = () => {
     setOpenApproveDialog(true);
   };
 
+  // ============================================================
   // Create safe driver object with all primitive values for rendering
+  // ============================================================
   const safeDriver = useMemo(() => {
     if (!driver) return null;
     return {
