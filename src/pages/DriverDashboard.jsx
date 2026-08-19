@@ -69,12 +69,33 @@ import {
   TrendingUp as TrendingUpIcon,
   Timer as TimerIcon,
 } from '@mui/icons-material';
-import driverService from '../services/driverService';
-import timesheetService from '../services/timesheetService';
-import leaveService from '../services/leaveService';
-import tripService from '../services/tripService';
-import documentService from '../services/documentService';
-import { ResponsiveContainer } from '../components/ResponsiveContainer';
+import driverService from '../../services/driverService';
+import timesheetService from '../../services/timesheetService';
+import leaveService from '../../services/leaveService';
+import tripService from '../../services/tripService';
+import documentService from '../../services/documentService';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+
+// ============================================================
+// SAFE VALUE HELPER
+// ============================================================
+const safeValue = (val) => {
+  if (val === undefined || val === null) return 'N/A';
+  if (typeof val === 'object' && val !== null) {
+    if (val instanceof Date) {
+      return val.toLocaleDateString();
+    }
+    if (React.isValidElement(val)) {
+      return val;
+    }
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return 'N/A';
+    }
+  }
+  return val;
+};
 
 // ============================================================
 // NAVIGATION TABS
@@ -311,117 +332,100 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 // ============================================================
 // STAT CARD (Matches Dashboard)
 // ============================================================
-const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: { xs: 1.5, sm: 2, md: 2.5 },
-      borderRadius: { xs: '12px', sm: '16px' },
-      border: '1px solid #ECECEC',
-      bgcolor: '#FFFFFF',
-      height: '100%',
-      width: '100%',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      '&:hover': {
-        transform: 'translateY(-2px)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-        borderColor: color,
-      },
-    }}
-  >
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography
-          variant="caption"
-          sx={{
-            color: '#6B7280',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
-            letterSpacing: '0.5px',
-            display: 'block',
-            mb: 0.25,
-          }}
-        >
-          {title}
-        </Typography>
-        {loading ? (
-          <CircularProgress size={20} sx={{ mt: 0.5 }} />
-        ) : (
-          <>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: 700,
-                color: '#111827',
-                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
-                lineHeight: 1.2,
-              }}
-            >
-              {value || 'N/A'}
-            </Typography>
-            {subtitle && (
+const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => {
+  // ✅ Ensure value is safe for rendering
+  const displayValue = safeValue(value);
+  
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        height: '100%',
+        width: '100%',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+          borderColor: color,
+        },
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: '#6B7280',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              letterSpacing: '0.5px',
+              display: 'block',
+              mb: 0.25,
+            }}
+          >
+            {title}
+          </Typography>
+          {loading ? (
+            <CircularProgress size={20} sx={{ mt: 0.5 }} />
+          ) : (
+            <>
               <Typography
-                variant="caption"
+                variant="h4"
                 sx={{
-                  color: '#6B7280',
-                  display: 'block',
-                  mt: 0.25,
-                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                  fontWeight: 700,
+                  color: '#111827',
+                  fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                  lineHeight: 1.2,
                 }}
               >
-                {subtitle}
+                {displayValue}
               </Typography>
-            )}
-          </>
-        )}
-      </Box>
-      {Icon && (
-        <Box
-          sx={{
-            bgcolor: `${color}15`,
-            borderRadius: { xs: '10px', sm: '12px' },
-            p: { xs: 1, sm: 1.25, md: 1.5 },
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
+              {subtitle && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#6B7280',
+                    display: 'block',
+                    mt: 0.25,
+                    fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                  }}
+                >
+                  {subtitle}
+                </Typography>
+              )}
+            </>
+          )}
         </Box>
-      )}
-    </Stack>
-  </Paper>
-);
-// ============================================================
-// SAFE VALUE HELPER - MOVED TO TOP LEVEL
-// ============================================================
-const safeValue = (val) => {
-  if (val === undefined || val === null) return 'N/A';
-  if (typeof val === 'object' && val !== null) {
-    // If it's a Date object, format it
-    if (val instanceof Date) {
-      return val.toLocaleDateString();
-    }
-    // If it's a React element, return it as-is
-    if (React.isValidElement(val)) {
-      return val;
-    }
-    // Otherwise stringify
-    try {
-      return JSON.stringify(val);
-    } catch {
-      return 'N/A';
-    }
-  }
-  return val;
+        {Icon && (
+          <Box
+            sx={{
+              bgcolor: `${color}15`,
+              borderRadius: { xs: '10px', sm: '12px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
+          </Box>
+        )}
+      </Stack>
+    </Paper>
+  );
 };
+
 // ============================================================
-// INFO ROW - FULLY FIXED
+// INFO ROW - FIXED
 // ============================================================
 const InfoRow = ({ label, value }) => {
-  // ✅ Use the safeValue helper
+  // ✅ Use safeValue helper
   const displayValue = safeValue(value);
   
   return (
@@ -540,7 +544,6 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
     l.status === 'PENDING' || l.status === 'pending'
   ).length || 0;
 
-  // ✅ Ensure all values are properly converted
   const leaveBalanceValue = leaveData?.filter(l => 
     l.status === 'APPROVED' || l.status === 'approved'
   ).length || 0;
@@ -633,6 +636,7 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
     </Grid>
   );
 };
+
 // ============================================================
 // PERFORMANCE TAB
 // ============================================================
