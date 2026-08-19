@@ -81,21 +81,21 @@ import { ResponsiveContainer } from '../components/ResponsiveContainer';
 // ============================================================
 const safeValue = (val) => {
   if (val === undefined || val === null) return 'N/A';
-  if (typeof val === 'object' && val !== null) {
-    if (val instanceof Date) {
-      return val.toLocaleDateString();
-    }
-    if (React.isValidElement(val)) {
-      return val;
-    }
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+  if (val instanceof Date) return val.toLocaleDateString();
+  if (React.isValidElement(val)) return val;
+  if (typeof val === 'object') {
     try {
       return JSON.stringify(val);
     } catch {
       return 'N/A';
     }
   }
-  return val;
+  return String(val);
 };
+
 
 // ============================================================
 // NAVIGATION TABS
@@ -333,9 +333,11 @@ const PunchClock = ({ onPunch, currentStatus, loading }) => {
 // STAT CARD (Matches Dashboard)
 // ============================================================
 const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loading }) => {
-  // ✅ Ensure value is safe for rendering
-  const displayValue = safeValue(value);
-  
+  // ✅ Ensure value is a string or valid React node
+  const displayValue = typeof value === 'object' && value !== null && !React.isValidElement(value) 
+    ? JSON.stringify(value) 
+    : value;
+
   return (
     <Paper
       elevation={0}
@@ -425,9 +427,30 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 // INFO ROW - FIXED
 // ============================================================
 const InfoRow = ({ label, value }) => {
-  // ✅ Use safeValue helper
-  const displayValue = safeValue(value);
-  
+  // ✅ Convert any value to a renderable string
+  let displayValue = 'N/A';
+  if (value === undefined || value === null) {
+    displayValue = 'N/A';
+  } else if (typeof value === 'string') {
+    displayValue = value;
+  } else if (typeof value === 'number') {
+    displayValue = String(value);
+  } else if (typeof value === 'boolean') {
+    displayValue = value ? 'Yes' : 'No';
+  } else if (value instanceof Date) {
+    displayValue = value.toLocaleDateString();
+  } else if (React.isValidElement(value)) {
+    displayValue = value;
+  } else if (typeof value === 'object') {
+    try {
+      displayValue = JSON.stringify(value);
+    } catch {
+      displayValue = 'N/A';
+    }
+  } else {
+    displayValue = String(value);
+  }
+
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
       <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
@@ -439,6 +462,7 @@ const InfoRow = ({ label, value }) => {
     </Box>
   );
 };
+
 
 // ============================================================
 // NOTIFICATION BANNER
@@ -548,16 +572,16 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
     l.status === 'APPROVED' || l.status === 'approved'
   ).length || 0;
 
-  // ✅ Create safe values for StatCard
+  // ✅ All values are explicitly converted to strings
   const statValues = {
-    totalTrips: safeValue(totalTrips),
-    monthlyTrips: safeValue(monthlyTrips),
-    rating: safeValue(`${rating} ★`),
-    performanceScore: safeValue(`${driver?.performanceScore || 0}%`),
-    thisWeekHours: safeValue(`${thisWeekHours.toFixed(1)}h`),
-    timesheetEntries: safeValue(timesheetData?.length || 0),
-    leaveBalance: safeValue(`${leaveBalanceValue} days`),
-    pendingLeave: safeValue(pendingLeaveCount),
+    totalTrips: String(totalTrips),
+    monthlyTrips: String(monthlyTrips),
+    rating: `${rating} ★`,
+    performanceScore: `${driver?.performanceScore || 0}%`,
+    thisWeekHours: `${thisWeekHours.toFixed(1)}h`,
+    timesheetEntries: String(timesheetData?.length || 0),
+    leaveBalance: `${leaveBalanceValue} days`,
+    pendingLeave: String(pendingLeaveCount),
   };
 
   return (
