@@ -2852,7 +2852,7 @@ const DriverDashboard = () => {
   };
 
   // Use safe driver - ensure all values are primitives for rendering
-  const // ============================================================
+  // ============================================================
   // SAFE DRIVER - GUARANTEED PRIMITIVES FOR RENDERING
   // ============================================================
   const safeDriver = useMemo(() => {
