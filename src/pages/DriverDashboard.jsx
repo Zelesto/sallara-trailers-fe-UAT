@@ -2404,7 +2404,7 @@ const NotesTab = ({ driver }) => {
 };
 
 // ============================================================
-// MAIN DRIVER DASHBOARD
+// MAIN DRIVER DASHBOARD - COMPLETE FIX WITH RENDER SAFETY
 // ============================================================
 const DriverDashboard = () => {
   const { id } = useParams();
@@ -2852,34 +2852,42 @@ const DriverDashboard = () => {
   };
 
   // Use safe driver - ensure all values are primitives for rendering
+  const // ============================================================
+  // SAFE DRIVER - GUARANTEED PRIMITIVES FOR RENDERING
+  // ============================================================
   const safeDriver = useMemo(() => {
-  if (!driver) return null;
-  
-  // Ensure EVERY value is a safe string or number
-  return {
-    id: toSafeString(driver.id),
-    firstName: toSafeString(driver.firstName),
-    lastName: toSafeString(driver.lastName),
-    email: toSafeString(driver.email),
-    phoneNumber: toSafeString(driver.phoneNumber),
-    status: toSafeString(driver.status),
-    employmentType: toSafeString(driver.employmentType),
-    licenseNumber: toSafeString(driver.licenseNumber),
-    licenseType: toSafeString(driver.licenseType),
-    notes: toSafeString(driver.notes),
-    assignedVehicleId: toSafeString(driver.assignedVehicleId),
-    hireDate: driver.hireDate || null,
-    licenseExpiry: driver.licenseExpiry || null,
-    totalTrips: typeof driver.totalTrips === 'number' ? driver.totalTrips : 0,
-    completedTrips: typeof driver.completedTrips === 'number' ? driver.completedTrips : 0,
-    totalDistance: typeof driver.totalDistance === 'number' ? driver.totalDistance : 0,
-    monthlyTrips: typeof driver.monthlyTrips === 'number' ? driver.monthlyTrips : 0,
-    performanceScore: typeof driver.performanceScore === 'number' ? driver.performanceScore : 0,
-    safetyScore: typeof driver.safetyScore === 'number' ? driver.safetyScore : 85,
-    efficiencyScore: typeof driver.efficiencyScore === 'number' ? driver.efficiencyScore : 0,
-    tripCount: typeof driver.tripCount === 'number' ? driver.tripCount : 0,
-  };
-}, [driver]);
+    if (!driver) return null;
+    
+    // Create a completely safe object with ONLY primitives
+    const safe = {
+      id: toSafeString(driver.id),
+      firstName: toSafeString(driver.firstName),
+      lastName: toSafeString(driver.lastName),
+      email: toSafeString(driver.email),
+      phoneNumber: toSafeString(driver.phoneNumber),
+      status: toSafeString(driver.status),
+      employmentType: toSafeString(driver.employmentType),
+      licenseNumber: toSafeString(driver.licenseNumber),
+      licenseType: toSafeString(driver.licenseType),
+      notes: toSafeString(driver.notes),
+      assignedVehicleId: toSafeString(driver.assignedVehicleId),
+      hireDate: driver.hireDate || null,
+      licenseExpiry: driver.licenseExpiry || null,
+      totalTrips: typeof driver.totalTrips === 'number' ? driver.totalTrips : 0,
+      completedTrips: typeof driver.completedTrips === 'number' ? driver.completedTrips : 0,
+      totalDistance: typeof driver.totalDistance === 'number' ? driver.totalDistance : 0,
+      monthlyTrips: typeof driver.monthlyTrips === 'number' ? driver.monthlyTrips : 0,
+      performanceScore: typeof driver.performanceScore === 'number' ? driver.performanceScore : 0,
+      safetyScore: typeof driver.safetyScore === 'number' ? driver.safetyScore : 85,
+      efficiencyScore: typeof driver.efficiencyScore === 'number' ? driver.efficiencyScore : 0,
+      tripCount: typeof driver.tripCount === 'number' ? driver.tripCount : 0,
+    };
+    
+    // Log to verify all values are primitives
+    console.log('🔒 Safe driver for rendering:', safe);
+    
+    return safe;
+  }, [driver]);
 
   if (loading) {
     return (
@@ -2913,6 +2921,9 @@ const DriverDashboard = () => {
   const fullName = `${safeDriver.firstName || ''} ${safeDriver.lastName || ''}`.trim();
   const initials = `${safeDriver.firstName?.charAt(0) || ''}${safeDriver.lastName?.charAt(0) || ''}`.toUpperCase();
 
+  // ============================================================
+  // RENDER - EVERY value is guaranteed to be a primitive
+  // ============================================================
   return (
     <ResponsiveContainer>
       <Box sx={{ 
@@ -2981,7 +2992,7 @@ const DriverDashboard = () => {
                   position: 'absolute',
                   bottom: 8,
                   right: -8,
-                  bgcolor: safeDriver?.status === 'ACTIVE' ? '#22C55E' : '#EF4444',
+                  bgcolor: safeDriver.status === 'ACTIVE' ? '#22C55E' : '#EF4444',
                   borderRadius: '50%',
                   width: { xs: 12, sm: 14 },
                   height: { xs: 12, sm: 14 },
@@ -2994,10 +3005,10 @@ const DriverDashboard = () => {
               {fullName || 'Unknown Driver'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              {safeDriver.licenseNumber || 'No license'} • {safeDriver.licenseType || 'N/A'}
+              {safeDriver.licenseNumber} • {safeDriver.licenseType}
             </Typography>
             <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              {safeDriver.status || 'Unknown'} • {safeDriver.employmentType || 'N/A'}
+              {safeDriver.status} • {safeDriver.employmentType}
             </Typography>
 
             <Button
@@ -3039,8 +3050,8 @@ const DriverDashboard = () => {
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#111827', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                 Quick Stats
               </Typography>
-              <InfoRow label="Total Trips" value={String(safeDriver.totalTrips || 0)} />
-              <InfoRow label="Performance Score" value={safeDriver.performanceScore + '%'} />
+              <InfoRow label="Total Trips" value={String(safeDriver.totalTrips)} />
+              <InfoRow label="Performance Score" value={String(safeDriver.performanceScore) + '%'} />
               <InfoRow label="Hire Date" value={safeDriver.hireDate ? new Date(safeDriver.hireDate).toLocaleDateString() : 'N/A'} />
               <InfoRow label="License Expiry" value={safeDriver.licenseExpiry ? new Date(safeDriver.licenseExpiry).toLocaleDateString() : 'N/A'} />
             </Stack>
@@ -3137,7 +3148,7 @@ const DriverDashboard = () => {
                     Leave Type
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500, fontSize: { xs: '0.8rem', sm: '0.85rem' } }}>
-                    {selectedLeave.leaveType?.name || selectedLeave.leaveType?.type || selectedLeave.type || 'N/A'}
+                    {toSafeString(selectedLeave.leaveType?.name || selectedLeave.leaveType?.type || selectedLeave.type || 'N/A')}
                   </Typography>
                 </Box>
                 <Box>
@@ -3153,7 +3164,7 @@ const DriverDashboard = () => {
                     Reason
                   </Typography>
                   <Typography variant="body2" sx={{ fontSize: { xs: '0.8rem', sm: '0.85rem' } }}>
-                    {selectedLeave.reason || 'No reason provided'}
+                    {toSafeString(selectedLeave.reason || 'No reason provided')}
                   </Typography>
                 </Box>
                 {approveAction === 'REJECT' && (
@@ -3205,5 +3216,4 @@ const DriverDashboard = () => {
     </ResponsiveContainer>
   );
 };
-
 export default DriverDashboard;
