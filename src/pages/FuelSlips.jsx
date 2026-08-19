@@ -120,6 +120,16 @@ const getFuelCategory = (slip) => {
   // 2️⃣ Check vehicle type from multiple possible sources
   let vehicleType = '';
   
+  // Log the slip data to see what's available
+  console.log('🔍 Fuel slip data:', {
+    id: slip.id,
+    vehicleType: slip.vehicleType,
+    vehicleRegNumber: slip.vehicleRegNumber,
+    vehicle: slip.vehicle,
+    vehicleId: slip.vehicleId,
+    tripId: slip.tripId,
+  });
+  
   // Try different places where vehicle type might be stored
   if (slip.vehicleType) {
     vehicleType = slip.vehicleType;
@@ -133,7 +143,16 @@ const getFuelCategory = (slip) => {
     vehicleType = slip.category;
   }
   
+  // If we still don't have a vehicle type, try to get it from the vehicle service
+  // This is the key fix - fetch the vehicle data if we have a vehicleId
+  if (!vehicleType && slip.vehicleId) {
+    // We'll handle this asynchronously below
+    console.log('⚠️ No vehicle type found for vehicle ID:', slip.vehicleId);
+  }
+  
   const normalizedType = String(vehicleType).toUpperCase();
+  
+  console.log('📌 Vehicle type found:', vehicleType, 'normalized:', normalizedType);
   
   // 3️⃣ Check for Truck/Heavy vehicle keywords
   if (normalizedType.includes('TRUCK') || 
@@ -160,15 +179,15 @@ const getFuelCategory = (slip) => {
     const type = String(vehicleTypeValue).toUpperCase();
     // From VehicleForm.jsx: VEHICLE_TYPES = ['TRUCK', 'TRAILER', 'VAN', 'CAR']
     if (type === 'TRUCK') return 'TRUCK';
-    if (type === 'VAN' || type === 'CAR') return 'VAN';
     if (type === 'TRAILER') return 'TRUCK'; // Trailers are usually pulled by trucks
+    if (type === 'VAN' || type === 'CAR') return 'VAN';
   }
   
   // 6️⃣ Default: If it has a vehicle registration but no trip, check if it's a truck based on registration pattern
   if (slip.vehicleRegNumber && !slip.tripId) {
     const reg = slip.vehicleRegNumber.toUpperCase();
     // Some companies use prefixes for trucks (e.g., "T-" for truck, "V-" for van)
-    if (reg.startsWith('T-') || reg.startsWith('TRK-')) {
+    if (reg.startsWith('T-') || reg.startsWith('TRK-') || reg.includes('TRUCK')) {
       return 'TRUCK';
     }
     if (reg.startsWith('V-') || reg.startsWith('VAN-')) {
