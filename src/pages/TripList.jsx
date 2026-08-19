@@ -1,4 +1,4 @@
-// src/pages/TripList.jsx - DEV Version
+// src/pages/TripList.jsx
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
@@ -8,43 +8,135 @@ import TripMetricsForm from './TripMetricsForm';
 import TripDetails from './TripDetails';
 
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Typography, CircularProgress, Box, Select, MenuItem, FormControl, InputLabel,
-  Chip, IconButton, Button, Card, CardContent, Tooltip,
-  TablePagination, TextField, Alert, Stack, Popover, Divider,
-  Avatar, LinearProgress, Badge, Collapse, Fade, Grow,
+  Box,
+  Typography,
+  Paper,
   Grid,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Chip,
+  IconButton,
+  Button,
+  Tooltip,
+  TextField,
+  InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Stack,
+  Alert,
+  CircularProgress,
+  Divider,
+  Avatar,
+  Badge,
+  Popover,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
 } from '@mui/material';
-
 import {
-  Add, Edit, Delete, Visibility, CheckCircle, Refresh,
-  Search as SearchIcon, Dashboard, PlayArrow, Stop,
-  Warning as WarningIcon, LocationCity,
-  Person as PersonIcon, Business as BusinessIcon,
-  Receipt, Assignment, DirectionsCar,
-  ArrowBack, Close, FilterList, Clear,
-  Route as RouteIcon, CalendarToday, Speed, LocalGasStation,
-  Star, StarBorder, MoreVert, Download, Print,
+  Add as AddIcon,
+  Search as SearchIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  Refresh as RefreshIcon,
+  FileDownload as ExportIcon,
+  DirectionsCar,
+  Person as PersonIcon,
+  LocationOn,
+  Schedule as ScheduleIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Pending as PendingIcon,
+  PlayArrow as PlayArrowIcon,
+  Stop as StopIcon,
+  Warning as WarningIcon,
+  Dashboard as DashboardIcon,
+  Route as RouteIcon,
+  Close as CloseIcon,
+  FilterList as FilterListIcon,
+  Clear as ClearIcon,
+  LocationCity,
+  Star,
+  StarBorder,
+  TrendingUp,
+  TrendingDown,
+  Speed as SpeedIcon,
+  LocalGasStation,
 } from '@mui/icons-material';
+import { DataGrid } from '@mui/x-data-grid';
+import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
 
-/* ============================================================
-   CONSTANTS & CONFIGURATIONS
-   ============================================================ */
+// ============================================================
+// UTILITY FUNCTIONS (matching Dashboard styling)
+// ============================================================
 
-export const STATUS_CONFIG = {
-  DRAFT: { color: '#9e9e9e', bgColor: '#f5f5f5', label: 'Draft', icon: '✏️' },
-  PLANNED: { color: '#0288d1', bgColor: '#e3f2fd', label: 'Planned', icon: '📅' },
-  ASSIGNED: { color: '#7b1fa2', bgColor: '#f3e5f5', label: 'Assigned', icon: '👤' },
-  IN_PROGRESS: { color: '#ed6c02', bgColor: '#fff3e0', label: 'In Progress', icon: '🚚' },
-  ACTIVE: { color: '#2e7d32', bgColor: '#e8f5e8', label: 'Active', icon: '✅' },
-  PENDING: { color: '#ff9800', bgColor: '#fff3e0', label: 'Pending', icon: '⏳' },
-  COMPLETED: { color: '#0097a7', bgColor: '#e0f7fa', label: 'Completed', icon: '🏁' },
-  CANCELLED: { color: '#d32f2f', bgColor: '#ffebee', label: 'Cancelled', icon: '❌' },
-  CLOSED: { color: '#5d4037', bgColor: '#efebe9', label: 'Closed', icon: '🔒' },
-  FINALIZED: { color: '#388e3c', bgColor: '#e8f5e8', label: 'Finalized', icon: '📊' }
+const getColor = (color) => {
+  const colors = {
+    primary: '#4F46E5',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6',
+    secondary: '#6B7280',
+    purple: '#8B5CF6',
+    pink: '#EC4899',
+    teal: '#14B8A6',
+    indigo: '#6366F1',
+  };
+  return colors[color] || colors.primary;
 };
 
-export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
+const getColorBg = (color) => {
+  const colors = {
+    primary: '#EEF2FF',
+    success: '#D1FAE5',
+    warning: '#FEF3C7',
+    error: '#FEE2E2',
+    info: '#DBEAFE',
+    secondary: '#F3F4F6',
+    purple: '#EDE9FE',
+    pink: '#FCE7F3',
+    teal: '#CCFBF1',
+    indigo: '#E0E7FF',
+  };
+  return colors[color] || colors.primary;
+};
+
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-ZA', {
+    style: 'currency',
+    currency: 'ZAR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numAmount);
+};
+
+const formatNumber = (num, decimals = 0) => {
+  if (num === null || num === undefined || isNaN(num)) return '0';
+  const number = typeof num === 'string' ? parseFloat(num) : num;
+  return new Intl.NumberFormat('en-ZA', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(number);
+};
+
+// ============================================================
+// STATUS CONFIG (matching Dashboard patterns)
+// ============================================================
 
 const STATUS_KEYS = {
   CAN_START: ['PLANNED', 'ASSIGNED', 'DRAFT'],
@@ -52,13 +144,126 @@ const STATUS_KEYS = {
   CAN_REPORT_INCIDENT: ['IN_PROGRESS', 'ACTIVE'],
   CAN_FINALIZE: ['COMPLETED'],
   CAN_EDIT: ['DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 'ACTIVE', 'PENDING'],
-  CAN_DELETE: ['DRAFT', 'PLANNED', 'ASSIGNED', 'PENDING']
+  CAN_DELETE: ['DRAFT', 'PLANNED', 'ASSIGNED', 'PENDING'],
+  CAN_METRICS: ['IN_PROGRESS', 'ACTIVE', 'COMPLETED', 'FINALIZED'],
 };
 
-/* ============================================================
-   UI COMPONENTS
-   ============================================================ */
+// ============================================================
+// STAT CARD COMPONENT (matching Dashboard StatCard)
+// ============================================================
+const StatCard = React.memo(({
+  title,
+  value,
+  icon: Icon,
+  color = 'primary',
+  subtitle,
+  loading = false,
+}) => {
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
+  const SafeIcon = Icon || DashboardIcon;
 
+  return (
+    <Card
+      sx={{
+        bgcolor: '#FFFFFF',
+        borderRadius: { xs: '12px', sm: '14px', md: '16px' },
+        border: '1px solid #ECECEC',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        height: '100%',
+        width: '100%',
+        position: 'relative',
+        overflow: 'visible',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          borderColor: iconColor,
+        },
+      }}
+    >
+      <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+        {loading && (
+          <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
+            <CircularProgress size={16} thickness={4} />
+          </Box>
+        )}
+
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#6B7280',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                letterSpacing: '0.5px',
+                display: 'block',
+                opacity: loading ? 0.7 : 1,
+                mb: 0.25,
+              }}
+            >
+              {title}
+            </Typography>
+            
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#111827',
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                lineHeight: 1.2,
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {value || 0}
+            </Typography>
+            
+            {subtitle && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#6B7280',
+                  display: 'block',
+                  mt: 0.25,
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                  opacity: loading ? 0.7 : 1,
+                }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+
+          <Box
+            sx={{
+              bgcolor: bgColor,
+              borderRadius: { xs: '10px', sm: '12px', md: '14px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)',
+              },
+            }}
+          >
+            <SafeIcon sx={{ 
+              color: iconColor, 
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+            }} />
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+});
+
+// ============================================================
+// STATUS CHIP (matching Dashboard Chip styling)
+// ============================================================
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
   
@@ -67,20 +272,23 @@ const StatusChip = ({ status }) => {
       label={config.label}
       size="small"
       sx={{
-        backgroundColor: config.bgColor,
-        color: config.color,
+        backgroundColor: config.bgColor || '#F3F4F6',
+        color: config.color || '#6B7280',
         fontWeight: 600,
-        fontSize: '0.65rem',
-        height: 22,
-        border: `1px solid ${config.color}20`,
-        '& .MuiChip-label': { px: 1, py: 0.25 },
-        '& .MuiChip-icon': { fontSize: '0.8rem', ml: 0.5 }
+        fontSize: { xs: '0.5rem', sm: '0.6rem' },
+        height: { xs: 18, sm: 22 },
+        border: `1px solid ${(config.color || '#6B7280')}20`,
+        '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
+        '& .MuiChip-icon': { fontSize: { xs: '0.6rem', sm: '0.7rem' }, ml: 0.5 }
       }}
       icon={<span>{config.icon}</span>}
     />
   );
 };
 
+// ============================================================
+// LOCATION DISPLAY (matching Dashboard patterns)
+// ============================================================
 const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -102,8 +310,8 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
         }}
       >
         <Stack direction="row" alignItems="center" spacing={0.25}>
-          <LocationCity sx={{ fontSize: 12, color: 'text.secondary' }} />
-          <Typography sx={{ fontSize: '0.75rem' }}>{displayCity}</Typography>
+          <LocationCity sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#6B7280' }} />
+          <Typography sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{displayCity}</Typography>
         </Stack>
       </Box>
       
@@ -133,61 +341,18 @@ const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
 
 const InfoRow = ({ label, value }) => (
   <Box>
-    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
       {label}
     </Typography>
-    <Typography variant="body2" sx={{ fontSize: '0.75rem', wordBreak: 'break-word' }}>
+    <Typography variant="body2" sx={{ fontSize: '0.7rem', wordBreak: 'break-word', fontWeight: 500 }}>
       {value}
     </Typography>
   </Box>
 );
 
-const StatCard = ({ title, value, subtitle, icon, color = '#4F46E5', loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2,
-      borderRadius: '12px',
-      border: '1px solid #ECECEC',
-      backgroundColor: '#FFFFFF',
-      height: '100%',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        transform: 'translateY(-2px)',
-      },
-    }}
-  >
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-      <Box>
-        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.5px' }}>
-          {title}
-        </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mt: 0.5 }}>
-          {value || 'N/A'}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mt: 0.5, fontSize: '0.65rem' }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      <Box
-        sx={{
-          bgcolor: `${color}15`,
-          borderRadius: '10px',
-          p: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {icon}
-      </Box>
-    </Stack>
-  </Paper>
-);
-
+// ============================================================
+// NOTIFICATION HOOK (matching Dashboard)
+// ============================================================
 const useSimpleNotification = () => {
   const [notification, setNotification] = useState(null);
   const showNotification = useCallback((message, type = 'info') => {
@@ -198,10 +363,9 @@ const useSimpleNotification = () => {
   return { notification, showNotification };
 };
 
-/* ============================================================
-   MAIN COMPONENT
-   ============================================================ */
-
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 function TripList() {
   const { notification, showNotification } = useSimpleNotification();
   
@@ -220,6 +384,11 @@ function TripList() {
   const [selectedTripForNotice, setSelectedTripForNotice] = useState(null);
   const [pagination, setPagination] = useState({ page: 0, pageSize: 10, total: 0 });
   
+  // Delete Dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   // ✅ Metrics cache for performance
   const metricsCache = useRef({});
   const fetchTimerRef = useRef(null);
@@ -234,7 +403,9 @@ function TripList() {
     [trips]
   );
 
-  // ✅ fetchTrips with metrics fetching
+  // ============================================================
+  // FETCH TRIPS
+  // ============================================================
   const fetchTrips = useCallback(async ({ 
     page = 0, 
     size = pagination.pageSize, 
@@ -270,20 +441,17 @@ function TripList() {
         contentLength: response.content?.length
       });
 
-      // ✅ Fetch metrics for each trip in parallel with caching
+      // ✅ Fetch metrics for each trip with caching
       const tripsWithMetrics = await Promise.all(
         (response.content || []).map(async (trip) => {
-          // Check cache first
           if (metricsCache.current[trip.id]) {
             return { ...trip, metrics: metricsCache.current[trip.id] };
           }
-          
           try {
             const metrics = await tripService.getTripMetrics(trip.id);
             metricsCache.current[trip.id] = metrics;
             return { ...trip, metrics };
           } catch {
-            // No metrics found
             metricsCache.current[trip.id] = null;
             return { ...trip, metrics: null };
           }
@@ -340,7 +508,7 @@ function TripList() {
     tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
       .then(() => {
         showNotification('Trip started successfully!', 'success');
-        metricsCache.current = {}; // Clear cache
+        metricsCache.current = {};
         fetchTrips({ page: pagination.page });
       })
       .catch(err => {
@@ -363,7 +531,7 @@ function TripList() {
     })
       .then(() => {
         showNotification('Trip ended successfully!', 'success');
-        metricsCache.current = {}; // Clear cache
+        metricsCache.current = {};
         fetchTrips({ page: pagination.page });
       })
       .catch(err => {
@@ -383,11 +551,9 @@ function TripList() {
     fetchTrips({ page: pagination.page });
   };
 
-  // ✅ Updated: Clear cache and refresh after metrics save
   const handleMetricsSuccess = () => {
     console.log('🔄 Metrics updated, refreshing trip list...');
     setShowMetricsModal(false);
-    // Clear cache to force fresh fetch
     metricsCache.current = {};
     setTimeout(() => {
       fetchTrips({ page: pagination.page });
@@ -417,7 +583,7 @@ function TripList() {
     try {
       await tripService.finalizeTrip(trip.id);
       showNotification('Trip finalized successfully!', 'success');
-      metricsCache.current = {}; // Clear cache
+      metricsCache.current = {};
       fetchTrips({ page: pagination.page });
     } catch (err) {
       console.error('Error finalizing trip:', err);
@@ -425,18 +591,32 @@ function TripList() {
     }
   };
 
-  const handleDeleteTrip = async (trip) => {
-    if (!window.confirm('Are you sure you want to delete this trip? This action cannot be undone.')) return;
-    
+  const handleDeleteClick = (id) => {
+    setDeleteId(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
     try {
-      await tripService.deleteTrip(trip.id);
+      await tripService.deleteTrip(deleteId);
+      setDeleteDialogOpen(false);
+      setDeleteId(null);
       showNotification('Trip deleted successfully', 'success');
-      metricsCache.current = {}; // Clear cache
+      metricsCache.current = {};
       fetchTrips({ page: 0 });
     } catch (err) {
       console.error('Error deleting trip:', err);
       showNotification('Failed to delete trip', 'error');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setDeleteId(null);
   };
 
   const handleClearFilters = () => {
@@ -449,7 +629,7 @@ function TripList() {
   const handleModalClose = (callback) => () => {
     callback();
     setTimeout(() => {
-      metricsCache.current = {}; // Clear cache
+      metricsCache.current = {};
       fetchTrips({ page: pagination.page });
     }, 300);
   };
@@ -482,7 +662,8 @@ function TripList() {
       canReport: STATUS_KEYS.CAN_REPORT_INCIDENT.includes(trip.status),
       canFinalize: STATUS_KEYS.CAN_FINALIZE.includes(trip.status),
       canEdit: STATUS_KEYS.CAN_EDIT.includes(trip.status),
-      canDelete: STATUS_KEYS.CAN_DELETE.includes(trip.status)
+      canDelete: STATUS_KEYS.CAN_DELETE.includes(trip.status),
+      canMetrics: STATUS_KEYS.CAN_METRICS.includes(trip.status),
     };
   };
 
@@ -494,17 +675,46 @@ function TripList() {
     return counts;
   }, [trips]);
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+  
   if (loading && trips.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+      <Box sx={{ 
+        bgcolor: '#F7F7FC', 
+        minHeight: '100vh',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
         <CircularProgress size={40} />
+        <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading trips...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
-      <Box sx={{ maxWidth: '1440px', margin: '0 auto' }}>
+    <Box sx={{ 
+      bgcolor: '#F7F7FC', 
+      minHeight: '100vh',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
+      width: '100%',
+      overflowX: 'hidden' 
+    }}>
+      <Box sx={{ 
+        maxWidth: '1600px', 
+        margin: '0 auto',
+        flex: 1,
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        
+        {/* Notification */}
         {notification && (
           <Alert 
             severity={notification.type} 
@@ -515,38 +725,73 @@ function TripList() {
           </Alert>
         )}
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        {/* Header - matching Dashboard */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          mb={{ xs: 2, sm: 2.5, md: 3 }}
+          spacing={{ xs: 1, sm: 0 }}
+        >
           <Box>
-            <Typography variant="h5" fontWeight="700" sx={{ fontSize: '1.25rem' }}>
+            <Typography 
+              variant="h5" 
+              fontWeight="700" 
+              sx={{ 
+                fontSize: { 
+                  xs: '1.1rem', 
+                  sm: '1.3rem', 
+                  md: '1.4rem', 
+                  lg: '1.5rem' 
+                } 
+              }}
+            >
               Trip Management
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                fontSize: { 
+                  xs: '0.7rem', 
+                  sm: '0.8rem', 
+                  md: '0.85rem' 
+                } 
+              }}
+            >
               Manage and track all trips • {pagination.total} total trips
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
             <Button
-              startIcon={<Refresh sx={{ fontSize: '0.9rem' }} />}
+              variant="outlined"
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
               onClick={() => {
-                metricsCache.current = {}; // Clear cache
+                metricsCache.current = {};
                 fetchTrips({ page: pagination.page });
               }}
-              variant="outlined"
               size="small"
-              sx={{ fontSize: '0.75rem', py: 1, borderRadius: '10px', textTransform: 'none' }}
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+              }}
             >
               Refresh
             </Button>
             <Button
-              startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-              onClick={() => setShowCreateModal(true)}
               variant="contained"
+              startIcon={<AddIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={() => setShowCreateModal(true)}
               size="small"
-              sx={{ 
-                fontSize: '0.75rem', 
-                py: 1, 
+              sx={{
                 borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
                 textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
                 background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
@@ -556,87 +801,106 @@ function TripList() {
               New Trip
             </Button>
           </Stack>
-        </Box>
+        </Stack>
 
-        {/* Stats Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={3}>
+        {/* Stats Cards - matching Dashboard */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
+          sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            width: '100%',
+            margin: 0,
+          }}
+        >
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Total Trips"
               value={pagination.total}
+              icon={RouteIcon}
+              color="primary"
               subtitle="All trips"
-              icon={<RouteIcon sx={{ color: '#4F46E5', fontSize: '1.3rem' }} />}
-              color="#4F46E5"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Active"
               value={getTripCounts.ACTIVE || 0}
+              icon={DirectionsCar}
+              color="success"
               subtitle="Currently active"
-              icon={<DirectionsCar sx={{ color: '#22C55E', fontSize: '1.3rem' }} />}
-              color="#22C55E"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="In Progress"
               value={getTripCounts.IN_PROGRESS || 0}
+              icon={PendingIcon}
+              color="warning"
               subtitle="Ongoing trips"
-              icon={<Speed sx={{ color: '#F59E0B', fontSize: '1.3rem' }} />}
-              color="#F59E0B"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Completed"
               value={getTripCounts.COMPLETED || 0}
+              icon={CheckCircleIcon}
+              color="purple"
               subtitle="Finished trips"
-              icon={<CheckCircle sx={{ color: '#8B5CF6', fontSize: '1.3rem' }} />}
-              color="#8B5CF6"
             />
           </Grid>
         </Grid>
 
-        {/* Filters */}
+        {/* Filters - matching Dashboard filter style */}
         <Paper
           elevation={0}
           sx={{
-            p: 2,
-            mb: 3,
-            borderRadius: '16px',
+            p: { xs: 1.5, sm: 2 },
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            borderRadius: { xs: '12px', sm: '16px' },
             border: '1px solid #ECECEC',
             bgcolor: '#FFFFFF',
+            width: '100%',
           }}
         >
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={{ xs: 1, sm: 1.5 }}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            flexWrap="wrap"
+            useFlexGap
+          >
             <TextField
               size="small"
-              label="Search"
-              placeholder="Trip #, City, Customer..."
+              placeholder="Search trips..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon sx={{ mr: 0.5, fontSize: '0.9rem', color: 'text.secondary' }} />
-              }}
               sx={{ 
-                minWidth: 200, 
-                '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-                '& .MuiInputBase-root': { fontSize: '0.8rem', borderRadius: '10px' },
+                flex: 1,
+                minWidth: { xs: '100%', sm: 200 },
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />
+                  </InputAdornment>
+                ),
               }}
             />
-
-            <FormControl size="small" sx={{ minWidth: 130 }}>
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+            
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
+              <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Status</InputLabel>
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 label="Status"
-                sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
               >
-                <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Statuses</MenuItem>
+                <MenuItem value="all" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Statuses</MenuItem>
                 {STATUS_OPTIONS.map(status => (
-                  <MenuItem key={status} value={status} sx={{ fontSize: '0.75rem' }}>
+                  <MenuItem key={status} value={status} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                     {STATUS_CONFIG[status]?.label || status}
                   </MenuItem>
                 ))}
@@ -644,34 +908,34 @@ function TripList() {
             </FormControl>
 
             {uniqueCities.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>City</InputLabel>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 140 } }}>
+                <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>City</InputLabel>
                 <Select
                   value={cityFilter}
                   onChange={(e) => setCityFilter(e.target.value)}
                   label="City"
-                  sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                  sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
                 >
-                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Cities</MenuItem>
+                  <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Cities</MenuItem>
                   {uniqueCities.map(city => (
-                    <MenuItem key={city} value={city} sx={{ fontSize: '0.75rem' }}>{city}</MenuItem>
+                    <MenuItem key={city} value={city} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>{city}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
             )}
 
             {uniqueCustomers.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Customer</InputLabel>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+                <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Customer</InputLabel>
                 <Select
                   value={customerFilter}
                   onChange={(e) => setCustomerFilter(e.target.value)}
                   label="Customer"
-                  sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                  sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
                 >
-                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Customers</MenuItem>
+                  <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Customers</MenuItem>
                   {uniqueCustomers.map(customer => (
-                    <MenuItem key={customer} value={customer} sx={{ fontSize: '0.75rem' }}>{customer}</MenuItem>
+                    <MenuItem key={customer} value={customer} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>{customer}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -682,38 +946,65 @@ function TripList() {
               disabled={!searchText && statusFilter === 'all' && !cityFilter && !customerFilter}
               variant="outlined"
               size="small"
-              startIcon={<Clear sx={{ fontSize: '0.8rem' }} />}
-              sx={{ fontSize: '0.7rem', py: 1, borderRadius: '10px', textTransform: 'none' }}
+              startIcon={<ClearIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 1.5 },
+              }}
             >
-              Clear Filters
+              Clear
             </Button>
           </Stack>
         </Paper>
 
-        {/* Table */}
+        {/* Table - matching Dashboard table styling */}
         <Paper
           elevation={0}
           sx={{
-            borderRadius: '16px',
+            borderRadius: { xs: '12px', sm: '16px' },
             border: '1px solid #ECECEC',
-            overflow: 'hidden',
             bgcolor: '#FFFFFF',
+            width: '100%',
+            overflow: 'hidden',
           }}
         >
           <TableContainer>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#F9FAFB' }}>
                 <TableRow>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Trip #</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Customer</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Vehicle</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Driver</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Status</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Origin</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Destination</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Distance</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Date</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Actions</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Trip #
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Customer
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Vehicle
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Driver
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Status
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Origin
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Destination
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Distance
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Date
+                  </TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
+                    Actions
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -741,41 +1032,41 @@ function TripList() {
                     
                     return (
                       <TableRow key={trip.id} hover sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
-                          <Typography fontWeight="600" sx={{ fontSize: '0.75rem', color: '#4F46E5' }}>
+                        <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
+                          <Typography fontWeight="600" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#4F46E5' }}>
                             {trip.tripNumber}
                           </Typography>
                           {trip.referenceNumber && (
-                            <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#6B7280', display: 'block' }}>
+                            <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.55rem' }, color: '#6B7280', display: 'block' }}>
                               REF: {trip.referenceNumber}
                             </Typography>
                           )}
                         </TableCell>
 
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
+                        <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
                           {display.customerName !== 'N/A' ? (
-                            <Typography sx={{ fontSize: '0.75rem' }}>{display.customerName}</Typography>
+                            <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>{display.customerName}</Typography>
                           ) : (
-                            <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
+                            <Typography color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>N/A</Typography>
                           )}
                         </TableCell>
 
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
+                        <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
                           {display.vehicleReg !== 'N/A' ? (
-                            <Typography sx={{ fontSize: '0.75rem' }}>{display.vehicleReg}</Typography>
+                            <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>{display.vehicleReg}</Typography>
                           ) : (
-                            <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
+                            <Typography color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>N/A</Typography>
                           )}
                         </TableCell>
 
-                        <TableCell sx={{ fontSize: '0.75rem', py: 1 }}>
+                        <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
                           {display.driverName !== 'N/A' ? (
                             <Stack direction="row" alignItems="center" spacing={0.5}>
-                              <PersonIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-                              <Typography sx={{ fontSize: '0.75rem' }}>{display.driverName}</Typography>
+                              <PersonIcon sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#6B7280' }} />
+                              <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>{display.driverName}</Typography>
                             </Stack>
                           ) : (
-                            <Typography color="text.secondary" sx={{ fontSize: '0.7rem' }}>N/A</Typography>
+                            <Typography color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>N/A</Typography>
                           )}
                         </TableCell>
 
@@ -803,13 +1094,12 @@ function TripList() {
                           />
                         </TableCell>
 
-                        {/* ✅ UPDATED: Distance column with actual metrics */}
+                        {/* ✅ Distance column with actual metrics */}
                         <TableCell sx={{ py: 0.5 }}>
                           {(() => {
                             const plannedDistance = trip.plannedDistanceKm;
                             const actualDistance = trip.metrics?.totalDistanceKm || trip.totalDistanceKm;
                             
-                            // If we have actual distance from metrics
                             if (actualDistance) {
                               return (
                                 <Tooltip 
@@ -818,10 +1108,10 @@ function TripList() {
                                 >
                                   <Chip
                                     size="small"
-                                    label={`${actualDistance} km`}
+                                    label={`${typeof actualDistance === 'number' ? actualDistance.toFixed(1) : actualDistance} km`}
                                     sx={{ 
-                                      fontSize: '0.65rem', 
-                                      height: 20, 
+                                      fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                                      height: { xs: 18, sm: 22 },
                                       bgcolor: '#D1FAE5',
                                       color: '#065F46',
                                       fontWeight: 600,
@@ -832,7 +1122,6 @@ function TripList() {
                               );
                             }
                             
-                            // Fallback to planned distance
                             if (plannedDistance) {
                               return (
                                 <Chip
@@ -840,8 +1129,8 @@ function TripList() {
                                   label={`${plannedDistance} km`}
                                   variant="outlined"
                                   sx={{ 
-                                    fontSize: '0.65rem', 
-                                    height: 20,
+                                    fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                                    height: { xs: 18, sm: 22 },
                                     color: '#6B7280'
                                   }}
                                 />
@@ -849,12 +1138,12 @@ function TripList() {
                             }
                             
                             return (
-                              <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>-</Typography>
+                              <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#6B7280' }}>-</Typography>
                             );
                           })()}
                         </TableCell>
 
-                        <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                        <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
                           {trip.plannedStartDate 
                             ? dayjs(trip.plannedStartDate).format('DD MMM YYYY')
                             : '-'}
@@ -864,60 +1153,102 @@ function TripList() {
                           <Box display="flex" gap={0.25} flexWrap="wrap">
                             {display.canStart && (
                               <Tooltip title="Start Trip" arrow>
-                                <IconButton size="small" color="success" onClick={() => handleStartTrip(trip)} sx={{ p: 0.5 }}>
-                                  <PlayArrow sx={{ fontSize: '0.9rem' }} />
+                                <IconButton 
+                                  size="small" 
+                                  color="success" 
+                                  onClick={() => handleStartTrip(trip)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <PlayArrowIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                             )}
 
                             {display.canEnd && (
                               <Tooltip title="End Trip" arrow>
-                                <IconButton size="small" color="error" onClick={() => handleEndTrip(trip)} sx={{ p: 0.5 }}>
-                                  <Stop sx={{ fontSize: '0.9rem' }} />
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => handleEndTrip(trip)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <StopIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                             )}
 
                             {display.canReport && (
                               <Tooltip title="Add Notice" arrow>
-                                <IconButton size="small" color="warning" onClick={() => handleOpenNoticeWizard(trip)} sx={{ p: 0.5 }}>
-                                  <WarningIcon sx={{ fontSize: '0.9rem' }} />
+                                <IconButton 
+                                  size="small" 
+                                  color="warning" 
+                                  onClick={() => handleOpenNoticeWizard(trip)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <WarningIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                             )}
 
                             <Tooltip title="View Details" arrow>
-                              <IconButton size="small" onClick={() => handleViewTrip(trip)} sx={{ p: 0.5 }}>
-                                <Visibility sx={{ fontSize: '0.9rem' }} />
+                              <IconButton 
+                                size="small" 
+                                color="primary" 
+                                onClick={() => handleViewTrip(trip)} 
+                                sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                              >
+                                <ViewIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                               </IconButton>
                             </Tooltip>
 
                             {display.canEdit && (
                               <Tooltip title="Edit Trip" arrow>
-                                <IconButton size="small" onClick={() => handleEditTrip(trip)} sx={{ p: 0.5 }}>
-                                  <Edit sx={{ fontSize: '0.9rem' }} />
+                                <IconButton 
+                                  size="small" 
+                                  color="secondary" 
+                                  onClick={() => handleEditTrip(trip)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                             )}
 
-                            <Tooltip title="Trip Metrics" arrow>
-                              <IconButton size="small" onClick={() => handleOpenMetrics(trip)} sx={{ p: 0.5 }}>
-                                <Dashboard sx={{ fontSize: '0.9rem' }} />
-                              </IconButton>
-                            </Tooltip>
+                            {display.canMetrics && (
+                              <Tooltip title="Trip Metrics" arrow>
+                                <IconButton 
+                                  size="small" 
+                                  color="info" 
+                                  onClick={() => handleOpenMetrics(trip)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <DashboardIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
 
                             {display.canFinalize && (
                               <Tooltip title="Finalize Trip" arrow>
-                                <IconButton size="small" color="success" onClick={() => handleFinalizeTrip(trip)} sx={{ p: 0.5 }}>
-                                  <CheckCircle sx={{ fontSize: '0.9rem' }} />
+                                <IconButton 
+                                  size="small" 
+                                  color="success" 
+                                  onClick={() => handleFinalizeTrip(trip)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <CheckCircleIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                             )}
 
                             {display.canDelete && (
                               <Tooltip title="Delete Trip" arrow>
-                                <IconButton size="small" color="error" onClick={() => handleDeleteTrip(trip)} sx={{ p: 0.5 }}>
-                                  <Delete sx={{ fontSize: '0.9rem' }} />
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => handleDeleteClick(trip.id)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                             )}
@@ -940,7 +1271,7 @@ function TripList() {
               rowsPerPage={pagination.pageSize}
               onRowsPerPageChange={(event) => {
                 const newSize = parseInt(event.target.value, 10);
-                metricsCache.current = {}; // Clear cache
+                metricsCache.current = {};
                 fetchTrips({ page: 0, size: newSize });
               }}
               rowsPerPageOptions={[5, 10, 25, 50]}
@@ -992,7 +1323,7 @@ function TripList() {
             tripId={selectedTrip.id}
             onClose={() => setShowDetailsModal(false)}
             onUpdate={() => {
-              metricsCache.current = {}; // Clear cache
+              metricsCache.current = {};
               fetchTrips({ page: pagination.page });
             }}
           />
@@ -1009,6 +1340,43 @@ function TripList() {
             }}
           />
         )}
+
+        {/* Delete Dialog */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={handleDeleteCancel}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+            <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
+            Delete Trip
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+              Are you sure you want to delete this trip? This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button 
+              onClick={handleDeleteCancel} 
+              size="small" 
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              variant="contained"
+              color="error"
+              disabled={deleting}
+              size="small"
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+            >
+              {deleting ? <CircularProgress size={18} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Box>
   );
