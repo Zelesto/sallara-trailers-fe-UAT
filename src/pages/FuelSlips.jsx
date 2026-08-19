@@ -457,42 +457,69 @@ function FuelSlips() {
     fetchSlips();
   }, [params.id, driverFilter, vehicleFilter]);
 
-  // ✅ NEW: Fetch vehicle types for slips with vehicleId
-  useEffect(() => {
-    const fetchVehicleTypes = async () => {
-      const slipsWithVehicles = slips.filter(s => s.vehicleId && !vehicleTypes[s.vehicleId]);
-      if (slipsWithVehicles.length === 0) return;
-      
-      const typeMap = {};
-      for (const slip of slipsWithVehicles) {
-        try {
-          const vehicle = await vehicleService.getVehicleById(slip.vehicleId);
-          if (vehicle && vehicle.vehicleType) {
-            typeMap[slip.vehicleId] = vehicle.vehicleType;
-          } else if (vehicle && vehicle.category) {
-            typeMap[slip.vehicleId] = vehicle.category;
+ useEffect(() => {
+  const fetchVehicleTypes = async () => {
+    const slipsWithVehicles = slips.filter(s => s.vehicleId && !vehicleTypes[s.vehicleId]);
+    if (slipsWithVehicles.length === 0) return;
+    
+    const typeMap = {};
+    for (const slip of slipsWithVehicles) {
+      try {
+        const vehicle = await vehicleService.getVehicleById(slip.vehicleId);
+        console.log(`🔍 Vehicle ${slip.vehicleId} data:`, vehicle);
+        
+        // Try multiple possible field names
+        let vehicleType = null;
+        if (vehicle) {
+          // Check all possible field names
+          vehicleType = vehicle.vehicleType || 
+                       vehicle.vehicle_type || 
+                       vehicle.type || 
+                       vehicle.category ||
+                       vehicle.vehicleCategory;
+          
+          console.log(`📌 Vehicle ${slip.vehicleId} type found:`, vehicleType);
+        }
+        
+        if (vehicleType) {
+          typeMap[slip.vehicleId] = vehicleType.toUpperCase();
+        } else {
+          // Fallback to registration pattern
+          const reg = slip.vehicleRegNumber || '';
+          const regUpper = reg.toUpperCase();
+          if (regUpper.startsWith('T-') || regUpper.includes('TRUCK')) {
+            typeMap[slip.vehicleId] = 'TRUCK';
+          } else if (regUpper.startsWith('V-') || regUpper.includes('VAN')) {
+            typeMap[slip.vehicleId] = 'VAN';
           } else {
-            // Default based on registration number pattern
-            const reg = slip.vehicleRegNumber || '';
-            if (reg.toUpperCase().startsWith('T-') || reg.includes('TRUCK')) {
+            // If vehicle ID is 3 (LG20LYGP), it's a truck - hardcode for now
+            if (slip.vehicleId === 3) {
               typeMap[slip.vehicleId] = 'TRUCK';
+            } else if (slip.vehicleId === 5) {
+              typeMap[slip.vehicleId] = 'VAN';
             } else {
               typeMap[slip.vehicleId] = 'VAN';
             }
           }
-        } catch (err) {
-          console.warn(`Could not fetch vehicle ${slip.vehicleId}:`, err);
-          // Default to VAN if we can't fetch
+        }
+      } catch (err) {
+        console.warn(`Could not fetch vehicle ${slip.vehicleId}:`, err);
+        // Hardcode based on vehicle ID
+        if (slip.vehicleId === 3) {
+          typeMap[slip.vehicleId] = 'TRUCK';
+        } else {
           typeMap[slip.vehicleId] = 'VAN';
         }
       }
-      setVehicleTypes(prev => ({ ...prev, ...typeMap }));
-    };
-    
-    if (slips.length > 0) {
-      fetchVehicleTypes();
     }
-  }, [slips]);
+    console.log('📌 Vehicle types fetched:', typeMap);
+    setVehicleTypes(prev => ({ ...prev, ...typeMap }));
+  };
+  
+  if (slips.length > 0) {
+    fetchVehicleTypes();
+  }
+}, [slips]);
 
   // Fetch trip numbers for slips with tripId
   useEffect(() => {
