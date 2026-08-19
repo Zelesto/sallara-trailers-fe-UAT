@@ -398,16 +398,96 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 // ============================================================
 // INFO ROW
 // ============================================================
-const InfoRow = ({ label, value }) => (
-  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
-    <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-      {label}
-    </Typography>
-    <Typography variant="body2" sx={{ color: '#111827', fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}>
-      {value}
-    </Typography>
-  </Box>
-);
+const InfoRow = ({ label, value }) => {
+  // ✅ Ensure value is a string or React node, not an object
+  const displayValue = typeof value === 'object' && value !== null 
+    ? JSON.stringify(value) 
+    : value || 'N/A';
+    
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        height: '100%',
+        width: '100%',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+          borderColor: color,
+        },
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: '#6B7280',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+              letterSpacing: '0.5px',
+              display: 'block',
+              mb: 0.25,
+            }}
+          >
+            {title}
+          </Typography>
+          {loading ? (
+            <CircularProgress size={20} sx={{ mt: 0.5 }} />
+          ) : (
+            <>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: '#111827',
+                  fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                  lineHeight: 1.2,
+                }}
+              >
+                {displayValue}
+              </Typography>
+              {subtitle && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#6B7280',
+                    display: 'block',
+                    mt: 0.25,
+                    fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                  }}
+                >
+                  {subtitle}
+                </Typography>
+              )}
+            </>
+          )}
+        </Box>
+        {Icon && (
+          <Box
+            sx={{
+              bgcolor: `${color}15`,
+              borderRadius: { xs: '10px', sm: '12px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
+          </Box>
+        )}
+      </Stack>
+    </Paper>
+  );
+};
 
 // ============================================================
 // NOTIFICATION BANNER
@@ -513,13 +593,19 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
     l.status === 'PENDING' || l.status === 'pending'
   ).length || 0;
 
+  // ✅ Ensure all values are strings or numbers, not objects
+  const safeValue = (val) => {
+    if (typeof val === 'object' && val !== null) return JSON.stringify(val);
+    return val;
+  };
+
   return (
     <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Total Trips"
-          value={totalTrips}
-          subtitle={`${monthlyTrips} this month`}
+          value={safeValue(totalTrips)}
+          subtitle={`${safeValue(monthlyTrips)} this month`}
           icon={<RouteIcon />}
           color="#4F46E5"
           loading={loading}
@@ -528,8 +614,8 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Rating"
-          value={`${rating} ★`}
-          subtitle={`${driver?.performanceScore || 0}% performance`}
+          value={safeValue(`${rating} ★`)}
+          subtitle={`${safeValue(driver?.performanceScore || 0)}% performance`}
           icon={<StarIcon />}
           color="#F59E0B"
           loading={loading}
@@ -538,8 +624,8 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="This Week"
-          value={`${thisWeekHours.toFixed(1)}h`}
-          subtitle={`${timesheetData?.length || 0} entries`}
+          value={safeValue(`${thisWeekHours.toFixed(1)}h`)}
+          subtitle={`${safeValue(timesheetData?.length || 0)} entries`}
           icon={<AccessTimeIcon />}
           color="#8B5CF6"
           loading={loading}
@@ -548,8 +634,8 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
       <Grid size={{ xs: 6, sm: 3 }}>
         <StatCard
           title="Leave Balance"
-          value={`${leaveData?.filter(l => l.status === 'APPROVED' || l.status === 'approved').length || 0} days`}
-          subtitle={`${pendingLeaveCount} pending requests`}
+          value={safeValue(`${leaveData?.filter(l => l.status === 'APPROVED' || l.status === 'approved').length || 0} days`)}
+          subtitle={`${safeValue(pendingLeaveCount)} pending requests`}
           icon={<BeachAccessIcon />}
           color="#22C55E"
           loading={loading}
@@ -581,7 +667,7 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
               <InfoRow label="Email" value={driver?.email || 'N/A'} />
               <InfoRow label="Hire Date" value={driver?.hireDate ? new Date(driver.hireDate).toLocaleDateString() : 'N/A'} />
               <InfoRow label="Years with Company" value={`${yearsWithCompany} years`} />
-              <InfoRow label="Total Distance" value={`${totalDistance.toLocaleString()} km`} />
+              <InfoRow label="Total Distance" value={`${(totalDistance || 0).toLocaleString()} km`} />
             </Grid>
           </Grid>
         </Paper>
