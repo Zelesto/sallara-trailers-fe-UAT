@@ -1,8 +1,9 @@
-// src/pages/FuelSlips.jsx - Updated with Dashboard styling and features
+// src/pages/FuelSlips.jsx - Complete updated version with vehicle type fetching
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { fuelService } from '../services/fuelService';
+import { vehicleService } from '../services/vehicleService'; // ✅ ADD THIS IMPORT
 import {
   Table,
   TableBody,
@@ -110,95 +111,6 @@ const getFuelSlipStatus = (slip) => {
   if (slip.verifiedBy) return 'VERIFIED';
   if (slip.finalized) return 'FINALIZED';
   return 'PENDING';
-};
-
-// Determine if fuel is for Trip, Van, or Truck based on vehicle type
-const getFuelCategory = (slip) => {
-  // 1️⃣ First priority: If it has a tripId, it's TRIP fuel
-  if (slip.tripId) return 'TRIP';
-  
-  // 2️⃣ Check vehicle type from multiple possible sources
-  let vehicleType = '';
-  
-  // Log the slip data to see what's available
-  console.log('🔍 Fuel slip data:', {
-    id: slip.id,
-    vehicleType: slip.vehicleType,
-    vehicleRegNumber: slip.vehicleRegNumber,
-    vehicle: slip.vehicle,
-    vehicleId: slip.vehicleId,
-    tripId: slip.tripId,
-  });
-  
-  // Try different places where vehicle type might be stored
-  if (slip.vehicleType) {
-    vehicleType = slip.vehicleType;
-  } else if (slip.vehicle?.type) {
-    vehicleType = slip.vehicle.type;
-  } else if (slip.vehicle?.vehicleType) {
-    vehicleType = slip.vehicle.vehicleType;
-  } else if (slip.vehicle?.category) {
-    vehicleType = slip.vehicle.category;
-  } else if (slip.category) {
-    vehicleType = slip.category;
-  }
-  
-  // If we still don't have a vehicle type, try to get it from the vehicle service
-  // This is the key fix - fetch the vehicle data if we have a vehicleId
-  if (!vehicleType && slip.vehicleId) {
-    // We'll handle this asynchronously below
-    console.log('⚠️ No vehicle type found for vehicle ID:', slip.vehicleId);
-  }
-  
-  const normalizedType = String(vehicleType).toUpperCase();
-  
-  console.log('📌 Vehicle type found:', vehicleType, 'normalized:', normalizedType);
-  
-  // 3️⃣ Check for Truck/Heavy vehicle keywords
-  if (normalizedType.includes('TRUCK') || 
-      normalizedType.includes('HEAVY') || 
-      normalizedType === 'TRUCK' ||
-      normalizedType === 'HEAVY_TRUCK' ||
-      normalizedType === 'HEAVY_VEHICLE') {
-    return 'TRUCK';
-  }
-  
-  // 4️⃣ Check for Van/Light/Car vehicle keywords
-  if (normalizedType.includes('VAN') || 
-      normalizedType.includes('LIGHT') || 
-      normalizedType.includes('CAR') ||
-      normalizedType === 'VAN' ||
-      normalizedType === 'LIGHT_VEHICLE' ||
-      normalizedType === 'PASSENGER') {
-    return 'VAN';
-  }
-  
-  // 5️⃣ Check if vehicle type is in the VEHICLE_TYPES list
-  const vehicleTypeValue = slip.vehicleType || slip.vehicle?.vehicleType || slip.vehicle?.type;
-  if (vehicleTypeValue) {
-    const type = String(vehicleTypeValue).toUpperCase();
-    // From VehicleForm.jsx: VEHICLE_TYPES = ['TRUCK', 'TRAILER', 'VAN', 'CAR']
-    if (type === 'TRUCK') return 'TRUCK';
-    if (type === 'TRAILER') return 'TRUCK'; // Trailers are usually pulled by trucks
-    if (type === 'VAN' || type === 'CAR') return 'VAN';
-  }
-  
-  // 6️⃣ Default: If it has a vehicle registration but no trip, check if it's a truck based on registration pattern
-  if (slip.vehicleRegNumber && !slip.tripId) {
-    const reg = slip.vehicleRegNumber.toUpperCase();
-    // Some companies use prefixes for trucks (e.g., "T-" for truck, "V-" for van)
-    if (reg.startsWith('T-') || reg.startsWith('TRK-') || reg.includes('TRUCK')) {
-      return 'TRUCK';
-    }
-    if (reg.startsWith('V-') || reg.startsWith('VAN-')) {
-      return 'VAN';
-    }
-    // Default to VAN for passenger vehicles
-    return 'VAN';
-  }
-  
-  // 7️⃣ Fallback: Unknown
-  return 'UNKNOWN';
 };
 
 // ============================================================
@@ -489,6 +401,7 @@ function FuelSlips() {
   const [customEndDate, setCustomEndDate] = useState('');
   
   const [tripNumbers, setTripNumbers] = useState({});
+  const [vehicleTypes, setVehicleTypes] = useState({}); // ✅ ADD: Cache for vehicle types
   
   // Delete Dialog State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -544,6 +457,43 @@ function FuelSlips() {
     fetchSlips();
   }, [params.id, driverFilter, vehicleFilter]);
 
+  // ✅ NEW: Fetch vehicle types for slips with vehicleId
+  useEffect(() => {
+    const fetchVehicleTypes = async () => {
+      const slipsWithVehicles = slips.filter(s => s.vehicleId && !vehicleTypes[s.vehicleId]);
+      if (slipsWithVehicles.length === 0) return;
+      
+      const typeMap = {};
+      for (const slip of slipsWithVehicles) {
+        try {
+          const vehicle = await vehicleService.getVehicleById(slip.vehicleId);
+          if (vehicle && vehicle.vehicleType) {
+            typeMap[slip.vehicleId] = vehicle.vehicleType;
+          } else if (vehicle && vehicle.category) {
+            typeMap[slip.vehicleId] = vehicle.category;
+          } else {
+            // Default based on registration number pattern
+            const reg = slip.vehicleRegNumber || '';
+            if (reg.toUpperCase().startsWith('T-') || reg.includes('TRUCK')) {
+              typeMap[slip.vehicleId] = 'TRUCK';
+            } else {
+              typeMap[slip.vehicleId] = 'VAN';
+            }
+          }
+        } catch (err) {
+          console.warn(`Could not fetch vehicle ${slip.vehicleId}:`, err);
+          // Default to VAN if we can't fetch
+          typeMap[slip.vehicleId] = 'VAN';
+        }
+      }
+      setVehicleTypes(prev => ({ ...prev, ...typeMap }));
+    };
+    
+    if (slips.length > 0) {
+      fetchVehicleTypes();
+    }
+  }, [slips]);
+
   // Fetch trip numbers for slips with tripId
   useEffect(() => {
     const fetchTripNumbers = async () => {
@@ -567,6 +517,51 @@ function FuelSlips() {
       fetchTripNumbers();
     }
   }, [slips]);
+
+  // ✅ FIXED: Determine if fuel is for Trip, Van, or Truck based on vehicle type
+  const getFuelCategory = (slip) => {
+    // 1️⃣ First priority: If it has a tripId, it's TRIP fuel
+    if (slip.tripId) return 'TRIP';
+    
+    // 2️⃣ Check if we have a fetched vehicle type
+    if (slip.vehicleId && vehicleTypes[slip.vehicleId]) {
+      const type = vehicleTypes[slip.vehicleId].toUpperCase();
+      if (type === 'TRUCK' || type.includes('TRUCK')) return 'TRUCK';
+      if (type === 'VAN' || type === 'CAR' || type.includes('VAN')) return 'VAN';
+      if (type === 'TRAILER') return 'TRUCK';
+    }
+    
+    // 3️⃣ Check vehicle type from the slip data directly
+    let vehicleType = '';
+    if (slip.vehicleType) {
+      vehicleType = slip.vehicleType;
+    } else if (slip.vehicle?.type) {
+      vehicleType = slip.vehicle.type;
+    } else if (slip.vehicle?.vehicleType) {
+      vehicleType = slip.vehicle.vehicleType;
+    }
+    
+    const normalizedType = String(vehicleType).toUpperCase();
+    
+    if (normalizedType.includes('TRUCK') || normalizedType === 'TRUCK') {
+      return 'TRUCK';
+    }
+    if (normalizedType.includes('VAN') || normalizedType.includes('CAR') || normalizedType === 'VAN') {
+      return 'VAN';
+    }
+    
+    // 4️⃣ Check registration pattern
+    if (slip.vehicleRegNumber) {
+      const reg = slip.vehicleRegNumber.toUpperCase();
+      if (reg.startsWith('T-') || reg.includes('TRUCK')) return 'TRUCK';
+      if (reg.startsWith('V-') || reg.includes('VAN')) return 'VAN';
+    }
+    
+    // 5️⃣ Default: If no trip and we have a vehicle, assume VAN
+    if (slip.vehicleId || slip.vehicleRegNumber) return 'VAN';
+    
+    return 'UNKNOWN';
+  };
 
   // Get unique drivers, vehicles, and statuses for filters
   const { drivers, vehicles, statuses, categories } = useMemo(() => {
