@@ -396,14 +396,27 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 );
 
 // ============================================================
-// INFO ROW - FIXED
+// INFO ROW - FIXED (This was the main issue)
 // ============================================================
 const InfoRow = ({ label, value }) => {
   // ✅ Ensure value is a string or React node, not an object
-  const displayValue = typeof value === 'object' && value !== null 
-    ? JSON.stringify(value) 
-    : value || 'N/A';
-    
+  let displayValue = value;
+  
+  // If value is an object, stringify it
+  if (typeof value === 'object' && value !== null) {
+    displayValue = JSON.stringify(value);
+  }
+  
+  // If value is undefined or null, show N/A
+  if (value === undefined || value === null) {
+    displayValue = 'N/A';
+  }
+
+  // If value is a React element, render it directly
+  if (React.isValidElement(value)) {
+    displayValue = value;
+  }
+
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
       <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
@@ -522,9 +535,21 @@ const OverviewTab = ({ driver, leaveData, timesheetData, loading }) => {
 
   // ✅ Ensure all values are strings or numbers, not objects
   const safeValue = (val) => {
-    if (typeof val === 'object' && val !== null) return JSON.stringify(val);
-    return val;
-  };
+  if (val === undefined || val === null) return 'N/A';
+  if (typeof val === 'object' && val !== null) {
+    // If it's a Date object, format it
+    if (val instanceof Date) {
+      return val.toLocaleDateString();
+    }
+    // If it's a React element, return it as-is
+    if (React.isValidElement(val)) {
+      return val;
+    }
+    // Otherwise stringify
+    return JSON.stringify(val);
+  }
+  return val;
+};
 
   return (
     <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
