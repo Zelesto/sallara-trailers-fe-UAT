@@ -429,26 +429,70 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 const InfoRow = ({ label, value }) => {
   // ✅ Convert any value to a renderable string
   let displayValue = 'N/A';
+  
+  // Handle null/undefined
   if (value === undefined || value === null) {
     displayValue = 'N/A';
-  } else if (typeof value === 'string') {
+  } 
+  // Handle strings
+  else if (typeof value === 'string') {
     displayValue = value;
-  } else if (typeof value === 'number') {
+  } 
+  // Handle numbers
+  else if (typeof value === 'number') {
     displayValue = String(value);
-  } else if (typeof value === 'boolean') {
+  } 
+  // Handle booleans
+  else if (typeof value === 'boolean') {
     displayValue = value ? 'Yes' : 'No';
-  } else if (value instanceof Date) {
+  } 
+  // Handle dates
+  else if (value instanceof Date) {
     displayValue = value.toLocaleDateString();
-  } else if (React.isValidElement(value)) {
+  } 
+  // Handle React elements (already valid)
+  else if (React.isValidElement(value)) {
     displayValue = value;
-  } else if (typeof value === 'object') {
+  } 
+  // Handle objects (including arrays)
+  else if (typeof value === 'object') {
+    // If it has an id property, try to use that
+    if (value.id !== undefined) {
+      displayValue = String(value.id);
+    } 
+    // If it has a name property, try to use that
+    else if (value.name !== undefined) {
+      displayValue = String(value.name);
+    }
+    // If it's an array, try to format it
+    else if (Array.isArray(value)) {
+      if (value.length === 0) {
+        displayValue = 'None';
+      } else {
+        try {
+          displayValue = value.map(item => String(item)).join(', ');
+        } catch {
+          displayValue = 'N/A';
+        }
+      }
+    }
+    // Otherwise try JSON stringify
+    else {
+      try {
+        const jsonStr = JSON.stringify(value);
+        displayValue = jsonStr.length > 50 ? jsonStr.substring(0, 50) + '...' : jsonStr;
+      } catch {
+        displayValue = 'N/A';
+      }
+    }
+  } 
+  // Fallback
+  else {
     try {
-      displayValue = JSON.stringify(value);
+      displayValue = String(value);
     } catch {
       displayValue = 'N/A';
     }
-  } else {
-    displayValue = String(value);
   }
 
   return (
@@ -2469,14 +2513,18 @@ const DriverDashboard = () => {
         (totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0);
       
       const enrichedDriver = {
-        ...data,
-        totalTrips: totalTrips,
-        completedTrips: completedTrips,
-        totalDistance: Math.round(totalDistance),
-        monthlyTrips: monthlyTrips,
-        performanceScore: performanceScore,
-        tripCount: totalTrips,
-      };
+  ...data,
+  totalTrips: totalTrips,
+  completedTrips: completedTrips,
+  totalDistance: Math.round(totalDistance),
+  monthlyTrips: monthlyTrips,
+  performanceScore: performanceScore,
+  tripCount: totalTrips,
+  // Ensure these are primitives
+  assignedVehicleId: data.assignedVehicleId !== undefined && data.assignedVehicleId !== null 
+    ? String(data.assignedVehicleId) 
+    : 'Not Assigned',
+};
       
       setDriver(enrichedDriver);
     } catch (err) {
