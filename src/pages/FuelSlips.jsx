@@ -1,9 +1,9 @@
 // src/pages/FuelSlips.jsx - Complete updated version with vehicle type fetching
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { fuelService } from '../services/fuelService';
-import { vehicleService } from '../services/vehicleService'; // ✅ ADD THIS IMPORT
+import { vehicleService } from '../services/vehicleService';
 import {
   Table,
   TableBody,
