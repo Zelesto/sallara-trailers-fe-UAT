@@ -1,4 +1,4 @@
-// src/pages/PODForm.jsx - Responsive version with Dashboard styling
+// src/pages/PODForm.jsx - Fixed file upload during creation
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -20,6 +20,7 @@ import {
   Chip,
   useTheme,
   useMediaQuery,
+  LinearProgress,
 } from '@mui/material';
 import { 
   ArrowBack, 
@@ -33,6 +34,9 @@ import {
   Person as PersonIcon,
   Note as NoteIcon,
   AttachFile as AttachFileIcon,
+  CheckCircle as CheckCircleIcon,
+  import Star as StarIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
@@ -73,6 +77,7 @@ const PODForm = () => {
 
   const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [file, setFile] = useState(null);
@@ -83,6 +88,7 @@ const PODForm = () => {
   const [searchTripTerm, setSearchTripTerm] = useState('');
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [existingFileUrl, setExistingFileUrl] = useState('');
+  const [uploadStatus, setUploadStatus] = useState(null); // 'idle' | 'uploading' | 'success' | 'error'
 
   const [formData, setFormData] = useState({
     tripId: '',
@@ -221,6 +227,7 @@ const PODForm = () => {
     if (selectedFile) {
       setFile(selectedFile);
       setFileName(selectedFile.name);
+      setUploadStatus('idle');
       const extension = selectedFile.name.split('.').pop().toUpperCase();
       const typeMap = {
         'PDF': 'PDF',
@@ -231,6 +238,11 @@ const PODForm = () => {
         'DOCX': 'DOCX',
       };
       setFormData(prev => ({ ...prev, documentType: typeMap[extension] || 'DOCUMENT' }));
+      
+      // Clear any previous file errors
+      if (formErrors.file) {
+        setFormErrors(prev => ({ ...prev, file: '' }));
+      }
     }
   };
 
@@ -238,6 +250,7 @@ const PODForm = () => {
     setFile(null);
     setFileName('');
     setExistingFileUrl('');
+    setUploadStatus(null);
   };
 
   const validateForm = () => {
@@ -266,6 +279,7 @@ const PODForm = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setUploadStatus(null);
 
     if (!validateForm()) {
       const firstErrorField = Object.keys(formErrors)[0];
@@ -278,6 +292,8 @@ const PODForm = () => {
     }
 
     setSubmitting(true);
+    setUploadProgress(0);
+    
     try {
       const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
       
@@ -287,6 +303,7 @@ const PODForm = () => {
         return;
       }
 
+      // Prepare the POD data
       const podData = {
         tripId: tripIdValue,
         customerName: formData.customerName || 'Adhoc Customer',
@@ -300,43 +317,102 @@ const PODForm = () => {
         additionalInfo: formData.additionalInfo || '',
       };
 
-      console.log('📤 Submitting POD data:', podData);
-
       let result;
+
       if (isEditMode) {
+        // UPDATE MODE
+        console.log('📤 Updating POD:', id);
+        
         if (file) {
+          // With file upload
           const formDataPayload = new FormData();
           Object.keys(podData).forEach(key => {
             formDataPayload.append(key, podData[key]);
           });
           formDataPayload.append('file', file);
           
-          result = await podService.updatePodWithFile(id, formDataPayload);
+          setUploadStatus('uploading');
+          result = await podService.updatePodWithFile(id, formDataPayload, (progressEvent) => {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(progress);
+          });
+          setUploadStatus('success');
         } else {
+          // Without file
           result = await podService.updatePod(id, podData);
         }
         setSuccess('POD updated successfully!');
       } else {
+        // CREATE MODE
+        console.log('📤 Creating new POD with file:', file?.name);
+        
+        // ✅ FIX: Ensure we're using FormData for creation with file
         const formDataPayload = new FormData();
+        
+        // Add all POD data fields to FormData
         Object.keys(podData).forEach(key => {
-          formDataPayload.append(key, podData[key]);
+          const value = podData[key];
+          if (value !== null && value !== undefined && value !== '') {
+            formDataPayload.append(key, value);
+          }
         });
+        
+        // Add the file
         if (file) {
           formDataPayload.append('file', file);
+          setUploadStatus('uploading');
+        } else if (!isEditMode) {
+          setError('Please select a file to upload.');
+          setSubmitting(false);
+          return;
         }
+
+        // Log the FormData contents for debugging
+        console.log('📤 FormData contents:');
+        for (let pair of formDataPayload.entries()) {
+          if (pair[0] === 'file') {
+            console.log(`  ${pair[0]}: ${pair[1].name} (${pair[1].size} bytes)`);
+          } else {
+            console.log(`  ${pair[0]}: ${pair[1]}`);
+          }
+        }
+
+        // Call the create endpoint with FormData
+        result = await podService.createPod(formDataPayload, (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(progress);
+        });
         
-        result = await podService.createPod(formDataPayload);
+        setUploadStatus('success');
         setSuccess('POD created successfully!');
       }
 
       console.log('✅ POD saved:', result);
 
-      setTimeout(() => {
-        navigate('/pods');
-      }, 1500);
+      // Wait a moment for the backend to process
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Navigate back to POD list
+      navigate('/pods');
+      
     } catch (err) {
       console.error('Error saving POD:', err);
-      setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`);
+      setUploadStatus('error');
+      
+      let errorMessage = err.message || `Failed to ${isEditMode ? 'update' : 'create'} POD`;
+      
+      // Check if it's a file upload error
+      if (err.response?.status === 413) {
+        errorMessage = 'File too large. Maximum size is 10MB.';
+      } else if (err.response?.status === 415) {
+        errorMessage = 'Unsupported file type. Please upload PDF, JPG, PNG, DOC, or DOCX.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+      
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -447,6 +523,54 @@ const PODForm = () => {
               onClose={() => setSuccess('')}
             >
               {success}
+            </Alert>
+          )}
+
+          {/* Upload Status */}
+          {uploadStatus === 'uploading' && (
+            <Box sx={{ mb: 2 }}>
+              <Alert 
+                severity="info" 
+                sx={{ borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+              >
+                <Stack spacing={1}>
+                  <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                    Uploading file... {uploadProgress}%
+                  </Typography>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={uploadProgress} 
+                    sx={{ 
+                      height: 6, 
+                      borderRadius: 3,
+                      bgcolor: '#EEF2FF',
+                      '& .MuiLinearProgress-bar': {
+                        bgcolor: '#4F46E5',
+                      }
+                    }}
+                  />
+                </Stack>
+              </Alert>
+            </Box>
+          )}
+
+          {uploadStatus === 'success' && (
+            <Alert 
+              severity="success" 
+              sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+              icon={<CheckCircleIcon />}
+            >
+              File uploaded successfully!
+            </Alert>
+          )}
+
+          {uploadStatus === 'error' && (
+            <Alert 
+              severity="error" 
+              sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+              icon={<ErrorIcon />}
+            >
+              File upload failed. Please try again.
             </Alert>
           )}
 
@@ -972,3 +1096,7 @@ const PODForm = () => {
 };
 
 export default PODForm;
+
+// Note: You need to add StarIcon import at the top
+// Add this to your imports:
+// import Star as StarIcon from '@mui/icons-material/Star';
