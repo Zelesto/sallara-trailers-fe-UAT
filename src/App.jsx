@@ -44,6 +44,8 @@ const FuelSlipForm = lazy(() => import("./pages/FuelSlipForm"));
 const TripList = lazy(() => import("./pages/TripList"));
 const TripDetails = lazy(() => import("./pages/TripDetails"));
 const TripForm = lazy(() => import("./pages/TripForm")); // ← ADD THIS if not already
+const TripMetrics = lazy(() => import("./pages/TripMetrics"));
+
 
 const LoadList = lazy(() => import("./pages/load/LoadList"));
 const LoadDetails = lazy(() => import("./pages/load/LoadDetails"));
@@ -235,6 +237,7 @@ function App() {
                       <Route path="trips/:id/finalize" element={<TripDetails />} />
                       <Route path="trips/new" element={<TripForm mode="create" />} /> {/* ← ADD THIS */}
                       <Route path="trips/:id/edit" element={<TripForm mode="edit" />} /> {/* ← ADD THIS */}
+                      <Route path="trips/:id/metrics" element={<TripMetrics />} />
 
                       {/* Loads */}
                       <Route path="loads" element={<LoadList />} />
