@@ -4,6 +4,11 @@ import api from './api';
 const toSnakeCase = (data) => {
   if (!data || typeof data !== 'object') return data;
   
+  // Handle arrays
+  if (Array.isArray(data)) {
+    return data.map(item => toSnakeCase(item));
+  }
+  
   const result = {};
   const mappings = {
     firstName: 'first_name',
@@ -29,7 +34,6 @@ const toSnakeCase = (data) => {
     terminationReason: 'termination_reason',
     isActive: 'is_active',
     appUserId: 'app_user_id',
-    // New fields
     dateOfBirth: 'date_of_birth',
     gender: 'gender',
     country: 'country',
@@ -58,17 +62,30 @@ const toSnakeCase = (data) => {
   
   Object.keys(data).forEach(key => {
     const snakeKey = mappings[key] || key;
-    if (data[key] === undefined) {
-      return;
+    const value = data[key];
+    
+    // Recursively convert nested objects
+    if (value !== undefined && value !== null && typeof value === 'object') {
+      result[snakeKey] = toSnakeCase(value);
+    } else {
+      result[snakeKey] = value;
     }
-    result[snakeKey] = data[key];
   });
   
   return result;
 };
 
+// ============================================================
+// RECURSIVE toCamelCase - FIXES NESTED OBJECTS
+// ============================================================
 const toCamelCase = (data) => {
+  // Handle null/undefined
   if (!data || typeof data !== 'object') return data;
+  
+  // Handle arrays
+  if (Array.isArray(data)) {
+    return data.map(item => toCamelCase(item));
+  }
   
   const result = {};
   const mappings = {
@@ -95,7 +112,6 @@ const toCamelCase = (data) => {
     termination_reason: 'terminationReason',
     is_active: 'isActive',
     app_user_id: 'appUserId',
-    // New fields
     date_of_birth: 'dateOfBirth',
     gender: 'gender',
     country: 'country',
@@ -124,10 +140,58 @@ const toCamelCase = (data) => {
   
   Object.keys(data).forEach(key => {
     const camelKey = mappings[key] || key;
-    result[camelKey] = data[key];
+    const value = data[key];
+    
+    // Recursively convert nested objects
+    if (value !== undefined && value !== null && typeof value === 'object') {
+      // Special handling for arrays
+      if (Array.isArray(value)) {
+        result[camelKey] = value.map(item => toCamelCase(item));
+      } else {
+        result[camelKey] = toCamelCase(value);
+      }
+    } else {
+      result[camelKey] = value;
+    }
   });
   
   return result;
+};
+
+// ============================================================
+// SAFE EXTRACT - Convert nested objects to primitives
+// ============================================================
+const safeExtract = (obj, path, defaultValue = 'N/A') => {
+  if (!obj) return defaultValue;
+  
+  // Handle dot notation path
+  const parts = path.split('.');
+  let current = obj;
+  
+  for (const part of parts) {
+    if (current === undefined || current === null || typeof current !== 'object') {
+      return defaultValue;
+    }
+    current = current[part];
+  }
+  
+  if (current === undefined || current === null) return defaultValue;
+  if (typeof current === 'string') return current;
+  if (typeof current === 'number') return String(current);
+  if (typeof current === 'boolean') return current ? 'Yes' : 'No';
+  if (current instanceof Date) return current.toLocaleDateString();
+  if (typeof current === 'object') {
+    // Try to extract common properties
+    if (current.id !== undefined) return String(current.id);
+    if (current.name !== undefined) return String(current.name);
+    if (current.value !== undefined) return String(current.value);
+    try {
+      return JSON.stringify(current);
+    } catch {
+      return defaultValue;
+    }
+  }
+  return String(current);
 };
 
 export const driverService = {
@@ -157,7 +221,12 @@ export const driverService = {
   getDriverById: async (id) => {
     try {
       const response = await api.get(`/drivers/${id}`);
-      return toCamelCase(response);
+      const camelCaseData = toCamelCase(response);
+      
+      // Log to see what's coming back
+      console.log('🔍 Driver data after camelCase conversion:', camelCaseData);
+      
+      return camelCaseData;
     } catch (error) {
       console.error(`Error fetching driver ${id}:`, error);
       throw error;
@@ -471,6 +540,9 @@ export const driverService = {
       throw error;
     }
   },
+  
+  // ====== HELPER: Safe extraction ======
+  safeExtract: safeExtract,
 };
 
 export default driverService;
