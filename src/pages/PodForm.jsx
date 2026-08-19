@@ -35,7 +35,7 @@ import {
   Note as NoteIcon,
   AttachFile as AttachFileIcon,
   CheckCircle as CheckCircleIcon,
-  import Star as StarIcon,
+  Star as StarIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { podService } from '../services/podService';
