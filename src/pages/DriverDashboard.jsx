@@ -396,7 +396,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#4F46E5', loadi
 );
 
 // ============================================================
-// INFO ROW
+// INFO ROW - FIXED
 // ============================================================
 const InfoRow = ({ label, value }) => {
   // ✅ Ensure value is a string or React node, not an object
@@ -405,87 +405,14 @@ const InfoRow = ({ label, value }) => {
     : value || 'N/A';
     
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: { xs: 1.5, sm: 2, md: 2.5 },
-        borderRadius: { xs: '12px', sm: '16px' },
-        border: '1px solid #ECECEC',
-        bgcolor: '#FFFFFF',
-        height: '100%',
-        width: '100%',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-          borderColor: color,
-        },
-      }}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              color: '#6B7280',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
-              letterSpacing: '0.5px',
-              display: 'block',
-              mb: 0.25,
-            }}
-          >
-            {title}
-          </Typography>
-          {loading ? (
-            <CircularProgress size={20} sx={{ mt: 0.5 }} />
-          ) : (
-            <>
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: 700,
-                  color: '#111827',
-                  fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
-                  lineHeight: 1.2,
-                }}
-              >
-                {displayValue}
-              </Typography>
-              {subtitle && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: '#6B7280',
-                    display: 'block',
-                    mt: 0.25,
-                    fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
-                  }}
-                >
-                  {subtitle}
-                </Typography>
-              )}
-            </>
-          )}
-        </Box>
-        {Icon && (
-          <Box
-            sx={{
-              bgcolor: `${color}15`,
-              borderRadius: { xs: '10px', sm: '12px' },
-              p: { xs: 1, sm: 1.25, md: 1.5 },
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Icon sx={{ color: color, fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' } }} />
-          </Box>
-        )}
-      </Stack>
-    </Paper>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #F3F4F6' }}>
+      <Typography variant="body2" sx={{ color: '#6B7280', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ color: '#111827', fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}>
+        {displayValue}
+      </Typography>
+    </Box>
   );
 };
 
