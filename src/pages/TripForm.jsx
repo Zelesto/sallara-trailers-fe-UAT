@@ -1,4 +1,4 @@
-// src/pages/TripForm.jsx - Updated with Automatic Load Creation/Linking
+// src/pages/TripForm.jsx - Fully Dynamic with Database Enums
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dayjs from 'dayjs';
 import {
@@ -70,19 +70,41 @@ import { customerService } from '../services/customerService';
 import { depotService } from '../services/depotService';
 import { loadService } from '../services/loadService';
 import { useEnums } from '../contexts/EnumContext';
-import { 
-  STATUS_CONFIG, 
-  STATUS_OPTIONS,
-  TRIP_TYPE_CONFIG,
-  TRIP_TYPE_OPTIONS,
-  PRIORITY_CONFIG,
-  PRIORITY_OPTIONS,
-  APPROVAL_STATUS_CONFIG,
-  APPROVAL_STATUS_OPTIONS,
-  COMMODITY_OPTIONS,
-  PROVINCE_OPTIONS,
-  DEPARTURE_OPTIONS
-} from '../constants/tripConstants';
+
+// Province Options (hardcoded as these are geographic, not enums)
+const PROVINCE_OPTIONS = [
+  'Gauteng',
+  'Western Cape',
+  'KwaZulu-Natal',
+  'Eastern Cape',
+  'Free State',
+  'Mpumalanga',
+  'Limpopo',
+  'North West',
+  'Northern Cape',
+];
+
+// Commodity Types (hardcoded as they're not in enum_master yet)
+const COMMODITY_OPTIONS = [
+  'GENERAL',
+  'HAZARDOUS',
+  'PERISHABLE',
+  'LIQUID',
+  'BULK',
+  'PALLETIZED',
+  'OVERSIZED',
+  'REFRIGERATED',
+  'AUTO',
+  'MACHINERY',
+  'CONSTRUCTION',
+  'MINING',
+  'AGRICULTURE',
+  'CHEMICALS',
+  'PHARMACEUTICALS',
+  'ELECTRONICS',
+  'FOOD',
+  'BEVERAGE',
+];
 
 /* ============================================================
    HELPER FUNCTIONS
@@ -113,10 +135,10 @@ const buildAddress = (address) => {
 };
 
 const getDefaultFormState = () => ({
-  tripType: 'FREIGHT',
-  status: 'PLANNED',
-  approvalStatus: 'PENDING',
-  priority: 'MEDIUM',
+  tripType: '',
+  status: '',
+  approvalStatus: '',
+  priority: '',
   commodityType: '',
   cargoDescription: '',
   cargoWeight: '',
@@ -161,6 +183,15 @@ const getDefaultPlannedDates = () => {
     plannedStartDate: startDate.toISOString(),
     plannedEndDate: endDate.toISOString()
   };
+};
+
+// Helper to get default enum code from options
+const getDefaultEnumCode = (options, defaultCode = null) => {
+  if (defaultCode && options.some(opt => opt.value === defaultCode)) {
+    return defaultCode;
+  }
+  const defaultOpt = options.find(opt => opt.isDefault);
+  return defaultOpt?.value || (options.length > 0 ? options[0].value : '');
 };
 
 /* ============================================================
@@ -401,7 +432,8 @@ function DepotSection({
   departureType, 
   onDepartureTypeChange, 
   departureLocation,
-  onLocationChange 
+  onLocationChange,
+  departureOptions 
 }) {
   return (
     <Paper
@@ -441,7 +473,7 @@ function DepotSection({
               onChange={(e) => onDepartureTypeChange(e.target.value)}
               sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
             >
-              {DEPARTURE_OPTIONS.map(option => (
+              {departureOptions.map(option => (
                 <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                   {option.label}
                 </MenuItem>
@@ -535,15 +567,21 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
+  // Get enums from context
   const {
     enums,
     loading: enumsLoading,
-    getTripTypeOptions,
     getTripStatusOptions,
+    getTripTypeOptions,
     getApprovalStatusOptions,
+    getPriorityOptions,
+    getDepartureTypeOptions,
+    getDepartedFromOptions,
     getDriverOptions,
     getVehicleOptions,
     getSupervisorOptions,
+    refreshEnums,
+    isReady,
   } = useEnums();
 
   // Loading States
@@ -574,75 +612,43 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [toDepotKm, setToDepotKm] = useState('');
   const [isFromDepot, setIsFromDepot] = useState(false);
 
-  // Form State
-  const [form, setForm] = useState(getDefaultFormState);
+  // Get options from database with defaults
+  const tripTypeOptions = getTripTypeOptions();
+  const statusOptions = getTripStatusOptions();
+  const approvalOptions = getApprovalStatusOptions();
+  const priorityOptions = getPriorityOptions();
+  const departureOptions = getDepartureTypeOptions();
+  const departedFromOptions = getDepartedFromOptions();
+  const driverOptions = getDriverOptions();
+  const vehicleOptions = getVehicleOptions();
+  const supervisorOptions = getSupervisorOptions();
 
-  // ============================================================
-  // FIX: Provide default options when enums are not loaded
-  // ============================================================
-  const getDefaultTripTypeOptions = () => {
-    const options = getTripTypeOptions();
-    return options && options.length > 0 ? options : [
-      { value: 'FREIGHT', label: 'Freight' },
-      { value: 'RETURN', label: 'Return' },
-      { value: 'EMPTY', label: 'Empty' },
-      { value: 'PROJECT', label: 'Project' }
-    ];
-  };
+  // Form State - initialize with defaults from DB
+  const [form, setForm] = useState(() => {
+    const defaults = getDefaultPlannedDates();
+    return {
+      ...getDefaultFormState(),
+      tripType: getDefaultEnumCode(tripTypeOptions, 'FREIGHT'),
+      status: getDefaultEnumCode(statusOptions, 'PLANNED'),
+      approvalStatus: getDefaultEnumCode(approvalOptions, 'PENDING'),
+      priority: getDefaultEnumCode(priorityOptions, 'NORMAL'),
+      plannedStartDate: defaults.plannedStartDate,
+      plannedEndDate: defaults.plannedEndDate,
+    };
+  });
 
-  const getDefaultStatusOptions = () => {
-    const options = getTripStatusOptions();
-    return options && options.length > 0 ? options : [
-      { value: 'DRAFT', label: 'Draft' },
-      { value: 'PLANNED', label: 'Planned' },
-      { value: 'ASSIGNED', label: 'Assigned' },
-      { value: 'IN_PROGRESS', label: 'In Progress' },
-      { value: 'COMPLETED', label: 'Completed' },
-      { value: 'CANCELLED', label: 'Cancelled' }
-    ];
-  };
-
-  const getDefaultApprovalOptions = () => {
-    const options = getApprovalStatusOptions();
-    return options && options.length > 0 ? options : [
-      { value: 'PENDING', label: 'Pending' },
-      { value: 'APPROVED', label: 'Approved' },
-      { value: 'REJECTED', label: 'Rejected' },
-      { value: 'UNDER_REVIEW', label: 'Under Review' }
-    ];
-  };
-
-  const getDefaultDriverOptions = () => {
-    const options = getDriverOptions();
-    return options && options.length > 0 ? options : drivers.map(d => ({
-      value: d.id,
-      label: d.name || `Driver ${d.id}`
-    }));
-  };
-
-  const getDefaultVehicleOptions = () => {
-    const options = getVehicleOptions();
-    return options && options.length > 0 ? options : vehicles.map(v => ({
-      value: v.id,
-      label: v.registrationNumber || `Vehicle ${v.id}`
-    }));
-  };
-
-  const getDefaultSupervisorOptions = () => {
-    const options = getSupervisorOptions();
-    return options && options.length > 0 ? options : supervisors.map(s => ({
-      value: s.id,
-      label: s.name || `Supervisor ${s.id}`
-    }));
-  };
-
-  // Get options with defaults
-  const tripTypeOptions = getDefaultTripTypeOptions();
-  const statusOptions = getDefaultStatusOptions();
-  const approvalOptions = getDefaultApprovalOptions();
-  const driverOptions = getDefaultDriverOptions();
-  const vehicleOptions = getDefaultVehicleOptions();
-  const supervisorOptions = getDefaultSupervisorOptions();
+  // Update form defaults when enums load
+  useEffect(() => {
+    if (isReady && !initialData && mode === 'create') {
+      setForm(prev => ({
+        ...prev,
+        tripType: getDefaultEnumCode(tripTypeOptions, 'FREIGHT') || prev.tripType,
+        status: getDefaultEnumCode(statusOptions, 'PLANNED') || prev.status,
+        approvalStatus: getDefaultEnumCode(approvalOptions, 'PENDING') || prev.approvalStatus,
+        priority: getDefaultEnumCode(priorityOptions, 'NORMAL') || prev.priority,
+      }));
+    }
+  }, [isReady, tripTypeOptions, statusOptions, approvalOptions, priorityOptions, initialData, mode]);
 
   /* ============================================================
      DATA LOADING
@@ -776,7 +782,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   useEffect(() => {
     if (!open) return;
     loadData();
-  }, [open, loadData]);
+    // Refresh enums to get latest from DB
+    refreshEnums();
+  }, [open, loadData, refreshEnums]);
 
   // Populate form with initial data when editing
   useEffect(() => {
@@ -786,6 +794,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       setForm(prev => ({
         ...prev,
         ...initialData,
+        tripType: initialData.tripType || getDefaultEnumCode(tripTypeOptions, 'FREIGHT'),
+        status: initialData.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
+        approvalStatus: initialData.approvalStatus || getDefaultEnumCode(approvalOptions, 'PENDING'),
+        priority: initialData.priority || getDefaultEnumCode(priorityOptions, 'NORMAL'),
         vehicleId: initialData.vehicleId || '',
         driverId: initialData.driverId || '',
         supervisorId: initialData.supervisorId || '',
@@ -822,7 +834,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         });
       }
     }
-  }, [initialData, open]);
+  }, [initialData, open, tripTypeOptions, statusOptions, approvalOptions, priorityOptions]);
 
   // Set default planned dates for new trip
   useEffect(() => {
@@ -915,109 +927,87 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
    ============================================================ */
 
   const findOrCreateLoad = async (tripResult) => {
-  try {
-    const referenceNumber = tripResult.referenceNumber || form.referenceNumber;
-    
-    // If no reference number, create a new load with trip data
-    if (!referenceNumber) {
-      console.log('📦 No reference number provided. Creating new load...');
-      return await createNewLoad(tripResult);
-    }
-
-    console.log(`🔍 Checking for existing load with reference: ${referenceNumber}`);
-    
-    // Search for existing load by reference number
-    let existingLoad = null;
     try {
-      const searchResult = await loadService.searchLoads({ 
-        referenceNumber: referenceNumber,
-        size: 100 
-      });
+      const referenceNumber = tripResult.referenceNumber || form.referenceNumber;
       
-      if (searchResult && searchResult.content && searchResult.content.length > 0) {
-        existingLoad = searchResult.content[0];
-        console.log(`✅ Found existing load: ${existingLoad.loadNumber} (ID: ${existingLoad.id})`);
-      }
-    } catch (searchError) {
-      console.warn('⚠️ Error searching for load:', searchError);
-      // Continue to create a new load
-    }
-
-    // If load exists, add trip to it
-    if (existingLoad) {
-      console.log(`📦 Adding trip to existing load: ${existingLoad.loadNumber}`);
-      try {
-        const updatedLoad = await loadService.addTripToLoad(existingLoad.id, tripResult.id);
-        console.log(`✅ Trip added to load ${updatedLoad.loadNumber}`);
-        return updatedLoad;
-      } catch (addError) {
-        console.warn('⚠️ Could not add trip to existing load, creating new load:', addError);
-        // If adding to existing load fails, create a new one
+      if (!referenceNumber) {
+        console.log('📦 No reference number provided. Creating new load...');
         return await createNewLoad(tripResult);
       }
-    }
 
-    // No existing load found, create new one
-    console.log('📦 No existing load found. Creating new load...');
-    return await createNewLoad(tripResult);
-
-  } catch (error) {
-    console.error('❌ Error in load creation/linking:', error);
-    // Don't throw - trip was already created successfully
-    return null;
-  }
-};
-
-const createNewLoad = async (tripResult) => {
-  try {
-    const loadData = {
-      // Core
-      referenceNumber: form.referenceNumber || tripResult.referenceNumber || null,
-      description: form.cargoDescription || form.description || `Load for trip ${tripResult.tripNumber}`,
-      customerId: tripResult.customerId || form.customerId || null,
+      console.log(`🔍 Checking for existing load with reference: ${referenceNumber}`);
       
-      // Measurements
-      weightKg: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-      volumeCubicM: null,
-      palletCount: form.palletCount ? parseInt(form.palletCount) : null,
-      containerNumber: form.containerNumber || null,
-      
-      // Dates
-      loadingDate: form.plannedStartDate || null,
-      unloadingDate: form.plannedEndDate || null,
-      
-      // Status & Priority
-      status: 'PENDING',
-      priority: form.priority || 'NORMAL',
-      
-      // Commodity
-      commodityType: form.commodityType || null,
-      
-      // Location
-      originLocation: buildAddress(origin) || null,
-      destinationLocation: buildAddress(destination) || null,
-      
-      // Trips
-      tripIds: [tripResult.id],
-    };
-
-    // ✅ Remove null/undefined values
-    Object.keys(loadData).forEach(key => {
-      if (loadData[key] === null || loadData[key] === undefined || loadData[key] === '') {
-        delete loadData[key];
+      let existingLoad = null;
+      try {
+        const searchResult = await loadService.searchLoads({ 
+          referenceNumber: referenceNumber,
+          size: 100 
+        });
+        
+        if (searchResult && searchResult.content && searchResult.content.length > 0) {
+          existingLoad = searchResult.content[0];
+          console.log(`✅ Found existing load: ${existingLoad.loadNumber} (ID: ${existingLoad.id})`);
+        }
+      } catch (searchError) {
+        console.warn('⚠️ Error searching for load:', searchError);
       }
-    });
 
-    console.log('📦 Creating new load with data:', loadData);
-    const newLoad = await loadService.createLoad(loadData);
-    console.log(`✅ New load created: ${newLoad.loadNumber} (ID: ${newLoad.id})`);
-    return newLoad;
-  } catch (error) {
-    console.error('❌ Failed to create load:', error);
-    // Return null instead of throwing - trip was already created
-    return null;
-  }
-};
+      if (existingLoad) {
+        console.log(`📦 Adding trip to existing load: ${existingLoad.loadNumber}`);
+        try {
+          const updatedLoad = await loadService.addTripToLoad(existingLoad.id, tripResult.id);
+          console.log(`✅ Trip added to load ${updatedLoad.loadNumber}`);
+          return updatedLoad;
+        } catch (addError) {
+          console.warn('⚠️ Could not add trip to existing load, creating new load:', addError);
+          return await createNewLoad(tripResult);
+        }
+      }
+
+      console.log('📦 No existing load found. Creating new load...');
+      return await createNewLoad(tripResult);
+
+    } catch (error) {
+      console.error('❌ Error in load creation/linking:', error);
+      return null;
+    }
+  };
+
+  const createNewLoad = async (tripResult) => {
+    try {
+      const loadData = {
+        referenceNumber: form.referenceNumber || tripResult.referenceNumber || null,
+        description: form.cargoDescription || form.description || `Load for trip ${tripResult.tripNumber}`,
+        customerId: tripResult.customerId || form.customerId || null,
+        weightKg: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+        volumeCubicM: null,
+        palletCount: form.palletCount ? parseInt(form.palletCount) : null,
+        containerNumber: form.containerNumber || null,
+        loadingDate: form.plannedStartDate || null,
+        unloadingDate: form.plannedEndDate || null,
+        status: 'PENDING',
+        priority: form.priority || 'NORMAL',
+        commodityType: form.commodityType || null,
+        originLocation: buildAddress(origin) || null,
+        destinationLocation: buildAddress(destination) || null,
+        tripIds: [tripResult.id],
+      };
+
+      Object.keys(loadData).forEach(key => {
+        if (loadData[key] === null || loadData[key] === undefined || loadData[key] === '') {
+          delete loadData[key];
+        }
+      });
+
+      console.log('📦 Creating new load with data:', loadData);
+      const newLoad = await loadService.createLoad(loadData);
+      console.log(`✅ New load created: ${newLoad.loadNumber} (ID: ${newLoad.id})`);
+      return newLoad;
+    } catch (error) {
+      console.error('❌ Failed to create load:', error);
+      return null;
+    }
+  };
 
   /* ============================================================
      FORM SUBMISSION
@@ -1044,9 +1034,9 @@ const createNewLoad = async (tripResult) => {
 
       const payload = {
         tripType: form.tripType,
-        status: form.status || 'PLANNED',
-        approvalStatus: form.approvalStatus || 'PENDING',
-        priority: form.priority || 'MEDIUM',
+        status: form.status,
+        approvalStatus: form.approvalStatus,
+        priority: form.priority,
 
         plannedStartDate: formatDateForAPI(form.plannedStartDate),
         plannedEndDate: formatDateForAPI(form.plannedEndDate),
@@ -1118,7 +1108,6 @@ const createNewLoad = async (tripResult) => {
         result = await tripService.createTrip(payload);
         console.log('✅ Trip created successfully:', result);
         
-        // ✅ AUTOMATIC LOAD CREATION/LINKING
         console.log('📦 Finding or creating load for trip...');
         const loadResult = await findOrCreateLoad(result);
         if (loadResult) {
@@ -1223,8 +1212,34 @@ const createNewLoad = async (tripResult) => {
     </Alert>
   );
 
+  // Helper to render select with dynamic options
+  const renderSelectField = (field, label, options, required = false, helperText = null) => (
+    <FormControl fullWidth size="small" required={required} error={!!formErrors[field]}>
+      <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+        {label}
+      </InputLabel>
+      <Select
+        value={form[field] || ''}
+        label={label}
+        onChange={(e) => handleFieldChange(field, e.target.value)}
+        sx={{ 
+          fontSize: { xs: '0.7rem', sm: '0.75rem' },
+          borderRadius: '8px',
+        }}
+      >
+        {options.map(option => (
+          <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+      {formErrors[field] && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors[field]}</FormHelperText>}
+      {helperText && !formErrors[field] && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{helperText}</FormHelperText>}
+    </FormControl>
+  );
+
   /* ============================================================
-     MAIN RENDER - Responsive Dialog with Dashboard-like styling
+     MAIN RENDER
    ============================================================ */
 
   return (
@@ -1285,7 +1300,7 @@ const createNewLoad = async (tripResult) => {
               variant="contained"
               onClick={handleSubmit}
               startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
-              disabled={submitting || loading || isSuccess}
+              disabled={submitting || loading || enumsLoading || isSuccess}
               size="small"
               sx={{ 
                 fontSize: { xs: '0.7rem', sm: '0.75rem' },
@@ -1333,59 +1348,10 @@ const createNewLoad = async (tripResult) => {
                 >
                   <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Trip Type
-                        </InputLabel>
-                        <Select
-                          value={form.tripType}
-                          label="Trip Type"
-                          onChange={(e) => handleFieldChange('tripType', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          {tripTypeOptions.map(option => (
-                            <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {option.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      {renderSelectField('tripType', 'Trip Type', tripTypeOptions)}
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Priority
-                        </InputLabel>
-                        <Select
-                          value={form.priority}
-                          label="Priority"
-                          onChange={(e) => handleFieldChange('priority', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          {PRIORITY_OPTIONS.map(p => {
-                            const config = PRIORITY_CONFIG[p];
-                            return (
-                              <MenuItem key={p} value={p} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                                <Chip 
-                                  label={config?.label || p} 
-                                  size="small" 
-                                  color={config?.color || 'default'} 
-                                  sx={{ 
-                                    height: { xs: 18, sm: 20 }, 
-                                    fontSize: { xs: '0.5rem', sm: '0.6rem' } 
-                                  }}
-                                />
-                              </MenuItem>
-                            );
-                          })}
-                        </Select>
-                      </FormControl>
+                      {renderSelectField('priority', 'Priority', priorityOptions)}
                     </Grid>
                   </Grid>
                 </Paper>
@@ -1485,6 +1451,7 @@ const createNewLoad = async (tripResult) => {
                   onDepartureTypeChange={handleDepartureTypeChange}
                   departureLocation={departureLocation}
                   onLocationChange={setDepartureLocation}
+                  departureOptions={departureOptions}
                 />
 
                 {/* Depot Distance Fields */}
@@ -1745,9 +1712,9 @@ const createNewLoad = async (tripResult) => {
                           <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                             <em>Select vehicle</em>
                           </MenuItem>
-                          {vehicleOptions.map(v => (
-                            <MenuItem key={v.value} value={v.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {v.label}
+                          {vehicles.map(v => (
+                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              {v.registrationNumber} - {v.make} {v.model}
                             </MenuItem>
                           ))}
                         </Select>
@@ -1771,9 +1738,9 @@ const createNewLoad = async (tripResult) => {
                           <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                             <em>Select driver</em>
                           </MenuItem>
-                          {driverOptions.map(d => (
-                            <MenuItem key={d.value} value={d.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {d.label}
+                          {drivers.map(d => (
+                            <MenuItem key={d.id} value={d.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              {d.firstName} {d.lastName} - {d.licenseNumber}
                             </MenuItem>
                           ))}
                         </Select>
@@ -1797,9 +1764,9 @@ const createNewLoad = async (tripResult) => {
                           <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                             <em>Select supervisor</em>
                           </MenuItem>
-                          {supervisorOptions.map(s => (
-                            <MenuItem key={s.value} value={s.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {s.label}
+                          {supervisors.map(s => (
+                            <MenuItem key={s.id} value={s.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              {s.name}
                             </MenuItem>
                           ))}
                         </Select>
@@ -2077,7 +2044,7 @@ const createNewLoad = async (tripResult) => {
                   </Grid>
                 </Paper>
 
-                {/* Status */}
+                {/* Status & Approval */}
                 <Paper
                   elevation={0}
                   sx={{
@@ -2098,54 +2065,16 @@ const createNewLoad = async (tripResult) => {
                         color: '#111827',
                       }}
                     >
-                      Status
+                      Status & Approval
                     </Typography>
                   </Stack>
 
                   <Grid container spacing={1.5}>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Status
-                        </InputLabel>
-                        <Select
-                          value={form.status}
-                          label="Status"
-                          onChange={(e) => handleFieldChange('status', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          {statusOptions.map(option => (
-                            <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {option.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      {renderSelectField('status', 'Trip Status', statusOptions)}
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Approval Status
-                        </InputLabel>
-                        <Select
-                          value={form.approvalStatus}
-                          label="Approval Status"
-                          onChange={(e) => handleFieldChange('approvalStatus', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          {approvalOptions.map(option => (
-                            <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {option.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      {renderSelectField('approvalStatus', 'Approval Status', approvalOptions)}
                     </Grid>
                   </Grid>
                 </Paper>
