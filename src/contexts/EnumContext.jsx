@@ -1,5 +1,5 @@
 // src/contexts/EnumContext.jsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { enumService } from '../services/enumService';
 import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
@@ -37,6 +37,35 @@ export const EnumProvider = ({ children }) => {
   const [lastFetched, setLastFetched] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
+  // Helper function to safely extract data from API response
+  const safeExtractData = (result, defaultValue = []) => {
+    if (!result) return defaultValue;
+    
+    // If result is already an array
+    if (Array.isArray(result)) return result;
+    
+    // If result has a data property that's an array
+    if (result.data && Array.isArray(result.data)) return result.data;
+    
+    // If result has a content property that's an array
+    if (result.content && Array.isArray(result.content)) return result.content;
+    
+    // If result has an items property that's an array
+    if (result.items && Array.isArray(result.items)) return result.items;
+    
+    // If result has a results property that's an array
+    if (result.results && Array.isArray(result.results)) return result.results;
+    
+    // Try to find any array property
+    if (typeof result === 'object') {
+      const values = Object.values(result);
+      const arrayValue = values.find(v => Array.isArray(v));
+      if (arrayValue) return arrayValue;
+    }
+    
+    return defaultValue;
+  };
+
   // Load all enums and entities
   const loadEnums = useCallback(async (forceRefresh = false) => {
     // Only load if authenticated
@@ -61,20 +90,7 @@ export const EnumProvider = ({ children }) => {
 
     try {
       // Fetch all enum data in parallel with proper error handling
-      const [
-        tripStatusesResult,
-        tripTypesResult,
-        approvalStatusesResult,
-        driverStatusesResult,
-        vehicleStatusesResult,
-        vehicleTypesResult,
-        fuelTypesResult,
-        loadStatusesResult,
-        podStatusesResult,
-        driversResult,
-        vehiclesResult,
-        supervisorsResult
-      ] = await Promise.allSettled([
+      const results = await Promise.allSettled([
         enumService.getEnums('trip', 'status'),
         enumService.getEnums('trip', 'type'),
         enumService.getEnums('trip', 'approval'),
@@ -84,38 +100,39 @@ export const EnumProvider = ({ children }) => {
         enumService.getEnums('fuel', 'type'),
         enumService.getEnums('load', 'status'),
         enumService.getEnums('pod', 'status'),
-        driverService.getAllDrivers({ status: 'AVAILABLE' }),
-        vehicleService.getAllVehicles({ status: 'AVAILABLE' }),
+        driverService.getAllDrivers({ status: 'AVAILABLE' }).catch(() => []),
+        vehicleService.getAllVehicles({ status: 'AVAILABLE' }).catch(() => []),
         Promise.resolve([]), // Replace with userService.getSupervisors() when available
       ]);
 
-      // Extract values from settled promises, default to empty array on failure
-      const getValue = (result) => {
+      // Safely extract data from each result
+      const extractData = (result, index, name) => {
         if (result.status === 'fulfilled') {
-          // Handle different response structures
-          const data = result.value;
-          if (Array.isArray(data)) return data;
-          if (data && data.data && Array.isArray(data.data)) return data.data;
-          if (data && data.content && Array.isArray(data.content)) return data.content;
+          const data = safeExtractData(result.value);
+          if (!Array.isArray(data)) {
+            console.warn(`⚠️ ${name} returned non-array data:`, data);
+            return [];
+          }
+          return data;
+        } else {
+          console.warn(`⚠️ Failed to fetch ${name}:`, result.reason);
           return [];
         }
-        console.warn('Failed to fetch enum data:', result.reason);
-        return [];
       };
 
       setEnums({
-        tripStatuses: getValue(tripStatusesResult),
-        tripTypes: getValue(tripTypesResult),
-        approvalStatuses: getValue(approvalStatusesResult),
-        driverStatuses: getValue(driverStatusesResult),
-        vehicleStatuses: getValue(vehicleStatusesResult),
-        vehicleTypes: getValue(vehicleTypesResult),
-        fuelTypes: getValue(fuelTypesResult),
-        loadStatuses: getValue(loadStatusesResult),
-        podStatuses: getValue(podStatusesResult),
-        drivers: getValue(driversResult),
-        vehicles: getValue(vehiclesResult),
-        supervisors: getValue(supervisorsResult),
+        tripStatuses: extractData(results[0], 0, 'tripStatuses'),
+        tripTypes: extractData(results[1], 1, 'tripTypes'),
+        approvalStatuses: extractData(results[2], 2, 'approvalStatuses'),
+        driverStatuses: extractData(results[3], 3, 'driverStatuses'),
+        vehicleStatuses: extractData(results[4], 4, 'vehicleStatuses'),
+        vehicleTypes: extractData(results[5], 5, 'vehicleTypes'),
+        fuelTypes: extractData(results[6], 6, 'fuelTypes'),
+        loadStatuses: extractData(results[7], 7, 'loadStatuses'),
+        podStatuses: extractData(results[8], 8, 'podStatuses'),
+        drivers: extractData(results[9], 9, 'drivers'),
+        vehicles: extractData(results[10], 10, 'vehicles'),
+        supervisors: extractData(results[11], 11, 'supervisors'),
       });
       
       setLastFetched(Date.now());
@@ -124,6 +141,7 @@ export const EnumProvider = ({ children }) => {
     } catch (err) {
       console.error('❌ EnumProvider: Failed to load enums:', err);
       setError(err.message || 'Failed to load enums');
+      // Don't clear enums on error, keep existing data
     } finally {
       setLoading(false);
     }
@@ -154,36 +172,49 @@ export const EnumProvider = ({ children }) => {
       setInitialLoadDone(false);
       setLastFetched(null);
     }
-  }, [isAuthenticated, token, loadEnums]);
+  }, [isAuthenticated, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Helper function to map enum data to options for select inputs
+  // Safe mapper functions
   const mapToOptions = useCallback((items, valueKey = 'code', labelKey = 'displayName') => {
-    // Safe check: ensure items is an array
+    // Ensure items is an array
     if (!items || !Array.isArray(items)) {
       return [];
     }
+    
     return items
-      .filter(item => item && typeof item === 'object') // Filter out invalid items
-      .map(item => ({
-        value: item[valueKey] || item.id || item.code || '',
-        label: item[labelKey] || item.displayName || item.name || item.code || 'Unknown',
-        ...item
-      }));
+      .filter(item => item && typeof item === 'object')
+      .map(item => {
+        // Safely extract value and label
+        const value = item[valueKey] ?? item.id ?? item.code ?? '';
+        const label = item[labelKey] ?? item.displayName ?? item.name ?? item.code ?? 'Unknown';
+        
+        return {
+          value: value,
+          label: label,
+          ...item
+        };
+      });
   }, []);
 
-  // Helper function to map entity data to options
   const mapEntityToOptions = useCallback((items, labelKey = 'name', valueKey = 'id') => {
-    // Safe check: ensure items is an array
+    // Ensure items is an array
     if (!items || !Array.isArray(items)) {
       return [];
     }
+    
     return items
-      .filter(item => item && typeof item === 'object') // Filter out invalid items
-      .map(item => ({
-        value: item[valueKey] || item.id,
-        label: item[labelKey] || item.name || item.fullName || item.registrationNumber || String(item.id),
-        ...item
-      }));
+      .filter(item => item && typeof item === 'object')
+      .map(item => {
+        // Safely extract value and label
+        const value = item[valueKey] ?? item.id;
+        const label = item[labelKey] ?? item.name ?? item.fullName ?? item.registrationNumber ?? String(item.id ?? '');
+        
+        return {
+          value: value,
+          label: label,
+          ...item
+        };
+      });
   }, []);
 
   // Refresh enums
@@ -191,28 +222,44 @@ export const EnumProvider = ({ children }) => {
     return loadEnums(true);
   }, [loadEnums]);
 
+  // Memoized options to prevent unnecessary recalculations
+  const tripStatusOptions = useMemo(() => mapToOptions(enums.tripStatuses), [enums.tripStatuses, mapToOptions]);
+  const tripTypeOptions = useMemo(() => mapToOptions(enums.tripTypes), [enums.tripTypes, mapToOptions]);
+  const approvalStatusOptions = useMemo(() => mapToOptions(enums.approvalStatuses), [enums.approvalStatuses, mapToOptions]);
+  const driverStatusOptions = useMemo(() => mapToOptions(enums.driverStatuses), [enums.driverStatuses, mapToOptions]);
+  const vehicleStatusOptions = useMemo(() => mapToOptions(enums.vehicleStatuses), [enums.vehicleStatuses, mapToOptions]);
+  const vehicleTypeOptions = useMemo(() => mapToOptions(enums.vehicleTypes), [enums.vehicleTypes, mapToOptions]);
+  const fuelTypeOptions = useMemo(() => mapToOptions(enums.fuelTypes), [enums.fuelTypes, mapToOptions]);
+  const loadStatusOptions = useMemo(() => mapToOptions(enums.loadStatuses), [enums.loadStatuses, mapToOptions]);
+  const podStatusOptions = useMemo(() => mapToOptions(enums.podStatuses), [enums.podStatuses, mapToOptions]);
+  const driverOptions = useMemo(() => mapEntityToOptions(enums.drivers, 'fullName', 'id'), [enums.drivers, mapEntityToOptions]);
+  const vehicleOptions = useMemo(() => mapEntityToOptions(enums.vehicles, 'registrationNumber', 'id'), [enums.vehicles, mapEntityToOptions]);
+  const supervisorOptions = useMemo(() => mapEntityToOptions(enums.supervisors, 'fullName', 'id'), [enums.supervisors, mapEntityToOptions]);
+
   const value = {
     enums,
     loading,
     error,
     refreshEnums,
     isReady: initialLoadDone && !loading,
+    
     // Helper functions
     mapToOptions,
     mapEntityToOptions,
-    // Convenience getters for options - ensure they always return arrays
-    getTripStatusOptions: () => mapToOptions(enums.tripStatuses),
-    getTripTypeOptions: () => mapToOptions(enums.tripTypes),
-    getApprovalStatusOptions: () => mapToOptions(enums.approvalStatuses),
-    getDriverStatusOptions: () => mapToOptions(enums.driverStatuses),
-    getVehicleStatusOptions: () => mapToOptions(enums.vehicleStatuses),
-    getVehicleTypeOptions: () => mapToOptions(enums.vehicleTypes),
-    getFuelTypeOptions: () => mapToOptions(enums.fuelTypes),
-    getLoadStatusOptions: () => mapToOptions(enums.loadStatuses),
-    getPodStatusOptions: () => mapToOptions(enums.podStatuses),
-    getDriverOptions: () => mapEntityToOptions(enums.drivers, 'fullName', 'id'),
-    getVehicleOptions: () => mapEntityToOptions(enums.vehicles, 'registrationNumber', 'id'),
-    getSupervisorOptions: () => mapEntityToOptions(enums.supervisors, 'fullName', 'id'),
+    
+    // Convenience getters for options (return memoized values)
+    getTripStatusOptions: useCallback(() => tripStatusOptions, [tripStatusOptions]),
+    getTripTypeOptions: useCallback(() => tripTypeOptions, [tripTypeOptions]),
+    getApprovalStatusOptions: useCallback(() => approvalStatusOptions, [approvalStatusOptions]),
+    getDriverStatusOptions: useCallback(() => driverStatusOptions, [driverStatusOptions]),
+    getVehicleStatusOptions: useCallback(() => vehicleStatusOptions, [vehicleStatusOptions]),
+    getVehicleTypeOptions: useCallback(() => vehicleTypeOptions, [vehicleTypeOptions]),
+    getFuelTypeOptions: useCallback(() => fuelTypeOptions, [fuelTypeOptions]),
+    getLoadStatusOptions: useCallback(() => loadStatusOptions, [loadStatusOptions]),
+    getPodStatusOptions: useCallback(() => podStatusOptions, [podStatusOptions]),
+    getDriverOptions: useCallback(() => driverOptions, [driverOptions]),
+    getVehicleOptions: useCallback(() => vehicleOptions, [vehicleOptions]),
+    getSupervisorOptions: useCallback(() => supervisorOptions, [supervisorOptions]),
   };
 
   return (
