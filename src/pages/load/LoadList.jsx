@@ -62,6 +62,7 @@ import {
   Speed,
   Home,
   Map,
+  Business as BusinessIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Clear as ClearIcon,
