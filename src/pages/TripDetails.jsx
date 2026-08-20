@@ -45,7 +45,7 @@ import dayjs from 'dayjs';
 
 import { tripService } from '../services/tripService';
 import IncidentDialog from './IncidentDialog';
-import { STATUS_CONFIG, STATUS_OPTIONS } from './TripList';
+import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
 
 // ============================================================
 // UTILITY FUNCTIONS (matching Dashboard)
