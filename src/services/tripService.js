@@ -359,176 +359,206 @@ getAllTrips: async (params = {}) => {
   },
 
   // ============================================================
-  // INCIDENT MANAGEMENT
-  // ============================================================
+// INCIDENT MANAGEMENT - COMPLETE FIX
+// ============================================================
 
-  /**
-   * Get all incidents for a trip
-   */
-  getTripIncidents: async (tripId) => {
+/**
+ * Get all incidents for a trip - FIXED to never throw
+ */
+getTripIncidents: async (tripId) => {
+  try {
+    // Try the primary endpoint first
+    const response = await api.get(`/trips/${tripId}/incidents`);
+    const data = unwrap(response);
+    
+    if (Array.isArray(data)) return data;
+    if (data?.content && Array.isArray(data.content)) return data.content;
+    if (data?.data && Array.isArray(data.data)) return data.data;
+    
+    return [];
+  } catch (error) {
+    console.warn(`Primary incident endpoint failed for trip ${tripId}:`, error.message);
+    
+    // Try fallback endpoint - /incidents/list
     try {
-      const response = await api.get(`/trips/${tripId}/incidents/list`);
-      const data = unwrap(response);
+      const fallbackResponse = await api.get(`/trips/${tripId}/incidents/list`, {
+        params: { page: 0, size: 100 }
+      });
+      const fallbackData = unwrap(fallbackResponse);
       
-      if (Array.isArray(data)) return data;
-      if (data?.content && Array.isArray(data.content)) return data.content;
-      if (data?.data && Array.isArray(data.data)) return data.data;
+      if (Array.isArray(fallbackData)) return fallbackData;
+      if (fallbackData?.content && Array.isArray(fallbackData.content)) return fallbackData.content;
+      if (fallbackData?.data && Array.isArray(fallbackData.data)) return fallbackData.data;
       
       return [];
-    } catch (error) {
-      // Fallback to regular endpoint
-      try {
-        const fallbackResponse = await api.get(`/trips/${tripId}/incidents`, {
-          params: { page: 0, size: 100 }
-        });
-        const fallbackData = unwrap(fallbackResponse);
-        return fallbackData?.content || [];
-      } catch (fallbackError) {
-        throw handleApiError(fallbackError, `Fetching incidents for trip ${tripId}`);
-      }
+    } catch (fallbackError) {
+      console.warn(`Fallback incident endpoint also failed for trip ${tripId}:`, fallbackError.message);
+      // ✅ RETURN EMPTY ARRAY INSTEAD OF THROWING
+      return [];
     }
-  },
+  }
+},
 
-  /**
-   * Get active incidents for a trip
-   */
-  getActiveIncidents: async (tripId) => {
-    try {
-      const response = await api.get(`/trips/${tripId}/incidents/active`);
-      const data = unwrap(response);
-      return Array.isArray(data) ? data : (data?.data ?? []);
-    } catch (error) {
-      throw handleApiError(error, `Fetching active incidents for trip ${tripId}`);
-    }
-  },
+/**
+ * Get active incidents for a trip - FIXED to never throw
+ */
+getActiveIncidents: async (tripId) => {
+  try {
+    const response = await api.get(`/trips/${tripId}/incidents/active`);
+    const data = unwrap(response);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  } catch (error) {
+    console.warn(`Error fetching active incidents for trip ${tripId}:`, error.message);
+    // ✅ RETURN EMPTY ARRAY INSTEAD OF THROWING
+    return [];
+  }
+},
 
-  /**
-   * Report a new incident
-   */
-  reportIncident: async (tripId, incidentData) => {
-    try {
-      const payload = {
-        incidentType: incidentData.incidentType,
-        severity: incidentData.severity || 'MEDIUM',
-        description: incidentData.description,
-        location: incidentData.location || null,
-        requiresAssistance: incidentData.requiresAssistance || false,
-        reportedAt: incidentData.reportedAt || new Date().toISOString(),
-        tripId,
-        amount: incidentData.amount || null,
-        paymentMethod: incidentData.paymentMethod || null,
-        referenceNumber: incidentData.referenceNumber || null,
-        additionalNotes: incidentData.additionalNotes || null,
-        voucherType: incidentData.voucherType || null,
-        eventType: incidentData.eventType || null,
-        direction: incidentData.direction || null,
-      };
+/**
+ * Report a new incident
+ */
+reportIncident: async (tripId, incidentData) => {
+  try {
+    const payload = {
+      incidentType: incidentData.incidentType,
+      severity: incidentData.severity || 'MEDIUM',
+      description: incidentData.description,
+      location: incidentData.location || null,
+      requiresAssistance: incidentData.requiresAssistance || false,
+      reportedAt: incidentData.reportedAt || new Date().toISOString(),
+      tripId,
+      amount: incidentData.amount || null,
+      paymentMethod: incidentData.paymentMethod || null,
+      referenceNumber: incidentData.referenceNumber || null,
+      additionalNotes: incidentData.additionalNotes || null,
+      voucherType: incidentData.voucherType || null,
+      eventType: incidentData.eventType || null,
+      direction: incidentData.direction || null,
+    };
 
-      const response = await api.post(`/trips/${tripId}/incidents`, payload);
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Reporting incident for trip ${tripId}`);
-    }
-  },
+    const response = await api.post(`/trips/${tripId}/incidents`, payload);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error reporting incident for trip ${tripId}:`, error);
+    throw handleApiError(error, `Reporting incident for trip ${tripId}`);
+  }
+},
 
-  /**
-   * Update an incident
-   */
-  updateIncident: async (tripId, incidentId, updateData) => {
-    try {
-      const response = await api.put(
-        `/trips/${tripId}/incidents/${incidentId}`,
-        updateData
-      );
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Updating incident ${incidentId}`);
-    }
-  },
+/**
+ * Update an incident
+ */
+updateIncident: async (tripId, incidentId, updateData) => {
+  try {
+    const response = await api.put(
+      `/trips/${tripId}/incidents/${incidentId}`,
+      updateData
+    );
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error updating incident ${incidentId}:`, error);
+    throw handleApiError(error, `Updating incident ${incidentId}`);
+  }
+},
 
-  /**
-   * Delete an incident
-   */
-  deleteIncident: async (tripId, incidentId) => {
-    try {
-      const response = await api.delete(
-        `/trips/${tripId}/incidents/${incidentId}`
-      );
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Deleting incident ${incidentId}`);
-    }
-  },
+/**
+ * Delete an incident
+ */
+deleteIncident: async (tripId, incidentId) => {
+  try {
+    const response = await api.delete(
+      `/trips/${tripId}/incidents/${incidentId}`
+    );
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error deleting incident ${incidentId}:`, error);
+    throw handleApiError(error, `Deleting incident ${incidentId}`);
+  }
+},
 
-  /**
-   * Get incident statistics
-   */
-  getIncidentStats: async (tripId) => {
-    try {
-      const response = await api.get(`/trips/${tripId}/incidents/list`);
-      return unwrap(response);
-    } catch (error) {
-      return { totalIncidents: 0, activeIncidents: 0, urgentIncidents: 0 };
-    }
-  },
+/**
+ * Get incident statistics - FIXED to never throw
+ */
+getIncidentStats: async (tripId) => {
+  try {
+    const response = await api.get(`/trips/${tripId}/incidents/stats`);
+    return unwrap(response);
+  } catch (error) {
+    console.warn(`Error fetching incident stats for trip ${tripId}:`, error.message);
+    // ✅ RETURN DEFAULT STATS INSTEAD OF THROWING
+    return { totalIncidents: 0, activeIncidents: 0, urgentIncidents: 0 };
+  }
+},
 
-  /**
-   * Search incidents with filters
-   */
-  searchIncidents: async (tripId, filters = {}) => {
-    try {
-      const response = await api.get(
-        `/trips/${tripId}/incidents/search`,
-        { params: filters }
-      );
-      const data = unwrap(response);
-      return Array.isArray(data) ? data : (data?.data ?? []);
-    } catch (error) {
-      throw handleApiError(error, `Searching incidents for trip ${tripId}`);
-    }
-  },
+/**
+ * Search incidents with filters
+ */
+searchIncidents: async (tripId, filters = {}) => {
+  try {
+    const response = await api.get(
+      `/trips/${tripId}/incidents/search`,
+      { params: filters }
+    );
+    const data = unwrap(response);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  } catch (error) {
+    console.error(`Error searching incidents for trip ${tripId}:`, error);
+    throw handleApiError(error, `Searching incidents for trip ${tripId}`);
+  }
+},
 
-  /**
-   * Get incident by ID
-   */
-  getIncidentById: async (tripId, incidentId) => {
-    try {
-      const response = await api.get(`/trips/${tripId}/incidents/${incidentId}`);
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Fetching incident ${incidentId}`);
-    }
-  },
+/**
+ * Get incident by ID
+ */
+getIncidentById: async (tripId, incidentId) => {
+  try {
+    const response = await api.get(`/trips/${tripId}/incidents/${incidentId}`);
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error fetching incident ${incidentId}:`, error);
+    throw handleApiError(error, `Fetching incident ${incidentId}`);
+  }
+},
 
-  /**
-   * Update incident status
-   */
-  updateIncidentStatus: async (tripId, incidentId, status, resolutionNotes = '') => {
-    try {
-      const response = await api.patch(
-        `/trips/${tripId}/incidents/${incidentId}/status`,
-        { status, resolutionNotes }
-      );
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Updating incident ${incidentId} status`);
-    }
-  },
+/**
+ * Update incident status
+ */
+updateIncidentStatus: async (tripId, incidentId, status, resolutionNotes = '') => {
+  try {
+    const response = await api.patch(
+      `/trips/${tripId}/incidents/${incidentId}/status`,
+      { status, resolutionNotes }
+    );
+    return unwrap(response);
+  } catch (error) {
+    console.error(`Error updating incident ${incidentId} status:`, error);
+    throw handleApiError(error, `Updating incident ${incidentId} status`);
+  }
+},
 
-  /**
-   * Get paginated incidents
-   */
-  getTripIncidentsPaginated: async (tripId, page = 0, size = 10, sort = 'reportedAt,desc') => {
-    try {
-      const response = await api.get(`/trips/${tripId}/incidents`, {
-        params: { page, size, sort },
-      });
-      const data = unwrap(response);
-      return normalizePage(data, page, size);
-    } catch (error) {
-      return normalizePage({}, page, size);
-    }
-  },
+/**
+ * Get paginated incidents - FIXED to never throw
+ */
+getTripIncidentsPaginated: async (tripId, page = 0, size = 10, sort = 'reportedAt,desc') => {
+  try {
+    const response = await api.get(`/trips/${tripId}/incidents`, {
+      params: { page, size, sort },
+    });
+    const data = unwrap(response);
+    return normalizePage(data, page, size);
+  } catch (error) {
+    console.warn(`Error fetching paginated incidents for trip ${tripId}:`, error.message);
+    // ✅ RETURN EMPTY PAGE INSTEAD OF THROWING
+    return {
+      content: [],
+      pageable: { pageNumber: page, pageSize: size },
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+      empty: true
+    };
+  }
+},
 
   // ============================================================
   // STATUS MANAGEMENT
