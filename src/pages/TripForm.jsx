@@ -42,6 +42,7 @@ import {
   Description,
   LocationOn,
   SwapHoriz,
+  Packaging,
   Scale,
   AttachMoney,
   Comment,
