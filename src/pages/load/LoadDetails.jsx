@@ -46,6 +46,7 @@ import {
   TrendingUp,
   TrendingDown,
   Inventory,
+  Cancel, 
 } from '@mui/icons-material';
 import { loadService } from '../../services/loadService';
 
