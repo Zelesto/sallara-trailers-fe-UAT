@@ -108,6 +108,12 @@ export const EnumProvider = ({ children }) => {
       return;
     }
 
+    // If already ready, don't reload
+    if (isReady && !loading) {
+      console.log('📦 EnumProvider: Using cached enums');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -132,30 +138,33 @@ export const EnumProvider = ({ children }) => {
       ]);
 
       // Extract data safely using safeArray helper
-      const extractData = (result) => {
+      const extractData = (result, name) => {
         if (result.status === 'fulfilled') {
-          return safeArray(result.value);
+          const data = safeArray(result.value);
+          console.log(`✅ ${name}: ${data.length} items`);
+          return data;
         }
-        console.warn('⚠️ Failed to fetch enum data:', result.reason);
+        console.warn(`⚠️ Failed to fetch ${name}:`, result.reason);
         return [];
       };
 
-      setEnums({
-        tripStatuses: extractData(results[0]),
-        tripTypes: extractData(results[1]),
-        approvalStatuses: extractData(results[2]),
-        tripPriorities: extractData(results[3]),
-        driverStatuses: extractData(results[4]),
-        vehicleStatuses: extractData(results[5]),
-        vehicleTypes: extractData(results[6]),
-        fuelTypes: extractData(results[7]),
-        loadStatuses: extractData(results[8]),
-        podStatuses: extractData(results[9]),
-        drivers: extractData(results[10]),
-        vehicles: extractData(results[11]),
-        supervisors: extractData(results[12]),
-      });
-      
+      const newEnums = {
+        tripStatuses: extractData(results[0], 'tripStatuses'),
+        tripTypes: extractData(results[1], 'tripTypes'),
+        approvalStatuses: extractData(results[2], 'approvalStatuses'),
+        tripPriorities: extractData(results[3], 'tripPriorities'),
+        driverStatuses: extractData(results[4], 'driverStatuses'),
+        vehicleStatuses: extractData(results[5], 'vehicleStatuses'),
+        vehicleTypes: extractData(results[6], 'vehicleTypes'),
+        fuelTypes: extractData(results[7], 'fuelTypes'),
+        loadStatuses: extractData(results[8], 'loadStatuses'),
+        podStatuses: extractData(results[9], 'podStatuses'),
+        drivers: extractData(results[10], 'drivers'),
+        vehicles: extractData(results[11], 'vehicles'),
+        supervisors: extractData(results[12], 'supervisors'),
+      };
+
+      setEnums(newEnums);
       setIsReady(true);
       console.log('✅ EnumProvider: Enums loaded successfully');
     } catch (err) {
@@ -166,7 +175,7 @@ export const EnumProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, isReady, loading]);
 
   // Load enums when authentication state changes
   useEffect(() => {
