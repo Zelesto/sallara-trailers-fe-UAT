@@ -41,45 +41,85 @@ export const loadService = {
     }
   },
 
-  // ✅ FIX: Create new load with proper data structure
+  // ✅ FIX: Create new load with correct DTO structure
   createLoad: async (loadData) => {
     try {
-      // Ensure required fields
+      // Build payload matching LoadRequestDTO
       const payload = {
-        customerId: loadData.customerId || null,
+        // Core fields
+        referenceNumber: loadData.referenceNumber || null,
         description: loadData.description || 'Load created from trip',
-        commodityType: loadData.commodityType || null,
+        customerId: loadData.customerId || null,
+        
+        // Measurements
         weightKg: loadData.weightKg || null,
         volumeCubicM: loadData.volumeCubicM || null,
         palletCount: loadData.palletCount || null,
-        containerNumber: loadData.containerNumber || null,
-        referenceNumber: loadData.referenceNumber || null,
-        priority: loadData.priority || 'NORMAL',
-        status: 'PENDING',
+        
+        // Dates
         loadingDate: loadData.loadingDate || null,
         unloadingDate: loadData.unloadingDate || null,
+        
+        // Status & Priority
+        status: loadData.status || 'PENDING',
+        priority: loadData.priority || 'NORMAL',
+        
+        // Commodity
+        commodityType: loadData.commodityType || null,
+        containerNumber: loadData.containerNumber || null,
+        
+        // Special Handling
+        hazardousMaterial: loadData.hazardousMaterial || false,
+        specialHandling: loadData.specialHandling || null,
+        handlingInstructions: loadData.handlingInstructions || null,
+        packagingType: loadData.packagingType || null,
+        hazardClass: loadData.hazardClass || null,
+        temperatureRequirements: loadData.temperatureRequirements || null,
+        
+        // Location
         originLocation: loadData.originLocation || null,
         destinationLocation: loadData.destinationLocation || null,
+        
+        // Financial
+        estimatedValue: loadData.estimatedValue || null,
+        actualValue: loadData.actualValue || null,
+        
+        // Insurance & Customs
+        insurancePolicyNumber: loadData.insurancePolicyNumber || null,
+        insuranceExpiry: loadData.insuranceExpiry || null,
+        customsClearanceStatus: loadData.customsClearanceStatus || null,
+        
+        // Relationships
+        warehouseId: loadData.warehouseId || null,
+        supervisorId: loadData.supervisorId || null,
+        
+        // Trips to associate
         tripIds: loadData.tripIds || [],
       };
 
-      // Remove null/undefined values
+      // ✅ Remove null/undefined values
       Object.keys(payload).forEach(key => {
-        if (payload[key] === null || payload[key] === undefined) {
+        if (payload[key] === null || payload[key] === undefined || payload[key] === '') {
           delete payload[key];
         }
       });
 
+      // ✅ Remove empty arrays
+      if (payload.tripIds && payload.tripIds.length === 0) {
+        delete payload.tripIds;
+      }
+
       console.log('📦 Creating load with payload:', payload);
       const response = await api.post('/loads', payload);
+      console.log('✅ Load created:', response);
       return response;
     } catch (error) {
-      console.error('Error creating load:', error);
+      console.error('❌ Error creating load:', error);
       throw error;
     }
   },
 
-  // ✅ FIX: Search loads by reference number or other criteria
+  // ✅ Search loads by reference number or other criteria
   searchLoads: async (params = {}) => {
     try {
       // Try the search endpoint
@@ -87,7 +127,7 @@ export const loadService = {
       return response;
     } catch (error) {
       console.warn('Search endpoint failed, falling back to getAllLoads:', error);
-      // Fallback: get all loads and filter
+      // Fallback: get all loads and filter client-side
       try {
         const allLoads = await api.get('/loads', { params: { size: 1000 } });
         const loads = allLoads?.content || allLoads || [];
@@ -109,10 +149,9 @@ export const loadService = {
     }
   },
 
-  // ✅ FIX: Add trip to load (matches backend endpoint)
+  // ✅ Add trip to load
   addTripToLoad: async (loadId, tripId) => {
     try {
-      // Try the endpoint from the controller: POST /loads/{loadNumber}/trips
       // First get the load to get the load number
       const load = await loadService.getLoadById(loadId);
       if (!load || !load.loadNumber) {
@@ -135,7 +174,7 @@ export const loadService = {
     }
   },
 
-  // ✅ FIX: Add multiple trips to load
+  // ✅ Add multiple trips to load
   addTripsToLoad: async (loadNumber, tripIds) => {
     try {
       const response = await api.post(`/loads/${loadNumber}/trips`, tripIds);
