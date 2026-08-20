@@ -51,7 +51,6 @@ import {
   MonetizationOn,
   Thermostat,
   Dangerous,
-  Packaging,
   LocalOffer,
   Bookmark,
   Flag,
