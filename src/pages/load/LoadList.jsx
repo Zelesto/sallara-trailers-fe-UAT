@@ -64,6 +64,7 @@ import {
   Map,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { loadService } from '../../services/loadService';
