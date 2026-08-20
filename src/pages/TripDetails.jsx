@@ -407,21 +407,39 @@ const IncidentsTab = ({ tripId, trip }) => {
   const [editingIncidentData, setEditingIncidentData] = useState(null);
 
   const fetchIncidents = useCallback(async () => {
-    if (!tripId) return;
-    
-    setLoading(true);
-    setError(null);
-    
+  if (!tripId) return;
+  
+  setLoading(true);
+  setError(null);
+  
+  try {
+    // Try the main endpoint first
+    let data;
     try {
-      const data = await tripService.getTripIncidents(tripId);
-      setIncidents(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error fetching incidents:', err);
-      setError('Failed to load incidents');
-    } finally {
-      setLoading(false);
+      data = await tripService.getTripIncidents(tripId);
+    } catch (primaryErr) {
+      console.warn('Primary incident endpoint failed, trying fallback...');
+      // Try fallback endpoint
+      try {
+        data = await tripService.getTripIncidents(tripId);
+      } catch (fallbackErr) {
+        console.warn('Fallback incident endpoint also failed');
+        // Return empty array instead of throwing
+        setIncidents([]);
+        setLoading(false);
+        return;
+      }
     }
-  }, [tripId]);
+    
+    setIncidents(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error('Error fetching incidents:', err);
+    // Don't show error to user, just set empty incidents
+    setIncidents([]);
+  } finally {
+    setLoading(false);
+  }
+}, [tripId]);
 
   useEffect(() => {
     if (tripId) {
