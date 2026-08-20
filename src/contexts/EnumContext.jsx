@@ -60,48 +60,62 @@ export const EnumProvider = ({ children }) => {
     setError(null);
 
     try {
-      // Fetch all enum data in parallel
+      // Fetch all enum data in parallel with proper error handling
       const [
-        tripStatuses,
-        tripTypes,
-        approvalStatuses,
-        driverStatuses,
-        vehicleStatuses,
-        vehicleTypes,
-        fuelTypes,
-        loadStatuses,
-        podStatuses,
-        drivers,
-        vehicles,
-        supervisors
-      ] = await Promise.all([
-        enumService.getEnums('trip', 'status').catch(() => []),
-        enumService.getEnums('trip', 'type').catch(() => []),
-        enumService.getEnums('trip', 'approval').catch(() => []),
-        enumService.getEnums('driver', 'status').catch(() => []),
-        enumService.getEnums('vehicle', 'status').catch(() => []),
-        enumService.getEnums('vehicle', 'type').catch(() => []),
-        enumService.getEnums('fuel', 'type').catch(() => []),
-        enumService.getEnums('load', 'status').catch(() => []),
-        enumService.getEnums('pod', 'status').catch(() => []),
-        driverService.getAllDrivers({ status: 'AVAILABLE' }).catch(() => []),
-        vehicleService.getAllVehicles({ status: 'AVAILABLE' }).catch(() => []),
+        tripStatusesResult,
+        tripTypesResult,
+        approvalStatusesResult,
+        driverStatusesResult,
+        vehicleStatusesResult,
+        vehicleTypesResult,
+        fuelTypesResult,
+        loadStatusesResult,
+        podStatusesResult,
+        driversResult,
+        vehiclesResult,
+        supervisorsResult
+      ] = await Promise.allSettled([
+        enumService.getEnums('trip', 'status'),
+        enumService.getEnums('trip', 'type'),
+        enumService.getEnums('trip', 'approval'),
+        enumService.getEnums('driver', 'status'),
+        enumService.getEnums('vehicle', 'status'),
+        enumService.getEnums('vehicle', 'type'),
+        enumService.getEnums('fuel', 'type'),
+        enumService.getEnums('load', 'status'),
+        enumService.getEnums('pod', 'status'),
+        driverService.getAllDrivers({ status: 'AVAILABLE' }),
+        vehicleService.getAllVehicles({ status: 'AVAILABLE' }),
         Promise.resolve([]), // Replace with userService.getSupervisors() when available
       ]);
 
+      // Extract values from settled promises, default to empty array on failure
+      const getValue = (result) => {
+        if (result.status === 'fulfilled') {
+          // Handle different response structures
+          const data = result.value;
+          if (Array.isArray(data)) return data;
+          if (data && data.data && Array.isArray(data.data)) return data.data;
+          if (data && data.content && Array.isArray(data.content)) return data.content;
+          return [];
+        }
+        console.warn('Failed to fetch enum data:', result.reason);
+        return [];
+      };
+
       setEnums({
-        tripStatuses: tripStatuses || [],
-        tripTypes: tripTypes || [],
-        approvalStatuses: approvalStatuses || [],
-        driverStatuses: driverStatuses || [],
-        vehicleStatuses: vehicleStatuses || [],
-        vehicleTypes: vehicleTypes || [],
-        fuelTypes: fuelTypes || [],
-        loadStatuses: loadStatuses || [],
-        podStatuses: podStatuses || [],
-        drivers: Array.isArray(drivers) ? drivers : [],
-        vehicles: Array.isArray(vehicles) ? vehicles : [],
-        supervisors: Array.isArray(supervisors) ? supervisors : [],
+        tripStatuses: getValue(tripStatusesResult),
+        tripTypes: getValue(tripTypesResult),
+        approvalStatuses: getValue(approvalStatusesResult),
+        driverStatuses: getValue(driverStatusesResult),
+        vehicleStatuses: getValue(vehicleStatusesResult),
+        vehicleTypes: getValue(vehicleTypesResult),
+        fuelTypes: getValue(fuelTypesResult),
+        loadStatuses: getValue(loadStatusesResult),
+        podStatuses: getValue(podStatusesResult),
+        drivers: getValue(driversResult),
+        vehicles: getValue(vehiclesResult),
+        supervisors: getValue(supervisorsResult),
       });
       
       setLastFetched(Date.now());
@@ -140,26 +154,36 @@ export const EnumProvider = ({ children }) => {
       setInitialLoadDone(false);
       setLastFetched(null);
     }
-  }, [isAuthenticated, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, token, loadEnums]);
 
   // Helper function to map enum data to options for select inputs
   const mapToOptions = useCallback((items, valueKey = 'code', labelKey = 'displayName') => {
-    if (!items || !Array.isArray(items)) return [];
-    return items.map(item => ({
-      value: item[valueKey] || item.id || item.code,
-      label: item[labelKey] || item.displayName || item.name || item.code,
-      ...item
-    }));
+    // Safe check: ensure items is an array
+    if (!items || !Array.isArray(items)) {
+      return [];
+    }
+    return items
+      .filter(item => item && typeof item === 'object') // Filter out invalid items
+      .map(item => ({
+        value: item[valueKey] || item.id || item.code || '',
+        label: item[labelKey] || item.displayName || item.name || item.code || 'Unknown',
+        ...item
+      }));
   }, []);
 
   // Helper function to map entity data to options
   const mapEntityToOptions = useCallback((items, labelKey = 'name', valueKey = 'id') => {
-    if (!items || !Array.isArray(items)) return [];
-    return items.map(item => ({
-      value: item[valueKey],
-      label: item[labelKey] || item.name || item.fullName || item.registrationNumber || item.id,
-      ...item
-    }));
+    // Safe check: ensure items is an array
+    if (!items || !Array.isArray(items)) {
+      return [];
+    }
+    return items
+      .filter(item => item && typeof item === 'object') // Filter out invalid items
+      .map(item => ({
+        value: item[valueKey] || item.id,
+        label: item[labelKey] || item.name || item.fullName || item.registrationNumber || String(item.id),
+        ...item
+      }));
   }, []);
 
   // Refresh enums
@@ -176,7 +200,7 @@ export const EnumProvider = ({ children }) => {
     // Helper functions
     mapToOptions,
     mapEntityToOptions,
-    // Convenience getters for options
+    // Convenience getters for options - ensure they always return arrays
     getTripStatusOptions: () => mapToOptions(enums.tripStatuses),
     getTripTypeOptions: () => mapToOptions(enums.tripTypes),
     getApprovalStatusOptions: () => mapToOptions(enums.approvalStatuses),
