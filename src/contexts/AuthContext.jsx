@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.jsx
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/auth';
 
@@ -12,36 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
-  
-  // Get navigate function - must be used inside Router
-  // We'll use a ref to store navigate since we can't use hook in event listeners
-  const navigateRef = React.useRef();
-
-  // Set navigate ref when available
-  useEffect(() => {
-    // This will be set by the component that uses useNavigate
-    // For now, we'll use window.location as fallback
-    const handleSessionExpired = () => {
-      setSessionExpired(true);
-      setUser(null);
-      // Redirect to login with session expired parameter
-      const currentPath = window.location.pathname;
-      if (currentPath !== '/login') {
-        // Use navigate if available, otherwise fallback to window.location
-        if (navigateRef.current) {
-          navigateRef.current('/login?session=expired', { replace: true });
-        } else {
-          window.location.href = '/login?session=expired';
-        }
-      }
-    };
-
-    window.addEventListener('sessionExpired', handleSessionExpired);
-
-    return () => {
-      window.removeEventListener('sessionExpired', handleSessionExpired);
-    };
-  }, []);
+  const navigateRef = useRef(null);
 
   // Load user on mount
   useEffect(() => {
@@ -53,7 +24,6 @@ export const AuthProvider = ({ children }) => {
           setSessionExpired(false);
         } catch (err) {
           console.error('Failed to load user:', err);
-          // If token is invalid, clear it
           if (err.status === 401 || err.response?.status === 401) {
             authService.clearAuthData();
             setUser(null);
@@ -76,7 +46,6 @@ export const AuthProvider = ({ children }) => {
 
       console.log('AuthContext login result:', result);
 
-      // Check different response structures
       let token, user;
 
       if (result.token && result.user) {
@@ -121,7 +90,6 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     setSessionExpired(false);
     
-    // Use navigate if available, otherwise fallback to window.location
     if (navigateRef.current) {
       navigateRef.current('/login', { replace: true });
     } else {
@@ -212,7 +180,7 @@ export const AuthProvider = ({ children }) => {
     register,
     updateProfile,
     refreshUser,
-    isAuthenticated,
+    isAuthenticated: isAuthenticated(),
     hasRole,
     hasAnyRole,
     hasAllRoles,
@@ -222,9 +190,7 @@ export const AuthProvider = ({ children }) => {
     sessionExpired,
     setSessionExpired,
     clearError: () => setError(null),
-    setNavigate: (navigate) => {
-      navigateRef.current = navigate;
-    }
+    setNavigate: (nav) => { navigateRef.current = nav; }
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -234,28 +200,6 @@ export const AuthProvider = ({ children }) => {
 export const useAuthWithNavigate = () => {
   const navigate = useNavigate();
   const auth = useAuth();
-// Listen for session expiry events
-useEffect(() => {
-  const handleSessionExpired = () => {
-    setSessionExpired(true);
-    setUser(null);
-    // Clear auth data
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    // Redirect to login with session expired parameter
-    const currentPath = window.location.pathname;
-    if (currentPath !== '/login') {
-      window.location.href = '/login?session=expired';
-    }
-  };
-
-  window.addEventListener('sessionExpired', handleSessionExpired);
-
-  return () => {
-    window.removeEventListener('sessionExpired', handleSessionExpired);
-  };
-}, []);
   
   // Set the navigate ref when the hook is used
   useEffect(() => {
