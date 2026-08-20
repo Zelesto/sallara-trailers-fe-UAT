@@ -971,25 +971,39 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 const createNewLoad = async (tripResult) => {
   try {
     const loadData = {
-      customerId: tripResult.customerId || form.customerId || null,
+      // Core
+      referenceNumber: form.referenceNumber || tripResult.referenceNumber || null,
       description: form.cargoDescription || form.description || `Load for trip ${tripResult.tripNumber}`,
-      commodityType: form.commodityType || null,
+      customerId: tripResult.customerId || form.customerId || null,
+      
+      // Measurements
       weightKg: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
       volumeCubicM: null,
       palletCount: form.palletCount ? parseInt(form.palletCount) : null,
       containerNumber: form.containerNumber || null,
-      referenceNumber: form.referenceNumber || tripResult.referenceNumber || null,
-      priority: form.priority || 'NORMAL',
+      
+      // Dates
       loadingDate: form.plannedStartDate || null,
       unloadingDate: form.plannedEndDate || null,
+      
+      // Status & Priority
+      status: 'PENDING',
+      priority: form.priority || 'NORMAL',
+      
+      // Commodity
+      commodityType: form.commodityType || null,
+      
+      // Location
       originLocation: buildAddress(origin) || null,
       destinationLocation: buildAddress(destination) || null,
+      
+      // Trips
       tripIds: [tripResult.id],
     };
 
-    // Remove null/undefined values
+    // ✅ Remove null/undefined values
     Object.keys(loadData).forEach(key => {
-      if (loadData[key] === null || loadData[key] === undefined) {
+      if (loadData[key] === null || loadData[key] === undefined || loadData[key] === '') {
         delete loadData[key];
       }
     });
