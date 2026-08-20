@@ -915,60 +915,71 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
    ============================================================ */
 
   const findOrCreateLoad = async (tripResult) => {
+  try {
+    const referenceNumber = tripResult.referenceNumber || form.referenceNumber;
+    
+    // If no reference number, create a new load with trip data
+    if (!referenceNumber) {
+      console.log('📦 No reference number provided. Creating new load...');
+      return await createNewLoad(tripResult);
+    }
+
+    console.log(`🔍 Checking for existing load with reference: ${referenceNumber}`);
+    
+    // Search for existing load by reference number
+    let existingLoad = null;
     try {
-      const referenceNumber = tripResult.referenceNumber || form.referenceNumber;
+      const searchResult = await loadService.searchLoads({ 
+        referenceNumber: referenceNumber,
+        size: 100 
+      });
       
-      // If no reference number, create a new load with trip data
-      if (!referenceNumber) {
-        console.log('📦 No reference number provided. Creating new load...');
-        return await createNewLoad(tripResult);
+      if (searchResult && searchResult.content && searchResult.content.length > 0) {
+        existingLoad = searchResult.content[0];
+        console.log(`✅ Found existing load: ${existingLoad.loadNumber} (ID: ${existingLoad.id})`);
       }
+    } catch (searchError) {
+      console.warn('⚠️ Error searching for load:', searchError);
+      // Continue to create a new load
+    }
 
-      console.log(`🔍 Checking for existing load with reference: ${referenceNumber}`);
-      
-      // Search for existing load by reference number
-      let existingLoad = null;
+    // If load exists, add trip to it
+    if (existingLoad) {
+      console.log(`📦 Adding trip to existing load: ${existingLoad.loadNumber}`);
       try {
-        const searchResult = await loadService.searchLoads({ referenceNumber });
-        if (searchResult && searchResult.content && searchResult.content.length > 0) {
-          existingLoad = searchResult.content[0];
-          console.log(`✅ Found existing load: ${existingLoad.loadNumber}`);
-        }
-      } catch (searchError) {
-        console.warn('⚠️ Error searching for load:', searchError);
-      }
-
-      // If load exists, add trip to it
-      if (existingLoad) {
-        console.log(`📦 Adding trip to existing load: ${existingLoad.loadNumber}`);
         const updatedLoad = await loadService.addTripToLoad(existingLoad.id, tripResult.id);
         console.log(`✅ Trip added to load ${updatedLoad.loadNumber}`);
         return updatedLoad;
+      } catch (addError) {
+        console.warn('⚠️ Could not add trip to existing load, creating new load:', addError);
+        // If adding to existing load fails, create a new one
+        return await createNewLoad(tripResult);
       }
-
-      // No existing load found, create new one
-      console.log('📦 No existing load found. Creating new load...');
-      return await createNewLoad(tripResult);
-
-    } catch (error) {
-      console.error('❌ Error in load creation/linking:', error);
-      // Don't throw - trip was already created successfully
-      return null;
     }
-  };
 
-  const createNewLoad = async (tripResult) => {
+    // No existing load found, create new one
+    console.log('📦 No existing load found. Creating new load...');
+    return await createNewLoad(tripResult);
+
+  } catch (error) {
+    console.error('❌ Error in load creation/linking:', error);
+    // Don't throw - trip was already created successfully
+    return null;
+  }
+};
+
+const createNewLoad = async (tripResult) => {
+  try {
     const loadData = {
-      customerId: tripResult.customerId || form.customerId,
+      customerId: tripResult.customerId || form.customerId || null,
       description: form.cargoDescription || form.description || `Load for trip ${tripResult.tripNumber}`,
-      commodityType: form.commodityType,
+      commodityType: form.commodityType || null,
       weightKg: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-      volumeCubicM: null, // Can be added later
+      volumeCubicM: null,
       palletCount: form.palletCount ? parseInt(form.palletCount) : null,
       containerNumber: form.containerNumber || null,
       referenceNumber: form.referenceNumber || tripResult.referenceNumber || null,
       priority: form.priority || 'NORMAL',
-      status: 'PENDING',
       loadingDate: form.plannedStartDate || null,
       unloadingDate: form.plannedEndDate || null,
       originLocation: buildAddress(origin) || null,
@@ -976,11 +987,23 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       tripIds: [tripResult.id],
     };
 
+    // Remove null/undefined values
+    Object.keys(loadData).forEach(key => {
+      if (loadData[key] === null || loadData[key] === undefined) {
+        delete loadData[key];
+      }
+    });
+
     console.log('📦 Creating new load with data:', loadData);
     const newLoad = await loadService.createLoad(loadData);
-    console.log(`✅ New load created: ${newLoad.loadNumber}`);
+    console.log(`✅ New load created: ${newLoad.loadNumber} (ID: ${newLoad.id})`);
     return newLoad;
-  };
+  } catch (error) {
+    console.error('❌ Failed to create load:', error);
+    // Return null instead of throwing - trip was already created
+    return null;
+  }
+};
 
   /* ============================================================
      FORM SUBMISSION
