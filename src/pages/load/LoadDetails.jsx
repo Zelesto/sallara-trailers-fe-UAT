@@ -62,7 +62,6 @@ import {
   Category,
   Scale,
   Straighten,
-  Inventory,
 } from '@mui/icons-material';
 import { loadService } from '../../services/loadService';
 
