@@ -1,4 +1,4 @@
-// src/pages/TripForm.jsx - Fixed with defaults
+// src/pages/TripForm.jsx - Updated with Load Creation Support
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dayjs from 'dayjs';
 import {
@@ -30,6 +30,7 @@ import {
   useTheme,
   useMediaQuery,
   Paper,
+  Switch,
 } from '@mui/material';
 
 import {
@@ -48,7 +49,9 @@ import {
   Receipt,
   Business as BusinessIcon,
   Warehouse as WarehouseIcon,
-  Route as RouteIcon
+  Route as RouteIcon,
+  LocalShipping,
+  Add as AddIcon,
 } from '@mui/icons-material';
 
 import {
@@ -63,6 +66,7 @@ import { vehicleService } from '../services/vehicleService';
 import { routingService } from '../services/routingService';
 import { customerService } from '../services/customerService';
 import { depotService } from '../services/depotService';
+import { loadService } from '../services/loadService';
 import { useEnums } from '../contexts/EnumContext';
 import { 
   STATUS_CONFIG, 
@@ -136,6 +140,16 @@ const getDefaultFormState = () => ({
   estimatedOtherExpenses: '',
   cancellationReason: '',
   departureLocation: '',
+  // Load creation fields
+  createLoad: false,
+  loadDescription: '',
+  loadCommodityType: '',
+  loadWeight: '',
+  loadVolume: '',
+  loadPalletCount: '',
+  loadContainerNumber: '',
+  loadReferenceNumber: '',
+  loadPriority: 'NORMAL',
 });
 
 const getDefaultAddress = () => ({
@@ -516,6 +530,233 @@ function DepotSection({
           </Grid>
         )}
       </Grid>
+    </Paper>
+  );
+}
+
+/* ============================================================
+   COMPONENT: LoadCreationSection
+   ============================================================ */
+
+function LoadCreationSection({ form, handleFieldChange, customers }) {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        width: '100%',
+        mb: 1.5,
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+        <LocalShipping sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+        <Typography 
+          variant="subtitle2" 
+          sx={{ 
+            fontWeight: 600, 
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
+            color: '#111827',
+          }}
+        >
+          Create Load
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={form.createLoad}
+              onChange={(e) => handleFieldChange('createLoad', e.target.checked)}
+              size="small"
+              color="primary"
+            />
+          }
+          label={form.createLoad ? 'Enabled' : 'Disabled'}
+          sx={{ ml: 1 }}
+        />
+      </Stack>
+
+      {form.createLoad && (
+        <Grid container spacing={1.5}>
+          <Grid size={{ xs: 12 }}>
+            <Alert severity="info" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+              A new load will be created with this trip. The trip will be automatically added to the load.
+            </Alert>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              label="Load Description"
+              value={form.loadDescription}
+              onChange={(e) => handleFieldChange('loadDescription', e.target.value)}
+              size="small"
+              placeholder="Description for the load"
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                Load Customer
+              </InputLabel>
+              <Select
+                value={form.loadCustomerId || form.customerId || ''}
+                label="Load Customer"
+                onChange={(e) => handleFieldChange('loadCustomerId', e.target.value)}
+                sx={{ 
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  borderRadius: '8px',
+                }}
+              >
+                <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  Same as Trip Customer
+                </MenuItem>
+                {customers.map(customer => (
+                  <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                    {customer.name} ({customer.customerCode})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              fullWidth
+              label="Load Weight (kg)"
+              type="number"
+              value={form.loadWeight || form.cargoWeight || ''}
+              onChange={(e) => handleFieldChange('loadWeight', e.target.value)}
+              size="small"
+              InputProps={{
+                endAdornment: <InputAdornment position="end">kg</InputAdornment>
+              }}
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              fullWidth
+              label="Load Volume (m³)"
+              type="number"
+              value={form.loadVolume || ''}
+              onChange={(e) => handleFieldChange('loadVolume', e.target.value)}
+              size="small"
+              InputProps={{
+                endAdornment: <InputAdornment position="end">m³</InputAdornment>
+              }}
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              fullWidth
+              label="Load Pallet Count"
+              type="number"
+              value={form.loadPalletCount || form.palletCount || ''}
+              onChange={(e) => handleFieldChange('loadPalletCount', e.target.value)}
+              size="small"
+              InputProps={{
+                endAdornment: <InputAdornment position="end">pallets</InputAdornment>
+              }}
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                Load Priority
+              </InputLabel>
+              <Select
+                value={form.loadPriority || 'NORMAL'}
+                label="Load Priority"
+                onChange={(e) => handleFieldChange('loadPriority', e.target.value)}
+                sx={{ 
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  borderRadius: '8px',
+                }}
+              >
+                {PRIORITY_OPTIONS.map(p => {
+                  const config = PRIORITY_CONFIG[p];
+                  return (
+                    <MenuItem key={p} value={p} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                      <Chip 
+                        label={config?.label || p} 
+                        size="small" 
+                        color={config?.color || 'default'} 
+                        sx={{ height: { xs: 18, sm: 20 }, fontSize: { xs: '0.5rem', sm: '0.6rem' } }}
+                      />
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              label="Load Reference Number"
+              value={form.loadReferenceNumber || form.referenceNumber || ''}
+              onChange={(e) => handleFieldChange('loadReferenceNumber', e.target.value)}
+              size="small"
+              placeholder="Reference number for the load"
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              label="Load Container Number"
+              value={form.loadContainerNumber || form.containerNumber || ''}
+              onChange={(e) => handleFieldChange('loadContainerNumber', e.target.value)}
+              size="small"
+              placeholder="Container number"
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              label="Load Commodity Type"
+              value={form.loadCommodityType || form.commodityType || ''}
+              onChange={(e) => handleFieldChange('loadCommodityType', e.target.value)}
+              size="small"
+              placeholder="Commodity type"
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+        </Grid>
+      )}
     </Paper>
   );
 }
@@ -905,6 +1146,44 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   };
 
   /* ============================================================
+     CREATE LOAD FUNCTION
+   ============================================================ */
+
+  const createLoad = async (tripResult) => {
+    if (!form.createLoad) return null;
+
+    try {
+      const loadData = {
+        customerId: form.loadCustomerId || form.customerId,
+        description: form.loadDescription || form.cargoDescription || 'Load created from trip',
+        commodityType: form.loadCommodityType || form.commodityType,
+        weightKg: form.loadWeight ? parseFloat(form.loadWeight) : (form.cargoWeight ? parseFloat(form.cargoWeight) : null),
+        volumeCubicM: form.loadVolume ? parseFloat(form.loadVolume) : null,
+        palletCount: form.loadPalletCount ? parseInt(form.loadPalletCount) : (form.palletCount ? parseInt(form.palletCount) : null),
+        containerNumber: form.loadContainerNumber || form.containerNumber || null,
+        referenceNumber: form.loadReferenceNumber || form.referenceNumber || null,
+        priority: form.loadPriority || 'NORMAL',
+        status: 'PENDING',
+        loadingDate: form.plannedStartDate || null,
+        unloadingDate: form.plannedEndDate || null,
+        originLocation: buildAddress(origin) || null,
+        destinationLocation: buildAddress(destination) || null,
+        tripIds: [tripResult.id],
+      };
+
+      console.log('📦 Creating load with data:', loadData);
+      const loadResult = await loadService.createLoad(loadData);
+      console.log('✅ Load created successfully:', loadResult);
+      
+      return loadResult;
+    } catch (error) {
+      console.error('❌ Failed to create load:', error);
+      // Don't throw - trip was created successfully
+      return null;
+    }
+  };
+
+  /* ============================================================
      FORM SUBMISSION
    ============================================================ */
 
@@ -1003,6 +1282,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         result = await tripService.createTrip(payload);
         console.log('✅ Trip created successfully:', result);
         setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+      }
+
+      // ✅ CREATE LOAD IF ENABLED
+      if (form.createLoad && result) {
+        console.log('📦 Creating load from trip...');
+        const loadResult = await createLoad(result);
+        if (loadResult) {
+          setSuccessMessage(`Trip ${result.tripNumber} created successfully! Load ${loadResult.loadNumber} created with ${loadResult.tripsCount || 1} trip(s).`);
+        } else {
+          setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+        }
       }
 
       setIsSuccess(true);
@@ -1867,6 +2157,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                     </Grid>
                   </Grid>
                 </Paper>
+
+                {/* Load Creation Section */}
+                <LoadCreationSection
+                  form={form}
+                  handleFieldChange={handleFieldChange}
+                  customers={customers}
+                />
 
                 {/* Notes */}
                 <Paper
