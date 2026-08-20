@@ -1,15 +1,16 @@
 // src/constants/tripConstants.js
+
 export const STATUS_CONFIG = {
-  DRAFT: { label: 'Draft', color: 'default', bgColor: '#F3F4F6' },
-  PLANNED: { label: 'Planned', color: 'info', bgColor: '#DBEAFE' },
-  ASSIGNED: { label: 'Assigned', color: 'primary', bgColor: '#E0E7FF' },
-  IN_PROGRESS: { label: 'In Progress', color: 'warning', bgColor: '#FEF3C7' },
-  ACTIVE: { label: 'Active', color: 'warning', bgColor: '#FEF3C7' },
-  COMPLETED: { label: 'Completed', color: 'success', bgColor: '#D1FAE5' },
-  CANCELLED: { label: 'Cancelled', color: 'error', bgColor: '#FEE2E2' },
-  PENDING: { label: 'Pending', color: 'warning', bgColor: '#FEF3C7' },
-  CLOSED: { label: 'Closed', color: 'default', bgColor: '#F3F4F6' },
-  FINALIZED: { label: 'Finalized', color: 'success', bgColor: '#D1FAE5' },
+  DRAFT: { color: '#9e9e9e', bgColor: '#f5f5f5', label: 'Draft', icon: '✏️' },
+  PLANNED: { color: '#0288d1', bgColor: '#e3f2fd', label: 'Planned', icon: '📅' },
+  ASSIGNED: { color: '#7b1fa2', bgColor: '#f3e5f5', label: 'Assigned', icon: '👤' },
+  IN_PROGRESS: { color: '#ed6c02', bgColor: '#fff3e0', label: 'In Progress', icon: '🚚' },
+  ACTIVE: { color: '#2e7d32', bgColor: '#e8f5e8', label: 'Active', icon: '✅' },
+  PENDING: { color: '#ff9800', bgColor: '#fff3e0', label: 'Pending', icon: '⏳' },
+  COMPLETED: { color: '#0097a7', bgColor: '#e0f7fa', label: 'Completed', icon: '🏁' },
+  CANCELLED: { color: '#d32f2f', bgColor: '#ffebee', label: 'Cancelled', icon: '❌' },
+  CLOSED: { color: '#5d4037', bgColor: '#efebe9', label: 'Closed', icon: '🔒' },
+  FINALIZED: { color: '#388e3c', bgColor: '#e8f5e8', label: 'Finalized', icon: '📊' }
 };
 
 export const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
