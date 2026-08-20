@@ -62,34 +62,18 @@ const safeMapEntityToOptions = (items, labelKey = 'name', valueKey = 'id') => {
 };
 
 export const EnumProvider = ({ children }) => {
-  const { isAuthenticated, token } = useAuth();
-  const [enums, setEnums] = useState({
-    tripStatuses: [],
-    tripTypes: [],
-    approvalStatuses: [],
-    tripPriorities: [],
-    driverStatuses: [],
-    vehicleStatuses: [],
-    vehicleTypes: [],
-    fuelTypes: [],
-    loadStatuses: [],
-    podStatuses: [],
-    drivers: [],
-    vehicles: [],
-    supervisors: [],
-  });
-  
+  const { isAuthenticated: authStatus, user, token } = useAuth();
+  const [enums, setEnums] = useState({ /* ... */ });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
 
   // Load all enums after authentication
   const loadEnums = useCallback(async () => {
-    // Only load if authenticated
-    if (!isAuthenticated || !token) {
+    // Check authentication using the authStatus from context
+    if (!authStatus) {
       console.log('⏳ EnumProvider: Not authenticated, skipping load');
       setIsReady(false);
-      // Reset enums to empty arrays
       setEnums({
         tripStatuses: [],
         tripTypes: [],
@@ -108,7 +92,7 @@ export const EnumProvider = ({ children }) => {
       return;
     }
 
-    // If already ready, don't reload
+    // If already ready and not forcing refresh, skip
     if (isReady && !loading) {
       console.log('📦 EnumProvider: Using cached enums');
       return;
@@ -134,10 +118,10 @@ export const EnumProvider = ({ children }) => {
         enumService.getEnums('pod', 'status'),
         driverService.getAllDrivers({ status: 'AVAILABLE' }).catch(() => []),
         vehicleService.getAllVehicles({ status: 'AVAILABLE' }).catch(() => []),
-        Promise.resolve([]), // supervisors placeholder
+        Promise.resolve([]),
       ]);
 
-      // Extract data safely using safeArray helper
+      // Extract data safely
       const extractData = (result, name) => {
         if (result.status === 'fulfilled') {
           const data = safeArray(result.value);
@@ -148,7 +132,7 @@ export const EnumProvider = ({ children }) => {
         return [];
       };
 
-      const newEnums = {
+      setEnums({
         tripStatuses: extractData(results[0], 'tripStatuses'),
         tripTypes: extractData(results[1], 'tripTypes'),
         approvalStatuses: extractData(results[2], 'approvalStatuses'),
@@ -162,24 +146,22 @@ export const EnumProvider = ({ children }) => {
         drivers: extractData(results[10], 'drivers'),
         vehicles: extractData(results[11], 'vehicles'),
         supervisors: extractData(results[12], 'supervisors'),
-      };
+      });
 
-      setEnums(newEnums);
       setIsReady(true);
       console.log('✅ EnumProvider: Enums loaded successfully');
     } catch (err) {
       console.error('❌ EnumProvider: Failed to load enums:', err);
       setError(err.message || 'Failed to load enums');
-      // Still mark as ready so UI doesn't hang
       setIsReady(true);
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, isReady, loading]);
+  }, [authStatus, isReady, loading]);
 
   // Load enums when authentication state changes
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (authStatus) {
       console.log('🔐 EnumProvider: User authenticated, loading enums...');
       loadEnums();
     } else {
@@ -201,7 +183,7 @@ export const EnumProvider = ({ children }) => {
       });
       setIsReady(false);
     }
-  }, [isAuthenticated, token, loadEnums]);
+  }, [authStatus, loadEnums]);
 
   // ALWAYS return arrays - using safe mappers with useMemo
   const tripStatusOptions = useMemo(() => safeMapToOptions(enums.tripStatuses), [enums.tripStatuses]);
