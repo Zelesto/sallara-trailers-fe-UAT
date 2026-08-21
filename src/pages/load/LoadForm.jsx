@@ -34,6 +34,13 @@ import { loadService } from '../../services/loadService';
 import { customerService } from '../../services/customerService';
 import { tripService } from '../../services/tripService';
 
+import {
+  LOAD_STATUS_OPTIONS,
+  LOAD_PRIORITY_OPTIONS,
+  COMMODITY_OPTIONS,
+  toOptions,
+} from '../../constants';
+
 const COMMODITY_TYPES = [
   'General Freight',
   'Refrigerated Goods',
@@ -316,7 +323,7 @@ const LoadForm = () => {
                   label="Priority"
                   sx={{ fontSize: '0.8rem' }}
                 >
-                  {PRIORITY_OPTIONS.map(option => (
+                  {LOAD_PRIORITY_OPTIONS.map(option => (
                     <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
                       <Chip
                         label={option.label}
@@ -388,8 +395,10 @@ const LoadForm = () => {
                   sx={{ fontSize: '0.8rem' }}
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Type</MenuItem>
-                  {COMMODITY_TYPES.map(type => (
-                    <MenuItem key={type} value={type} sx={{ fontSize: '0.8rem' }}>{type}</MenuItem>
+                  {COMMODITY_OPTIONS.map(option => (
+                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
+                      {option.label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -478,7 +487,7 @@ const LoadForm = () => {
                   label="Status"
                   sx={{ fontSize: '0.8rem' }}
                 >
-                  {STATUS_OPTIONS.map(option => (
+                  {LOAD_STATUS_OPTIONS.map(option => (
                     <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
                       <Chip
                         label={option.label}
