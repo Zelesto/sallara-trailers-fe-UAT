@@ -51,6 +51,13 @@ import { DataGrid } from '@mui/x-data-grid';
 import { podService } from '../services/podService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
+import {
+  POD_STATUSES,
+  POD_STATUS_OPTIONS,
+  getDisplayName,
+  getColor,
+} from '../constants';
+
 // ============================================================
 // STAT CARD COMPONENT (Matches Dashboard)
 // ============================================================
@@ -369,31 +376,39 @@ const PODList = () => {
   // COLUMNS
   // ============================================================
   const getStatusChip = (status) => {
-    const statusMap = {
-      SCANNED: { color: 'info', label: 'Scanned', icon: <ScanIcon sx={{ fontSize: '0.7rem' }} /> },
-      PENDING: { color: 'warning', label: 'Pending', icon: <PendingIcon sx={{ fontSize: '0.7rem' }} /> },
-      DELIVERED: { color: 'success', label: 'Delivered', icon: <CheckCircleIcon sx={{ fontSize: '0.7rem' }} /> },
-      VERIFIED: { color: 'info', label: 'Verified', icon: <VerifiedIcon sx={{ fontSize: '0.7rem' }} /> },
-      REJECTED: { color: 'error', label: 'Rejected', icon: <CancelIcon sx={{ fontSize: '0.7rem' }} /> },
-      CANCELLED: { color: 'default', label: 'Cancelled', icon: <CancelIcon sx={{ fontSize: '0.7rem' }} /> },
-    };
-    const info = statusMap[status] || { color: 'default', label: status || 'Unknown', icon: null };
+  const config = POD_STATUSES.find(s => s.code === status);
+  
+  if (config) {
     return (
       <Chip
         size="small"
-        label={info.label}
-        color={info.color}
-        icon={info.icon}
-        sx={{ 
+        label={config.displayName}
+        color={config.color}
+        sx={{
           fontWeight: 500,
           fontSize: { xs: '0.5rem', sm: '0.65rem' },
           height: { xs: 16, sm: 20 },
+          bgcolor: config.color ? `${config.color}20` : undefined,
           '& .MuiChip-label': { px: { xs: 0.5, sm: 1 }, py: 0.25 },
-          '& .MuiChip-icon': { fontSize: { xs: '0.6rem', sm: '0.7rem' }, ml: 0.5 }
         }}
       />
     );
-  };
+  }
+  
+  // Fallback
+  return (
+    <Chip
+      size="small"
+      label={status || 'Unknown'}
+      color="default"
+      sx={{
+        fontWeight: 500,
+        fontSize: { xs: '0.5rem', sm: '0.65rem' },
+        height: { xs: 16, sm: 20 },
+      }}
+    />
+  );
+};
 
   const getDocumentIcon = (type) => {
     const icons = {
@@ -784,21 +799,11 @@ const PODList = () => {
               <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                 All Status
               </MenuItem>
-              <MenuItem value="SCANNED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                Scanned
-              </MenuItem>
-              <MenuItem value="PENDING" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                Pending
-              </MenuItem>
-              <MenuItem value="DELIVERED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                Delivered
-              </MenuItem>
-              <MenuItem value="VERIFIED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                Verified
-              </MenuItem>
-              <MenuItem value="REJECTED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                Rejected
-              </MenuItem>
+              {POD_STATUS_OPTIONS.map(option => (
+                <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
