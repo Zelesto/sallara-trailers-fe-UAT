@@ -62,7 +62,7 @@ const authService = {
       console.error('Failed to get current user:', error);
       
       // If 401, clear auth data and dispatch session expiry
-      if (error.status === 401) {
+      if (error.status === 401 || error.response?.status === 401) {
         authService.clearAuthData();
         window.dispatchEvent(new CustomEvent('sessionExpired', {
           detail: { message: 'Your session has expired. Please log in again.' }
@@ -116,11 +116,7 @@ const authService = {
 
   isAuthenticated: () => {
     const token = localStorage.getItem('token');
-    return !!(
-      token &&
-      token !== 'undefined' &&
-      token.trim() !== ''
-    );
+    return !!(token && token !== 'undefined' && token.trim() !== '');
   },
 
   getStoredUser: () => {
@@ -167,7 +163,7 @@ const authService = {
     );
   },
 
-  // Session management
+  // Session management - REMOVED automatic call
   checkSession: async () => {
     if (!authService.isAuthenticated()) {
       return { valid: false, message: 'No token found' };
@@ -177,7 +173,7 @@ const authService = {
       await api.get('/auth/verify');
       return { valid: true };
     } catch (error) {
-      if (error.status === 401) {
+      if (error.status === 401 || error.response?.status === 401) {
         authService.clearAuthData();
         window.dispatchEvent(new CustomEvent('sessionExpired', {
           detail: { message: 'Your session has expired. Please log in again.' }
@@ -238,14 +234,10 @@ const authService = {
     });
   },
 
-  // Initialize cross-tab sync
+  // Initialize cross-tab sync - REMOVED automatic session check
   init: () => {
     authService.syncSession();
-    
-    // Check session on page load
-    if (authService.isAuthenticated()) {
-      authService.checkSession();
-    }
+    // REMOVED: authService.checkSession(); - This was causing the timeout
   }
 };
 
