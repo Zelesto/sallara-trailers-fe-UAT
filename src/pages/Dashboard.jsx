@@ -54,14 +54,12 @@ import { analyticsService } from '../services/analyticsService';
 import { inventoryNotificationService } from '../services/inventoryNotificationService';
 import { tripService } from '../services/tripService';
 
-// Import enums
+
 import {
   TRIP_STATUS_CONFIG,
   TRIP_STATUS_OPTIONS,
   DRIVER_STATUS_CONFIG,
   VEHICLE_STATUS_CONFIG,
-  getDisplayName,
-  getColor,
 } from '../constants';
 
 // ============================================================
@@ -104,21 +102,6 @@ const getColor = (color) => {
   return colors[color] || colors.primary;
 };
 
-const getColorBg = (color) => {
-  const colors = {
-    primary: '#EEF2FF',
-    success: '#D1FAE5',
-    warning: '#FEF3C7',
-    error: '#FEE2E2',
-    info: '#DBEAFE',
-    secondary: '#F3F4F6',
-    purple: '#EDE9FE',
-    pink: '#FCE7F3',
-    teal: '#CCFBF1',
-    indigo: '#E0E7FF',
-  };
-  return colors[color] || colors.primary;
-};
 
 const safeFormatDate = (date) => {
   if (!date) return 'N/A';
