@@ -53,6 +53,8 @@ import { depotService } from '../../services/depotService';
 import { routingService } from '../../services/routingService';
 import dayjs from 'dayjs';
 
+import { LOAD_STATUS_OPTIONS, TRIP_STATUS_OPTIONS } from '../../constants';
+
 const LoadMerge = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
