@@ -37,6 +37,8 @@ import {
   ACCOUNT_TYPE_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
   getDisplayName,
+  getColor,
+  getColorBg,
 } from '../../constants';
 
 const FinanceDashboard = () => {
