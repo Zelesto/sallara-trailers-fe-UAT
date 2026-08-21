@@ -127,6 +127,10 @@ export {
   CURRENCY_OPTIONS,
   CUSTOMER_TYPE_OPTIONS,
   INDUSTRY_OPTIONS,
+  PAYMENT_TERMS_CONFIG,
+  CURRENCY_CONFIG,
+  CUSTOMER_TYPE_CONFIG,
+  INDUSTRY_CONFIG,
 } from './customerEnums';
 
 // ============================================================
