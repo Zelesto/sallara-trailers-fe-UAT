@@ -64,6 +64,14 @@ import {
 } from '@mui/icons-material';
 import { loadService } from '../../services/loadService';
 
+import {
+  LOAD_STATUSES,
+  LOAD_PRIORITIES,
+  COMMODITY_OPTIONS,
+  getDisplayName,
+  getColor,
+} from '../../constants';
+
 // ============================================================
 // UTILITY FUNCTIONS
 // ============================================================
@@ -152,34 +160,25 @@ const formatDate = (date) => {
 // COMPONENT: StatusChip
 // ============================================================
 
-const StatusChip = ({ status }) => {
-  const configs = {
-    PENDING: { color: '#F59E0B', bgColor: '#FEF3C7', label: 'Pending', icon: <Pending sx={{ fontSize: '0.6rem' }} /> },
-    IN_PROGRESS: { color: '#3B82F6', bgColor: '#DBEAFE', label: 'In Progress', icon: <Warning sx={{ fontSize: '0.6rem' }} /> },
-    LOADED: { color: '#8B5CF6', bgColor: '#EDE9FE', label: 'Loaded', icon: <LocalShipping sx={{ fontSize: '0.6rem' }} /> },
-    COMPLETED: { color: '#22C55E', bgColor: '#D1FAE5', label: 'Completed', icon: <CheckCircle sx={{ fontSize: '0.6rem' }} /> },
-    CANCELLED: { color: '#EF4444', bgColor: '#FEE2E2', label: 'Cancelled', icon: <Cancel sx={{ fontSize: '0.6rem' }} /> },
-  };
-  const config = configs[status] || { color: '#6B7280', bgColor: '#F3F4F6', label: status || 'Unknown', icon: null };
-  
-  return (
-    <Chip
-      label={config.label}
-      size="small"
-      icon={config.icon}
-      sx={{
-        backgroundColor: config.bgColor,
-        color: config.color,
-        fontWeight: 600,
-        fontSize: { xs: '0.5rem', sm: '0.6rem' },
-        height: { xs: 18, sm: 22 },
-        border: `1px solid ${config.color}20`,
-        '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
-        '& .MuiChip-icon': { fontSize: { xs: '0.6rem', sm: '0.7rem' }, ml: 0.5 }
-      }}
-    />
-  );
-};
+    const StatusChip = ({ status }) => {
+      const config = LOAD_STATUSES.find(s => s.code === status);
+      
+      return (
+        <Chip
+          label={config?.displayName || status || 'Unknown'}
+          size="small"
+          sx={{
+            backgroundColor: config?.color ? `${config.color}20` : '#F3F4F6',
+            color: config?.color || '#6B7280',
+            fontWeight: 600,
+            fontSize: { xs: '0.5rem', sm: '0.6rem' },
+            height: { xs: 18, sm: 22 },
+            border: `1px solid ${config?.color || '#6B7280'}20`,
+            '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
+          }}
+        />
+      );
+    };
 
 // ============================================================
 // COMPONENT: InfoItem
