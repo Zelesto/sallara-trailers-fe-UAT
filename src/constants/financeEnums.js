@@ -38,6 +38,45 @@ export const RECONCILIATION_STATUSES = [
   { id: 101, code: 'CANCELLED', displayName: 'Cancelled', description: 'Reconciliation has been cancelled', sortOrder: 5, isDefault: false, color: '#9E9E9E' },
 ];
 
+// ============================================================
+// ✅ INVOICE ENUMS (from database data)
+// ============================================================
+export const INVOICE_TYPES = [
+  { code: 'RECEIVABLE', displayName: 'Accounts Receivable', description: 'Money owed to you', color: '#22C55E', sortOrder: 1, isDefault: true },
+  { code: 'PAYABLE', displayName: 'Accounts Payable', description: 'Money you owe others', color: '#EF4444', sortOrder: 2, isDefault: false },
+];
+
+export const INVOICE_STATUSES = [
+  { code: 'DRAFT', displayName: 'Draft', description: 'Initial draft state', color: '#9E9E9E', sortOrder: 1, isDefault: false },
+  { code: 'SENT', displayName: 'Sent', description: 'Invoice has been sent', color: '#3B82F6', sortOrder: 2, isDefault: false },
+  { code: 'VIEWED', displayName: 'Viewed', description: 'Invoice has been viewed', color: '#8B5CF6', sortOrder: 3, isDefault: false },
+  { code: 'PARTIAL', displayName: 'Partially Paid', description: 'Partially paid', color: '#F59E0B', sortOrder: 4, isDefault: false },
+  { code: 'PAID', displayName: 'Paid', description: 'Invoice has been paid', color: '#22C55E', sortOrder: 5, isDefault: false },
+  { code: 'OVERDUE', displayName: 'Overdue', description: 'Invoice is overdue', color: '#EF4444', sortOrder: 6, isDefault: false },
+  { code: 'CANCELLED', displayName: 'Cancelled', description: 'Invoice has been cancelled', color: '#6B7280', sortOrder: 7, isDefault: false },
+];
+
+// ============================================================
+// ✅ INVOICE ITEM ENUMS (for line items)
+// ============================================================
+export const INVOICE_ITEM_TYPES = [
+  { code: 'PRODUCT', displayName: 'Product', sortOrder: 1, isDefault: true },
+  { code: 'SERVICE', displayName: 'Service', sortOrder: 2, isDefault: false },
+  { code: 'LABOR', displayName: 'Labor', sortOrder: 3, isDefault: false },
+  { code: 'SHIPPING', displayName: 'Shipping', sortOrder: 4, isDefault: false },
+  { code: 'TAX', displayName: 'Tax', sortOrder: 5, isDefault: false },
+  { code: 'DISCOUNT', displayName: 'Discount', sortOrder: 6, isDefault: false },
+];
+
+export const INVOICE_TAX_RATES = [
+  { code: 'VAT_0', displayName: '0% VAT', rate: 0, sortOrder: 1, isDefault: false },
+  { code: 'VAT_15', displayName: '15% VAT', rate: 15, sortOrder: 2, isDefault: true },
+  { code: 'VAT_EXEMPT', displayName: 'VAT Exempt', rate: 0, sortOrder: 3, isDefault: false },
+];
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
 export const toOptions = (items) => 
   items.map(item => ({
     value: item.code,
@@ -49,7 +88,35 @@ export const toOptions = (items) =>
     ...item
   }));
 
+// Options
 export const PAYMENT_METHOD_OPTIONS = toOptions(PAYMENT_METHODS);
 export const ACCOUNT_TYPE_OPTIONS = toOptions(ACCOUNT_TYPES);
 export const PAYMENT_STATUS_OPTIONS = toOptions(PAYMENT_STATUSES);
 export const RECONCILIATION_STATUS_OPTIONS = toOptions(RECONCILIATION_STATUSES);
+
+// ✅ Invoice Options
+export const INVOICE_TYPE_OPTIONS = toOptions(INVOICE_TYPES);
+export const INVOICE_STATUS_OPTIONS = toOptions(INVOICE_STATUSES);
+export const INVOICE_ITEM_TYPE_OPTIONS = toOptions(INVOICE_ITEM_TYPES);
+export const INVOICE_TAX_RATE_OPTIONS = toOptions(INVOICE_TAX_RATES);
+
+// ✅ Config Maps for lookups
+export const PAYMENT_METHOD_CONFIG = Object.fromEntries(
+  PAYMENT_METHODS.map(item => [item.code, item])
+);
+
+export const INVOICE_TYPE_CONFIG = Object.fromEntries(
+  INVOICE_TYPES.map(item => [item.code, item])
+);
+
+export const INVOICE_STATUS_CONFIG = Object.fromEntries(
+  INVOICE_STATUSES.map(item => [item.code, item])
+);
+
+export const INVOICE_ITEM_TYPE_CONFIG = Object.fromEntries(
+  INVOICE_ITEM_TYPES.map(item => [item.code, item])
+);
+
+export const INVOICE_TAX_RATE_CONFIG = Object.fromEntries(
+  INVOICE_TAX_RATES.map(item => [item.code, item])
+);
