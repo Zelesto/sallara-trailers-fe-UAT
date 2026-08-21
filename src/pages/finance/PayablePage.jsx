@@ -53,6 +53,22 @@ import {
 import { DatePicker } from '@mui/x-date-pickers';
 import { useNavigate } from 'react-router-dom';
 
+// Import enums
+import {
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  EXPENSE_CATEGORIES,
+  getDisplayName,
+  getColor,
+} from '../../constants';
+
+// Pre-computed options
+const EXPENSE_CATEGORY_OPTIONS = EXPENSE_CATEGORIES.map(cat => ({
+  value: cat.code,
+  label: cat.displayName,
+  color: cat.color || 'default',
+}));
+
 const PayablePage = () => {
   const navigate = useNavigate();
   const [payables, setPayables] = useState([]);
@@ -76,96 +92,40 @@ const PayablePage = () => {
     notes: ''
   });
 
-  // Mock data - replace with actual API calls
-  const mockPayables = [
-    {
-      id: 1,
-      billNumber: 'BILL-2024-001',
-      vendorName: 'Diesel Suppliers Inc',
-      amount: 50000,
-      currency: 'ZAR',
-      dueDate: '2024-02-10',
-      status: 'OVERDUE',
-      daysOverdue: 8,
-      category: 'FUEL',
-      description: 'January fuel supply'
-    },
-    {
-      id: 2,
-      billNumber: 'BILL-2024-002',
-      vendorName: 'Truck Maintenance Ltd',
-      amount: 25000,
-      currency: 'ZAR',
-      dueDate: '2024-02-25',
-      status: 'DUE_SOON',
-      daysOverdue: 0,
-      category: 'MAINTENANCE',
-      description: 'Vehicle service charges'
-    },
-    {
-      id: 3,
-      billNumber: 'BILL-2024-003',
-      vendorName: 'Office Rentals SA',
-      amount: 15000,
-      currency: 'ZAR',
-      dueDate: '2024-01-31',
-      status: 'PAID',
-      daysOverdue: 0,
-      category: 'RENT',
-      description: 'January office rent'
-    },
-    {
-      id: 4,
-      billNumber: 'BILL-2024-004',
-      vendorName: 'Insurance Corp',
-      amount: 18000,
-      currency: 'ZAR',
-      dueDate: '2024-02-15',
-      status: 'PENDING',
-      daysOverdue: 0,
-      category: 'INSURANCE',
-      description: 'Fleet insurance premium'
-    },
-    {
-      id: 5,
-      billNumber: 'BILL-2024-005',
-      vendorName: 'Software Solutions',
-      amount: 8000,
-      currency: 'ZAR',
-      dueDate: '2024-02-05',
-      status: 'OVERDUE',
-      daysOverdue: 13,
-      category: 'SOFTWARE',
-      description: 'Monthly subscription'
-    }
-  ];
-
-  const statusOptions = [
-    { value: 'DRAFT', label: 'Draft', color: 'default' },
-    { value: 'PENDING', label: 'Pending', color: 'default' },
-    { value: 'APPROVED', label: 'Approved', color: 'info' },
-    { value: 'DUE_SOON', label: 'Due Soon', color: 'warning' },
-    { value: 'OVERDUE', label: 'Overdue', color: 'error' },
-    { value: 'PARTIAL', label: 'Partially Paid', color: 'secondary' },
-    { value: 'PAID', label: 'Paid', color: 'success' },
-    { value: 'CANCELLED', label: 'Cancelled', color: 'default' },
-  ];
-
-  const categoryOptions = [
-    'FUEL', 'MAINTENANCE', 'RENT', 'INSURANCE', 'SOFTWARE', 'SALARIES', 'UTILITIES', 'TAXES', 'OTHER'
-  ];
-
-  const paymentMethods = [
-    { value: 'CASH', label: 'Cash' },
-    { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-    { value: 'CREDIT_CARD', label: 'Credit Card' },
-    { value: 'CHEQUE', label: 'Cheque' },
-    { value: 'MOBILE_MONEY', label: 'Mobile Money' },
-  ];
+  // Status options from enums
+  const statusOptions = PAYMENT_STATUS_OPTIONS;
 
   useEffect(() => {
-    // Simulate API call
+    // Simulate API call with mock data
     setTimeout(() => {
+      const mockPayables = [
+        {
+          id: 1,
+          billNumber: 'BILL-2024-001',
+          vendorName: 'Diesel Suppliers Inc',
+          amount: 50000,
+          currency: 'ZAR',
+          dueDate: '2024-02-10',
+          status: 'OVERDUE',
+          daysOverdue: 8,
+          category: 'FUEL',
+          description: 'January fuel supply'
+        },
+        {
+          id: 2,
+          billNumber: 'BILL-2024-002',
+          vendorName: 'Truck Maintenance Ltd',
+          amount: 25000,
+          currency: 'ZAR',
+          dueDate: '2024-02-25',
+          status: 'DUE_SOON',
+          daysOverdue: 0,
+          category: 'MAINTENANCE',
+          description: 'Vehicle service charges'
+        },
+        // ... more mock data
+      ];
+      
       setPayables(mockPayables);
       setLoading(false);
     }, 1000);
@@ -207,19 +167,16 @@ const PayablePage = () => {
   };
 
   const handleRecordPayment = () => {
-    // Here you would call your API to record the payment
     console.log('Recording payable payment:', {
       payableId: selectedPayable.id,
       ...paymentForm
     });
 
-    // Update local state
     setPayables(prev => prev.map(p =>
       p.id === selectedPayable.id
         ? { ...p, status: 'PAID' }
         : p
     ));
-
     handleCloseDialog();
   };
 
@@ -380,9 +337,7 @@ const PayablePage = () => {
               variant="outlined"
               fullWidth
               startIcon={<PaymentIcon />}
-              onClick={() => {
-                // Bulk payment functionality
-              }}
+              onClick={() => {}} // Bulk payment
             >
               Bulk Payment
             </Button>
@@ -392,7 +347,7 @@ const PayablePage = () => {
               variant="outlined"
               fullWidth
               startIcon={<DownloadIcon />}
-              onClick={() => {/* Export functionality */}}
+              onClick={() => {}} // Export
             >
               Export Report
             </Button>
@@ -402,7 +357,7 @@ const PayablePage = () => {
               variant="outlined"
               fullWidth
               startIcon={<FilterIcon />}
-              onClick={() => {/* Advanced filter functionality */}}
+              onClick={() => {}} // Advanced filters
             >
               Advanced Filters
             </Button>
@@ -447,9 +402,9 @@ const PayablePage = () => {
                 onChange={() => {}}
               >
                 <MenuItem value="">All Categories</MenuItem>
-                {categoryOptions.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category}
+                {EXPENSE_CATEGORY_OPTIONS.map((category) => (
+                  <MenuItem key={category.value} value={category.value}>
+                    {category.label}
                   </MenuItem>
                 ))}
               </Select>
@@ -517,8 +472,8 @@ const PayablePage = () => {
                 {filteredPayables
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((payable) => {
-                    const statusConfig = statusOptions.find(s => s.value === payable.status) ||
-                                        { label: payable.status, color: 'default' };
+                    const statusOption = statusOptions.find(s => s.value === payable.status);
+                    const categoryOption = EXPENSE_CATEGORY_OPTIONS.find(c => c.value === payable.category);
 
                     return (
                       <TableRow
@@ -541,8 +496,9 @@ const PayablePage = () => {
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={payable.category}
+                            label={categoryOption?.label || payable.category}
                             size="small"
+                            color={categoryOption?.color || 'default'}
                             variant="outlined"
                           />
                         </TableCell>
@@ -587,8 +543,8 @@ const PayablePage = () => {
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={statusConfig.label}
-                            color={statusConfig.color}
+                            label={statusOption?.label || payable.status}
+                            color={statusOption?.color || 'default'}
                             size="small"
                             variant="filled"
                           />
@@ -620,7 +576,7 @@ const PayablePage = () => {
                             <IconButton
                               size="small"
                               color="error"
-                              onClick={() => {/* Delete functionality */}}
+                              onClick={() => {}}
                             >
                               <DeleteIcon />
                             </IconButton>
@@ -708,7 +664,7 @@ const PayablePage = () => {
                       label="Payment Method"
                       onChange={handlePaymentFormChange}
                     >
-                      {paymentMethods.map((method) => (
+                      {PAYMENT_METHOD_OPTIONS.map((method) => (
                         <MenuItem key={method.value} value={method.value}>
                           {method.label}
                         </MenuItem>
@@ -819,17 +775,17 @@ const PayablePage = () => {
             </Typography>
             <Divider sx={{ my: 2 }} />
             <Stack spacing={1}>
-              {categoryOptions.map((category) => {
-                const bills = filteredPayables.filter(p => p.category === category);
+              {EXPENSE_CATEGORY_OPTIONS.map((category) => {
+                const bills = filteredPayables.filter(p => p.category === category.value);
                 const amount = bills.reduce((sum, p) => sum + p.amount, 0);
 
                 if (bills.length === 0) return null;
 
                 return (
-                  <Box key={category} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Box key={category.value} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Box>
                       <Typography variant="body2" fontWeight={600}>
-                        {category}
+                        {category.label}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {bills.length} bill{bills.length !== 1 ? 's' : ''}
