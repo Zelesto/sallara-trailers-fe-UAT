@@ -52,6 +52,27 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import invoiceService from '../../services/invoice';
 
+// Import enums
+import {
+  INVOICE_TYPES,
+  INVOICE_STATUSES,
+  PAYMENT_STATUS_OPTIONS,
+  getDisplayName,
+} from '../../constants';
+
+// Pre-computed options
+const INVOICE_TYPE_OPTIONS = INVOICE_TYPES.map(type => ({
+  value: type.code,
+  label: type.displayName,
+  color: type.color || 'default',
+}));
+
+const INVOICE_STATUS_OPTIONS = INVOICE_STATUSES.map(status => ({
+  value: status.code,
+  label: status.displayName,
+  color: status.color || 'default',
+}));
+
 const InvoicesPage = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +89,7 @@ const InvoicesPage = () => {
   const [formData, setFormData] = useState({
     invoiceNumber: '',
     invoiceDate: new Date(),
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     customerId: '',
     accountId: '',
     description: '',
@@ -92,7 +113,15 @@ const InvoicesPage = () => {
     try {
       setLoading(true);
       const data = await invoiceService.getAllInvoices();
-      setInvoices(data);
+      
+      // Transform data to include display names
+      const transformedData = data.map(invoice => ({
+        ...invoice,
+        typeDisplayName: getDisplayName(INVOICE_TYPES, invoice.invoiceType) || invoice.invoiceType,
+        statusDisplayName: getDisplayName(INVOICE_STATUSES, invoice.status) || invoice.status,
+      }));
+      
+      setInvoices(transformedData);
       setError('');
     } catch (err) {
       setError('Failed to load invoices');
@@ -105,7 +134,6 @@ const InvoicesPage = () => {
   const fetchCustomers = async () => {
     try {
       // You'll need to create a customer service or use your existing user service
-      // For now, using mock data
       const mockCustomers = [
         { id: 1, name: 'ABC Transport', email: 'abc@transport.co.za' },
         { id: 2, name: 'XYZ Logistics', email: 'info@xyzlogistics.co.za' },
@@ -194,8 +222,6 @@ const InvoicesPage = () => {
   const handleItemChange = (index, field, value) => {
     const newItems = [...formData.items];
     newItems[index][field] = value;
-
-    // Calculate totals
     newItems[index].total = (newItems[index].quantity || 0) * (newItems[index].unitPrice || 0);
     newItems[index].taxAmount = newItems[index].total * ((newItems[index].taxRate || 0) / 100);
 
@@ -227,7 +253,6 @@ const InvoicesPage = () => {
     const subtotal = formData.items.reduce((sum, item) => sum + (item.total || 0), 0);
     const taxTotal = formData.items.reduce((sum, item) => sum + (item.taxAmount || 0), 0);
     const total = subtotal + taxTotal;
-
     return { subtotal, taxTotal, total };
   };
 
@@ -292,21 +317,6 @@ const InvoicesPage = () => {
     const matchesType = filterType === 'all' || invoice.invoiceType === filterType;
     return matchesSearch && matchesStatus && matchesType;
   });
-
-  const invoiceTypes = [
-    { value: 'RECEIVABLE', label: 'Accounts Receivable', color: 'success' },
-    { value: 'PAYABLE', label: 'Accounts Payable', color: 'error' },
-  ];
-
-  const statusOptions = [
-    { value: 'DRAFT', label: 'Draft', color: 'default' },
-    { value: 'SENT', label: 'Sent', color: 'info' },
-    { value: 'VIEWED', label: 'Viewed', color: 'warning' },
-    { value: 'PARTIAL', label: 'Partially Paid', color: 'warning' },
-    { value: 'PAID', label: 'Paid', color: 'success' },
-    { value: 'OVERDUE', label: 'Overdue', color: 'error' },
-    { value: 'CANCELLED', label: 'Cancelled', color: 'error' },
-  ];
 
   const formatCurrency = (amount, currency = 'ZAR') => {
     return new Intl.NumberFormat('en-ZA', {
@@ -473,7 +483,7 @@ const InvoicesPage = () => {
                   onChange={(e) => setFilterStatus(e.target.value)}
                 >
                   <MenuItem value="all">All Status</MenuItem>
-                  {statusOptions.map((status) => (
+                  {INVOICE_STATUS_OPTIONS.map((status) => (
                     <MenuItem key={status.value} value={status.value}>
                       {status.label}
                     </MenuItem>
@@ -490,7 +500,7 @@ const InvoicesPage = () => {
                   onChange={(e) => setFilterType(e.target.value)}
                 >
                   <MenuItem value="all">All Types</MenuItem>
-                  {invoiceTypes.map((type) => (
+                  {INVOICE_TYPE_OPTIONS.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
                       {type.label}
                     </MenuItem>
@@ -561,10 +571,8 @@ const InvoicesPage = () => {
                   {filteredInvoices
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((invoice) => {
-                      const typeConfig = invoiceTypes.find(t => t.value === invoice.invoiceType) ||
-                                        { label: invoice.invoiceType, color: 'default' };
-                      const statusConfig = statusOptions.find(s => s.value === invoice.status) ||
-                                          { label: invoice.status, color: 'default' };
+                      const typeOption = INVOICE_TYPE_OPTIONS.find(t => t.value === invoice.invoiceType);
+                      const statusOption = INVOICE_STATUS_OPTIONS.find(s => s.value === invoice.status);
                       const customer = customers.find(c => c.id === invoice.customerId);
 
                       return (
@@ -583,8 +591,8 @@ const InvoicesPage = () => {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={typeConfig.label}
-                              color={typeConfig.color}
+                              label={typeOption?.label || invoice.invoiceType}
+                              color={typeOption?.color || 'default'}
                               size="small"
                               variant="outlined"
                             />
@@ -628,8 +636,8 @@ const InvoicesPage = () => {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={statusConfig.label}
-                              color={statusConfig.color}
+                              label={statusOption?.label || invoice.status}
+                              color={statusOption?.color || 'default'}
                               size="small"
                               variant="filled"
                             />
@@ -719,7 +727,7 @@ const InvoicesPage = () => {
                       label="Invoice Type"
                       onChange={handleFormChange}
                     >
-                      {invoiceTypes.map((type) => (
+                      {INVOICE_TYPE_OPTIONS.map((type) => (
                         <MenuItem key={type.value} value={type.value}>
                           {type.label}
                         </MenuItem>
@@ -957,7 +965,7 @@ const InvoicesPage = () => {
                       label="Status"
                       onChange={handleFormChange}
                     >
-                      {statusOptions.map((status) => (
+                      {INVOICE_STATUS_OPTIONS.map((status) => (
                         <MenuItem key={status.value} value={status.value}>
                           {status.label}
                         </MenuItem>
@@ -1041,7 +1049,7 @@ const InvoicesPage = () => {
               </Typography>
               <Divider sx={{ my: 2 }} />
               <Grid container spacing={1}>
-                {statusOptions.map((status) => {
+                {INVOICE_STATUS_OPTIONS.map((status) => {
                   const count = filteredInvoices.filter(i => i.status === status.value).length;
                   if (count === 0) return null;
 
