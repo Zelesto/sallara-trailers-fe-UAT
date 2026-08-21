@@ -91,6 +91,13 @@ import DownloadHandler from '../components/DownloadHandler';
 import { useDropzone } from 'react-dropzone';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
+import {
+  POD_STATUSES,
+  POD_STATUS_OPTIONS,
+  getDisplayName,
+  getColor,
+} from '../constants';
+
 // InfoItem Component - Enhanced
 const InfoItem = ({ label, value, isChip = false, isCustom = false }) => (
   <Box sx={{ 
@@ -127,28 +134,31 @@ const InfoItem = ({ label, value, isChip = false, isCustom = false }) => (
 
 // Status Chip Component
 const StatusChip = ({ status }) => {
-  const statusMap = {
-    SCANNED: { color: 'info', icon: <ScanIcon sx={{ fontSize: '0.9rem' }} />, label: 'Scanned' },
-    PENDING: { color: 'warning', icon: <PendingIcon sx={{ fontSize: '0.9rem' }} />, label: 'Pending' },
-    DELIVERED: { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.9rem' }} />, label: 'Delivered' },
-    VERIFIED: { color: 'info', icon: <VerifiedIcon sx={{ fontSize: '0.9rem' }} />, label: 'Verified' },
-    REJECTED: { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.9rem' }} />, label: 'Rejected' },
-    CANCELLED: { color: 'default', icon: <CancelIcon sx={{ fontSize: '0.9rem' }} />, label: 'Cancelled' },
-    UPLOAD_FAILED: { color: 'error', icon: <WarningIcon sx={{ fontSize: '0.9rem' }} />, label: 'Upload Failed' },
-    MISSING_FILE: { color: 'warning', icon: <WarningIcon sx={{ fontSize: '0.9rem' }} />, label: 'Missing File' },
-  };
-  const info = statusMap[status] || { color: 'default', icon: null, label: status || 'Unknown' };
+  const config = POD_STATUSES.find(s => s.code === status);
+  
+  if (config) {
+    return (
+      <Chip 
+        label={config.displayName} 
+        color={config.color}
+        sx={{ 
+          fontWeight: 600, 
+          fontSize: { xs: '0.55rem', sm: '0.7rem' }, 
+          height: { xs: 20, sm: 24 },
+          '& .MuiChip-label': { px: { xs: 0.75, sm: 1 } },
+        }}
+      />
+    );
+  }
+  
   return (
     <Chip 
-      label={info.label} 
-      color={info.color} 
-      icon={info.icon}
+      label={status || 'Unknown'} 
+      color="default"
       sx={{ 
         fontWeight: 600, 
         fontSize: { xs: '0.55rem', sm: '0.7rem' }, 
         height: { xs: 20, sm: 24 },
-        '& .MuiChip-label': { px: { xs: 0.75, sm: 1 } },
-        '& .MuiChip-icon': { fontSize: { xs: '0.7rem', sm: '0.9rem' } }
       }}
     />
   );
@@ -194,17 +204,9 @@ const getTimelineIcon = (status) => {
 };
 
 const getTimelineColor = (status) => {
-  const colors = {
-    SCANNED: 'info',
-    PENDING: 'warning',
-    DELIVERED: 'success',
-    VERIFIED: 'info',
-    REJECTED: 'error',
-    CANCELLED: 'grey',
-  };
-  return colors[status] || 'grey';
+  const config = POD_STATUSES.find(s => s.code === status);
+  return config?.color || 'grey';
 };
-
 // Stars Renderer
 const renderStars = (rating) => {
   const stars = [];
