@@ -43,6 +43,15 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 
+import {
+  TRIP_STATUSES,
+  TRIP_STATUS_OPTIONS,
+  TRIP_TYPES,
+  TRIP_PRIORITIES,
+  getDisplayName,
+  getColor,
+} from '../constants';
+
 import { tripService } from '../services/tripService';
 import IncidentDialog from './IncidentDialog';
 import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
@@ -984,11 +993,11 @@ const UpdateTripCard = ({
               onChange={(e) => setNewStatus(e.target.value)}
               sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
             >
-              {STATUS_OPTIONS.map(status => (
-                <MenuItem key={status} value={status} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+              {TRIP_STATUS_OPTIONS.map(status => (
+                <MenuItem key={status.value} value={status.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                   <Box display="flex" alignItems="center" gap={1}>
-                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: STATUS_CONFIG[status]?.color || '#6B7280' }} />
-                    {STATUS_CONFIG[status]?.label || status}
+                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: status.color || '#6B7280' }} />
+                    {status.label}
                   </Box>
                 </MenuItem>
               ))}
