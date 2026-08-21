@@ -40,6 +40,11 @@ import {
 } from "@mui/icons-material";
 import { tripService } from "../services/tripService";
 
+import {
+  VEHICLE_TYPES,
+  getDisplayName,
+} from '../constants';
+
 // Helper functions
 const inferVehicleType = (vehicle) => {
   if (!vehicle) return "TRUCK";
