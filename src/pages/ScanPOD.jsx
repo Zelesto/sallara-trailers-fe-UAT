@@ -33,10 +33,15 @@ import {
 import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
 
+// Import enums
 import {
   POD_STATUS_OPTIONS,
   POD_STATUSES,
+  TRIP_STATUS_OPTIONS,
 } from '../constants';
+
+// ✅ FIX: Define STATUS_OPTIONS from enums
+const STATUS_OPTIONS = POD_STATUS_OPTIONS;
 
 const ScanPOD = () => {
   const navigate = useNavigate();
@@ -52,6 +57,8 @@ const ScanPOD = () => {
   const [searchTripTerm, setSearchTripTerm] = useState('');
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
+  // ✅ FIX: Add selectedTrip state
+  const [selectedTrip, setSelectedTrip] = useState(null);
 
   const [formData, setFormData] = useState({
     tripId: '',
@@ -68,12 +75,19 @@ const ScanPOD = () => {
   const loadTrips = async () => {
     setLoadingTrips(true);
     try {
-      const response = await tripService.getAllTrips({ 
-        status: 'COMPLETED,FINALIZED,IN_PROGRESS',
-        size: 100 
+      // ✅ FIX: Use proper status filter
+      const response = await tripService.getAllTrips({
+        size: 100
       });
       const tripsData = response?.content || response || [];
-      setTrips(tripsData);
+      
+      // ✅ Filter trips that can have PODs (not cancelled, not draft)
+      const filteredTrips = tripsData.filter(trip => {
+        const status = trip.status?.toUpperCase() || '';
+        return !['CANCELLED', 'DRAFT'].includes(status);
+      });
+      
+      setTrips(filteredTrips);
     } catch (err) {
       console.error('Error loading trips:', err);
       setTrips([]);
@@ -91,16 +105,22 @@ const ScanPOD = () => {
   };
 
   const handleTripSelect = (event, value) => {
+    setSelectedTrip(value);
     if (value) {
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         tripId: value.id,
-        customerName: value.customerName || prev.customerName,
-        driverName: value.driverName || prev.driverName || '',
+        customerName: value.customerName || value.customer?.name || prev.customerName,
+        driverName: value.driverName || value.driver?.name || prev.driverName || '',
       }));
       if (formErrors.tripId) {
         setFormErrors(prev => ({ ...prev, tripId: '' }));
       }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        tripId: '',
+      }));
     }
   };
 
@@ -109,24 +129,24 @@ const ScanPOD = () => {
     if (selectedFile) {
       setFile(selectedFile);
       setFileName(selectedFile.name);
-      // Auto-fill some fields if file name contains info
+      
+      // Auto-fill from filename
       const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, '');
       const parts = nameWithoutExt.split('_');
       if (parts.length >= 2) {
-        // Try to extract trip number or customer from filename
         const possibleTrip = parts.find(p => /^\d+$/.test(p));
-        const possibleCustomer = parts.find(p => p.length > 2 && !/^\d+$/.test(p));
         if (possibleTrip) {
-          const matchingTrip = trips.find(t => 
-            t.tripNumber?.includes(possibleTrip) || 
+          const matchingTrip = trips.find(t =>
+            t.tripNumber?.includes(possibleTrip) ||
             t.id?.toString().includes(possibleTrip)
           );
           if (matchingTrip) {
+            setSelectedTrip(matchingTrip);
             setFormData(prev => ({
               ...prev,
               tripId: matchingTrip.id,
-              customerName: matchingTrip.customerName || prev.customerName,
-              driverName: matchingTrip.driverName || prev.driverName,
+              customerName: matchingTrip.customerName || matchingTrip.customer?.name || prev.customerName,
+              driverName: matchingTrip.driverName || matchingTrip.driver?.name || prev.driverName,
             }));
           }
         }
@@ -151,10 +171,12 @@ const ScanPOD = () => {
 
   const validateForm = () => {
     const errors = {};
-    if (!formData.tripId) {
-      errors.tripId = 'Please select a Trip';
+    const tripIdValue = formData.tripId ? parseInt(formData.tripId, 10) : null;
+    
+    if (!tripIdValue || tripIdValue <= 0) {
+      errors.tripId = 'Please select a valid Trip';
     }
-    if (!formData.driverName.trim()) {
+    if (!formData.driverName?.trim()) {
       errors.driverName = 'Driver Name is required';
     }
     if (!formData.deliveryDate) {
@@ -185,30 +207,52 @@ const ScanPOD = () => {
 
     setSubmitting(true);
     try {
-      // Simulate scanning process
       setScanProgress(20);
+
+      const formDataPayload = new FormData();
+      const tripIdValue = parseInt(formData.tripId, 10);
       
-      const scanData = {
-        tripId: parseInt(formData.tripId, 10),
-        driverName: formData.driverName,
-        customerName: formData.customerName,
-        deliveryDate: formData.deliveryDate,
-        notes: formData.notes || 'Scanned from driver',
+      const podData = {
+        tripId: tripIdValue,
+        driverName: formData.driverName?.trim() || '',
+        customerName: formData.customerName?.trim() || '',
+        deliveryDate: formData.deliveryDate || new Date().toISOString().split('T')[0],
+        notes: formData.notes?.trim() || 'Scanned from driver',
+        status: 'SCANNED',
       };
 
-      const result = await podService.scanPOD(scanData, file);
+      Object.keys(podData).forEach(key => {
+        formDataPayload.append(key, podData[key]);
+      });
       
+      if (file) {
+        formDataPayload.append('file', file);
+      }
+
+      // ✅ FIX: Use the createPod endpoint with file
+      const result = await podService.createPod(podData, file);
+
       setScanProgress(100);
       setSuccess('POD scanned and uploaded successfully!');
-      
-      console.log('POD scanned:', result);
+
+      console.log('✅ POD scanned:', result);
 
       setTimeout(() => {
         navigate('/pods');
       }, 2000);
     } catch (err) {
       console.error('Error scanning POD:', err);
-      setError(err.message || 'Failed to scan POD');
+      
+      let errorMessage = err.message || 'Failed to scan POD';
+      if (err.response?.status === 413) {
+        errorMessage = 'File too large. Maximum size is 10MB.';
+      } else if (err.response?.status === 415) {
+        errorMessage = 'Unsupported file type. Please upload PDF, JPG, PNG, DOC, or DOCX.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
       setIsScanning(false);
@@ -220,8 +264,8 @@ const ScanPOD = () => {
     return (
       (trip.tripNumber || '').toLowerCase().includes(search) ||
       (trip.id || '').toString().includes(search) ||
-      (trip.customerName || '').toLowerCase().includes(search) ||
-      (trip.driverName || '').toLowerCase().includes(search)
+      (trip.customerName || trip.customer?.name || '').toLowerCase().includes(search) ||
+      (trip.driverName || trip.driver?.name || '').toLowerCase().includes(search)
     );
   });
 
@@ -238,16 +282,16 @@ const ScanPOD = () => {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button 
-            startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />} 
+          <Button
+            startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />}
             onClick={loadTrips}
             size="small"
             sx={{ fontSize: '0.75rem' }}
           >
             Refresh
           </Button>
-          <Button 
-            startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />} 
+          <Button
+            startIcon={<ArrowBack sx={{ fontSize: '0.9rem' }} />}
             onClick={() => navigate('/pods')}
             size="small"
             sx={{ fontSize: '0.75rem' }}
@@ -274,9 +318,9 @@ const ScanPOD = () => {
 
               {(isScanning || submitting) && (
                 <Box sx={{ mb: 2 }}>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={scanProgress} 
+                  <LinearProgress
+                    variant="determinate"
+                    value={scanProgress}
                     sx={{ height: 8, borderRadius: 4 }}
                   />
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
@@ -293,9 +337,9 @@ const ScanPOD = () => {
                     loading={loadingTrips}
                     getOptionLabel={(option) => {
                       if (typeof option === 'string') return option;
-                      return `${option.tripNumber || option.id} - ${option.customerName || 'N/A'}`;
+                      return `${option.tripNumber || option.id} - ${option.customerName || option.customer?.name || 'N/A'}`;
                     }}
-                    value={trips.find(t => t.id === parseInt(formData.tripId)) || null}
+                    value={selectedTrip}
                     onChange={handleTripSelect}
                     onInputChange={(event, newInputValue) => {
                       setSearchTripTerm(newInputValue);
@@ -321,8 +365,8 @@ const ScanPOD = () => {
                             {option.tripNumber || `Trip #${option.id}`}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                            Customer: {option.customerName || 'N/A'} | 
-                            Driver: {option.driverName || 'N/A'} | 
+                            Customer: {option.customerName || option.customer?.name || 'N/A'} |
+                            Driver: {option.driverName || option.driver?.name || 'N/A'} |
                             Status: {option.status || 'N/A'}
                           </Typography>
                         </Box>
@@ -330,7 +374,7 @@ const ScanPOD = () => {
                     )}
                     noOptionsText="No trips found."
                     loadingText="Loading trips..."
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    isOptionEqualToValue={(option, value) => option?.id === value?.id}
                     sx={{ width: '100%' }}
                   />
                 </Grid>
@@ -361,7 +405,6 @@ const ScanPOD = () => {
                     value={formData.customerName}
                     onChange={handleChange}
                     size="small"
-                    disabled
                     sx={{
                       '& .MuiInputLabel-root': { fontSize: '0.75rem' },
                       '& .MuiInputBase-root': { fontSize: '0.8rem' }
@@ -395,8 +438,8 @@ const ScanPOD = () => {
                     component="label"
                     startIcon={<CloudUpload sx={{ fontSize: '0.9rem' }} />}
                     fullWidth
-                    sx={{ 
-                      py: 1.5, 
+                    sx={{
+                      py: 1.5,
                       borderStyle: 'dashed',
                       fontSize: '0.8rem',
                       borderColor: formErrors.file ? 'error.main' : 'inherit',
@@ -451,7 +494,7 @@ const ScanPOD = () => {
                       size="medium"
                       startIcon={submitting ? <CircularProgress size={18} /> : <ScanIcon sx={{ fontSize: '0.9rem' }} />}
                       disabled={submitting || isScanning}
-                      sx={{ 
+                      sx={{
                         minWidth: { xs: '100%', sm: 180 },
                         fontSize: '0.8rem',
                         py: 0.75
@@ -464,7 +507,7 @@ const ScanPOD = () => {
                       size="medium"
                       onClick={() => navigate('/pods')}
                       disabled={submitting}
-                      sx={{ 
+                      sx={{
                         fontSize: '0.8rem',
                         py: 0.75
                       }}
