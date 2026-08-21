@@ -42,6 +42,13 @@ export {
   PAYMENT_METHOD_CONFIG,
 } from './fuelEnums';
 
+// Expense enums
+export {
+  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_OPTIONS,
+  EXPENSE_CATEGORY_CONFIG,
+} from './expenseEnums';
+
 // Driver enums
 export {
   DRIVER_STATUSES,
