@@ -51,27 +51,36 @@ const authService = {
   },
 
   getCurrentUser: async () => {
-    try {
-      const user = await api.get('/auth/me');
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-        sessionStorage.setItem('user', JSON.stringify(user));
-      }
-      return user;
-    } catch (error) {
-      console.error('Failed to get current user:', error);
-      
-      // If 401, clear auth data and dispatch session expiry
-      if (error.status === 401 || error.response?.status === 401) {
-        authService.clearAuthData();
-        window.dispatchEvent(new CustomEvent('sessionExpired', {
-          detail: { message: 'Your session has expired. Please log in again.' }
-        }));
-      }
-      
-      throw error.response?.data || error;
+  try {
+    // Add a timeout to the request
+    const user = await api.get('/auth/me', {
+      timeout: 10000 // 10 second timeout
+    });
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('user', JSON.stringify(user));
     }
-  },
+    return user;
+  } catch (error) {
+    console.error('Failed to get current user:', error);
+    
+    // If timeout, don't throw - just return null
+    if (error.code === 'ECONNABORTED' || error.message === 'timeout of 10000ms exceeded') {
+      console.warn('⚠️ /auth/me timeout - backend may be slow or down');
+      // Don't clear auth data on timeout - keep existing user
+      return null;
+    }
+    
+    if (error.status === 401 || error.response?.status === 401) {
+      authService.clearAuthData();
+      window.dispatchEvent(new CustomEvent('sessionExpired', {
+        detail: { message: 'Your session has expired. Please log in again.' }
+      }));
+    }
+    
+    throw error.response?.data || error;
+  }
+},
 
   register: async (userData) => {
     try {
