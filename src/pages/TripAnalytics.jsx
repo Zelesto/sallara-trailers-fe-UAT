@@ -66,6 +66,15 @@ import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
+import {
+  TRIP_STATUSES,
+  TRIP_STATUS_OPTIONS,
+  TRIP_TYPES,
+  TRIP_PRIORITIES,
+  getDisplayName,
+  getColor,
+} from '../constants';
+
 // ============================================================
 // SAFE VALUE HELPER
 // ============================================================
@@ -97,19 +106,14 @@ const toSafeString = (val) => {
 // ============================================================
 // STATUS CONFIGURATION
 // ============================================================
-const STATUS_CONFIG = {
-  DRAFT: { color: '#9e9e9e', bgColor: '#f5f5f5', label: 'Draft' },
-  PLANNED: { color: '#0288d1', bgColor: '#e3f2fd', label: 'Planned' },
-  ASSIGNED: { color: '#7b1fa2', bgColor: '#f3e5f5', label: 'Assigned' },
-  IN_PROGRESS: { color: '#ed6c02', bgColor: '#fff3e0', label: 'In Progress' },
-  ACTIVE: { color: '#2e7d32', bgColor: '#e8f5e8', label: 'Active' },
-  PENDING: { color: '#ff9800', bgColor: '#fff3e0', label: 'Pending' },
-  COMPLETED: { color: '#0097a7', bgColor: '#e0f7fa', label: 'Completed' },
-  CANCELLED: { color: '#d32f2f', bgColor: '#ffebee', label: 'Cancelled' },
-  CLOSED: { color: '#5d4037', bgColor: '#efebe9', label: 'Closed' },
-  FINALIZED: { color: '#388e3c', bgColor: '#e8f5e8', label: 'Finalized' }
-};
-
+const STATUS_CONFIG = Object.fromEntries(
+  TRIP_STATUSES.map(item => [item.code, {
+    color: item.color || '#9e9e9e',
+    bgColor: item.color ? `${item.color}20` : '#f5f5f5',
+    label: item.displayName,
+    icon: item.icon || '📋'
+  }])
+);
 // ============================================================
 // SAFE METRIC CARD
 // ============================================================
