@@ -168,58 +168,61 @@ export const EnumProvider = ({ children }) => {
     }
   }, [isAuthenticated, authLoading, user, hasLoaded]);
 
+  // ============================================================
+  // UPDATED useEffect with proper state handling
+  // ============================================================
   useEffect(() => {
-  // Don't do anything if auth is still loading
-  if (authLoading) {
-    console.log('⏳ EnumProvider: Auth still loading, waiting...');
-    return;
-  }
+    // Don't do anything if auth is still loading
+    if (authLoading) {
+      console.log('⏳ EnumProvider: Auth still loading, waiting...');
+      return;
+    }
 
-  // Case 1: User is authenticated and we haven't loaded enums yet
-  if (isAuthenticated && user && !hasLoaded) {
-    console.log('🔐 EnumProvider: Auth ready, loading enums...');
-    loadEnums();
-    return;
-  }
+    // Case 1: User is authenticated and we haven't loaded enums yet
+    if (isAuthenticated && user && !hasLoaded) {
+      console.log('🔐 EnumProvider: Auth ready, loading enums...');
+      loadEnums();
+      return;
+    }
 
-  // Case 2: User is authenticated and enums are already loaded - do nothing
-  if (isAuthenticated && user && hasLoaded) {
-    console.log('📦 EnumProvider: Enums already loaded, using cache');
-    return;
-  }
+    // Case 2: User is authenticated and enums are already loaded - do nothing
+    if (isAuthenticated && user && hasLoaded) {
+      console.log('📦 EnumProvider: Enums already loaded, using cache');
+      return;
+    }
 
-  // Case 3: User is not authenticated - clear enums
-  if (!isAuthenticated || !user) {
-    console.log('🚫 EnumProvider: User not authenticated, clearing enums');
-    setEnums({
-      tripStatuses: [],
-      tripTypes: [],
-      approvalStatuses: [],
-      tripPriorities: [],
-      driverStatuses: [],
-      vehicleStatuses: [],
-      vehicleTypes: [],
-      fuelTypes: [],
-      loadStatuses: [],
-      podStatuses: [],
-      drivers: [],
-      vehicles: [],
-      supervisors: [],
+    // Case 3: User is not authenticated - clear enums
+    if (!isAuthenticated || !user) {
+      console.log('🚫 EnumProvider: User not authenticated, clearing enums');
+      setEnums({
+        tripStatuses: [],
+        tripTypes: [],
+        approvalStatuses: [],
+        tripPriorities: [],
+        driverStatuses: [],
+        vehicleStatuses: [],
+        vehicleTypes: [],
+        fuelTypes: [],
+        loadStatuses: [],
+        podStatuses: [],
+        drivers: [],
+        vehicles: [],
+        supervisors: [],
+      });
+      setIsReady(false);
+      setHasLoaded(false);
+      return;
+    }
+
+    // Fallback: Should never reach here, but just in case
+    console.warn('⚠️ EnumProvider: Unhandled state in useEffect', {
+      isAuthenticated,
+      authLoading,
+      hasUser: !!user,
+      hasLoaded
     });
-    setIsReady(false);
-    setHasLoaded(false);
-    return;
-  }
-
-  // Fallback: Should never reach here, but just in case
-  console.warn('⚠️ EnumProvider: Unhandled state in useEffect', {
-    isAuthenticated,
-    authLoading,
-    hasUser: !!user,
-    hasLoaded
-  });
-  
-}, [isAuthenticated, authLoading, user, hasLoaded, loadEnums, setEnums, setIsReady, setHasLoaded]);
+    
+  }, [isAuthenticated, authLoading, user, hasLoaded, loadEnums]);
 
   // Memoized options - ALWAYS return arrays
   const tripStatusOptions = useMemo(() => safeMapToOptions(enums.tripStatuses), [enums.tripStatuses]);
