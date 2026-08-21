@@ -37,12 +37,9 @@ export {
   FUEL_TYPES,
   FUEL_TYPE_OPTIONS,
   FUEL_TYPE_CONFIG,
-
+  PAYMENT_METHODS,
   PAYMENT_METHOD_OPTIONS,
   PAYMENT_METHOD_CONFIG,
-  toOptions as fuelToOptions,
-  getDisplayName,
-  getColor,
 } from './fuelEnums';
 
 // Driver enums
@@ -86,13 +83,11 @@ export {
 
 // Finance enums
 export {
-  PAYMENT_METHODS,
   ACCOUNT_TYPES,
-  PAYMENT_STATUSES,
-  RECONCILIATION_STATUSES,
-  PAYMENT_METHOD_OPTIONS,
   ACCOUNT_TYPE_OPTIONS,
+  PAYMENT_STATUSES,
   PAYMENT_STATUS_OPTIONS,
+  RECONCILIATION_STATUSES,
   RECONCILIATION_STATUS_OPTIONS,
 } from './financeEnums';
 
@@ -103,26 +98,69 @@ export {
   POD_STATUS_CONFIG,
 } from './podEnums';
 
-// Helper function to get display name from code
-export const getDisplayName = (items, code) => {
-  const item = items.find(i => i.code === code);
-  return item?.displayName || code;
+// Customer enums
+export {
+  PAYMENT_TERMS,
+  CURRENCIES,
+  CUSTOMER_TYPES,
+  INDUSTRY_TYPES,
+  PAYMENT_TERMS_OPTIONS,
+  CURRENCY_OPTIONS,
+  CUSTOMER_TYPE_OPTIONS,
+  INDUSTRY_OPTIONS,
+} from './customerEnums';
+
+// ============================================================
+// HELPER FUNCTIONS - Only defined once here
+// ============================================================
+
+/**
+ * Get display name from enum code
+ * @param {Array} items - Array of enum items
+ * @param {string} code - The enum code
+ * @param {string} defaultValue - Default value if not found
+ * @returns {string} Display name
+ */
+export const getDisplayName = (items, code, defaultValue = null) => {
+  if (!items || !Array.isArray(items) || !code) {
+    return defaultValue || code || 'Unknown';
+  }
+  const item = items.find(i => i.code === code || i.value === code);
+  return item?.displayName || item?.label || defaultValue || code || 'Unknown';
 };
 
-// Helper function to get color from code
+/**
+ * Get color from enum code
+ * @param {Array} items - Array of enum items
+ * @param {string} code - The enum code
+ * @param {string} defaultColor - Default color if not found
+ * @returns {string} Color code
+ */
 export const getColor = (items, code, defaultColor = '#9E9E9E') => {
-  const item = items.find(i => i.code === code);
-  return item?.color || defaultColor;
+  if (!items || !Array.isArray(items) || !code) {
+    return defaultColor;
+  }
+  const item = items.find(i => i.code === code || i.value === code);
+  return item?.color || item?.colorCode || defaultColor;
 };
 
-// Helper to convert any list to options
-export const toOptions = (items) => 
-  items.map(item => ({
-    value: item.code,
-    label: item.displayName,
-    color: item.color,
-    description: item.description,
-    isDefault: item.isDefault,
-    sortOrder: item.sortOrder,
+/**
+ * Helper to convert any list to options
+ * @param {Array} items - Array of items
+ * @returns {Array} Array of options {value, label, ...item}
+ */
+export const toOptions = (items) => {
+  if (!items || !Array.isArray(items)) {
+    return [];
+  }
+  return items.map(item => ({
+    value: item.code || item.id || '',
+    label: item.displayName || item.name || item.code || 'Unknown',
+    color: item.color || item.colorCode || null,
+    description: item.description || null,
+    isDefault: item.isDefault || false,
+    sortOrder: item.sortOrder || 0,
     ...item
   }));
+};
+
