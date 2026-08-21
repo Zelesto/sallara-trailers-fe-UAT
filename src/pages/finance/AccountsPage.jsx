@@ -51,6 +51,34 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import accountService from '../../services/account';
 
+// Import enums
+import {
+  ACCOUNT_TYPE_OPTIONS,
+  ACCOUNT_TYPES,
+  PAYMENT_STATUS_OPTIONS,
+  getDisplayName,
+} from '../../constants';
+
+// Map account type to icon
+const getAccountTypeIcon = (type) => {
+  switch (type) {
+    case 'ASSET':
+      return <AccountBalanceWallet color="primary" />;
+    case 'LIABILITY':
+      return <LocalAtm color="secondary" />;
+    case 'REVENUE':
+      return <AttachMoney color="success" />;
+    case 'EXPENSE':
+      return <AccountBalance color="error" />;
+    case 'EQUITY':
+      return <AccountBalance color="info" />;
+    case 'FUEL':
+      return <LocalAtm color="warning" />;
+    default:
+      return <AccountBalance color="action" />;
+  }
+};
+
 const AccountsPage = () => {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
@@ -71,109 +99,16 @@ const AccountsPage = () => {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      // Replace with actual API call
-      // const data = await accountService.getAllAccounts();
+      const data = await accountService.getAllAccounts();
 
-      // Mock data based on your schema
-      const mockAccounts = [
-        {
-          id: 1,
-          name: 'Main Business Account',
-          type: 'BANK',
-          provider: 'Standard Bank',
-          balance: 125000.50,
-          currency: 'ZAR',
-          accountNumber: '1234567890',
-          creditLimit: 50000,
-          status: 'ACTIVE',
-          contactPerson: 'John Smith',
-          contactPhone: '+27123456789',
-          contactEmail: 'john@business.com',
-          billingCycle: 'MONTHLY',
-          lastReconDate: '2024-01-10',
-          nextReconDue: '2024-02-10',
-          notes: 'Primary operating account',
-          created_at: '2023-12-01',
-        },
-        {
-          id: 2,
-          name: 'Fuel Supplier',
-          type: 'VENDOR',
-          provider: 'BP South Africa',
-          balance: -25000.75,
-          currency: 'ZAR',
-          accountNumber: 'VEND-001',
-          creditLimit: 100000,
-          status: 'ACTIVE',
-          contactPerson: 'Sarah Johnson',
-          contactPhone: '+27119876543',
-          contactEmail: 'sarah@bp.co.za',
-          billingCycle: 'WEEKLY',
-          lastReconDate: '2024-01-05',
-          nextReconDue: '2024-01-12',
-          notes: 'Monthly fuel supply',
-          created_at: '2023-11-15',
-        },
-        {
-          id: 3,
-          name: 'Client - ABC Logistics',
-          type: 'CLIENT',
-          provider: 'ABC Logistics',
-          balance: 75000.25,
-          currency: 'USD',
-          accountNumber: 'CLIENT-001',
-          creditLimit: 0,
-          status: 'ACTIVE',
-          contactPerson: 'Mike Wilson',
-          contactPhone: '+12125551234',
-          contactEmail: 'mike@abclogistics.com',
-          billingCycle: 'MONTHLY',
-          lastReconDate: '2024-01-08',
-          nextReconDue: '2024-02-08',
-          notes: 'International logistics partner',
-          created_at: '2023-10-20',
-        },
-        {
-          id: 4,
-          name: 'Maintenance Provider',
-          type: 'VENDOR',
-          provider: 'Truck Care SA',
-          balance: -15000.00,
-          currency: 'ZAR',
-          accountNumber: 'VEND-002',
-          creditLimit: 50000,
-          status: 'ACTIVE',
-          contactPerson: 'Robert Brown',
-          contactPhone: '+27117778899',
-          contactEmail: 'robert@truckcare.co.za',
-          billingCycle: 'MONTHLY',
-          lastReconDate: '2024-01-03',
-          nextReconDue: '2024-02-03',
-          notes: 'Vehicle maintenance services',
-          created_at: '2023-09-10',
-        },
-        {
-          id: 5,
-          name: 'Savings Account',
-          type: 'BANK',
-          provider: 'First National Bank',
-          balance: 50000.00,
-          currency: 'ZAR',
-          accountNumber: '9876543210',
-          creditLimit: 0,
-          status: 'ACTIVE',
-          contactPerson: 'Jane Doe',
-          contactPhone: '+27116667777',
-          contactEmail: 'jane@business.com',
-          billingCycle: 'QUARTERLY',
-          lastReconDate: '2023-12-15',
-          nextReconDue: '2024-03-15',
-          notes: 'Emergency funds',
-          created_at: '2023-08-05',
-        },
-      ];
+      // Transform data to include display names from enums
+      const transformedData = data.map(account => ({
+        ...account,
+        typeDisplayName: getDisplayName(ACCOUNT_TYPES, account.type) || account.type,
+        statusDisplayName: getDisplayName(PAYMENT_STATUS_OPTIONS, account.status) || account.status,
+      }));
 
-      setAccounts(mockAccounts);
+      setAccounts(transformedData);
       setError('');
     } catch (err) {
       setError('Failed to load accounts');
@@ -208,24 +143,11 @@ const AccountsPage = () => {
 
   const handleDeleteConfirm = async () => {
     try {
-      // await accountService.deleteAccount(selectedRow.id);
+      await accountService.deleteAccount(selectedRow.id);
       setAccounts(accounts.filter(acc => acc.id !== selectedRow.id));
       setDeleteDialogOpen(false);
     } catch (err) {
       console.error('Error deleting account:', err);
-    }
-  };
-
-  const getAccountTypeIcon = (type) => {
-    switch (type) {
-      case 'BANK':
-        return <AccountBalanceWallet color="primary" />;
-      case 'VENDOR':
-        return <LocalAtm color="secondary" />;
-      case 'CLIENT':
-        return <AttachMoney color="success" />;
-      default:
-        return <AccountBalance color="action" />;
     }
   };
 
@@ -247,9 +169,9 @@ const AccountsPage = () => {
   };
 
   const filteredAccounts = accounts.filter(account => {
-    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         account.provider.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         account.accountNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = account.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         account.provider?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         account.accountNumber?.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (selectedFilter === 'all') return matchesSearch;
     if (selectedFilter === 'positive') return matchesSearch && account.balance > 0;
@@ -280,17 +202,16 @@ const AccountsPage = () => {
       field: 'type',
       headerName: 'Type',
       flex: 1,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={
-            params.value === 'BANK' ? 'primary' :
-            params.value === 'VENDOR' ? 'secondary' :
-            params.value === 'CLIENT' ? 'success' : 'default'
-          }
-        />
-      ),
+      renderCell: (params) => {
+        const typeOption = ACCOUNT_TYPE_OPTIONS.find(t => t.value === params.value);
+        return (
+          <Chip
+            label={typeOption?.label || params.value}
+            size="small"
+            color={typeOption?.color || 'default'}
+          />
+        );
+      },
     },
     {
       field: 'accountNumber',
@@ -324,13 +245,16 @@ const AccountsPage = () => {
       field: 'status',
       headerName: 'Status',
       flex: 1,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={getStatusColor(params.value)}
-        />
-      ),
+      renderCell: (params) => {
+        const statusOption = PAYMENT_STATUS_OPTIONS.find(s => s.value === params.value);
+        return (
+          <Chip
+            label={statusOption?.label || params.value}
+            size="small"
+            color={statusOption?.color || getStatusColor(params.value)}
+          />
+        );
+      },
     },
     {
       field: 'lastReconDate',
@@ -535,33 +459,18 @@ const AccountsPage = () => {
                 Negative Balance
               </MenuItem>
               <Divider />
-              <MenuItem
-                selected={selectedFilter === 'BANK'}
-                onClick={() => {
-                  setSelectedFilter('BANK');
-                  handleFilterClose();
-                }}
-              >
-                Bank Accounts
-              </MenuItem>
-              <MenuItem
-                selected={selectedFilter === 'VENDOR'}
-                onClick={() => {
-                  setSelectedFilter('VENDOR');
-                  handleFilterClose();
-                }}
-              >
-                Vendor Accounts
-              </MenuItem>
-              <MenuItem
-                selected={selectedFilter === 'CLIENT'}
-                onClick={() => {
-                  setSelectedFilter('CLIENT');
-                  handleFilterClose();
-                }}
-              >
-                Client Accounts
-              </MenuItem>
+              {ACCOUNT_TYPE_OPTIONS.map(option => (
+                <MenuItem
+                  key={option.value}
+                  selected={selectedFilter === option.value}
+                  onClick={() => {
+                    setSelectedFilter(option.value);
+                    handleFilterClose();
+                  }}
+                >
+                  {option.label}
+                </MenuItem>
+              ))}
             </Menu>
           </Stack>
         </CardContent>
