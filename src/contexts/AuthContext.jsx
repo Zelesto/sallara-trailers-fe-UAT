@@ -28,50 +28,45 @@ export const AuthProvider = ({ children }) => {
   // LOAD USER ON MOUNT
   // ============================================================
   useEffect(() => {
-    const loadUser = async () => {
-      const token = authService.getToken();
-      
-      if (!token) {
-        setLoading(false);
-        setIsAuthenticated(false);
+  const loadUser = async () => {
+    const token = authService.getToken();
+    
+    if (!token) {
+      setLoading(false);
+      setIsAuthenticated(false);
+      setUser(null);
+      return;
+    }
+
+    try {
+      // Try to get user data - if this fails, token is invalid
+      const userData = await authService.getCurrentUser();
+      if (userData) {
+        setUser(userData);
+        setIsAuthenticated(true);
+        setSessionExpired(false);
+      } else {
+        authService.clearAuthData();
         setUser(null);
-        return;
+        setIsAuthenticated(false);
       }
-
-      try {
-        const userData = await authService.getCurrentUser();
-        if (userData) {
-          setUser(userData);
-          setIsAuthenticated(true);
-          setSessionExpired(false);
-        } else {
-          // User data is invalid
-          authService.clearAuthData();
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (err) {
-        console.error('Failed to load user:', err);
-        // If 401 or session expired, clear auth
-        if (err.status === 401 || err.response?.status === 401) {
-          authService.clearAuthData();
-          setUser(null);
-          setIsAuthenticated(false);
-          setSessionExpired(true);
-          
-          // Dispatch session expired event
-          window.dispatchEvent(new CustomEvent('sessionExpired', {
-            detail: { message: 'Your session has expired. Please log in again.' }
-          }));
-        }
-        setError(err.message || 'Failed to load user');
-      } finally {
-        setLoading(false);
+    } catch (err) {
+      console.error('Failed to load user:', err);
+      // If 401 or session expired, clear auth
+      if (err.status === 401 || err.response?.status === 401) {
+        authService.clearAuthData();
+        setUser(null);
+        setIsAuthenticated(false);
+        setSessionExpired(true);
       }
-    };
+      setError(err.message || 'Failed to load user');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadUser();
-  }, []);
+  loadUser();
+}, []);
 
   // ============================================================
   // SESSION EXPIRY HANDLER
