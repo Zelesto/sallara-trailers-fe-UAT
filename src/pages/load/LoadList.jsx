@@ -85,7 +85,7 @@ import {
 // UTILITY FUNCTIONS (matching Dashboard)
 // ============================================================
 
-const getColor = (color) => {
+const getColorBg = (color) => {
   const colors = {
     primary: '#4F46E5',
     success: '#22C55E',
