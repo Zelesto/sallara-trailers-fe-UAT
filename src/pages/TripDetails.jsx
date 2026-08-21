@@ -48,8 +48,6 @@ import {
   TRIP_STATUS_OPTIONS,
   TRIP_TYPES,
   TRIP_PRIORITIES,
-  getDisplayName,
-  getColor,
 } from '../constants';
 
 import { tripService } from '../services/tripService';
@@ -85,21 +83,6 @@ const getColor = (color) => {
   return colors[color] || colors.primary;
 };
 
-const getColorBg = (color) => {
-  const colors = {
-    primary: '#EEF2FF',
-    success: '#D1FAE5',
-    warning: '#FEF3C7',
-    error: '#FEE2E2',
-    info: '#DBEAFE',
-    secondary: '#F3F4F6',
-    purple: '#EDE9FE',
-    pink: '#FCE7F3',
-    teal: '#CCFBF1',
-    indigo: '#E0E7FF',
-  };
-  return colors[color] || colors.primary;
-};
 
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
