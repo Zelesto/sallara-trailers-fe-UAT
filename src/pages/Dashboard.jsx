@@ -48,10 +48,21 @@ import {
   Star,
   StarBorder,
   Dashboard as DashboardIcon,
+  Notifications,
 } from '@mui/icons-material';
 import { analyticsService } from '../services/analyticsService';
 import { inventoryNotificationService } from '../services/inventoryNotificationService';
 import { tripService } from '../services/tripService';
+
+// Import enums
+import {
+  TRIP_STATUS_CONFIG,
+  TRIP_STATUS_OPTIONS,
+  DRIVER_STATUS_CONFIG,
+  VEHICLE_STATUS_CONFIG,
+  getDisplayName,
+  getColor,
+} from '../constants';
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -118,6 +129,23 @@ const safeFormatDate = (date) => {
   } catch (e) {
     return 'N/A';
   }
+};
+
+// Helper to get status chip color from enums
+const getStatusChipProps = (status, statusConfig) => {
+  const config = statusConfig[status];
+  if (config) {
+    return {
+      label: config.displayName || status,
+      color: config.color || '#6B7280',
+      bgColor: config.color ? `${config.color}20` : '#F3F4F6',
+    };
+  }
+  return {
+    label: status || 'Unknown',
+    color: '#6B7280',
+    bgColor: '#F3F4F6',
+  };
 };
 
 // ============================================================
@@ -430,6 +458,51 @@ const StatCard = React.memo(({
 });
 
 // ============================================================
+// STATUS CHIP WITH ENUMS
+// ============================================================
+const StatusChipWithEnums = ({ status, type = 'trip' }) => {
+  let config;
+  if (type === 'trip') {
+    config = TRIP_STATUS_CONFIG[status];
+  } else if (type === 'driver') {
+    config = DRIVER_STATUS_CONFIG[status];
+  } else if (type === 'vehicle') {
+    config = VEHICLE_STATUS_CONFIG[status];
+  }
+
+  if (config) {
+    return (
+      <Chip
+        label={config.displayName || status}
+        size="small"
+        sx={{
+          backgroundColor: config.color ? `${config.color}20` : '#F3F4F6',
+          color: config.color || '#6B7280',
+          fontWeight: 600,
+          fontSize: { xs: '0.5rem', sm: '0.6rem' },
+          height: { xs: 18, sm: 22 },
+          border: `1px solid ${config.color || '#6B7280'}20`,
+        }}
+      />
+    );
+  }
+
+  return (
+    <Chip
+      label={status || 'Unknown'}
+      size="small"
+      sx={{
+        backgroundColor: '#F3F4F6',
+        color: '#6B7280',
+        fontWeight: 600,
+        fontSize: { xs: '0.5rem', sm: '0.6rem' },
+        height: { xs: 18, sm: 22 },
+      }}
+    />
+  );
+};
+
+// ============================================================
 // LOW STOCK ALERT COMPONENT
 // ============================================================
 const LowStockAlert = ({ items }) => {
@@ -522,7 +595,7 @@ const LowStockAlert = ({ items }) => {
 };
 
 // ============================================================
-// MAIN DASHBOARD COMPONENT - MUI v7 COMPATIBLE
+// MAIN DASHBOARD COMPONENT
 // ============================================================
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -778,7 +851,7 @@ const Dashboard = () => {
           </Paper>
         )}
 
-        {/* Key Metrics with Gauges - MUI v7 Grid */}
+        {/* Key Metrics with Gauges */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
@@ -836,7 +909,7 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-        {/* Detailed Analytics - MUI v7 Grid */}
+        {/* Detailed Analytics */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 3 }}
