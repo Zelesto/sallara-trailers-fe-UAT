@@ -47,7 +47,7 @@ const safeMapToOptions = (items) => {
 };
 
 export const EnumProvider = ({ children }) => {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [enums, setEnums] = useState({
     tripStatuses: [],
     tripTypes: [],
@@ -69,16 +69,15 @@ export const EnumProvider = ({ children }) => {
   const [isReady, setIsReady] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
-  // Load all enums after authentication
+  // Load all enums - ONLY when auth is fully ready
   const loadEnums = useCallback(async () => {
-    // Wait for auth to be ready
+    // CRITICAL: Only proceed if auth is fully loaded AND user is authenticated
     if (authLoading) {
       console.log('⏳ EnumProvider: Auth still loading, waiting...');
       return;
     }
 
-    // Check if user is authenticated
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       console.log('🚫 EnumProvider: User not authenticated, clearing enums');
       setEnums({
         tripStatuses: [],
@@ -100,8 +99,8 @@ export const EnumProvider = ({ children }) => {
       return;
     }
 
-    // Don't reload if already loaded and not forcing refresh
-    if (hasLoaded && !loading) {
+    // Don't reload if already loaded
+    if (hasLoaded) {
       console.log('📦 EnumProvider: Using cached enums');
       return;
     }
@@ -110,7 +109,7 @@ export const EnumProvider = ({ children }) => {
     setError(null);
 
     try {
-      console.log('🔄 EnumProvider: Loading enums for authenticated user...');
+      console.log('🔄 EnumProvider: Loading enums for user:', user?.email || user?.username);
       
       // Fetch all enum data in parallel
       const results = await Promise.allSettled([
@@ -167,34 +166,37 @@ export const EnumProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, authLoading, hasLoaded, loading]);
+  }, [isAuthenticated, authLoading, user, hasLoaded]);
 
-  // Load enums when authentication state changes
+  // ONLY run when auth state changes AND auth is not loading
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('🔐 EnumProvider: User authenticated, loading enums...');
-      loadEnums();
-    } else {
-      console.log('🚫 EnumProvider: User not authenticated, clearing enums');
-      setEnums({
-        tripStatuses: [],
-        tripTypes: [],
-        approvalStatuses: [],
-        tripPriorities: [],
-        driverStatuses: [],
-        vehicleStatuses: [],
-        vehicleTypes: [],
-        fuelTypes: [],
-        loadStatuses: [],
-        podStatuses: [],
-        drivers: [],
-        vehicles: [],
-        supervisors: [],
-      });
-      setIsReady(false);
-      setHasLoaded(false);
+    // Only proceed if auth is not loading
+    if (!authLoading) {
+      if (isAuthenticated && user && !hasLoaded) {
+        console.log('🔐 EnumProvider: Auth ready, loading enums...');
+        loadEnums();
+      } else if (!isAuthenticated || !user) {
+        console.log('🚫 EnumProvider: Clearing enums (not authenticated)');
+        setEnums({
+          tripStatuses: [],
+          tripTypes: [],
+          approvalStatuses: [],
+          tripPriorities: [],
+          driverStatuses: [],
+          vehicleStatuses: [],
+          vehicleTypes: [],
+          fuelTypes: [],
+          loadStatuses: [],
+          podStatuses: [],
+          drivers: [],
+          vehicles: [],
+          supervisors: [],
+        });
+        setIsReady(false);
+        setHasLoaded(false);
+      }
     }
-  }, [isAuthenticated, loadEnums]);
+  }, [isAuthenticated, authLoading, user, hasLoaded, loadEnums]);
 
   // Memoized options - ALWAYS return arrays
   const tripStatusOptions = useMemo(() => safeMapToOptions(enums.tripStatuses), [enums.tripStatuses]);
@@ -261,7 +263,7 @@ export const EnumProvider = ({ children }) => {
     enums,
     loading: loading || authLoading,
     error,
-    isReady: isReady && !authLoading && !loading,
+    isReady: isReady && !authLoading && !loading && hasLoaded,
     refreshEnums,
     // Option getters - ALWAYS return arrays
     getTripStatusOptions,
