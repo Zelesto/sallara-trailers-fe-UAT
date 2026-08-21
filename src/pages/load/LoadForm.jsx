@@ -39,6 +39,8 @@ import {
   LOAD_PRIORITY_OPTIONS,
   COMMODITY_OPTIONS,
   toOptions,
+  getColor,
+  getColorBg,
 } from '../../constants';
 
 const COMMODITY_TYPES = [
