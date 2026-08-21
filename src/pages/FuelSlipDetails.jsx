@@ -41,6 +41,12 @@ import {
 import { fuelService } from '../services/fuelService';
 import { tripService } from '../services/tripService';
 
+import {
+  FUEL_TYPES,
+  PAYMENT_METHODS,
+  getDisplayName,
+} from '../constants';
+
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return 'R 0.00';
@@ -429,7 +435,7 @@ const FuelSlipDetails = () => {
                   Fuel Type
                 </Typography>
                 <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                  {slip.fuelType || 'N/A'}
+                  {getDisplayName(FUEL_TYPES, slip.fuelType) || slip.fuelType || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={6} md={3}>
@@ -437,7 +443,7 @@ const FuelSlipDetails = () => {
                   Payment Method
                 </Typography>
                 <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                  {slip.paymentMethod || 'N/A'}
+                  {getDisplayName(PAYMENT_METHODS, slip.paymentMethod) || slip.paymentMethod || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={6} md={3}>
