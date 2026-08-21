@@ -296,23 +296,31 @@ const TripIncidents = ({ tripId, tripNumber }) => {
               label="Incident Type"
               value={newIncident.incidentType}
               onChange={(e) => setNewIncident({...newIncident, incidentType: e.target.value})}
-              required
+              select
               fullWidth
               size="small"
-              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-            />
+            >
+              <MenuItem value="">Select Type</MenuItem>
+              {INCIDENT_TYPES.map(type => (
+                <MenuItem key={type.code} value={type.code}>
+                  {type.displayName}
+                </MenuItem>
+              ))}
+            </TextField>
+            
+            // Severity dropdown:
             <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Severity</InputLabel>
+              <InputLabel>Severity</InputLabel>
               <Select
                 value={newIncident.severity}
                 label="Severity"
                 onChange={(e) => setNewIncident({...newIncident, severity: e.target.value})}
-                sx={{ fontSize: '0.75rem' }}
               >
-                <MenuItem value="LOW" sx={{ fontSize: '0.75rem' }}>Low</MenuItem>
-                <MenuItem value="MEDIUM" sx={{ fontSize: '0.75rem' }}>Medium</MenuItem>
-                <MenuItem value="HIGH" sx={{ fontSize: '0.75rem' }}>High</MenuItem>
-                <MenuItem value="CRITICAL" sx={{ fontSize: '0.75rem' }}>Critical</MenuItem>
+                {INCIDENT_SEVERITIES.map(severity => (
+                  <MenuItem key={severity.code} value={severity.code}>
+                    {severity.displayName}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
             <TextField
