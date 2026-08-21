@@ -62,12 +62,28 @@ import {
   VEHICLE_STATUS_CONFIG,
   getDisplayName,
   getColor,
-  getColorBg,
 } from '../constants';
 
 // ============================================================
 // UTILITY FUNCTIONS
 // ============================================================
+
+
+const getColorBg = (color) => {
+  const bgColors = {
+    primary: '#EEF2FF',
+    success: '#D1FAE5',
+    warning: '#FEF3C7',
+    error: '#FEE2E2',
+    info: '#DBEAFE',
+    secondary: '#F3F4F6',
+    purple: '#EDE9FE',
+    pink: '#FCE7F3',
+    teal: '#CCFBF1',
+    indigo: '#E0E7FF',
+  };
+  return bgColors[color] || bgColors.primary;
+};
 
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
