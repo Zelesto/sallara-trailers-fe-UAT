@@ -56,6 +56,13 @@ import { vehicleService } from '../services/vehicleService';
 import { driverService } from '../services/driverService';
 import { tripService } from '../services/tripService';
 
+import {
+  FUEL_TYPES,
+  PAYMENT_METHODS,
+  toOptions,
+  getDisplayName,
+} from '../constants';
+
 // Constants
 const COMMON_STATIONS = ['BP Station', 'Shell Station', 'Caltex Station', 'Engen Station', 'Total Station', 'Sasol Station', 'Puma Station'];
 const COMMON_LOCATIONS = ['Johannesburg', 'Pretoria', 'Cape Town', 'Durban', 'Bloemfontein', 'Port Elizabeth', 'East London', 'Polokwane', 'Nelspruit', 'Rustenburg'];
@@ -993,7 +1000,9 @@ useEffect(() => {
                     sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
                   >
                     {FUEL_TYPES.map(ft => (
-                      <MenuItem key={ft} value={ft} sx={{ fontSize: '0.8rem' }}>{ft}</MenuItem>
+                      <MenuItem key={ft.code} value={ft.code} sx={{ fontSize: '0.8rem' }}>
+                        {ft.displayName}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -1207,11 +1216,12 @@ useEffect(() => {
                     sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
                   >
                     {PAYMENT_METHODS.map(m => (
-                      <MenuItem key={m} value={m} sx={{ fontSize: '0.8rem' }}>{m}</MenuItem>
+                      <MenuItem key={m.code} value={m.code} sx={{ fontSize: '0.8rem' }}>
+                        {m.displayName}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-
                 {isEdit && (
                   <Box sx={{ mt: 2 }}>
                     <FormControlLabel
