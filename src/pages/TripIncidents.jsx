@@ -308,7 +308,7 @@ const TripIncidents = ({ tripId, tripNumber }) => {
               ))}
             </TextField>
             
-            // Severity dropdown:
+         
             <FormControl fullWidth size="small">
               <InputLabel>Severity</InputLabel>
               <Select
