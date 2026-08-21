@@ -78,6 +78,13 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
 
+import {
+  TRIP_STATUSES,
+  TRIP_STATUS_OPTIONS,
+  getDisplayName,
+  getColor,
+} from '../constants';
+
 // ============================================================
 // UTILITY FUNCTIONS (matching Dashboard styling)
 // ============================================================
@@ -888,8 +895,7 @@ function TripList() {
                   </InputAdornment>
                 ),
               }}
-            />
-            
+            />         
             <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
               <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Status</InputLabel>
               <Select
@@ -899,14 +905,13 @@ function TripList() {
                 sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
               >
                 <MenuItem value="all" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Statuses</MenuItem>
-                {STATUS_OPTIONS.map(status => (
-                  <MenuItem key={status} value={status} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                    {STATUS_CONFIG[status]?.label || status}
+                {TRIP_STATUS_OPTIONS.map(status => (
+                  <MenuItem key={status.value} value={status.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                    {status.label}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-
             {uniqueCities.length > 0 && (
               <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 140 } }}>
                 <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>City</InputLabel>
