@@ -32,7 +32,7 @@ const safeArray = (data) => {
   return [];
 };
 
-// ALWAYS returns an array
+// ALWAYS returns an array - safe mapper
 const safeMapToOptions = (items) => {
   const arr = safeArray(items);
   if (arr.length === 0) return [];
@@ -47,7 +47,7 @@ const safeMapToOptions = (items) => {
 };
 
 export const EnumProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [enums, setEnums] = useState({
     tripStatuses: [],
     tripTypes: [],
@@ -67,12 +67,42 @@ export const EnumProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Load all enums after authentication
   const loadEnums = useCallback(async () => {
+    // Wait for auth to be ready
+    if (authLoading) {
+      console.log('⏳ EnumProvider: Auth still loading, waiting...');
+      return;
+    }
+
+    // Check if user is authenticated
     if (!isAuthenticated) {
-      console.log('⏳ EnumProvider: Not authenticated, skipping load');
+      console.log('🚫 EnumProvider: User not authenticated, clearing enums');
+      setEnums({
+        tripStatuses: [],
+        tripTypes: [],
+        approvalStatuses: [],
+        tripPriorities: [],
+        driverStatuses: [],
+        vehicleStatuses: [],
+        vehicleTypes: [],
+        fuelTypes: [],
+        loadStatuses: [],
+        podStatuses: [],
+        drivers: [],
+        vehicles: [],
+        supervisors: [],
+      });
       setIsReady(false);
+      setHasLoaded(false);
+      return;
+    }
+
+    // Don't reload if already loaded and not forcing refresh
+    if (hasLoaded && !loading) {
+      console.log('📦 EnumProvider: Using cached enums');
       return;
     }
 
@@ -80,7 +110,7 @@ export const EnumProvider = ({ children }) => {
     setError(null);
 
     try {
-      console.log('🔄 EnumProvider: Loading enums...');
+      console.log('🔄 EnumProvider: Loading enums for authenticated user...');
       
       // Fetch all enum data in parallel
       const results = await Promise.allSettled([
@@ -110,7 +140,7 @@ export const EnumProvider = ({ children }) => {
         return [];
       };
 
-      setEnums({
+      const newEnums = {
         tripStatuses: extractData(results[0], 'tripStatuses'),
         tripTypes: extractData(results[1], 'tripTypes'),
         approvalStatuses: extractData(results[2], 'approvalStatuses'),
@@ -124,8 +154,10 @@ export const EnumProvider = ({ children }) => {
         drivers: extractData(results[10], 'drivers'),
         vehicles: extractData(results[11], 'vehicles'),
         supervisors: extractData(results[12], 'supervisors'),
-      });
+      };
 
+      setEnums(newEnums);
+      setHasLoaded(true);
       setIsReady(true);
       console.log('✅ EnumProvider: Enums loaded successfully');
     } catch (err) {
@@ -135,11 +167,33 @@ export const EnumProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authLoading, hasLoaded, loading]);
 
   // Load enums when authentication state changes
   useEffect(() => {
-    loadEnums();
+    if (isAuthenticated) {
+      console.log('🔐 EnumProvider: User authenticated, loading enums...');
+      loadEnums();
+    } else {
+      console.log('🚫 EnumProvider: User not authenticated, clearing enums');
+      setEnums({
+        tripStatuses: [],
+        tripTypes: [],
+        approvalStatuses: [],
+        tripPriorities: [],
+        driverStatuses: [],
+        vehicleStatuses: [],
+        vehicleTypes: [],
+        fuelTypes: [],
+        loadStatuses: [],
+        podStatuses: [],
+        drivers: [],
+        vehicles: [],
+        supervisors: [],
+      });
+      setIsReady(false);
+      setHasLoaded(false);
+    }
   }, [isAuthenticated, loadEnums]);
 
   // Memoized options - ALWAYS return arrays
@@ -168,7 +222,7 @@ export const EnumProvider = ({ children }) => {
     const arr = safeArray(enums.vehicles);
     return arr.map(v => ({
       value: v.id,
-      label: v.registrationNumber || `Vehicle ${v.id}`,
+      label: v.registrationNumber || v.name || `Vehicle ${v.id}`,
       ...v
     }));
   }, [enums.vehicles]);
@@ -184,29 +238,45 @@ export const EnumProvider = ({ children }) => {
 
   // Refresh enums
   const refreshEnums = useCallback(() => {
+    setHasLoaded(false);
     return loadEnums();
   }, [loadEnums]);
 
+  // ALWAYS return arrays - these are the getter functions
+  const getTripStatusOptions = useCallback(() => tripStatusOptions, [tripStatusOptions]);
+  const getTripTypeOptions = useCallback(() => tripTypeOptions, [tripTypeOptions]);
+  const getApprovalStatusOptions = useCallback(() => approvalStatusOptions, [approvalStatusOptions]);
+  const getPriorityOptions = useCallback(() => tripPriorityOptions, [tripPriorityOptions]);
+  const getDriverStatusOptions = useCallback(() => driverStatusOptions, [driverStatusOptions]);
+  const getVehicleStatusOptions = useCallback(() => vehicleStatusOptions, [vehicleStatusOptions]);
+  const getVehicleTypeOptions = useCallback(() => vehicleTypeOptions, [vehicleTypeOptions]);
+  const getFuelTypeOptions = useCallback(() => fuelTypeOptions, [fuelTypeOptions]);
+  const getLoadStatusOptions = useCallback(() => loadStatusOptions, [loadStatusOptions]);
+  const getPodStatusOptions = useCallback(() => podStatusOptions, [podStatusOptions]);
+  const getDriverOptions = useCallback(() => driverOptions, [driverOptions]);
+  const getVehicleOptions = useCallback(() => vehicleOptions, [vehicleOptions]);
+  const getSupervisorOptions = useCallback(() => supervisorOptions, [supervisorOptions]);
+
   const value = {
     enums,
-    loading,
+    loading: loading || authLoading,
     error,
-    isReady,
+    isReady: isReady && !authLoading && !loading,
     refreshEnums,
     // Option getters - ALWAYS return arrays
-    getTripStatusOptions: useCallback(() => tripStatusOptions, [tripStatusOptions]),
-    getTripTypeOptions: useCallback(() => tripTypeOptions, [tripTypeOptions]),
-    getApprovalStatusOptions: useCallback(() => approvalStatusOptions, [approvalStatusOptions]),
-    getPriorityOptions: useCallback(() => tripPriorityOptions, [tripPriorityOptions]),
-    getDriverStatusOptions: useCallback(() => driverStatusOptions, [driverStatusOptions]),
-    getVehicleStatusOptions: useCallback(() => vehicleStatusOptions, [vehicleStatusOptions]),
-    getVehicleTypeOptions: useCallback(() => vehicleTypeOptions, [vehicleTypeOptions]),
-    getFuelTypeOptions: useCallback(() => fuelTypeOptions, [fuelTypeOptions]),
-    getLoadStatusOptions: useCallback(() => loadStatusOptions, [loadStatusOptions]),
-    getPodStatusOptions: useCallback(() => podStatusOptions, [podStatusOptions]),
-    getDriverOptions: useCallback(() => driverOptions, [driverOptions]),
-    getVehicleOptions: useCallback(() => vehicleOptions, [vehicleOptions]),
-    getSupervisorOptions: useCallback(() => supervisorOptions, [supervisorOptions]),
+    getTripStatusOptions,
+    getTripTypeOptions,
+    getApprovalStatusOptions,
+    getPriorityOptions,
+    getDriverStatusOptions,
+    getVehicleStatusOptions,
+    getVehicleTypeOptions,
+    getFuelTypeOptions,
+    getLoadStatusOptions,
+    getPodStatusOptions,
+    getDriverOptions,
+    getVehicleOptions,
+    getSupervisorOptions,
   };
 
   return (
