@@ -72,6 +72,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
+import {
+  FUEL_TYPES,
+  PAYMENT_METHODS,
+  getDisplayName,
+} from '../constants';
+
 
 // Currency formatter for South African Rand (ZAR)
 const formatCurrency = (amount) => {
