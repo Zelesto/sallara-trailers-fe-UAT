@@ -33,6 +33,11 @@ import {
 import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
 
+import {
+  POD_STATUS_OPTIONS,
+  POD_STATUSES,
+} from '../constants';
+
 const ScanPOD = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
