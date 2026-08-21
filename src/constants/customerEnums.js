@@ -48,4 +48,16 @@ export const INDUSTRY_TYPES = [
   { code: 'HEALTHCARE', displayName: 'Healthcare', sortOrder: 13 },
   { code: 'EDUCATION', displayName: 'Education', sortOrder: 14 },
   { code: 'GOVERNMENT', displayName: 'Government', sortOrder: 15 },
-  { code: 'N
+  { code: 'NON_PROFIT', displayName: 'Non-Profit', sortOrder: 16 },
+  { code: 'OTHER', displayName: 'Other', sortOrder: 17 },
+];
+
+// Helper to convert to options format
+export const toOptions = (items) =>
+  items.map(item => ({
+    value: item.code,
+    label: item.displayName,
+    isDefault: item.isDefault,
+    sortOrder: item.sortOrder,
+    ...item
+  }));
