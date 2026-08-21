@@ -25,48 +25,58 @@ export const AuthProvider = ({ children }) => {
   const navigateRef = useRef(null);
 
   // ============================================================
-  // LOAD USER ON MOUNT
+  // LOAD USER ON MOUNT - WITH TIMEOUT HANDLING
   // ============================================================
   useEffect(() => {
-  const loadUser = async () => {
-    const token = authService.getToken();
-    
-    if (!token) {
-      setLoading(false);
-      setIsAuthenticated(false);
-      setUser(null);
-      return;
-    }
-
-    try {
-      // Try to get user data - if this fails, token is invalid
-      const userData = await authService.getCurrentUser();
-      if (userData) {
-        setUser(userData);
-        setIsAuthenticated(true);
-        setSessionExpired(false);
-      } else {
-        authService.clearAuthData();
-        setUser(null);
+    const loadUser = async () => {
+      const token = authService.getToken();
+      
+      if (!token) {
+        setLoading(false);
         setIsAuthenticated(false);
-      }
-    } catch (err) {
-      console.error('Failed to load user:', err);
-      // If 401 or session expired, clear auth
-      if (err.status === 401 || err.response?.status === 401) {
-        authService.clearAuthData();
         setUser(null);
-        setIsAuthenticated(false);
-        setSessionExpired(true);
+        return;
       }
-      setError(err.message || 'Failed to load user');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  loadUser();
-}, []);
+      try {
+        // Set a timeout for the request
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), 10000);
+        });
+
+        // Race the actual request against the timeout
+        const userData = await Promise.race([
+          authService.getCurrentUser(),
+          timeoutPromise
+        ]);
+
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+          setSessionExpired(false);
+        } else {
+          authService.clearAuthData();
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        console.error('Failed to load user:', err);
+        
+        // If timeout or 401, clear auth but don't show error to user
+        if (err.message === 'Request timeout' || err.status === 401 || err.response?.status === 401) {
+          authService.clearAuthData();
+          setUser(null);
+          setIsAuthenticated(false);
+          setSessionExpired(true);
+        }
+        setError(err.message || 'Failed to load user');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
+  }, []);
 
   // ============================================================
   // SESSION EXPIRY HANDLER
@@ -79,7 +89,6 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       setSessionExpired(true);
       
-      // Redirect to login
       if (navigateRef.current) {
         navigateRef.current('/login?session=expired', { replace: true });
       } else {
@@ -88,7 +97,6 @@ export const AuthProvider = ({ children }) => {
     };
 
     window.addEventListener('sessionExpired', handleSessionExpired);
-
     return () => {
       window.removeEventListener('sessionExpired', handleSessionExpired);
     };
@@ -98,9 +106,6 @@ export const AuthProvider = ({ children }) => {
   // AUTH METHODS
   // ============================================================
 
-  /**
-   * Login user
-   */
   const login = useCallback(async (credentials) => {
     setLoading(true);
     setError(null);
@@ -118,16 +123,10 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No authentication token received');
       }
 
-      // Update state
       setUser(result.user);
       setIsAuthenticated(true);
       setLoading(false);
       setSessionExpired(false);
-
-      console.log('✅ AuthContext: User authenticated successfully', {
-        email: result.user?.email,
-        roles: result.user?.roles?.length || 0
-      });
 
       return {
         success: true,
@@ -146,9 +145,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Logout user
-   */
   const logout = useCallback(async () => {
     console.log('🔴 AuthContext: Logging out...');
     
@@ -157,14 +153,12 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Logout API error:', err);
     } finally {
-      // Always clear local state
       authService.clearAuthData();
       setUser(null);
       setIsAuthenticated(false);
       setError(null);
       setSessionExpired(false);
       
-      // Redirect to login
       if (navigateRef.current) {
         navigateRef.current('/login', { replace: true });
       } else {
@@ -173,9 +167,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Register new user
-   */
   const register = useCallback(async (userData) => {
     setLoading(true);
     setError(null);
@@ -192,9 +183,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Update user profile
-   */
   const updateProfile = useCallback(async (profileData) => {
     setLoading(true);
     setError(null);
@@ -212,9 +200,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Refresh user data
-   */
   const refreshUser = useCallback(async () => {
     if (!isAuthenticated) return null;
     
@@ -239,9 +224,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
-  /**
-   * Clear error
-   */
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -288,28 +270,21 @@ export const AuthProvider = ({ children }) => {
   // CONTEXT VALUE
   // ============================================================
   const value = {
-    // State
     user,
     isAuthenticated,
     loading,
     error,
     sessionExpired,
-    
-    // Auth methods
     login,
     logout,
     register,
     updateProfile,
     refreshUser,
     clearError,
-    
-    // RBAC
     hasRole,
     hasAnyRole,
     hasAllRoles,
     hasPermission,
-    
-    // Utilities
     setNavigate,
     setSessionExpired,
   };
@@ -328,7 +303,6 @@ export const useAuthWithNavigate = () => {
   const navigate = useNavigate();
   const auth = useAuth();
   
-  // Set the navigate ref when the hook is used
   useEffect(() => {
     if (auth.setNavigate) {
       auth.setNavigate(navigate);
