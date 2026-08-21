@@ -72,6 +72,15 @@ import { loadService } from '../../services/loadService';
 import { customerService } from '../../services/customerService';
 import { tripService } from '../../services/tripService';
 
+import {
+  LOAD_STATUSES,
+  LOAD_PRIORITIES,
+  LOAD_STATUS_OPTIONS,
+  LOAD_PRIORITY_OPTIONS,
+  getDisplayName,
+  getColor,
+} from '../../constants';
+
 // ============================================================
 // UTILITY FUNCTIONS (matching Dashboard)
 // ============================================================
@@ -249,28 +258,37 @@ const StatCard = React.memo(({
 // ============================================================
 
 const StatusChip = ({ status }) => {
-  const configs = {
-    PENDING: { color: '#F59E0B', bgColor: '#FEF3C7', label: 'Pending', icon: <Pending sx={{ fontSize: '0.6rem' }} /> },
-    IN_PROGRESS: { color: '#3B82F6', bgColor: '#DBEAFE', label: 'In Progress', icon: <Warning sx={{ fontSize: '0.6rem' }} /> },
-    COMPLETED: { color: '#22C55E', bgColor: '#D1FAE5', label: 'Completed', icon: <CheckCircle sx={{ fontSize: '0.6rem' }} /> },
-    CANCELLED: { color: '#EF4444', bgColor: '#FEE2E2', label: 'Cancelled', icon: <Cancel sx={{ fontSize: '0.6rem' }} /> },
-  };
-  const config = configs[status] || { color: '#6B7280', bgColor: '#F3F4F6', label: status || 'Unknown', icon: null };
+  const config = LOAD_STATUSES.find(s => s.code === status);
   
+  if (config) {
+    return (
+      <Chip
+        label={config.displayName}
+        size="small"
+        sx={{
+          backgroundColor: config.color ? `${config.color}20` : '#F3F4F6',
+          color: config.color || '#6B7280',
+          fontWeight: 600,
+          fontSize: { xs: '0.5rem', sm: '0.6rem' },
+          height: { xs: 18, sm: 22 },
+          border: `1px solid ${config.color || '#6B7280'}20`,
+          '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
+        }}
+      />
+    );
+  }
+  
+  // Fallback
   return (
     <Chip
-      label={config.label}
+      label={status || 'Unknown'}
       size="small"
-      icon={config.icon}
       sx={{
-        backgroundColor: config.bgColor,
-        color: config.color,
+        backgroundColor: '#F3F4F6',
+        color: '#6B7280',
         fontWeight: 600,
         fontSize: { xs: '0.5rem', sm: '0.6rem' },
         height: { xs: 18, sm: 22 },
-        border: `1px solid ${config.color}20`,
-        '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
-        '& .MuiChip-icon': { fontSize: { xs: '0.6rem', sm: '0.7rem' }, ml: 0.5 }
       }}
     />
   );
@@ -785,10 +803,11 @@ const LoadList = () => {
                 sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
               >
                 <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Status</MenuItem>
-                <MenuItem value="PENDING" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Pending</MenuItem>
-                <MenuItem value="IN_PROGRESS" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>In Progress</MenuItem>
-                <MenuItem value="COMPLETED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Completed</MenuItem>
-                <MenuItem value="CANCELLED" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Cancelled</MenuItem>
+                {LOAD_STATUS_OPTIONS.map(option => (
+                  <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                    {option.label}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
 
