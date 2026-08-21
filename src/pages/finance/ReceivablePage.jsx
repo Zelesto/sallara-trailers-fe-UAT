@@ -51,16 +51,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-/* -------------------------------------------------------------------------- */
-/* Constants                                                                   */
-/* -------------------------------------------------------------------------- */
-
-const STATUS_OPTIONS = [
-  { value: 'PENDING', label: 'Pending', color: 'warning' },
-  { value: 'PAID', label: 'Paid', color: 'success' },
-  { value: 'OVERDUE', label: 'Overdue', color: 'error' },
-  { value: 'CANCELLED', label: 'Cancelled', color: 'default' },
-];
+// Import enums
+import {
+  PAYMENT_STATUS_OPTIONS,
+  getDisplayName,
+  getColor,
+} from '../../constants';
 
 // Map source_type to display names
 const SOURCE_TYPE_MAP = {
@@ -123,13 +119,11 @@ const calculateDaysOverdue = (dueDate) => {
 };
 
 const determineStatus = (transaction) => {
-  // If transaction has payment status field
   if (transaction.paymentStatus) {
     if (transaction.paymentStatus === 'PAID') return 'PAID';
     if (transaction.paymentStatus === 'CANCELLED') return 'CANCELLED';
   }
   
-  // Check if overdue based on posting_date
   const daysOverdue = calculateDaysOverdue(transaction.postingDate);
   if (daysOverdue > 0 && transaction.direction === 'CREDIT') return 'OVERDUE';
   
@@ -166,6 +160,9 @@ const ReceivablesPage = () => {
   const [paymentForm, setPaymentForm] = useState(defaultPaymentForm);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // Status options from enums
+  const statusOptions = PAYMENT_STATUS_OPTIONS;
+
   /* ------------------------------ Data Load ------------------------------ */
 
   useEffect(() => {
@@ -175,13 +172,9 @@ const ReceivablesPage = () => {
   const fetchReceivables = async () => {
     setLoading(true);
     try {
-      // Get all transactions and filter for CREDIT direction (money coming in)
       const response = await axios.get(`${API_BASE_URL}/account-transactions`);
-      
-      // Filter to only show CREDIT transactions (receivables)
       const creditTransactions = response.data.filter(tx => tx.direction === 'CREDIT');
       
-      // Transform and enhance the data
       const formattedTransactions = creditTransactions.map(transaction => ({
         ...transaction,
         invoiceNumber: transaction.sourceType === 'INVOICE' 
@@ -193,6 +186,8 @@ const ReceivablesPage = () => {
         formattedAmount: formatCurrency(transaction.amount, transaction.currency),
         formattedDate: formatDate(transaction.transactionDate),
         formattedDueDate: formatDate(transaction.postingDate),
+        statusDisplayName: getDisplayName(PAYMENT_STATUS_OPTIONS, determineStatus(transaction)),
+        statusColor: getColor(PAYMENT_STATUS_OPTIONS, determineStatus(transaction)),
       }));
       
       setTransactions(formattedTransactions);
@@ -205,10 +200,7 @@ const ReceivablesPage = () => {
     }
   };
 
-  // Helper function to get customer/entity name from source
   const getCustomerNameFromSource = (transaction) => {
-    // In a real implementation, you might fetch this from a related entity
-    // based on source_type and source_id
     switch (transaction.sourceType) {
       case 'INVOICE':
         return `Invoice ${transaction.sourceId}`;
@@ -254,7 +246,6 @@ const ReceivablesPage = () => {
     [overdueReceivables]
   );
 
-  // Get unique source types for filter dropdown
   const sourceTypes = useMemo(() => {
     const types = new Set(transactions.map(tx => tx.sourceType));
     return Array.from(types).filter(t => t);
@@ -288,13 +279,12 @@ const ReceivablesPage = () => {
     if (!selectedTransaction) return;
     
     try {
-      // Create a new payment transaction
       const paymentTransaction = {
         accountId: selectedTransaction.accountId,
         transactionDate: new Date().toISOString(),
         postingDate: paymentForm.paymentDate,
         amount: paymentForm.amount,
-        direction: 'DEBIT', // Payment reduces receivable
+        direction: 'DEBIT',
         sourceType: 'PAYMENT',
         sourceId: selectedTransaction.id,
         description: paymentForm.notes,
@@ -305,9 +295,6 @@ const ReceivablesPage = () => {
       
       await axios.post(`${API_BASE_URL}/account-transactions`, paymentTransaction);
       
-      // Optional: Update the original transaction to mark as paid or partial
-      // This depends on your business logic
-      
       setSnackbar({
         open: true,
         message: 'Payment recorded successfully!',
@@ -315,7 +302,7 @@ const ReceivablesPage = () => {
       });
       
       closePaymentDialog();
-      fetchReceivables(); // Refresh the list
+      fetchReceivables();
     } catch (err) {
       console.error('Error recording payment:', err);
       setSnackbar({
@@ -335,7 +322,7 @@ const ReceivablesPage = () => {
           message: 'Transaction deleted successfully!',
           severity: 'success',
         });
-        fetchReceivables(); // Refresh the list
+        fetchReceivables();
       } catch (err) {
         console.error('Error deleting transaction:', err);
         setSnackbar({
@@ -348,11 +335,11 @@ const ReceivablesPage = () => {
   };
 
   const getStatusChip = (status) => {
-    const statusConfig = STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
+    const statusOption = statusOptions.find(s => s.value === status);
     return (
       <Chip
-        label={statusConfig.label}
-        color={statusConfig.color}
+        label={statusOption?.label || status}
+        color={statusOption?.color || 'default'}
         size="small"
         sx={{ fontWeight: 500 }}
       />
@@ -526,7 +513,7 @@ const ReceivablesPage = () => {
                 onChange={e => setFilterStatus(e.target.value)}
               >
                 <MenuItem value="all">All</MenuItem>
-                {STATUS_OPTIONS.map(s => (
+                {statusOptions.map(s => (
                   <MenuItem key={s.value} value={s.value}>
                     {s.label}
                   </MenuItem>
@@ -610,89 +597,98 @@ const ReceivablesPage = () => {
               <TableBody>
                 {filteredReceivables
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>
-                          {row.id}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          {getSourceTypeIcon(row.sourceType)}
+                  .map((row) => {
+                    const statusOption = statusOptions.find(s => s.value === row.status);
+                    
+                    return (
+                      <TableRow key={row.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500}>
+                            {row.id}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            {getSourceTypeIcon(row.sourceType)}
+                            <Typography variant="body2">
+                              {SOURCE_TYPE_MAP[row.sourceType] || row.sourceType}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip title={row.description}>
+                            <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
+                              {row.description}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography fontWeight={600} color={row.status === 'OVERDUE' ? 'error.main' : 'text.primary'}>
+                            {formatCurrency(row.amount, row.currency)}
+                          </Typography>
+                          {row.status === 'OVERDUE' && row.daysOverdue > 0 && (
+                            <Typography variant="caption" color="error" display="block">
+                              {row.daysOverdue} days overdue
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Typography variant="body2">
-                            {SOURCE_TYPE_MAP[row.sourceType] || row.sourceType}
+                            {formatDateTime(row.transactionDate)}
                           </Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={row.description}>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
-                            {row.description}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDate(row.postingDate)}
                           </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography fontWeight={600} color={row.status === 'OVERDUE' ? 'error.main' : 'text.primary'}>
-                          {formatCurrency(row.amount, row.currency)}
-                        </Typography>
-                        {row.status === 'OVERDUE' && row.daysOverdue > 0 && (
-                          <Typography variant="caption" color="error" display="block">
-                            {row.daysOverdue} days overdue
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {formatDateTime(row.transactionDate)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {formatDate(row.postingDate)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusChip(row.status)}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={1} justifyContent="center">
-                          <IconButton
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={statusOption?.label || row.status}
+                            color={statusOption?.color || 'default'}
                             size="small"
-                            onClick={() => navigate(`/finance/transactions/${row.id}`)}
-                            title="View Details"
-                          >
-                            <ViewIcon fontSize="small" />
-                          </IconButton>
-                          {row.status !== 'PAID' && row.status !== 'CANCELLED' && (
+                            sx={{ fontWeight: 500 }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={1} justifyContent="center">
                             <IconButton
                               size="small"
-                              onClick={() => openPaymentDialog(row)}
-                              color="primary"
-                              title="Record Payment"
+                              onClick={() => navigate(`/finance/transactions/${row.id}`)}
+                              title="View Details"
                             >
-                              <PaymentIcon fontSize="small" />
+                              <ViewIcon fontSize="small" />
                             </IconButton>
-                          )}
-                          <IconButton
-                            size="small"
-                            onClick={() => navigate(`/finance/transactions/${row.id}/edit`)}
-                            title="Edit"
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => deleteTransaction(row.id)}
-                            title="Delete"
-                            color="error"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {row.status !== 'PAID' && row.status !== 'CANCELLED' && (
+                              <IconButton
+                                size="small"
+                                onClick={() => openPaymentDialog(row)}
+                                color="primary"
+                                title="Record Payment"
+                              >
+                                <PaymentIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                            <IconButton
+                              size="small"
+                              onClick={() => navigate(`/finance/transactions/${row.id}/edit`)}
+                              title="Edit"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => deleteTransaction(row.id)}
+                              title="Delete"
+                              color="error"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 {filteredReceivables.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
