@@ -76,7 +76,7 @@ import {
   LocalGasStation,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import { STATUS_CONFIG, STATUS_OPTIONS } from '../constants/tripConstants';
+
 
 import {
   TRIP_STATUSES,
@@ -85,6 +85,15 @@ import {
   getColor,
 } from '../constants';
 
+
+const STATUS_CONFIG = Object.fromEntries(
+  TRIP_STATUSES.map(item => [item.code, {
+    color: item.color || '#9e9e9e',
+    bgColor: item.color ? `${item.color}20` : '#f5f5f5',
+    label: item.displayName,
+    icon: item.icon || '📋'
+  }])
+);
 // ============================================================
 // UTILITY FUNCTIONS (matching Dashboard styling)
 // ============================================================
