@@ -32,6 +32,19 @@ export {
   LOAD_STATUS_CONFIG,
 } from './loadEnums';
 
+// Fuel enums
+export {
+  FUEL_TYPES,
+  FUEL_TYPE_OPTIONS,
+  FUEL_TYPE_CONFIG,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_METHOD_CONFIG,
+  toOptions as fuelToOptions,
+  getDisplayName,
+  getColor,
+} from './fuelEnums';
+
 // Driver enums
 export {
   DRIVER_STATUSES,
