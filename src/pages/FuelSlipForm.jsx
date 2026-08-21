@@ -59,15 +59,11 @@ import { tripService } from '../services/tripService';
 import {
   FUEL_TYPES,
   PAYMENT_METHODS,
-  toOptions,
-  getDisplayName,
 } from '../constants';
 
 // Constants
 const COMMON_STATIONS = ['BP Station', 'Shell Station', 'Caltex Station', 'Engen Station', 'Total Station', 'Sasol Station', 'Puma Station'];
 const COMMON_LOCATIONS = ['Johannesburg', 'Pretoria', 'Cape Town', 'Durban', 'Bloemfontein', 'Port Elizabeth', 'East London', 'Polokwane', 'Nelspruit', 'Rustenburg'];
-const FUEL_TYPES = ['Petrol (95 Unleaded)', 'Petrol (93 Unleaded)', 'Diesel (50ppm)', 'Diesel (10ppm)', 'Diesel (500ppm)'];
-const PAYMENT_METHODS = ['Cash', 'Credit Card', 'Debit Card', 'Fleet Card', 'Electronic Funds Transfer', 'Account Payment'];
 const STEPS = ['Basic Information', 'Fuel Details', 'Location & Payment', 'Review & Submit'];
 
 // Helper functions
