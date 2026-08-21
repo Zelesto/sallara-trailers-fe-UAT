@@ -17,6 +17,14 @@ import {
 } from '@mui/icons-material';
 import { tripService } from '../services/tripService';
 
+import {
+  INCIDENT_TYPES,
+  INCIDENT_SEVERITIES,
+  INCIDENT_STATUSES,
+  getDisplayName,
+} from '../constants';
+
+
 const severityColors = {
   LOW: 'success',
   MEDIUM: 'warning',
