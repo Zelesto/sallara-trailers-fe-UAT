@@ -187,6 +187,7 @@ const getDefaultPlannedDates = () => {
 
 // Helper to get default enum code from options
 const getDefaultEnumCode = (options, defaultCode = null) => {
+  if (!options || options.length === 0) return defaultCode || '';
   if (defaultCode && options.some(opt => opt.value === defaultCode)) {
     return defaultCode;
   }
@@ -473,7 +474,7 @@ function DepotSection({
               onChange={(e) => onDepartureTypeChange(e.target.value)}
               sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
             >
-              {departureOptions.map(option => (
+              {(departureOptions || []).map(option => (
                 <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                   {option.label}
                 </MenuItem>
@@ -501,7 +502,7 @@ function DepotSection({
                   <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                     <em>Select depot</em>
                   </MenuItem>
-                  {depots.map(depot => (
+                  {(depots || []).map(depot => (
                     <MenuItem key={depot.id} value={depot.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                       {depot.name} ({depot.depotCode})
                     </MenuItem>
@@ -612,16 +613,19 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const [toDepotKm, setToDepotKm] = useState('');
   const [isFromDepot, setIsFromDepot] = useState(false);
 
-  // Get options from database with defaults
-  const tripTypeOptions = getTripTypeOptions();
-  const statusOptions = getTripStatusOptions();
-  const approvalOptions = getApprovalStatusOptions();
-  const priorityOptions = getPriorityOptions();
-  const departureOptions = getDepartureTypeOptions();
-  const departedFromOptions = getDepartedFromOptions();
-  const driverOptions = getDriverOptions();
-  const vehicleOptions = getVehicleOptions();
-  const supervisorOptions = getSupervisorOptions();
+  // ✅ SAFELY get options - always return arrays
+  const tripTypeOptions = getTripTypeOptions() || [];
+  const statusOptions = getTripStatusOptions() || [];
+  const approvalOptions = getApprovalStatusOptions() || [];
+  const priorityOptions = getPriorityOptions() || [];
+  const departureOptions = getDepartureTypeOptions() || [];
+  const departedFromOptions = getDepartedFromOptions() || [];
+  const driverOptions = getDriverOptions() || [];
+  const vehicleOptions = getVehicleOptions() || [];
+  const supervisorOptions = getSupervisorOptions() || [];
+
+  // ✅ Check if enums are ready before rendering
+  const isEnumReady = isReady && !enumsLoading;
 
   // Form State - initialize with defaults from DB
   const [form, setForm] = useState(() => {
@@ -639,7 +643,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
   // Update form defaults when enums load
   useEffect(() => {
-    if (isReady && !initialData && mode === 'create') {
+    if (isEnumReady && !initialData && mode === 'create') {
       setForm(prev => ({
         ...prev,
         tripType: getDefaultEnumCode(tripTypeOptions, 'FREIGHT') || prev.tripType,
@@ -648,7 +652,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         priority: getDefaultEnumCode(priorityOptions, 'NORMAL') || prev.priority,
       }));
     }
-  }, [isReady, tripTypeOptions, statusOptions, approvalOptions, priorityOptions, initialData, mode]);
+  }, [isEnumReady, tripTypeOptions, statusOptions, approvalOptions, priorityOptions, initialData, mode]);
 
   /* ============================================================
      DATA LOADING
@@ -1227,7 +1231,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           borderRadius: '8px',
         }}
       >
-        {options.map(option => (
+        {(options || []).map(option => (
           <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
             {option.label}
           </MenuItem>
@@ -1237,6 +1241,16 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       {helperText && !formErrors[field] && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{helperText}</FormHelperText>}
     </FormControl>
   );
+
+  // ✅ If enums are not ready, show loading
+  if (!isEnumReady) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Loading form data...</Typography>
+      </Box>
+    );
+  }
 
   /* ============================================================
      MAIN RENDER
@@ -1396,7 +1410,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                       <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                         No Customer
                       </MenuItem>
-                      {customers.map(customer => (
+                      {(customers || []).map(customer => (
                         <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                           {customer.name} ({customer.customerCode})
                         </MenuItem>
@@ -1712,7 +1726,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                             <em>Select vehicle</em>
                           </MenuItem>
-                          {vehicles.map(v => (
+                          {(vehicles || []).map(v => (
                             <MenuItem key={v.id} value={v.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                               {v.registrationNumber} - {v.make} {v.model}
                             </MenuItem>
@@ -1738,7 +1752,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                             <em>Select driver</em>
                           </MenuItem>
-                          {drivers.map(d => (
+                          {(drivers || []).map(d => (
                             <MenuItem key={d.id} value={d.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                               {d.firstName} {d.lastName} - {d.licenseNumber}
                             </MenuItem>
@@ -1764,7 +1778,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                             <em>Select supervisor</em>
                           </MenuItem>
-                          {supervisors.map(s => (
+                          {(supervisors || []).map(s => (
                             <MenuItem key={s.id} value={s.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                               {s.name}
                             </MenuItem>
