@@ -49,6 +49,28 @@ import { customerService } from '../../services/customerService';
 import { tripService } from '../../services/tripService';
 import { loadService } from '../../services/loadService';
 
+// Import enums
+import {
+  TRIP_STATUS_CONFIG,
+  LOAD_STATUS_CONFIG,
+  PAYMENT_TERMS,
+  CURRENCIES,
+  CUSTOMER_TYPES,
+  INDUSTRY_TYPES,
+} from '../../constants';
+
+// Helper to get display name from code
+const getDisplayName = (items, code) => {
+  const item = items.find(i => i.code === code);
+  return item?.displayName || code;
+};
+
+// Helper to get color from code
+const getColor = (items, code, defaultColor = '#9E9E9E') => {
+  const item = items.find(i => i.code === code);
+  return item?.color || defaultColor;
+};
+
 // Info Item Component
 const InfoItem = ({ label, value, icon: Icon, color = '#4F46E5', isChip = false }) => (
   <Paper
@@ -134,13 +156,26 @@ const StatCard = ({ title, value, icon: Icon, color = '#4F46E5' }) => (
   </Card>
 );
 
-// Status Chip Component
-const StatusChip = ({ status }) => {
-  const isActive = status !== false;
+// Status Chip Component - Using enums
+const StatusChip = ({ status, type = 'customer' }) => {
+  let isActive, label, color;
+  
+  if (type === 'customer') {
+    isActive = status !== false;
+    label = isActive ? 'Active' : 'Inactive';
+    color = isActive ? '#065F46' : '#991B1B';
+  } else {
+    // For trip/load statuses
+    const config = type === 'trip' ? TRIP_STATUS_CONFIG[status] : LOAD_STATUS_CONFIG[status];
+    label = config?.displayName || status || 'Unknown';
+    color = config?.color || '#9E9E9E';
+    isActive = status !== 'CANCELLED' && status !== 'COMPLETED';
+  }
+  
   return (
     <Chip
       size="small"
-      label={isActive ? 'Active' : 'Inactive'}
+      label={label}
       sx={{
         fontWeight: 600,
         fontSize: '0.7rem',
@@ -155,7 +190,7 @@ const StatusChip = ({ status }) => {
   );
 };
 
-// Trip List Component - FIXED
+// Trip List Component - Using enums
 const TripList = ({ trips, onViewTrip }) => {
   if (!trips || trips.length === 0) {
     return (
@@ -181,62 +216,61 @@ const TripList = ({ trips, onViewTrip }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {trips.map((trip) => (
-            <TableRow key={trip.id} hover>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#4F46E5' }}>
-                  {trip.tripNumber}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#111827' }}>
-                  {trip.originCity || trip.originLocation} → {trip.destinationCity || trip.destinationLocation}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={trip.status}
-                  size="small"
-                  sx={{
-                    fontSize: '0.55rem',
-                    height: 20,
-                    bgcolor: trip.status === 'COMPLETED' ? '#D1FAE5' : 
-                           trip.status === 'IN_PROGRESS' ? '#FEF3C7' : 
-                           trip.status === 'CANCELLED' ? '#FEE2E2' : '#DBEAFE',
-                    color: trip.status === 'COMPLETED' ? '#065F46' : 
-                           trip.status === 'IN_PROGRESS' ? '#92400E' : 
-                           trip.status === 'CANCELLED' ? '#991B1B' : '#1E40AF',
-                    fontWeight: 500,
-                  }}
-                />
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.7rem', color: '#111827' }}>
-                {trip.plannedStartDate ? new Date(trip.plannedStartDate).toLocaleDateString() : 'N/A'}
-              </TableCell>
-              <TableCell>
-                <Tooltip title="View Trip" arrow>
-                  <IconButton
+          {trips.map((trip) => {
+            const statusConfig = TRIP_STATUS_CONFIG[trip.status];
+            return (
+              <TableRow key={trip.id} hover>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#4F46E5' }}>
+                    {trip.tripNumber}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#111827' }}>
+                    {trip.originCity || trip.originLocation} → {trip.destinationCity || trip.destinationLocation}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={statusConfig?.displayName || trip.status}
                     size="small"
-                    onClick={() => onViewTrip(trip.id)}
                     sx={{
-                      p: 0.5,
-                      color: '#4F46E5',
-                      '&:hover': { bgcolor: '#EEF2FF' },
+                      fontSize: '0.55rem',
+                      height: 20,
+                      bgcolor: statusConfig?.color ? `${statusConfig.color}20` : '#DBEAFE',
+                      color: statusConfig?.color || '#1E40AF',
+                      fontWeight: 500,
                     }}
-                  >
-                    <RouteIcon sx={{ fontSize: '0.9rem' }} />
-                  </IconButton>
-                </Tooltip>
-              </TableCell>
-            </TableRow>
-          ))}
+                  />
+                </TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', color: '#111827' }}>
+                  {trip.plannedStartDate ? new Date(trip.plannedStartDate).toLocaleDateString() : 'N/A'}
+                </TableCell>
+                <TableCell>
+                  <Tooltip title="View Trip" arrow>
+                    <IconButton
+                      size="small"
+                      onClick={() => onViewTrip(trip.id)}
+                      sx={{
+                        p: 0.5,
+                        color: '#4F46E5',
+                        '&:hover': { bgcolor: '#EEF2FF' },
+                      }}
+                    >
+                      <RouteIcon sx={{ fontSize: '0.9rem' }} />
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </TableContainer>
   );
 };
 
-// Load List Component
+// Load List Component - Using enums
 const LoadList = ({ loads, onViewLoad }) => {
   if (!loads || loads.length === 0) {
     return (
@@ -262,65 +296,66 @@ const LoadList = ({ loads, onViewLoad }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {loads.map((load) => (
-            <TableRow key={load.id} hover>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#4F46E5' }}>
-                  {load.loadNumber}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#111827' }}>
-                  {load.description || 'N/A'}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={load.status}
-                  size="small"
-                  sx={{
-                    fontSize: '0.55rem',
-                    height: 20,
-                    bgcolor: load.status === 'COMPLETED' ? '#D1FAE5' : 
-                           load.status === 'IN_PROGRESS' ? '#FEF3C7' : '#DBEAFE',
-                    color: load.status === 'COMPLETED' ? '#065F46' : 
-                           load.status === 'IN_PROGRESS' ? '#92400E' : '#1E40AF',
-                    fontWeight: 500,
-                  }}
-                />
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={load.tripCount || 0}
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 18, fontSize: '0.55rem', borderColor: '#E5E7EB' }}
-                />
-              </TableCell>
-              <TableCell>
-                <Tooltip title="View Load" arrow>
-                  <IconButton
+          {loads.map((load) => {
+            const statusConfig = LOAD_STATUS_CONFIG[load.status];
+            return (
+              <TableRow key={load.id} hover>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#4F46E5' }}>
+                    {load.loadNumber}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#111827' }}>
+                    {load.description || 'N/A'}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={statusConfig?.displayName || load.status}
                     size="small"
-                    onClick={() => onViewLoad(load.loadNumber)}
                     sx={{
-                      p: 0.5,
-                      color: '#4F46E5',
-                      '&:hover': { bgcolor: '#EEF2FF' },
+                      fontSize: '0.55rem',
+                      height: 20,
+                      bgcolor: statusConfig?.color ? `${statusConfig.color}20` : '#DBEAFE',
+                      color: statusConfig?.color || '#1E40AF',
+                      fontWeight: 500,
                     }}
-                  >
-                    <LocalShippingIcon sx={{ fontSize: '0.9rem' }} />
-                  </IconButton>
-                </Tooltip>
-              </TableCell>
-            </TableRow>
-          ))}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={load.tripCount || 0}
+                    size="small"
+                    variant="outlined"
+                    sx={{ height: 18, fontSize: '0.55rem', borderColor: '#E5E7EB' }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Tooltip title="View Load" arrow>
+                    <IconButton
+                      size="small"
+                      onClick={() => onViewLoad(load.loadNumber)}
+                      sx={{
+                        p: 0.5,
+                        color: '#4F46E5',
+                        '&:hover': { bgcolor: '#EEF2FF' },
+                      }}
+                    >
+                      <LocalShippingIcon sx={{ fontSize: '0.9rem' }} />
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </TableContainer>
   );
 };
 
-// Main CustomerDetails Component
+// Main CustomerDetails Component - With enums for display
 const CustomerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -345,22 +380,17 @@ const CustomerDetails = () => {
     setLoading(true);
     setError(null);
     try {
-      // Load customer details
       const customerData = await customerService.getCustomerById(id);
       setCustomer(customerData);
 
-      // Load customer trips - FIXED: use getTripsByCustomerId or getAllTrips with filter
       let tripsList = [];
       try {
-        // Try to get trips by customer ID
         if (tripService.getTripsByCustomerId) {
           const tripsData = await tripService.getTripsByCustomerId(id);
           tripsList = Array.isArray(tripsData) ? tripsData : (tripsData?.content || []);
         } else {
-          // Fallback: get all trips and filter by customer
           const allTrips = await tripService.getAllTrips();
           tripsList = Array.isArray(allTrips) ? allTrips : (allTrips?.content || []);
-          // Filter by customer ID if the trip has a customerId field
           tripsList = tripsList.filter(t => t.customerId === parseInt(id) || t.customer?.id === parseInt(id));
         }
       } catch (err) {
@@ -369,14 +399,12 @@ const CustomerDetails = () => {
       }
       setTrips(tripsList);
 
-      // Load customer loads - FIXED
       let loadsList = [];
       try {
         if (loadService.getLoadsByCustomerId) {
           const loadsData = await loadService.getLoadsByCustomerId(id);
           loadsList = Array.isArray(loadsData) ? loadsData : (loadsData?.content || []);
         } else {
-          // Fallback: get all loads and filter by customer
           const allLoads = await loadService.getAllLoads();
           loadsList = Array.isArray(allLoads) ? allLoads : (allLoads?.content || []);
           loadsList = loadsList.filter(l => l.customerId === parseInt(id) || l.customer?.id === parseInt(id));
@@ -387,9 +415,8 @@ const CustomerDetails = () => {
       }
       setLoads(loadsList);
 
-      // Calculate stats
-      const completed = tripsList.filter(t => t.status === 'COMPLETED').length;
-      const active = tripsList.filter(t => t.status === 'IN_PROGRESS' || t.status === 'ACTIVE').length;
+      const completed = tripsList.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED').length;
+      const active = tripsList.filter(t => t.status === 'IN_PROGRESS' || t.status === 'ASSIGNED' || t.status === 'ACTIVE').length;
       setStats({
         totalTrips: tripsList.length,
         completedTrips: completed,
@@ -460,6 +487,12 @@ const CustomerDetails = () => {
     );
   }
 
+  // Get display values from enums
+  const paymentTermDisplay = getDisplayName(PAYMENT_TERMS, customer.paymentTerms);
+  const currencyDisplay = getDisplayName(CURRENCIES, customer.currency);
+  const customerTypeDisplay = getDisplayName(CUSTOMER_TYPES, customer.customerType);
+  const industryDisplay = getDisplayName(INDUSTRY_TYPES, customer.industry);
+
   return (
     <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
       <Box sx={{ maxWidth: '1440px', margin: '0 auto' }}>
@@ -526,7 +559,7 @@ const CustomerDetails = () => {
                   <Typography variant="h5" fontWeight="700" sx={{ fontSize: '1.1rem', color: '#111827' }}>
                     {customer.name}
                   </Typography>
-                  <StatusChip status={customer.isActive} />
+                  <StatusChip status={customer.isActive} type="customer" />
                   <Chip
                     label={customer.customerCode}
                     size="small"
@@ -538,6 +571,19 @@ const CustomerDetails = () => {
                       fontWeight: 600,
                     }}
                   />
+                  {customerTypeDisplay && (
+                    <Chip
+                      label={customerTypeDisplay}
+                      size="small"
+                      sx={{
+                        height: 20,
+                        fontSize: '0.6rem',
+                        bgcolor: '#FEF3C7',
+                        color: '#92400E',
+                        fontWeight: 500,
+                      }}
+                    />
+                  )}
                 </Stack>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 0.5 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -550,8 +596,14 @@ const CustomerDetails = () => {
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <BusinessIcon sx={{ fontSize: '0.7rem' }} />
-                    Payment: {customer.paymentTerms || 'N/A'}
+                    Payment: {paymentTermDisplay || 'N/A'}
                   </Typography>
+                  {industryDisplay && (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <BusinessIcon sx={{ fontSize: '0.7rem' }} />
+                      Industry: {industryDisplay}
+                    </Typography>
+                  )}
                 </Stack>
               </Box>
             </Stack>
@@ -593,9 +645,12 @@ const CustomerDetails = () => {
             <Grid item xs={12} md={6}>
               <Stack spacing={2}>
                 <InfoItem label="Customer Code" value={customer.customerCode} icon={BusinessIcon} color="#4F46E5" />
+                <InfoItem label="Customer Type" value={customerTypeDisplay} icon={PersonIcon} color="#8B5CF6" />
+                <InfoItem label="Industry" value={industryDisplay} icon={BusinessIcon} color="#3B82F6" />
                 <InfoItem label="Registration Number" value={customer.registrationNumber || 'N/A'} icon={BusinessIcon} color="#6B7280" />
                 <InfoItem label="VAT Number" value={customer.vatNumber || 'N/A'} icon={BusinessIcon} color="#3B82F6" />
-                <InfoItem label="Payment Terms" value={customer.paymentTerms || 'N/A'} icon={MoneyIcon} color="#F59E0B" />
+                <InfoItem label="Payment Terms" value={paymentTermDisplay} icon={MoneyIcon} color="#F59E0B" />
+                <InfoItem label="Currency" value={currencyDisplay} icon={MoneyIcon} color="#10B981" />
                 <InfoItem label="Credit Limit" value={customer.creditLimit ? `R ${customer.creditLimit.toFixed(2)}` : 'N/A'} icon={MoneyIcon} color="#EF4444" />
               </Stack>
             </Grid>
