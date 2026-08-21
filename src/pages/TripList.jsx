@@ -78,11 +78,13 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 
 
+// Add this import if missing:
 import {
   TRIP_STATUSES,
   TRIP_STATUS_OPTIONS,
+  getColor,
+  getColorBg,
 } from '../constants';
-
 
 const STATUS_CONFIG = Object.fromEntries(
   TRIP_STATUSES.map(item => [item.code, {
@@ -96,21 +98,6 @@ const STATUS_CONFIG = Object.fromEntries(
 // UTILITY FUNCTIONS (matching Dashboard styling)
 // ============================================================
 
-const getColor = (color) => {
-  const colors = {
-    primary: '#4F46E5',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    info: '#3B82F6',
-    secondary: '#6B7280',
-    purple: '#8B5CF6',
-    pink: '#EC4899',
-    teal: '#14B8A6',
-    indigo: '#6366F1',
-  };
-  return colors[color] || colors.primary;
-};
 
 
 const formatCurrency = (amount) => {
