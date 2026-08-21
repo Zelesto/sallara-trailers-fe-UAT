@@ -52,7 +52,9 @@ export const INDUSTRY_TYPES = [
   { code: 'OTHER', displayName: 'Other', sortOrder: 17 },
 ];
 
-// Helper to convert to options format
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
 export const toOptions = (items) =>
   items.map(item => ({
     value: item.code,
@@ -61,3 +63,30 @@ export const toOptions = (items) =>
     sortOrder: item.sortOrder,
     ...item
   }));
+
+// ============================================================
+// EXPORT ALL OPTIONS
+// ============================================================
+export const PAYMENT_TERMS_OPTIONS = toOptions(PAYMENT_TERMS);
+export const CURRENCY_OPTIONS = toOptions(CURRENCIES);
+export const CUSTOMER_TYPE_OPTIONS = toOptions(CUSTOMER_TYPES);
+export const INDUSTRY_OPTIONS = toOptions(INDUSTRY_TYPES);
+
+// ============================================================
+// EXPORT CONFIG MAPS
+// ============================================================
+export const PAYMENT_TERMS_CONFIG = Object.fromEntries(
+  PAYMENT_TERMS.map(item => [item.code, item])
+);
+
+export const CURRENCY_CONFIG = Object.fromEntries(
+  CURRENCIES.map(item => [item.code, item])
+);
+
+export const CUSTOMER_TYPE_CONFIG = Object.fromEntries(
+  CUSTOMER_TYPES.map(item => [item.code, item])
+);
+
+export const INDUSTRY_CONFIG = Object.fromEntries(
+  INDUSTRY_TYPES.map(item => [item.code, item])
+);
