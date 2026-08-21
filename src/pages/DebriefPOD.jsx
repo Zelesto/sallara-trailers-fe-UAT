@@ -34,12 +34,11 @@ import {
 } from '@mui/icons-material';
 import { podService } from '../services/podService';
 
-const STATUS_OPTIONS = [
-  { value: 'DELIVERED', label: 'Delivered', color: 'success' },
-  { value: 'VERIFIED', label: 'Verified', color: 'info' },
-  { value: 'REJECTED', label: 'Rejected', color: 'error' },
-  { value: 'PENDING', label: 'Pending', color: 'warning' },
-];
+import {
+  POD_STATUS_OPTIONS,
+  POD_STATUSES,
+  getDisplayName,
+} from '../constants';
 
 const ISSUES_OPTIONS = [
   'Missing Signature',
@@ -441,7 +440,7 @@ const DebriefPOD = () => {
 
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small" error={!!formErrors.status}>
+                 <FormControl fullWidth size="small" error={!!formErrors.status}>
                     <InputLabel sx={{ fontSize: '0.75rem' }}>Outcome Status *</InputLabel>
                     <Select
                       name="status"
@@ -450,7 +449,7 @@ const DebriefPOD = () => {
                       onChange={handleChange}
                       sx={{ fontSize: '0.8rem' }}
                     >
-                      {STATUS_OPTIONS.map(option => (
+                      {POD_STATUS_OPTIONS.map(option => (
                         <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.8rem' }}>
                           <Chip
                             label={option.label}
