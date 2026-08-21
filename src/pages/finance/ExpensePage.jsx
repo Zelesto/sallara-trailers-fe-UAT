@@ -49,6 +49,22 @@ import { DatePicker } from '@mui/x-date-pickers';
 import { useNavigate } from 'react-router-dom';
 import expenseService from '../../services/expense';
 
+// Import enums
+import {
+  EXPENSE_CATEGORIES,
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  getDisplayName,
+  getColor,
+} from '../../constants';
+
+// Pre-computed options
+const EXPENSE_CATEGORY_OPTIONS = EXPENSE_CATEGORIES.map(cat => ({
+  value: cat.code,
+  label: cat.displayName,
+  color: cat.color,
+}));
+
 const ExpensesPage = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
@@ -84,37 +100,8 @@ const ExpensesPage = () => {
     attachmentUrl: ''
   });
 
-  // Categories
-  const expenseCategories = [
-    { value: 'FUEL', label: 'Fuel', color: 'primary' },
-    { value: 'MAINTENANCE', label: 'Vehicle Maintenance', color: 'secondary' },
-    { value: 'REPAIRS', label: 'Repairs', color: 'warning' },
-    { value: 'INSURANCE', label: 'Insurance', color: 'info' },
-    { value: 'LICENSING', label: 'Licensing & Permits', color: 'success' },
-    { value: 'TOLLS', label: 'Tolls & Fees', color: 'error' },
-    { value: 'ACCOMMODATION', label: 'Accommodation', color: 'primary' },
-    { value: 'MEALS', label: 'Meals & Entertainment', color: 'secondary' },
-    { value: 'SALARIES', label: 'Salaries & Wages', color: 'warning' },
-    { value: 'OFFICE', label: 'Office Supplies', color: 'info' },
-    { value: 'UTILITIES', label: 'Utilities', color: 'success' },
-    { value: 'OTHER', label: 'Other', color: 'default' },
-  ];
-
-  const paymentMethods = [
-    { value: 'CASH', label: 'Cash' },
-    { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-    { value: 'CREDIT_CARD', label: 'Credit Card' },
-    { value: 'CHEQUE', label: 'Cheque' },
-    { value: 'MOBILE_MONEY', label: 'Mobile Money' },
-  ];
-
-  const statusOptions = [
-    { value: 'PENDING', label: 'Pending', color: 'warning' },
-    { value: 'APPROVED', label: 'Approved', color: 'info' },
-    { value: 'PAID', label: 'Paid', color: 'success' },
-    { value: 'REJECTED', label: 'Rejected', color: 'error' },
-    { value: 'REFUNDED', label: 'Refunded', color: 'secondary' },
-  ];
+  // Get status options from enums
+  const statusOptions = PAYMENT_STATUS_OPTIONS;
 
   useEffect(() => {
     fetchExpenses();
@@ -124,7 +111,16 @@ const ExpensesPage = () => {
     try {
       setLoading(true);
       const data = await expenseService.getAllExpenses();
-      setExpenses(data);
+      
+      // Transform data to include display names
+      const transformedData = data.map(expense => ({
+        ...expense,
+        categoryDisplayName: getDisplayName(EXPENSE_CATEGORIES, expense.category) || expense.category,
+        statusDisplayName: getDisplayName(PAYMENT_STATUS_OPTIONS, expense.status) || expense.status,
+        statusColor: getColor(PAYMENT_STATUS_OPTIONS, expense.status) || '#9E9E9E',
+      }));
+      
+      setExpenses(transformedData);
       setError('');
     } catch (err) {
       setError('Failed to load expenses');
@@ -245,7 +241,6 @@ const ExpensesPage = () => {
     const matchesCategory = filterCategory === 'all' || expense.category === filterCategory;
     const matchesStatus = filterStatus === 'all' || expense.status === filterStatus;
 
-    // Date range filter
     let matchesDate = true;
     if (dateRange.start && expense.expenseDate) {
       matchesDate = new Date(expense.expenseDate) >= new Date(dateRange.start);
@@ -361,7 +356,7 @@ const ExpensesPage = () => {
                 label="Category"
               >
                 <MenuItem value="all">All Categories</MenuItem>
-                {expenseCategories.map(cat => (
+                {EXPENSE_CATEGORY_OPTIONS.map(cat => (
                   <MenuItem key={cat.value} value={cat.value}>
                     {cat.label}
                   </MenuItem>
@@ -448,93 +443,101 @@ const ExpensesPage = () => {
                 <TableBody>
                   {filteredExpenses
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((expense) => (
-                      <TableRow key={expense.id} hover>
-                        <TableCell>
-                          {expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString() : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Typography fontWeight={500}>{expense.description}</Typography>
-                          {expense.notes && (
-                            <Typography variant="body2" color="text.secondary" noWrap>
-                              {expense.notes}
+                    .map((expense) => {
+                      const categoryOption = EXPENSE_CATEGORY_OPTIONS.find(c => c.value === expense.category);
+                      const statusOption = statusOptions.find(s => s.value === expense.status);
+                      
+                      return (
+                        <TableRow key={expense.id} hover>
+                          <TableCell>
+                            {expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString() : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <Typography fontWeight={500}>{expense.description}</Typography>
+                            {expense.notes && (
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {expense.notes}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={categoryOption?.label || expense.category}
+                              size="small"
+                              color={categoryOption?.color || 'default'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {expense.vendorName || 'N/A'}
+                            {expense.vendorContact && (
+                              <Typography variant="body2" color="text.secondary">
+                                {expense.vendorContact}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              fontWeight={600}
+                              color="error.main"
+                            >
+                              {formatCurrency(expense.amount || 0, expense.currency)}
                             </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={expenseCategories.find(c => c.value === expense.category)?.label || expense.category}
-                            size="small"
-                            color={expenseCategories.find(c => c.value === expense.category)?.color || 'default'}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {expense.vendorName || 'N/A'}
-                          {expense.vendorContact && (
-                            <Typography variant="body2" color="text.secondary">
-                              {expense.vendorContact}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Typography
-                            fontWeight={600}
-                            color="error.main"
-                          >
-                            {formatCurrency(expense.amount || 0, expense.currency)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {paymentMethods.find(p => p.value === expense.paymentMethod)?.label || expense.paymentMethod}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={statusOptions.find(s => s.value === expense.status)?.label || expense.status}
-                            size="small"
-                            color={statusOptions.find(s => s.value === expense.status)?.color || 'default'}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {expense.receiptNumber || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={1}>
-                            {expense.attachmentUrl && (
+                          </TableCell>
+                          <TableCell>
+                            {getDisplayName(PAYMENT_METHOD_OPTIONS, expense.paymentMethod) || expense.paymentMethod}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={statusOption?.label || expense.status}
+                              size="small"
+                              color={statusOption?.color || 'default'}
+                              sx={{
+                                bgcolor: statusOption?.color ? `${statusOption.color}.light` : undefined,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {expense.receiptNumber || 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              {expense.attachmentUrl && (
+                                <IconButton
+                                  size="small"
+                                  href={expense.attachmentUrl}
+                                  target="_blank"
+                                  title="View Receipt"
+                                >
+                                  <AttachIcon fontSize="small" />
+                                </IconButton>
+                              )}
                               <IconButton
                                 size="small"
-                                href={expense.attachmentUrl}
-                                target="_blank"
-                                title="View Receipt"
+                                onClick={() => navigate(`/finance/expenses/${expense.id}`)}
+                                title="View Details"
                               >
-                                <AttachIcon fontSize="small" />
+                                <ViewIcon fontSize="small" />
                               </IconButton>
-                            )}
-                            <IconButton
-                              size="small"
-                              onClick={() => navigate(`/finance/expenses/${expense.id}`)}
-                              title="View Details"
-                            >
-                              <ViewIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenDialog(expense)}
-                              title="Edit"
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDelete(expense.id)}
-                              title="Delete"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenDialog(expense)}
+                                title="Edit"
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDelete(expense.id)}
+                                title="Delete"
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -579,7 +582,7 @@ const ExpensesPage = () => {
                   onChange={handleFormChange}
                   label="Category"
                 >
-                  {expenseCategories.map(cat => (
+                  {EXPENSE_CATEGORY_OPTIONS.map(cat => (
                     <MenuItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </MenuItem>
@@ -610,7 +613,7 @@ const ExpensesPage = () => {
                   onChange={handleFormChange}
                   label="Payment Method"
                 >
-                  {paymentMethods.map(method => (
+                  {PAYMENT_METHOD_OPTIONS.map(method => (
                     <MenuItem key={method.value} value={method.value}>
                       {method.label}
                     </MenuItem>
