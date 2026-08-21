@@ -42,13 +42,11 @@ import { podService } from '../services/podService';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
-const STATUS_OPTIONS = [
-  { value: 'PENDING', label: 'Pending', color: 'warning' },
-  { value: 'DELIVERED', label: 'Delivered', color: 'success' },
-  { value: 'VERIFIED', label: 'Verified', color: 'info' },
-  { value: 'REJECTED', label: 'Rejected', color: 'error' },
-  { value: 'CANCELLED', label: 'Cancelled', color: 'default' },
-];
+import {
+  POD_STATUS_OPTIONS,
+  POD_STATUSES,
+  getDisplayName,
+} from '../constants';
 
 const QUALITY_RATINGS = [
   { value: 0, label: 'Not Rated', icon: '☆' },
@@ -735,7 +733,7 @@ const handleSubmit = async (e) => {
                     borderRadius: '8px',
                   }}
                 >
-                  {STATUS_OPTIONS.map(option => (
+                  {POD_STATUS_OPTIONS.map(option => (
                     <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                       <Chip
                         label={option.label}
