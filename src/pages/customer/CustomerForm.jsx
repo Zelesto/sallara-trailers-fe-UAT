@@ -38,7 +38,16 @@ import {
 } from '@mui/icons-material';
 import { customerService } from '../../services/customerService';
 
-// Form Section Header Component - FIXED
+// Import enums
+import {
+  PAYMENT_TERMS,
+  CURRENCIES,
+  CUSTOMER_TYPES,
+  INDUSTRY_TYPES,
+  toOptions,
+} from '../../constants/customerEnums';
+
+// Form Section Header Component
 const FormSectionHeader = ({ icon, title, subtitle }) => (
   <Box sx={{ mb: 2 }}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -68,7 +77,7 @@ const FormSectionHeader = ({ icon, title, subtitle }) => (
   </Box>
 );
 
-// Status Chip Component - FIXED
+// Status Chip Component
 const StatusChip = ({ status }) => {
   const isActive = status !== false;
   return (
@@ -85,6 +94,12 @@ const StatusChip = ({ status }) => {
     />
   );
 };
+
+// Pre-computed options
+const PAYMENT_TERMS_OPTIONS = toOptions(PAYMENT_TERMS);
+const CURRENCY_OPTIONS = toOptions(CURRENCIES);
+const CUSTOMER_TYPE_OPTIONS = toOptions(CUSTOMER_TYPES);
+const INDUSTRY_OPTIONS = toOptions(INDUSTRY_TYPES);
 
 const CustomerForm = () => {
   const { id } = useParams();
@@ -105,6 +120,8 @@ const CustomerForm = () => {
     website: '',
     registrationNumber: '',
     vatNumber: '',
+    customerType: 'COMPANY',
+    industry: 'LOGISTICS',
     addressLine1: '',
     addressLine2: '',
     city: '',
@@ -114,7 +131,7 @@ const CustomerForm = () => {
     contactPerson: '',
     contactPhone: '',
     contactEmail: '',
-    paymentTerms: '30 Days',
+    paymentTerms: '30_DAYS',
     creditLimit: '',
     currency: 'ZAR',
     isActive: true,
@@ -139,6 +156,8 @@ const CustomerForm = () => {
         website: customer.website || '',
         registrationNumber: customer.registrationNumber || '',
         vatNumber: customer.vatNumber || '',
+        customerType: customer.customerType || 'COMPANY',
+        industry: customer.industry || 'LOGISTICS',
         addressLine1: customer.addressLine1 || '',
         addressLine2: customer.addressLine2 || '',
         city: customer.city || '',
@@ -148,7 +167,7 @@ const CustomerForm = () => {
         contactPerson: customer.contactPerson || '',
         contactPhone: customer.contactPhone || '',
         contactEmail: customer.contactEmail || '',
-        paymentTerms: customer.paymentTerms || '30 Days',
+        paymentTerms: customer.paymentTerms || '30_DAYS',
         creditLimit: customer.creditLimit || '',
         currency: customer.currency || 'ZAR',
         isActive: customer.isActive !== undefined ? customer.isActive : true,
@@ -222,6 +241,8 @@ const CustomerForm = () => {
         website: formData.website?.trim() || null,
         registrationNumber: formData.registrationNumber?.trim() || null,
         vatNumber: formData.vatNumber?.trim() || null,
+        customerType: formData.customerType || 'COMPANY',
+        industry: formData.industry || 'LOGISTICS',
         addressLine1: formData.addressLine1?.trim() || null,
         addressLine2: formData.addressLine2?.trim() || null,
         city: formData.city?.trim() || null,
@@ -231,7 +252,7 @@ const CustomerForm = () => {
         contactPerson: formData.contactPerson?.trim() || null,
         contactPhone: formData.contactPhone?.trim() || null,
         contactEmail: formData.contactEmail?.trim() || null,
-        paymentTerms: formData.paymentTerms || '30 Days',
+        paymentTerms: formData.paymentTerms || '30_DAYS',
         creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : null,
         currency: formData.currency || 'ZAR',
         isActive: formData.isActive !== undefined ? formData.isActive : true,
@@ -438,6 +459,45 @@ const CustomerForm = () => {
                     ),
                   }}
                 />
+              </Grid>
+
+              {/* Customer Type & Industry - NEW */}
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="medium">
+                  <InputLabel sx={{ fontSize: '0.8rem' }}>Customer Type</InputLabel>
+                  <Select
+                    name="customerType"
+                    value={formData.customerType}
+                    onChange={handleChange}
+                    label="Customer Type"
+                    sx={{ fontSize: '0.85rem' }}
+                  >
+                    {CUSTOMER_TYPE_OPTIONS.map(option => (
+                      <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.85rem' }}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="medium">
+                  <InputLabel sx={{ fontSize: '0.8rem' }}>Industry</InputLabel>
+                  <Select
+                    name="industry"
+                    value={formData.industry}
+                    onChange={handleChange}
+                    label="Industry"
+                    sx={{ fontSize: '0.85rem' }}
+                  >
+                    {INDUSTRY_OPTIONS.map(option => (
+                      <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.85rem' }}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
 
               <Grid item xs={12} md={6}>
@@ -706,14 +766,11 @@ const CustomerForm = () => {
                     label="Payment Terms"
                     sx={{ fontSize: '0.85rem' }}
                   >
-                    <MenuItem value="On Delivery">On Delivery</MenuItem>
-                    <MenuItem value="7 Days">7 Days</MenuItem>
-                    <MenuItem value="14 Days">14 Days</MenuItem>
-                    <MenuItem value="21 Days">21 Days</MenuItem>
-                    <MenuItem value="30 Days">30 Days</MenuItem>
-                    <MenuItem value="45 Days">45 Days</MenuItem>
-                    <MenuItem value="60 Days">60 Days</MenuItem>
-                    <MenuItem value="End of Month">End of Month</MenuItem>
+                    {PAYMENT_TERMS_OPTIONS.map(option => (
+                      <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.85rem' }}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
@@ -754,14 +811,11 @@ const CustomerForm = () => {
                     label="Currency"
                     sx={{ fontSize: '0.85rem' }}
                   >
-                    <MenuItem value="ZAR">ZAR - South African Rand</MenuItem>
-                    <MenuItem value="USD">USD - US Dollar</MenuItem>
-                    <MenuItem value="EUR">EUR - Euro</MenuItem>
-                    <MenuItem value="GBP">GBP - British Pound</MenuItem>
-                    <MenuItem value="BWP">BWP - Botswana Pula</MenuItem>
-                    <MenuItem value="NAD">NAD - Namibian Dollar</MenuItem>
-                    <MenuItem value="SZL">SZL - Swazi Lilangeni</MenuItem>
-                    <MenuItem value="MZN">MZN - Mozambican Metical</MenuItem>
+                    {CURRENCY_OPTIONS.map(option => (
+                      <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.85rem' }}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
