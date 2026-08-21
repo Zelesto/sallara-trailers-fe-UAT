@@ -1,5 +1,5 @@
 // src/pages/finance/FinanceDashboard.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -30,10 +30,19 @@ import {
   MoneyOff,
   Refresh,
 } from '@mui/icons-material';
+import { useEnums } from '../../contexts/EnumContext';
+
+// Import enums
+import {
+  ACCOUNT_TYPE_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  getDisplayName,
+} from '../../constants';
 
 const FinanceDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { getAccountTypeOptions } = useEnums();
 
   // Mock data - you'll replace with API calls
   const summaryData = {
@@ -84,6 +93,17 @@ const FinanceDashboard = () => {
     { id: 3, type: 'payment', description: 'Payment received from ABC Logistics', amount: 8000, date: '2024-01-13', status: 'completed' },
     { id: 4, type: 'account', description: 'New vendor account added', amount: 0, date: '2024-01-12', status: 'active' },
   ];
+
+  // Helper to get status display
+  const getStatusDisplay = (status) => {
+    const option = PAYMENT_STATUS_OPTIONS.find(s => s.value === status.toUpperCase());
+    return option?.label || status;
+  };
+
+  const getStatusColor = (status) => {
+    const option = PAYMENT_STATUS_OPTIONS.find(s => s.value === status.toUpperCase());
+    return option?.color || 'default';
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -338,13 +358,9 @@ const FinanceDashboard = () => {
                         {activity.amount !== 0 ? `$${Math.abs(activity.amount).toLocaleString()}` : '-'}
                       </Typography>
                       <Chip
-                        label={activity.status}
+                        label={getStatusDisplay(activity.status)}
                         size="small"
-                        color={
-                          activity.status === 'paid' || activity.status === 'completed' ? 'success' :
-                          activity.status === 'pending' ? 'warning' :
-                          activity.status === 'active' ? 'info' : 'default'
-                        }
+                        color={getStatusColor(activity.status)}
                       />
                     </Box>
                   </Box>
