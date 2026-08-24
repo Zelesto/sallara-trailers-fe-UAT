@@ -61,7 +61,7 @@ import {
   Category,
   Scale,
   Straighten,
-  Packaging,
+
 } from '@mui/icons-material';
 import { loadService } from '../../services/loadService';
 
@@ -969,7 +969,7 @@ const LoadDetails = () => {
                 <SectionHeader title="Special Handling" icon={Warning} />
                 {load.hazardClass && <InfoItem label="Hazard Class" value={load.hazardClass} icon={Dangerous} color="error" />}
                 {load.temperatureRequirements && <InfoItem label="Temperature Requirements" value={load.temperatureRequirements} icon={Thermostat} color="info" />}
-                {load.packagingType && <InfoItem label="Packaging Type" value={load.packagingType} icon={Packaging} color="secondary" />}
+                {load.packagingType && <InfoItem label="Packaging Type" value={load.packagingType} icon={Inventory} color="secondary" />}
                 {load.specialHandling && <InfoItem label="Special Instructions" value={load.specialHandling} icon={Warning} color="warning" />}
                 {load.handlingInstructions && <InfoItem label="Handling Instructions" value={load.handlingInstructions} icon={Settings} color="purple" />}
               </Paper>
