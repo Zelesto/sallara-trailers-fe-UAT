@@ -1,4 +1,4 @@
-// src/pages/inventory/MovementHistory.jsx
+// src/pages/MovementHistory.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -47,45 +47,136 @@ import {
   Add,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-// ✅ FIXED: Correct import path (going up two levels from pages/inventory/ to services/)
 import { inventoryMovementService } from '../services/inventoryMovementService';
 import { inventoryService } from '../services/inventoryService';
 
-// Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-      <Stack direction="row" alignItems="center" spacing={1.5}>
-        <Box
-          sx={{
-            bgcolor: `${color}.light`,
-            borderRadius: 1,
-            p: 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon sx={{ fontSize: '1.2rem', color: `${color}.main` }} />
-        </Box>
-        <Box>
-          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
-            {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
-              {subtitle}
-            </Typography>
-          )}
-        </Box>
-      </Stack>
-    </CardContent>
-  </Card>
-);
+// ============================================================
+// STAT CARD - Matching Dashboard
+// ============================================================
+const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => {
+  const getColor = (colorName) => {
+    const colors = {
+      primary: '#4F46E5',
+      success: '#22C55E',
+      warning: '#F59E0B',
+      error: '#EF4444',
+      info: '#3B82F6',
+      secondary: '#6B7280',
+      purple: '#8B5CF6',
+      pink: '#EC4899',
+      teal: '#14B8A6',
+      indigo: '#6366F1',
+    };
+    return colors[colorName] || '#4F46E5';
+  };
 
+  const getColorBg = (color) => {
+    const bgColors = {
+      primary: '#EEF2FF',
+      success: '#D1FAE5',
+      warning: '#FEF3C7',
+      error: '#FEE2E2',
+      info: '#DBEAFE',
+      secondary: '#F3F4F6',
+      purple: '#EDE9FE',
+      pink: '#FCE7F3',
+      teal: '#CCFBF1',
+      indigo: '#E0E7FF',
+    };
+    return bgColors[color] || bgColors.primary;
+  };
+
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
+  const SafeIcon = Icon || Inventory;
+
+  return (
+    <Card
+      sx={{
+        bgcolor: '#FFFFFF',
+        borderRadius: { xs: '12px', sm: '14px', md: '16px' },
+        border: '1px solid #ECECEC',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        height: '100%',
+        width: '100%',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          borderColor: iconColor,
+        },
+      }}
+    >
+      <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#6B7280',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                letterSpacing: '0.5px',
+                display: 'block',
+                mb: 0.25,
+              }}
+            >
+              {title}
+            </Typography>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#111827',
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                lineHeight: 1.2,
+              }}
+            >
+              {value || 0}
+            </Typography>
+            {subtitle && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#6B7280',
+                  display: 'block',
+                  mt: 0.25,
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          <Box
+            sx={{
+              bgcolor: bgColor,
+              borderRadius: { xs: '10px', sm: '12px', md: '14px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)',
+              },
+            }}
+          >
+            <SafeIcon sx={{ 
+              color: iconColor, 
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+            }} />
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 const MovementHistory = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -137,7 +228,6 @@ const MovementHistory = () => {
     setError(null);
     try {
       const data = await inventoryMovementService.getMovementHistory();
-      console.log('Movement history response:', data);
       
       let movementsData = [];
       if (Array.isArray(data)) {
@@ -152,7 +242,6 @@ const MovementHistory = () => {
         movementsData = arrayProp || [];
       }
       
-      console.log('Extracted movements:', movementsData);
       setMovements(movementsData);
       calculateStats(movementsData);
     } catch (err) {
@@ -217,7 +306,7 @@ const MovementHistory = () => {
         color={config.color}
         size="small"
         icon={config.icon}
-        sx={{ height: 20, fontSize: '0.55rem' }}
+        sx={{ height: 18, fontSize: '0.55rem' }}
       />
     );
   };
@@ -235,7 +324,7 @@ const MovementHistory = () => {
         color={config.color}
         size="small"
         icon={config.icon}
-        sx={{ height: 20, fontSize: '0.55rem' }}
+        sx={{ height: 18, fontSize: '0.55rem' }}
       />
     );
   };
@@ -260,357 +349,554 @@ const MovementHistory = () => {
   }, [movements, searchTerm, filterType, filterStatus]);
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Box>
-          <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
-            <Inventory sx={{ mr: 0.5, verticalAlign: 'middle', fontSize: '1.2rem' }} />
-            Stock Movement History
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-            Track and manage all inventory movements
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={0.75}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh sx={{ fontSize: '0.9rem' }} />}
-            onClick={loadMovements}
-            size="small"
-            sx={{ fontSize: '0.75rem' }}
-          >
-            Refresh
-          </Button>
-          {stats.pending > 0 && (
-            <Chip
-              label={`${stats.pending} pending`}
-              color="warning"
-              size="small"
-              onClick={() => handleFilterStatusChange('PENDING')}
+    <Box sx={{ 
+      bgcolor: '#F7F7FC', 
+      minHeight: '100vh',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
+      width: '100%',
+      overflowX: 'hidden' 
+    }}>
+      <Box sx={{ 
+        maxWidth: '1600px', 
+        margin: '0 auto',
+        flex: 1,
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        
+        {/* Header - Matching Dashboard */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          mb={{ xs: 2, sm: 2.5, md: 3 }}
+          spacing={{ xs: 1, sm: 0 }}
+        >
+          <Box>
+            <Typography 
+              variant="h5" 
+              fontWeight="700" 
               sx={{ 
-                cursor: 'pointer', 
-                height: 28,
-                fontSize: '0.7rem',
-                '&:hover': { opacity: 0.8 }
+                fontSize: { 
+                  xs: '1.1rem', 
+                  sm: '1.3rem', 
+                  md: '1.4rem', 
+                  lg: '1.5rem' 
+                } 
               }}
-            />
-          )}
-        </Stack>
-      </Box>
-
-      {/* Stats Cards */}
-      <Grid container spacing={1.5} sx={{ mb: 2 }}>
-        <Grid item xs={6} sm={3}>
-          <StatCard title="Total Movements" value={stats.total} icon={Inventory} color="primary" />
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <StatCard title="Pending Approval" value={stats.pending} icon={Pending} color="warning" />
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <StatCard title="Approved" value={stats.approved} icon={CheckCircle} color="success" />
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <StatCard title="Rejected" value={stats.rejected} icon={Cancel} color="error" />
-        </Grid>
-      </Grid>
-
-      {/* Filters */}
-      <Paper sx={{ p: 1.5, mb: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <TextField
-            placeholder="Search movements..."
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ flex: 1 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search sx={{ fontSize: '0.9rem' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl size="small" sx={{ minWidth: 130 }}>
-            <InputLabel sx={{ fontSize: '0.75rem' }}>Type</InputLabel>
-            <Select
-              value={filterType}
-              label="Type"
-              onChange={(e) => setFilterType(e.target.value)}
-              sx={{ fontSize: '0.75rem' }}
             >
-              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Types</MenuItem>
-              <MenuItem value="IN" sx={{ fontSize: '0.75rem' }}>Stock In</MenuItem>
-              <MenuItem value="OUT" sx={{ fontSize: '0.75rem' }}>Stock Out</MenuItem>
-              <MenuItem value="ADJUSTMENT" sx={{ fontSize: '0.75rem' }}>Adjustment</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 130 }}>
-            <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
-            <Select
-              value={filterStatus}
-              label="Status"
-              onChange={(e) => handleFilterStatusChange(e.target.value)}
-              sx={{ fontSize: '0.75rem' }}
+              Stock Movement History
+            </Typography>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                fontSize: { 
+                  xs: '0.7rem', 
+                  sm: '0.8rem', 
+                  md: '0.85rem' 
+                } 
+              }}
             >
-              <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
-              <MenuItem value="PENDING" sx={{ fontSize: '0.75rem' }}>Pending</MenuItem>
-              <MenuItem value="APPROVED" sx={{ fontSize: '0.75rem' }}>Approved</MenuItem>
-              <MenuItem value="REJECTED" sx={{ fontSize: '0.75rem' }}>Rejected</MenuItem>
-            </Select>
-          </FormControl>
+              Track and manage all inventory movements
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<Refresh sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={loadMovements}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+              }}
+            >
+              Refresh
+            </Button>
+            {stats.pending > 0 && (
+              <Button
+                variant="contained"
+                size="small"
+                sx={{
+                  borderRadius: '10px',
+                  fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                  textTransform: 'none',
+                  py: { xs: 0.5, sm: 0.75 },
+                  px: { xs: 1.5, sm: 2 },
+                  background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',
+                  },
+                }}
+                onClick={() => handleFilterStatusChange('PENDING')}
+              >
+                {stats.pending} Pending
+              </Button>
+            )}
+          </Stack>
         </Stack>
-      </Paper>
 
-      {/* Table */}
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Date</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Item</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Type</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }} align="right">Quantity</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Reason</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Reference</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <CircularProgress size={30} />
-                </TableCell>
-              </TableRow>
-            ) : filteredMovements.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                    {filterStatus !== 'ALL' 
-                      ? `No ${filterStatus.toLowerCase()} movements found` 
-                      : 'No movements found'}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredMovements.map((movement) => (
-                <TableRow key={movement.id} hover>
-                  <TableCell sx={{ fontSize: '0.7rem' }}>
-                    {movement.createdAt ? new Date(movement.createdAt).toLocaleString() : 'N/A'}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem' }}>{movement.itemName || `Item #${movement.itemId}`}</TableCell>
-                  <TableCell>{getMovementTypeChip(movement.movementType)}</TableCell>
-                  <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 500 }}>
-                    {movement.quantity}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem' }}>{movement.reason || '-'}</TableCell>
-                  <TableCell sx={{ fontSize: '0.7rem' }}>
-                    {movement.referenceNumber || '-'}
-                    {movement.referenceType && (
-                      <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-                        {movement.referenceType}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>{getStatusChip(movement.approvalStatus)}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.25}>
-                      <Tooltip title="View Details">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedMovement(movement);
-                            setShowDetailsDialog(true);
-                          }}
-                          sx={{ p: 0.5 }}
-                        >
-                          <Visibility sx={{ fontSize: '0.9rem' }} />
-                        </IconButton>
-                      </Tooltip>
-                      {movement.approvalStatus === 'PENDING' && (
-                        <>
-                          <Tooltip title="Approve">
+        {/* Alerts */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Stats Cards */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+          sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            width: '100%',
+            margin: 0,
+          }}
+        >
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+            <StatCard title="Total Movements" value={stats.total} icon={Inventory} color="primary" />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+            <StatCard title="Pending Approval" value={stats.pending} icon={Pending} color="warning" />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+            <StatCard title="Approved" value={stats.approved} icon={CheckCircle} color="success" />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+            <StatCard title="Rejected" value={stats.rejected} icon={Cancel} color="error" />
+          </Grid>
+        </Grid>
+
+        {/* Filters */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 1.5, sm: 2, md: 2.5 },
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            borderRadius: { xs: '12px', sm: '16px' },
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+            width: '100%',
+          }}
+        >
+          <Grid container spacing={1.5} alignItems="center">
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                fullWidth
+                placeholder="Search movements..."
+                size="small"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{
+                  '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                  '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ fontSize: '0.9rem' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Type</InputLabel>
+                <Select
+                  value={filterType}
+                  label="Type"
+                  onChange={(e) => setFilterType(e.target.value)}
+                  sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                >
+                  <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Types</MenuItem>
+                  <MenuItem value="IN" sx={{ fontSize: '0.75rem' }}>Stock In</MenuItem>
+                  <MenuItem value="OUT" sx={{ fontSize: '0.75rem' }}>Stock Out</MenuItem>
+                  <MenuItem value="ADJUSTMENT" sx={{ fontSize: '0.75rem' }}>Adjustment</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+                <Select
+                  value={filterStatus}
+                  label="Status"
+                  onChange={(e) => handleFilterStatusChange(e.target.value)}
+                  sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                >
+                  <MenuItem value="ALL" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
+                  <MenuItem value="PENDING" sx={{ fontSize: '0.75rem' }}>Pending</MenuItem>
+                  <MenuItem value="APPROVED" sx={{ fontSize: '0.75rem' }}>Approved</MenuItem>
+                  <MenuItem value="REJECTED" sx={{ fontSize: '0.75rem' }}>Rejected</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Stack direction="row" spacing={0.75}>
+                <Tooltip title="Refresh">
+                  <IconButton size="small" onClick={loadMovements} sx={{ p: 0.5 }}>
+                    <Refresh sx={{ fontSize: '0.9rem' }} />
+                  </IconButton>
+                </Tooltip>
+                {filterStatus !== 'ALL' && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => handleFilterStatusChange('ALL')}
+                    sx={{
+                      fontSize: '0.75rem',
+                      borderRadius: '10px',
+                      textTransform: 'none',
+                      py: 0.5,
+                    }}
+                  >
+                    Clear Filter
+                  </Button>
+                )}
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* Table */}
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: { xs: '12px', sm: '16px' },
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+            width: '100%',
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+                <TableRow>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Date</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Item</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Type</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }} align="right">Qty</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Reason</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Reference</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Status</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <CircularProgress size={30} />
+                      <Typography sx={{ ml: 2, mt: 1, fontSize: '0.9rem' }}>Loading movements...</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredMovements.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Inventory sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+                        <Typography variant="body1" color="text.secondary">
+                          {filterStatus !== 'ALL' 
+                            ? `No ${filterStatus.toLowerCase()} movements found` 
+                            : 'No movements found'}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredMovements.map((movement) => (
+                    <TableRow key={movement.id} hover sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                        {movement.createdAt ? new Date(movement.createdAt).toLocaleString() : 'N/A'}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <Inventory sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
+                          <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 500 }}>
+                            {movement.itemName || `Item #${movement.itemId}`}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                        {getMovementTypeChip(movement.movementType)}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontSize: '0.7rem', py: 0.75, fontWeight: 600 }}>
+                        {movement.quantity}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.65rem' }}>
+                          {movement.reason || '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.65rem' }}>
+                          {movement.referenceNumber || '-'}
+                        </Typography>
+                        {movement.referenceType && (
+                          <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+                            {movement.referenceType}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                        {getStatusChip(movement.approvalStatus)}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.75 }}>
+                        <Stack direction="row" spacing={0.25}>
+                          <Tooltip title="View Details">
                             <IconButton
                               size="small"
-                              color="success"
+                              color="primary"
                               onClick={() => {
                                 setSelectedMovement(movement);
-                                setShowApproveDialog(true);
+                                setShowDetailsDialog(true);
                               }}
                               sx={{ p: 0.5 }}
                             >
-                              <CheckCircle sx={{ fontSize: '0.9rem' }} />
+                              <Visibility sx={{ fontSize: '0.9rem' }} />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Reject">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleReject(movement.id)}
-                              sx={{ p: 0.5 }}
-                            >
-                              <Cancel sx={{ fontSize: '0.9rem' }} />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                          {movement.approvalStatus === 'PENDING' && (
+                            <>
+                              <Tooltip title="Approve">
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  onClick={() => {
+                                    setSelectedMovement(movement);
+                                    setShowApproveDialog(true);
+                                  }}
+                                  sx={{ p: 0.5 }}
+                                >
+                                  <CheckCircle sx={{ fontSize: '0.9rem' }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Reject">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleReject(movement.id)}
+                                  sx={{ p: 0.5 }}
+                                >
+                                  <Cancel sx={{ fontSize: '0.9rem' }} />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
 
-      {/* Details Dialog */}
-      <Dialog
-        open={showDetailsDialog}
-        onClose={() => setShowDetailsDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-            Movement Details
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {selectedMovement && (
-            <Stack spacing={1.5} sx={{ mt: 1 }}>
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Movement ID
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  #{selectedMovement.id}
-                </Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Item
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {selectedMovement.itemName || `Item #${selectedMovement.itemId}`}
-                </Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Type
-                </Typography>
-                {getMovementTypeChip(selectedMovement.movementType)}
-              </Box>
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Quantity
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {selectedMovement.quantity}
-                </Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Reason
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {selectedMovement.reason || '-'}
-                </Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Reference
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  {selectedMovement.referenceNumber || '-'}
-                </Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  Status
-                </Typography>
-                {getStatusChip(selectedMovement.approvalStatus)}
-              </Box>
-              {selectedMovement.notes && (
+        {/* Details Dialog */}
+        <Dialog
+          open={showDetailsDialog}
+          onClose={() => setShowDetailsDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ 
+            py: 1.5, 
+            px: 2.5, 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            bgcolor: '#F8FAFC',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+              Movement Details
+            </Typography>
+            <IconButton size="small" onClick={() => setShowDetailsDialog(false)}>
+              <CloseIcon sx={{ fontSize: '1.2rem' }} />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent sx={{ p: 2.5 }}>
+            {selectedMovement && (
+              <Stack spacing={2}>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Movement ID</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>#{selectedMovement.id}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Date</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {selectedMovement.createdAt ? new Date(selectedMovement.createdAt).toLocaleString() : 'N/A'}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Item</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                      {selectedMovement.itemName || `Item #${selectedMovement.itemId}`}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Type</Typography>
+                    {getMovementTypeChip(selectedMovement.movementType)}
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Quantity</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                      {selectedMovement.quantity}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
+                    {getStatusChip(selectedMovement.approvalStatus)}
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Reason</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {selectedMovement.reason || '-'}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Reference Number</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {selectedMovement.referenceNumber || '-'}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Reference Type</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {selectedMovement.referenceType || '-'}
+                    </Typography>
+                  </Grid>
+                  {selectedMovement.notes && (
+                    <Grid size={{ xs: 12 }}>
+                      <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                        {selectedMovement.notes}
+                      </Typography>
+                    </Grid>
+                  )}
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Performed By</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {selectedMovement.performedBy || 'System'}
+                    </Typography>
+                  </Grid>
+                  {selectedMovement.approvedBy && (
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Approved By</Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                        {selectedMovement.approvedBy}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Stack>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider', bgcolor: '#F8FAFC' }}>
+            <Button onClick={() => setShowDetailsDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Approve Dialog */}
+        <Dialog
+          open={showApproveDialog}
+          onClose={() => setShowApproveDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ 
+            py: 1.5, 
+            px: 2.5, 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            bgcolor: '#F8FAFC',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+              Approve Movement
+            </Typography>
+            <IconButton size="small" onClick={() => setShowApproveDialog(false)}>
+              <CloseIcon sx={{ fontSize: '1.2rem' }} />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent sx={{ p: 2.5 }}>
+            <Alert severity="info" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }}>
+              Approving this movement will update the inventory quantity.
+            </Alert>
+            {selectedMovement && (
+              <Stack spacing={1.5}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                    Notes
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                    {selectedMovement.notes}
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Item</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                    {selectedMovement.itemName || `Item #${selectedMovement.itemId}`}
                   </Typography>
                 </Box>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowDetailsDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Type</Typography>
+                  {getMovementTypeChip(selectedMovement.movementType)}
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Quantity</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                    {selectedMovement.quantity}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Reason</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                    {selectedMovement.reason || '-'}
+                  </Typography>
+                </Box>
+                <TextField
+                  fullWidth
+                  label="Approval Notes"
+                  multiline
+                  rows={2}
+                  value={approveNotes}
+                  onChange={(e) => setApproveNotes(e.target.value)}
+                  size="small"
+                  sx={{ 
+                    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                    '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                  }}
+                />
+              </Stack>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider', bgcolor: '#F8FAFC' }}>
+            <Button onClick={() => setShowApproveDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApprove}
+              variant="contained"
+              color="success"
+              size="small"
+              sx={{ fontSize: '0.8rem' }}
+            >
+              Approve
+            </Button>
+          </DialogActions>
+        </Dialog>
 
-      {/* Approve Dialog */}
-      <Dialog
-        open={showApproveDialog}
-        onClose={() => setShowApproveDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-            Approve Movement
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="info" sx={{ mt: 1, mb: 2 }}>
-            Approving this movement will update the inventory quantity.
-          </Alert>
-          {selectedMovement && (
-            <Stack spacing={1}>
-              <Typography variant="body2">
-                <strong>Item:</strong> {selectedMovement.itemName || `Item #${selectedMovement.itemId}`}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Type:</strong> {selectedMovement.movementType}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Quantity:</strong> {selectedMovement.quantity}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Reason:</strong> {selectedMovement.reason}
-              </Typography>
-            </Stack>
-          )}
-          <TextField
-            fullWidth
-            label="Approval Notes"
-            multiline
-            rows={2}
-            value={approveNotes}
-            onChange={(e) => setApproveNotes(e.target.value)}
-            size="small"
-            sx={{ mt: 2 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowApproveDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleApprove}
-            variant="contained"
-            color="success"
-            size="small"
-            sx={{ fontSize: '0.8rem' }}
-          >
-            Approve
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </Box>
     </Box>
   );
 };
