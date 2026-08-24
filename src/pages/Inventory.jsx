@@ -77,7 +77,7 @@ import {
   People,
   CarRental,
   Inventory2,
-  Barcode,
+  QrCode
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -1879,7 +1879,7 @@ const Inventory = () => {
             {/* Identification - NEW SKU Section */}
             <Paper sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: '12px', border: '1px solid #ECECEC' }}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#4F46E5', mb: 1.5 }}>
-                <Barcode sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
+                <QrCode sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
                 Identification
               </Typography>
               <Grid container spacing={2}>
@@ -2310,7 +2310,7 @@ const Inventory = () => {
                 {/* SKU */}
                 <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                    <Barcode sx={{ fontSize: '0.8rem', verticalAlign: 'middle', mr: 0.5 }} />
+                    <QrCode sx={{ fontSize: '0.8rem', verticalAlign: 'middle', mr: 0.5 }} />
                     SKU
                   </Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500, color: '#4F46E5' }}>
