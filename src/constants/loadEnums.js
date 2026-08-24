@@ -43,3 +43,38 @@ export const CUSTOMS_STATUS_OPTIONS = toOptions(CUSTOMS_STATUSES);
 export const LOAD_STATUS_CONFIG = Object.fromEntries(
   LOAD_STATUSES.map(item => [item.code, item])
 );
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+export const getColor = (colorName) => {
+  const colors = {
+    primary: '#4F46E5',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6',
+    secondary: '#6B7280',
+    purple: '#8B5CF6',
+    pink: '#EC4899',
+    teal: '#14B8A6',
+    indigo: '#6366F1',
+  };
+  return colors[colorName] || '#4F46E5';
+};
+
+export const getColorBg = (color) => {
+  const bgColors = {
+    primary: '#EEF2FF',
+    success: '#D1FAE5',
+    warning: '#FEF3C7',
+    error: '#FEE2E2',
+    info: '#DBEAFE',
+    secondary: '#F3F4F6',
+    purple: '#EDE9FE',
+    pink: '#FCE7F3',
+    teal: '#CCFBF1',
+    indigo: '#E0E7FF',
+  };
+  return bgColors[color] || bgColors.primary;
+};
