@@ -78,3 +78,67 @@ export const getColorBg = (color) => {
   };
   return bgColors[color] || bgColors.primary;
 };
+
+// ============================================================
+// DATE & FORMAT UTILITY FUNCTIONS (ADD THESE)
+// ============================================================
+
+/**
+ * Format a date as currency (ZAR)
+ */
+export const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-ZA', {
+    style: 'currency',
+    currency: 'ZAR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numAmount);
+};
+
+/**
+ * Format a number with optional decimal places
+ */
+export const formatNumber = (num, decimals = 0) => {
+  if (num === null || num === undefined || isNaN(num)) return '0';
+  const number = typeof num === 'string' ? parseFloat(num) : num;
+  return new Intl.NumberFormat('en-ZA', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(number);
+};
+
+/**
+ * Format a date with time (full date-time)
+ */
+export const formatDateTime = (date) => {
+  if (!date) return 'N/A';
+  try {
+    return new Date(date).toLocaleString('en-ZA', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return 'N/A';
+  }
+};
+
+/**
+ * Format a date without time (just date)
+ */
+export const formatDate = (date) => {
+  if (!date) return 'N/A';
+  try {
+    return new Date(date).toLocaleDateString('en-ZA', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return 'N/A';
+  }
+};
