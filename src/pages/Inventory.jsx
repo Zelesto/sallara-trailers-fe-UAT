@@ -463,7 +463,7 @@ const InventoryItemRow = ({
 };
 
 // ============================================================
-// VEHICLE ISSUE ROW - FIXED WITH NAMES
+// VEHICLE ISSUE ROW
 // ============================================================
 const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, inventoryItems }) => {
   if (!issue) return null;
@@ -476,51 +476,27 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
     }
   };
 
-  // Find vehicle by ID
-  const getVehicle = (vehicleId) => {
-    if (!vehicleId) return null;
-    return vehicles?.find(v => v.id === vehicleId);
+  const vehicle = vehicles?.find(v => v.id === issue.vehicleId);
+  const driver = drivers?.find(d => d.id === issue.driverId);
+
+  const getVehicleDisplay = (v) => {
+    if (!v) return 'Unknown Vehicle';
+    return v.registrationNumber || v.regNumber || `${v.make || ''} ${v.model || ''}`.trim() || `Vehicle #${v.id}`;
   };
 
-  // Find driver by ID
-  const getDriver = (driverId) => {
-    if (!driverId) return null;
-    return drivers?.find(d => d.id === driverId);
+  const getDriverDisplay = (d) => {
+    if (!d) return 'Unknown Driver';
+    return d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim() || `Driver #${d.id}`;
   };
 
-  const vehicle = getVehicle(issue.vehicleId);
-  const driver = getDriver(issue.driverId);
-
-  // Get display name for vehicle
-  const getVehicleDisplay = (vehicle) => {
-    if (!vehicle) return 'Unknown Vehicle';
-    return vehicle.registrationNumber || vehicle.regNumber || 
-           `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 
-           `Vehicle #${vehicle.id}`;
-  };
-
-  // Get display name for driver
-  const getDriverDisplay = (driver) => {
-    if (!driver) return 'Unknown Driver';
-    return driver.fullName || 
-           `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || 
-           `Driver #${driver.id}`;
-  };
-
-  // Get item details
   const firstItem = issue.items?.[0];
-  const itemName = firstItem?.itemName || 
-    inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 
-    'Unknown Item';
+  const itemName = firstItem?.itemName || inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 'Unknown Item';
 
   return (
     <TableRow hover>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
           {issue.issueNumber || `Issue #${issue.id}`}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
-          ID: {issue.id}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -529,11 +505,6 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
           <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 500 }}>
             {getVehicleDisplay(vehicle)}
           </Typography>
-          {vehicle && vehicle.make && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
-              ({vehicle.make} {vehicle.model || ''})
-            </Typography>
-          )}
         </Stack>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -545,39 +516,19 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
         </Stack>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {itemName}
-        </Typography>
+        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>{itemName}</Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
-          Qty: {firstItem?.quantityIssued || firstItem?.quantity || 0} 
+          Qty: {firstItem?.quantityIssued || firstItem?.quantity || 0}
           {firstItem?.condition && ` • ${firstItem.condition}`}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-          {issue.items?.length || 0} item(s) total
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
           {issue.issueDate ? new Date(issue.issueDate).toLocaleDateString() : 'N/A'}
         </Typography>
-        {issue.expectedReturnDate && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
-            Expected Return: {new Date(issue.expectedReturnDate).toLocaleDateString()}
-          </Typography>
-        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-        <Chip
-          label={issue.status || 'ISSUED'}
-          color={getStatusColor(issue.status)}
-          size="small"
-          sx={{ height: 18, fontSize: '0.55rem' }}
-        />
-        {issue.returnedDate && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-            Returned: {new Date(issue.returnedDate).toLocaleDateString()}
-          </Typography>
-        )}
+        <Chip label={issue.status || 'ISSUED'} color={getStatusColor(issue.status)} size="small" sx={{ height: 18, fontSize: '0.55rem' }} />
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
@@ -607,7 +558,7 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
 };
 
 // ============================================================
-// DRIVER ISSUE ROW - FIXED WITH NAMES
+// DRIVER ISSUE ROW
 // ============================================================
 const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryItems }) => {
   if (!issue) return null;
@@ -620,35 +571,21 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
     }
   };
 
-  // Find driver by ID
-  const getDriver = (driverId) => {
-    if (!driverId) return null;
-    return drivers?.find(d => d.id === driverId);
-  };
+  const driver = drivers?.find(d => d.id === issue.driverId);
 
-  const driver = getDriver(issue.driverId);
-
-  // Get display name for driver
-  const getDriverDisplay = (driver) => {
-    if (!driver) return 'Unknown Driver';
-    return driver.fullName || 
-           `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || 
-           `Driver #${driver.id}`;
+  const getDriverDisplay = (d) => {
+    if (!d) return 'Unknown Driver';
+    return d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim() || `Driver #${d.id}`;
   };
 
   const firstItem = issue.items?.[0];
-  const itemName = firstItem?.itemName || 
-    inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 
-    'Unknown Item';
+  const itemName = firstItem?.itemName || inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 'Unknown Item';
 
   return (
     <TableRow hover>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
           {issue.issueNumber || `Issue #${issue.id}`}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
-          ID: {issue.id}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -658,46 +595,21 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
             {getDriverDisplay(driver)}
           </Typography>
         </Stack>
-        {driver && driver.licenseNumber && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-            License: {driver.licenseNumber}
-          </Typography>
-        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {itemName}
-        </Typography>
+        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>{itemName}</Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
           Qty: {firstItem?.quantityIssued || firstItem?.quantity || 0}
           {firstItem?.condition && ` • ${firstItem.condition}`}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-          {issue.items?.length || 0} item(s) total
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
           {issue.issueDate ? new Date(issue.issueDate).toLocaleDateString() : 'N/A'}
         </Typography>
-        {issue.expectedReturnDate && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
-            Expected Return: {new Date(issue.expectedReturnDate).toLocaleDateString()}
-          </Typography>
-        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-        <Chip
-          label={issue.status || 'ISSUED'}
-          color={getStatusColor(issue.status)}
-          size="small"
-          sx={{ height: 18, fontSize: '0.55rem' }}
-        />
-        {issue.returnedDate && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-            Returned: {new Date(issue.returnedDate).toLocaleDateString()}
-          </Typography>
-        )}
+        <Chip label={issue.status || 'ISSUED'} color={getStatusColor(issue.status)} size="small" sx={{ height: 18, fontSize: '0.55rem' }} />
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
@@ -725,7 +637,6 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
     </TableRow>
   );
 };
-
 // ============================================================
 // MAIN INVENTORY COMPONENT
 // ============================================================
@@ -1529,208 +1440,324 @@ const Inventory = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
       {/* Header */}
-      <Box sx={{ mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1.5}>
-          <InventoryIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+      <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          mb={{ xs: 2, sm: 2.5, md: 3 }}
+          spacing={{ xs: 1, sm: 0 }}
+        >
           <Box>
-            <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
+            <Typography 
+              variant="h5" 
+              fontWeight="700" 
+              sx={{ 
+                fontSize: { 
+                  xs: '1.1rem', 
+                  sm: '1.3rem', 
+                  md: '1.4rem', 
+                  lg: '1.5rem' 
+                } 
+              }}
+            >
               Inventory Management
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                fontSize: { 
+                  xs: '0.7rem', 
+                  sm: '0.8rem', 
+                  md: '0.85rem' 
+                } 
+              }}
+            >
               Manage spare parts, lubricants, and supplies
             </Typography>
           </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={loadData}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Add sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={handleAddNew}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                },
+              }}
+            >
+              Add Item
+            </Button>
+          </Stack>
         </Stack>
-      </Box>
 
       {/* Alerts */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setSuccess(null)}>
-          {success}
-        </Alert>
-      )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert severity="success" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }} onClose={() => setSuccess(null)}>
+            {success}
+          </Alert>
+        )}
 
-      {/* Tabs */}
-      <Paper sx={{ mb: 2 }}>
-        <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 36 }}>
-          <Tab 
-            label="Items" 
-            icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />} 
-            iconPosition="start" 
-            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
-          />
-          <Tab 
-            label={`Vehicle Issues (${vehicleIssues.length})`} 
-            icon={<DirectionsCar sx={{ fontSize: '0.9rem' }} />} 
-            iconPosition="start" 
-            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
-          />
-          <Tab 
-            label={`Driver Issues (${driverIssues.length})`} 
-            icon={<Person sx={{ fontSize: '0.9rem' }} />} 
-            iconPosition="start" 
-            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
-          />
-          <Tab 
-            label="Stock Movements" 
-            icon={<SwapHoriz sx={{ fontSize: '0.9rem' }} />} 
-            iconPosition="start" 
-            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
-          />
-        </Tabs>
-      </Paper>
-
-      {/* Tab: Items */}
-      <TabPanel value={activeTab} index={0}>
-        {/* Search and Actions */}
-        <Paper sx={{ p: 1.5, mb: 2 }}>
-          <Grid container spacing={1.5} alignItems="center">
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                placeholder="Search by name, SKU, or category..."
-                size="small"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ fontSize: '0.9rem' }} />
-                    </InputAdornment>
-                  ),
-                  sx: { fontSize: '0.8rem' }
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Category</InputLabel>
-                <Select
-                  value={categoryFilter}
-                  label="Category"
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Categories</MenuItem>
-                  {getUniqueCategories().map(cat => (
-                    <MenuItem key={cat} value={cat} sx={{ fontSize: '0.75rem' }}>{cat}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
-                  <MenuItem value="In Stock" sx={{ fontSize: '0.75rem' }}>In Stock</MenuItem>
-                  <MenuItem value="Low Stock" sx={{ fontSize: '0.75rem' }}>Low Stock</MenuItem>
-                  <MenuItem value="Out of Stock" sx={{ fontSize: '0.75rem' }}>Out of Stock</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Issueable To</InputLabel>
-                <Select
-                  value={issueableFilter}
-                  label="Issueable To"
-                  onChange={(e) => setIssueableFilter(e.target.value)}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All</MenuItem>
-                  <MenuItem value="both" sx={{ fontSize: '0.75rem' }}>Both</MenuItem>
-                  <MenuItem value="driver" sx={{ fontSize: '0.75rem' }}>Driver Only</MenuItem>
-                  <MenuItem value="vehicle" sx={{ fontSize: '0.75rem' }}>Vehicle Only</MenuItem>
-                  <MenuItem value="neither" sx={{ fontSize: '0.75rem' }}>Neither</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Stack direction="row" spacing={0.75}>
-                <Tooltip title="Refresh">
-                  <IconButton size="small" onClick={loadData} sx={{ p: 0.5 }}>
-                    <RefreshIcon sx={{ fontSize: '0.9rem' }} />
-                  </IconButton>
-                </Tooltip>
-                <Button
-                  variant="contained"
-                  startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-                  onClick={handleAddNew}
-                  size="small"
-                  sx={{ fontSize: '0.75rem', py: 0.5, flex: 1 }}
-                >
-                  Add Item
-                </Button>
-              </Stack>
-            </Grid>
-          </Grid>
+        {/* Tabs */}
+        <Paper
+          elevation={0}
+          sx={{
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            borderRadius: { xs: '12px', sm: '16px' },
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+            width: '100%',
+            overflow: 'hidden',
+          }}
+        >
+          <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 36 }}>
+            <Tab 
+              label="Items" 
+              icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />} 
+              iconPosition="start" 
+              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+            />
+            <Tab 
+              label={`Vehicle Issues (${vehicleIssues.length})`} 
+              icon={<DirectionsCar sx={{ fontSize: '0.9rem' }} />} 
+              iconPosition="start" 
+              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+            />
+            <Tab 
+              label={`Driver Issues (${driverIssues.length})`} 
+              icon={<Person sx={{ fontSize: '0.9rem' }} />} 
+              iconPosition="start" 
+              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+            />
+            <Tab 
+              label="Stock Movements" 
+              icon={<SwapHoriz sx={{ fontSize: '0.9rem' }} />} 
+              iconPosition="start" 
+              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+            />
+          </Tabs>
         </Paper>
 
-        {/* Stats Cards */}
-        <Grid container spacing={1.5} sx={{ mb: 2 }}>
-          <Grid item xs={6} sm={3}>
-            <StatCard title="Total Items" value={inventoryItems.length} icon={InventoryIcon} color="primary" />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard 
-              title="Low Stock" 
-              value={inventoryItems.filter(i => i.quantity > 0 && i.quantity <= i.minLevel).length} 
-              icon={WarningIcon} 
-              color="warning" 
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard 
-              title="Out of Stock" 
-              value={inventoryItems.filter(i => i.quantity <= 0).length} 
-              icon={CancelIcon} 
-              color="error" 
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <StatCard 
-              title="Locations" 
-              value={locations.length} 
-              icon={LocationOn} 
-              color="info" 
-            />
-          </Grid>
-        </Grid>
+        {/* Tab: Items */}
+        <TabPanel value={activeTab} index={0}>
+          {/* Search and Actions */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1.5, sm: 2, md: 2.5 },
+              mb: { xs: 2, sm: 2.5, md: 3 },
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+              width: '100%',
+            }}
+          >
+            <Grid container spacing={1.5} alignItems="center">
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField
+                  fullWidth
+                  placeholder="Search by name, SKU, or category..."
+                  size="small"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{
+                    '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                    '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' },
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ fontSize: '0.9rem' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Category</InputLabel>
+                  <Select
+                    value={categoryFilter}
+                    label="Category"
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                  >
+                    <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Categories</MenuItem>
+                    {getUniqueCategories().map(cat => (
+                      <MenuItem key={cat} value={cat} sx={{ fontSize: '0.75rem' }}>{cat}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    label="Status"
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                  >
+                    <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
+                    <MenuItem value="In Stock" sx={{ fontSize: '0.75rem' }}>In Stock</MenuItem>
+                    <MenuItem value="Low Stock" sx={{ fontSize: '0.75rem' }}>Low Stock</MenuItem>
+                    <MenuItem value="Out of Stock" sx={{ fontSize: '0.75rem' }}>Out of Stock</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Issueable To</InputLabel>
+                  <Select
+                    value={issueableFilter}
+                    label="Issueable To"
+                    onChange={(e) => setIssueableFilter(e.target.value)}
+                    sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                  >
+                    <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All</MenuItem>
+                    <MenuItem value="both" sx={{ fontSize: '0.75rem' }}>Both</MenuItem>
+                    <MenuItem value="driver" sx={{ fontSize: '0.75rem' }}>Driver Only</MenuItem>
+                    <MenuItem value="vehicle" sx={{ fontSize: '0.75rem' }}>Vehicle Only</MenuItem>
+                    <MenuItem value="neither" sx={{ fontSize: '0.75rem' }}>Neither</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Stack direction="row" spacing={0.75}>
+                  <Tooltip title="Refresh">
+                    <IconButton size="small" onClick={loadData} sx={{ p: 0.5 }}>
+                      <RefreshIcon sx={{ fontSize: '0.9rem' }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Button
+                    variant="contained"
+                    startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
+                    onClick={handleAddNew}
+                    size="small"
+                    sx={{
+                      fontSize: '0.75rem',
+                      py: 0.5,
+                      flex: 1,
+                      borderRadius: '10px',
+                      textTransform: 'none',
+                      background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                      },
+                    }}
+                  >
+                    Add Item
+                  </Button>
+                </Stack>
+              </Grid>
+            </Grid>
+          </Paper>
 
-        {/* Inventory Table */}
-        <Card sx={{ borderRadius: 1.5 }}>
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+          {/* Stats Cards */}
+          <Grid 
+            container 
+            spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+            sx={{ 
+              mb: { xs: 2, sm: 2.5, md: 3 },
+              width: '100%',
+              margin: 0,
+            }}
+          >
+            <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+              <StatCard title="Total Items" value={inventoryItems.length} icon={InventoryIcon} color="primary" />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+              <StatCard 
+                title="Low Stock" 
+                value={inventoryItems.filter(i => i.quantity > 0 && i.quantity <= i.minLevel).length} 
+                icon={WarningIcon} 
+                color="warning" 
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+              <StatCard 
+                title="Out of Stock" 
+                value={inventoryItems.filter(i => i.quantity <= 0).length} 
+                icon={CancelIcon} 
+                color="error" 
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
+              <StatCard 
+                title="Locations" 
+                value={locations.length} 
+                icon={LocationOn} 
+                color="info" 
+              />
+            </Grid>
+          </Grid>
+
+          {/* Inventory Table */}
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
             <TableContainer>
               <Table size="small">
-                <TableHead>
+                <TableHead sx={{ bgcolor: '#F9FAFB' }}>
                   <TableRow>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>SKU</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Category</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Qty</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Flags</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Min Level</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Location</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>SKU</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Item</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Category</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Qty</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Flags</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Min Level</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Location</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Status</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
-                        <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No inventory items found</Typography>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <InventoryIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+                          <Typography variant="body1" color="text.secondary">
+                            {searchTerm || categoryFilter !== 'all' || statusFilter !== 'all' || issueableFilter !== 'all'
+                              ? 'No items match your filters'
+                              : 'No inventory items found'}
+                          </Typography>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -1752,50 +1779,41 @@ const Inventory = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-          </CardContent>
-        </Card>
-      </TabPanel>
+          </Paper>
+        </TabPanel>
 
-      {/* Tab: Vehicle Issues */}
-      <TabPanel value={activeTab} index={1}>
-        <Paper sx={{ p: 1.5, mb: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-              Vehicle Issues
-              <Chip label={`${vehicleIssues.length} issues`} size="small" sx={{ ml: 1, height: 18, fontSize: '0.55rem' }} />
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-              size="small"
-              sx={{ fontSize: '0.75rem' }}
-              onClick={() => {
-                setSelectedItem(null);
-                setIssueFormData({
-                  itemId: '',
-                  vehicleId: '',
-                  driverId: '',
-                  tripId: '',
-                  quantity: 1,
-                  condition: 'NEW',
-                  notes: ''
-                });
-                setShowIssueDialog(true);
-              }}
-            >
-              New Issue
-            </Button>
-          </Stack>
-        </Paper>
-
-        <Card sx={{ borderRadius: 1.5 }}>
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-            {loadingIssues ? (
-              <Box display="flex" justifyContent="center" py={3}><CircularProgress size={30} /></Box>
-            ) : vehicleIssues.length === 0 ? (
-              <Box py={3} textAlign="center">
-                <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No vehicle issues found</Typography>
-                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => {
+        {/* Tab: Vehicle Issues */}
+        <TabPanel value={activeTab} index={1}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1.5, sm: 2, md: 2.5 },
+              mb: { xs: 2, sm: 2.5, md: 3 },
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+              width: '100%',
+            }}
+          >
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                Vehicle Issues
+                <Chip label={`${vehicleIssues.length} issues`} size="small" sx={{ ml: 1, height: 18, fontSize: '0.55rem' }} />
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
+                size="small"
+                sx={{
+                  fontSize: '0.75rem',
+                  borderRadius: '10px',
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                  },
+                }}
+                onClick={() => {
                   setSelectedItem(null);
                   setIssueFormData({
                     itemId: '',
@@ -1807,22 +1825,65 @@ const Inventory = () => {
                     notes: ''
                   });
                   setShowIssueDialog(true);
-                }}>
+                }}
+              >
+                New Issue
+              </Button>
+            </Stack>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
+            {loadingIssues ? (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress size={30} />
+                <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading vehicle issues...</Typography>
+              </Box>
+            ) : vehicleIssues.length === 0 ? (
+              <Box py={4} textAlign="center">
+                <DirectionsCar sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+                <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No vehicle issues found</Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{ mt: 1, fontSize: '0.75rem', borderRadius: '10px', textTransform: 'none' }}
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setIssueFormData({
+                      itemId: '',
+                      vehicleId: '',
+                      driverId: '',
+                      tripId: '',
+                      quantity: 1,
+                      condition: 'NEW',
+                      notes: ''
+                    });
+                    setShowIssueDialog(true);
+                  }}
+                >
                   Create First Issue
                 </Button>
               </Box>
             ) : (
               <TableContainer>
                 <Table size="small">
-                  <TableHead>
+                  <TableHead sx={{ bgcolor: '#F9FAFB' }}>
                     <TableRow>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Issue #</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Vehicle</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Driver</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Item</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Date</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Status</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1842,47 +1903,41 @@ const Inventory = () => {
                 </Table>
               </TableContainer>
             )}
-          </CardContent>
-        </Card>
-      </TabPanel>
+          </Paper>
+        </TabPanel>
 
-      {/* Tab: Driver Issues */}
-      <TabPanel value={activeTab} index={2}>
-        <Paper sx={{ p: 1.5, mb: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-              Driver Issues
-              <Chip label={`${driverIssues.length} issues`} size="small" sx={{ ml: 1, height: 18, fontSize: '0.55rem' }} />
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
-              size="small"
-              sx={{ fontSize: '0.75rem' }}
-              onClick={() => {
-                setSelectedItem(null);
-                setDriverIssueFormData({
-                  driverId: '',
-                  quantity: 1,
-                  condition: 'NEW',
-                  notes: ''
-                });
-                setShowDriverIssueDialog(true);
-              }}
-            >
-              New Driver Issue
-            </Button>
-          </Stack>
-        </Paper>
-
-        <Card sx={{ borderRadius: 1.5 }}>
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-            {loadingIssues ? (
-              <Box display="flex" justifyContent="center" py={3}><CircularProgress size={30} /></Box>
-            ) : driverIssues.length === 0 ? (
-              <Box py={3} textAlign="center">
-                <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No driver issues found</Typography>
-                <Button variant="outlined" size="small" sx={{ mt: 1, fontSize: '0.75rem' }} onClick={() => {
+        {/* Tab: Driver Issues */}
+        <TabPanel value={activeTab} index={2}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1.5, sm: 2, md: 2.5 },
+              mb: { xs: 2, sm: 2.5, md: 3 },
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+              width: '100%',
+            }}
+          >
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                Driver Issues
+                <Chip label={`${driverIssues.length} issues`} size="small" sx={{ ml: 1, height: 18, fontSize: '0.55rem' }} />
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add sx={{ fontSize: '0.9rem' }} />}
+                size="small"
+                sx={{
+                  fontSize: '0.75rem',
+                  borderRadius: '10px',
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                  },
+                }}
+                onClick={() => {
                   setSelectedItem(null);
                   setDriverIssueFormData({
                     driverId: '',
@@ -1891,22 +1946,61 @@ const Inventory = () => {
                     notes: ''
                   });
                   setShowDriverIssueDialog(true);
-                }}>
+                }}
+              >
+                New Driver Issue
+              </Button>
+            </Stack>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: { xs: '12px', sm: '16px' },
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
+            {loadingIssues ? (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress size={30} />
+                <Typography sx={{ ml: 2, fontSize: '0.9rem' }}>Loading driver issues...</Typography>
+              </Box>
+            ) : driverIssues.length === 0 ? (
+              <Box py={4} textAlign="center">
+                <Person sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+                <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No driver issues found</Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{ mt: 1, fontSize: '0.75rem', borderRadius: '10px', textTransform: 'none' }}
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setDriverIssueFormData({
+                      driverId: '',
+                      quantity: 1,
+                      condition: 'NEW',
+                      notes: ''
+                    });
+                    setShowDriverIssueDialog(true);
+                  }}
+                >
                   Create First Issue
                 </Button>
               </Box>
             ) : (
               <TableContainer>
                 <Table size="small">
-                  <TableHead>
+                  <TableHead sx={{ bgcolor: '#F9FAFB' }}>
                     <TableRow>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Issue #</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Driver</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Item</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Date</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Status</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B7280', py: 1.5 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1925,9 +2019,8 @@ const Inventory = () => {
                 </Table>
               </TableContainer>
             )}
-          </CardContent>
-        </Card>
-      </TabPanel>
+          </Paper>
+        </TabPanel>
 
       {/* Tab: Stock Movements */}
       <TabPanel value={activeTab} index={3}>
