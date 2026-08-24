@@ -1,4 +1,3 @@
-// src/pages/Inventory.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -78,6 +77,7 @@ import {
   People,
   CarRental,
   Inventory2,
+  Barcode,
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -147,7 +147,7 @@ const TabPanel = ({ children, value, index, ...other }) => (
 );
 
 // ============================================================
-// INVENTORY ITEM ROW - UPDATED WITH FLAGS
+// INVENTORY ITEM ROW - WITH SKU
 // ============================================================
 const InventoryItemRow = ({
   item,
@@ -192,6 +192,13 @@ const InventoryItemRow = ({
 
   return (
     <TableRow hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+      {/* SKU */}
+      <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+        <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#4F46E5' }}>
+          {item.sku || 'N/A'}
+        </Typography>
+      </TableCell>
+
       {/* Item Name */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
@@ -673,8 +680,9 @@ const Inventory = () => {
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedIssueItem, setSelectedIssueItem] = useState(null);
 
-  // Form states
+  // Form states - ADDED SKU
   const [formData, setFormData] = useState({
+    sku: '',
     name: '',
     category: '',
     unitOfMeasure: 'EA',
@@ -766,6 +774,7 @@ const Inventory = () => {
       // Ensure all items have the new fields with defaults
       itemsData = itemsData.map(item => ({
         ...item,
+        sku: item.sku || null,
         isDriverIssuable: item.isDriverIssuable !== undefined ? item.isDriverIssuable : true,
         isVehicleIssuable: item.isVehicleIssuable !== undefined ? item.isVehicleIssuable : true,
         isActive: item.isActive !== undefined ? item.isActive : true,
@@ -1004,6 +1013,7 @@ const Inventory = () => {
   const handleEdit = (item) => {
     setSelectedItem(item);
     setFormData({
+      sku: item.sku || '',
       name: item.name || '',
       category: item.category || '',
       unitOfMeasure: item.unitOfMeasure || 'EA',
@@ -1041,6 +1051,7 @@ const Inventory = () => {
   const handleAddNew = () => {
     setSelectedItem(null);
     setFormData({
+      sku: '',
       name: '',
       category: '',
       unitOfMeasure: 'EA',
@@ -1285,6 +1296,7 @@ const Inventory = () => {
 
     try {
       const payload = {
+        sku: formData.sku?.trim() || null,
         name: formData.name.trim(),
         category: formData.category,
         unitOfMeasure: formData.unitOfMeasure || 'EA',
@@ -1396,7 +1408,8 @@ const Inventory = () => {
   const filteredItems = inventoryItems.filter(item => {
     const searchMatch =
       item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku?.toLowerCase().includes(searchTerm.toLowerCase());
     const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
 
     let statusMatch = true;
@@ -1620,6 +1633,7 @@ const Inventory = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>SKU</TableCell>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item</TableCell>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Category</TableCell>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Qty</TableCell>
@@ -1633,7 +1647,7 @@ const Inventory = () => {
                 <TableBody>
                   {filteredItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                      <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
                         <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No inventory items found</Typography>
                       </TableCell>
                     </TableRow>
@@ -1840,347 +1854,470 @@ const Inventory = () => {
 
       {/* ==================== DIALOGS ==================== */}
 
-      {/* Add/Edit Item Dialog */}
+      {/* Add/Edit Item Dialog - UPDATED WITH SKU */}
       <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+        <DialogTitle sx={{ 
+          py: 1.5, 
+          px: 2.5, 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          bgcolor: '#F8FAFC',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
             {selectedItem ? 'Edit Inventory Item' : 'Add New Inventory Item'}
           </Typography>
+          <IconButton size="small" onClick={() => setShowAddDialog(false)}>
+            <CloseIcon sx={{ fontSize: '1.2rem' }} />
+          </IconButton>
         </DialogTitle>
+
         <DialogContent sx={{ p: 2.5 }}>
-          <Stack spacing={2}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
-                  Basic Information
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Item Name *"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.name}
-                  helperText={formErrors.name}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Category *"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.category}
-                  helperText={formErrors.category}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel sx={{ fontSize: '0.75rem' }}>Unit of Measure</InputLabel>
-                  <Select
-                    name="unitOfMeasure"
-                    value={formData.unitOfMeasure}
+          <Stack spacing={2.5}>
+            {/* Identification - NEW SKU Section */}
+            <Paper sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: '12px', border: '1px solid #ECECEC' }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#4F46E5', mb: 1.5 }}>
+                <Barcode sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
+                Identification
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="SKU"
+                    name="sku"
+                    value={formData.sku || ''}
                     onChange={handleFormChange}
-                    label="Unit of Measure"
-                    sx={{ fontSize: '0.8rem' }}
-                  >
-                    <MenuItem value="EA" sx={{ fontSize: '0.8rem' }}>Each (EA)</MenuItem>
-                    <MenuItem value="LITER" sx={{ fontSize: '0.8rem' }}>Litre (LITER)</MenuItem>
-                    <MenuItem value="KG" sx={{ fontSize: '0.8rem' }}>Kilogram (KG)</MenuItem>
-                    <MenuItem value="M" sx={{ fontSize: '0.8rem' }}>Meter (M)</MenuItem>
-                    <MenuItem value="BOX" sx={{ fontSize: '0.8rem' }}>Box (BOX)</MenuItem>
-                    <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>Set (SET)</MenuItem>
-                    <MenuItem value="PK" sx={{ fontSize: '0.8rem' }}>Pack (PK)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
-                  Stock Information
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Quantity *"
-                  name="quantity"
-                  type="number"
-                  value={formData.quantity}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.quantity}
-                  helperText={formErrors.quantity}
-                  InputProps={{ inputProps: { min: 0 } }}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Min Level"
-                  name="minLevel"
-                  type="number"
-                  value={formData.minLevel}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.minLevel}
-                  helperText={formErrors.minLevel}
-                  InputProps={{ inputProps: { min: 0 } }}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Unit Cost (R)"
-                  name="unitCost"
-                  type="number"
-                  value={formData.unitCost}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.unitCost}
-                  helperText={formErrors.unitCost}
-                  InputProps={{ inputProps: { min: 0, step: 0.01 } }}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Reorder Level"
-                  name="reorderLevel"
-                  type="number"
-                  value={formData.reorderLevel}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{ inputProps: { min: 0 } }}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small" error={!!formErrors.locationId}>
-                  <InputLabel sx={{ fontSize: '0.75rem' }}>Location *</InputLabel>
-                  <Select
-                    name="locationId"
-                    value={formData.locationId}
+                    fullWidth
+                    size="small"
+                    placeholder="e.g., TYR-001, BRA-002"
+                    helperText="Unique identifier for this product"
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Item Name *"
+                    name="name"
+                    value={formData.name}
                     onChange={handleFormChange}
-                    label="Location *"
+                    fullWidth
+                    size="small"
+                    error={!!formErrors.name}
+                    helperText={formErrors.name}
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Classification */}
+            <Paper sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: '12px', border: '1px solid #ECECEC' }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#4F46E5', mb: 1.5 }}>
+                <CategoryIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
+                Classification
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Category *"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleFormChange}
+                    fullWidth
+                    size="small"
+                    error={!!formErrors.category}
+                    helperText={formErrors.category}
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Unit of Measure</InputLabel>
+                    <Select
+                      name="unitOfMeasure"
+                      value={formData.unitOfMeasure}
+                      onChange={handleFormChange}
+                      label="Unit of Measure"
+                      sx={{ fontSize: '0.8rem' }}
+                    >
+                      <MenuItem value="EA" sx={{ fontSize: '0.8rem' }}>Each (EA)</MenuItem>
+                      <MenuItem value="LITER" sx={{ fontSize: '0.8rem' }}>Litre (L)</MenuItem>
+                      <MenuItem value="KG" sx={{ fontSize: '0.8rem' }}>Kilogram (KG)</MenuItem>
+                      <MenuItem value="M" sx={{ fontSize: '0.8rem' }}>Meter (M)</MenuItem>
+                      <MenuItem value="BOX" sx={{ fontSize: '0.8rem' }}>Box (BOX)</MenuItem>
+                      <MenuItem value="SET" sx={{ fontSize: '0.8rem' }}>Set (SET)</MenuItem>
+                      <MenuItem value="PK" sx={{ fontSize: '0.8rem' }}>Pack (PK)</MenuItem>
+                      <MenuItem value="ROLL" sx={{ fontSize: '0.8rem' }}>Roll (ROLL)</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Stock Information */}
+            <Paper sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: '12px', border: '1px solid #ECECEC' }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#4F46E5', mb: 1.5 }}>
+                <InventoryIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
+                Stock Information
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Quantity *"
+                    name="quantity"
+                    type="number"
+                    value={formData.quantity}
+                    onChange={handleFormChange}
+                    fullWidth
+                    size="small"
+                    error={!!formErrors.quantity}
+                    helperText={formErrors.quantity}
+                    InputProps={{ inputProps: { min: 0 } }}
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Min Level"
+                    name="minLevel"
+                    type="number"
+                    value={formData.minLevel}
+                    onChange={handleFormChange}
+                    fullWidth
+                    size="small"
+                    error={!!formErrors.minLevel}
+                    helperText={formErrors.minLevel}
+                    InputProps={{ inputProps: { min: 0 } }}
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Unit Cost (R)"
+                    name="unitCost"
+                    type="number"
+                    value={formData.unitCost}
+                    onChange={handleFormChange}
+                    fullWidth
+                    size="small"
+                    error={!!formErrors.unitCost}
+                    helperText={formErrors.unitCost}
+                    InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Reorder Level"
+                    name="reorderLevel"
+                    type="number"
+                    value={formData.reorderLevel}
+                    onChange={handleFormChange}
+                    fullWidth
+                    size="small"
+                    InputProps={{ inputProps: { min: 0 } }}
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small" error={!!formErrors.locationId}>
+                    <InputLabel sx={{ fontSize: '0.75rem' }}>Location *</InputLabel>
+                    <Select
+                      name="locationId"
+                      value={formData.locationId}
+                      onChange={handleFormChange}
+                      label="Location *"
+                      sx={{ fontSize: '0.8rem' }}
+                    >
+                      <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Location</MenuItem>
+                      {locations.map((loc) => (
+                        <MenuItem key={loc.id} value={loc.id} sx={{ fontSize: '0.8rem' }}>{loc.name}</MenuItem>
+                      ))}
+                    </Select>
+                    {formErrors.locationId && (
+                      <Typography variant="caption" color="error" sx={{ mt: 0.5, fontSize: '0.7rem' }}>
+                        {formErrors.locationId}
+                      </Typography>
+                    )}
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Issue Settings */}
+            <Paper sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: '12px', border: '1px solid #ECECEC' }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#4F46E5', mb: 1.5 }}>
+                <Assignment sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
+                Issue Settings
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="isConsumable"
+                        checked={formData.isConsumable}
+                        onChange={handleFormChange}
+                        size="small"
+                        sx={{ '& .MuiSvgIcon-root': { fontSize: '1.1rem' } }}
+                      />
+                    }
+                    label="Is Consumable"
                     sx={{ fontSize: '0.8rem' }}
-                  >
-                    <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Location</MenuItem>
-                    {locations.map((loc) => (
-                      <MenuItem key={loc.id} value={loc.id} sx={{ fontSize: '0.8rem' }}>{loc.name}</MenuItem>
-                    ))}
-                  </Select>
-                  {formErrors.locationId && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5, fontSize: '0.7rem' }}>
-                      {formErrors.locationId}
-                    </Typography>
-                  )}
-                </FormControl>
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="isDriverIssuable"
+                        checked={formData.isDriverIssuable}
+                        onChange={handleFormChange}
+                        size="small"
+                        sx={{ '& .MuiSvgIcon-root': { fontSize: '1.1rem' } }}
+                      />
+                    }
+                    label="Driver Issuable"
+                    sx={{ fontSize: '0.8rem' }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="isVehicleIssuable"
+                        checked={formData.isVehicleIssuable}
+                        onChange={handleFormChange}
+                        size="small"
+                        sx={{ '& .MuiSvgIcon-root': { fontSize: '1.1rem' } }}
+                      />
+                    }
+                    label="Vehicle Issuable"
+                    sx={{ fontSize: '0.8rem' }}
+                  />
+                </Grid>
               </Grid>
+            </Paper>
 
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
-                  Issue Settings
-                </Typography>
-                <Divider sx={{ my: 1 }} />
+            {/* Status & Hold */}
+            <Paper sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: '12px', border: '1px solid #ECECEC' }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#4F46E5', mb: 1.5 }}>
+                <LockIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
+                Status & Hold
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="isActive"
+                        checked={formData.isActive}
+                        onChange={handleFormChange}
+                        size="small"
+                        sx={{ '& .MuiSvgIcon-root': { fontSize: '1.1rem' } }}
+                      />
+                    }
+                    label="Is Active"
+                    sx={{ fontSize: '0.8rem' }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="isHeld"
+                        checked={formData.isHeld}
+                        onChange={handleFormChange}
+                        size="small"
+                        sx={{ '& .MuiSvgIcon-root': { fontSize: '1.1rem' } }}
+                      />
+                    }
+                    label="On Hold"
+                    sx={{ fontSize: '0.8rem' }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Return By Date"
+                    name="returnByDate"
+                    type="date"
+                    value={formData.returnByDate}
+                    onChange={handleFormChange}
+                    fullWidth
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ 
+                      '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                      '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                    }}
+                  />
+                </Grid>
+                {formData.isHeld && (
+                  <>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Hold Code"
+                        name="holdCode"
+                        value={formData.holdCode}
+                        onChange={handleFormChange}
+                        fullWidth
+                        size="small"
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                          '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Hold Date"
+                        name="holdDate"
+                        type="date"
+                        value={formData.holdDate}
+                        onChange={handleFormChange}
+                        fullWidth
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                          '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Held By"
+                        name="heldBy"
+                        value={formData.heldBy}
+                        onChange={handleFormChange}
+                        fullWidth
+                        size="small"
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                          '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Hold Reason"
+                        name="holdReason"
+                        value={formData.holdReason}
+                        onChange={handleFormChange}
+                        fullWidth
+                        size="small"
+                        multiline
+                        rows={2}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                          '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                        }}
+                      />
+                    </Grid>
+                  </>
+                )}
               </Grid>
-              <Grid item xs={12} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="isConsumable"
-                      checked={formData.isConsumable}
-                      onChange={handleFormChange}
-                      size="small"
-                    />
-                  }
-                  label="Is Consumable"
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="isDriverIssuable"
-                      checked={formData.isDriverIssuable}
-                      onChange={handleFormChange}
-                      size="small"
-                    />
-                  }
-                  label="Driver Issuable"
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="isVehicleIssuable"
-                      checked={formData.isVehicleIssuable}
-                      onChange={handleFormChange}
-                      size="small"
-                    />
-                  }
-                  label="Vehicle Issuable"
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
+            </Paper>
 
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
-                  Status & Hold
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="isActive"
-                      checked={formData.isActive}
-                      onChange={handleFormChange}
-                      size="small"
-                    />
-                  }
-                  label="Is Active"
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="isHeld"
-                      checked={formData.isHeld}
-                      onChange={handleFormChange}
-                      size="small"
-                    />
-                  }
-                  label="On Hold"
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Return By Date"
-                  name="returnByDate"
-                  type="date"
-                  value={formData.returnByDate}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              {formData.isHeld && (
-                <>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Hold Code"
-                      name="holdCode"
-                      value={formData.holdCode}
-                      onChange={handleFormChange}
-                      fullWidth
-                      size="small"
-                      sx={{ fontSize: '0.8rem' }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Hold Date"
-                      name="holdDate"
-                      type="date"
-                      value={formData.holdDate}
-                      onChange={handleFormChange}
-                      fullWidth
-                      size="small"
-                      InputLabelProps={{ shrink: true }}
-                      sx={{ fontSize: '0.8rem' }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Held By"
-                      name="heldBy"
-                      value={formData.heldBy}
-                      onChange={handleFormChange}
-                      fullWidth
-                      size="small"
-                      sx={{ fontSize: '0.8rem' }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Hold Reason"
-                      name="holdReason"
-                      value={formData.holdReason}
-                      onChange={handleFormChange}
-                      fullWidth
-                      size="small"
-                      multiline
-                      rows={2}
-                      sx={{ fontSize: '0.8rem' }}
-                    />
-                  </Grid>
-                </>
-              )}
-
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
-                  Additional Information
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleFormChange}
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={3}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-            </Grid>
+            {/* Notes */}
+            <Paper sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: '12px', border: '1px solid #ECECEC' }}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#4F46E5', mb: 1.5 }}>
+                <DescriptionIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
+                Additional Information
+              </Typography>
+              <TextField
+                label="Notes"
+                name="notes"
+                value={formData.notes}
+                onChange={handleFormChange}
+                fullWidth
+                size="small"
+                multiline
+                rows={3}
+                placeholder="Add any additional notes about this item..."
+                sx={{ 
+                  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                  '& .MuiInputBase-root': { fontSize: '0.8rem' }
+                }}
+              />
+            </Paper>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+
+        <DialogActions sx={{ 
+          px: 2.5, 
+          py: 1.5, 
+          borderTop: 1, 
+          borderColor: 'divider',
+          bgcolor: '#F8FAFC',
+          justifyContent: 'space-between'
+        }}>
           <Button onClick={() => setShowAddDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
             Cancel
           </Button>
-          <Button variant="contained" size="small" onClick={handleSubmit} sx={{ fontSize: '0.8rem' }}>
+          <Button 
+            variant="contained" 
+            size="small" 
+            onClick={handleSubmit} 
+            sx={{ 
+              fontSize: '0.8rem',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+              }
+            }}
+            startIcon={<SaveIcon sx={{ fontSize: '0.9rem' }} />}
+          >
             {selectedItem ? 'Update Item' : 'Add Item'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* View Item Dialog */}
+      {/* View Item Dialog - UPDATED WITH SKU */}
       <Dialog open={showViewDialog} onClose={() => setShowViewDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Item Details</Typography>
+        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider', bgcolor: '#F8FAFC' }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+            Item Details - {selectedItem?.sku || 'No SKU'}
+          </Typography>
         </DialogTitle>
         <DialogContent sx={{ p: 2.5 }}>
           {selectedItem && (
             <Stack spacing={2}>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                {/* SKU */}
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                    <Barcode sx={{ fontSize: '0.8rem', verticalAlign: 'middle', mr: 0.5 }} />
+                    SKU
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500, color: '#4F46E5' }}>
+                    {selectedItem.sku || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Name</Typography>
                   <Typography variant="body1" sx={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedItem.name}</Typography>
                 </Grid>
@@ -2322,7 +2459,7 @@ const Inventory = () => {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider', bgcolor: '#F8FAFC' }}>
           <Button onClick={() => setShowViewDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
             Close
           </Button>
