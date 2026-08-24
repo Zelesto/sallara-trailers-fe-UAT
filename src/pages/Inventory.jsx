@@ -3490,6 +3490,7 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
     </Box>
+  </Box>
   );
 };
 
