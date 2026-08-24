@@ -378,7 +378,7 @@ const InventoryItemRow = ({
 };
 
 // ============================================================
-// VEHICLE ISSUE ROW - ENHANCED WITH DETAILS
+// VEHICLE ISSUE ROW - FIXED WITH NAMES
 // ============================================================
 const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, inventoryItems }) => {
   if (!issue) return null;
@@ -391,11 +391,13 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
     }
   };
 
+  // Find vehicle by ID
   const getVehicle = (vehicleId) => {
     if (!vehicleId) return null;
     return vehicles?.find(v => v.id === vehicleId);
   };
 
+  // Find driver by ID
   const getDriver = (driverId) => {
     if (!driverId) return null;
     return drivers?.find(d => d.id === driverId);
@@ -404,21 +406,27 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
   const vehicle = getVehicle(issue.vehicleId);
   const driver = getDriver(issue.driverId);
 
+  // Get display name for vehicle
   const getVehicleDisplay = (vehicle) => {
-    if (!vehicle) return `Vehicle #${issue.vehicleId}`;
-    return vehicle.registrationNumber || vehicle.regNumber || `Vehicle #${vehicle.id}`;
+    if (!vehicle) return 'Unknown Vehicle';
+    return vehicle.registrationNumber || vehicle.regNumber || 
+           `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 
+           `Vehicle #${vehicle.id}`;
   };
 
+  // Get display name for driver
   const getDriverDisplay = (driver) => {
-    if (!driver) return `Driver #${issue.driverId}`;
-    return driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`;
+    if (!driver) return 'Unknown Driver';
+    return driver.fullName || 
+           `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || 
+           `Driver #${driver.id}`;
   };
 
   // Get item details
   const firstItem = issue.items?.[0];
   const itemName = firstItem?.itemName || 
     inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 
-    'Unknown';
+    'Unknown Item';
 
   return (
     <TableRow hover>
@@ -433,7 +441,7 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <DirectionsCar sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-          <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+          <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 500 }}>
             {getVehicleDisplay(vehicle)}
           </Typography>
           {vehicle && vehicle.make && (
@@ -442,24 +450,14 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
             </Typography>
           )}
         </Stack>
-        {vehicle && vehicle.id && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-            Vehicle ID: {vehicle.id}
-          </Typography>
-        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <Person sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-          <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+          <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 500 }}>
             {getDriverDisplay(driver)}
           </Typography>
         </Stack>
-        {driver && driver.id && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-            Driver ID: {driver.id}
-          </Typography>
-        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
@@ -524,7 +522,7 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
 };
 
 // ============================================================
-// DRIVER ISSUE ROW - ENHANCED WITH DETAILS
+// DRIVER ISSUE ROW - FIXED WITH NAMES
 // ============================================================
 const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryItems }) => {
   if (!issue) return null;
@@ -537,6 +535,7 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
     }
   };
 
+  // Find driver by ID
   const getDriver = (driverId) => {
     if (!driverId) return null;
     return drivers?.find(d => d.id === driverId);
@@ -544,15 +543,18 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
 
   const driver = getDriver(issue.driverId);
 
+  // Get display name for driver
   const getDriverDisplay = (driver) => {
-    if (!driver) return `Driver #${issue.driverId}`;
-    return driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`;
+    if (!driver) return 'Unknown Driver';
+    return driver.fullName || 
+           `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || 
+           `Driver #${driver.id}`;
   };
 
   const firstItem = issue.items?.[0];
   const itemName = firstItem?.itemName || 
     inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 
-    'Unknown';
+    'Unknown Item';
 
   return (
     <TableRow hover>
@@ -567,15 +569,10 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <Person sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
-          <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
+          <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 500 }}>
             {getDriverDisplay(driver)}
           </Typography>
         </Stack>
-        {driver && driver.id && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
-            Driver ID: {driver.id}
-          </Typography>
-        )}
         {driver && driver.licenseNumber && (
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
             License: {driver.licenseNumber}
@@ -2467,102 +2464,106 @@ const Inventory = () => {
       </Dialog>
 
       {/* Issue Details Dialog */}
-      <Dialog open={showIssueDetailsDialog} onClose={() => setShowIssueDetailsDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-            Issue Details - {selectedIssue?.issueNumber || `Issue #${selectedIssue?.id}`}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ p: 2.5 }}>
-          {selectedIssue && (
-            <Stack spacing={2}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Number</Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.issueNumber || selectedIssue.id}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
-                  <Chip
-                    label={selectedIssue.status || 'ISSUED'}
-                    color={selectedIssue.status === 'RETURNED' ? 'success' : selectedIssue.status === 'PARTIALLY_RETURNED' ? 'warning' : 'info'}
-                    size="small"
-                    sx={{ height: 20, fontSize: '0.65rem' }}
-                  />
-                </Grid>
-                {selectedIssue.vehicleId && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Vehicle</Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                      {vehicles.find(v => v.id === selectedIssue.vehicleId)?.registrationNumber || `Vehicle #${selectedIssue.vehicleId}`}
-                    </Typography>
-                  </Grid>
-                )}
-                {selectedIssue.driverId && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Driver</Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                      {drivers.find(d => d.id === selectedIssue.driverId)?.fullName || `Driver #${selectedIssue.driverId}`}
-                    </Typography>
-                  </Grid>
-                )}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Items</Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Item</TableCell>
-                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Quantity</TableCell>
-                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Condition</TableCell>
-                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Returned</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedIssue.items?.map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
-                              {item.itemName || inventoryItems.find(i => i.id === item.itemId)?.name || `Item #${item.itemId}`}
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.quantityIssued || item.quantity || 0}</TableCell>
-                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.condition || 'N/A'}</TableCell>
-                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
-                              {item.returnedQuantity ? `${item.returnedQuantity} returned` : 'Not returned'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Date</Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                    {selectedIssue.issueDate ? new Date(selectedIssue.issueDate).toLocaleDateString() : 'N/A'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Expected Return</Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                    {selectedIssue.expectedReturnDate ? new Date(selectedIssue.expectedReturnDate).toLocaleDateString() : 'N/A'}
-                  </Typography>
-                </Grid>
-                {selectedIssue.notes && (
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.notes}</Typography>
-                  </Grid>
-                )}
-              </Grid>
-            </Stack>
+<Dialog open={showIssueDetailsDialog} onClose={() => setShowIssueDetailsDialog(false)} maxWidth="md" fullWidth>
+  <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+    <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+      Issue Details - {selectedIssue?.issueNumber || `Issue #${selectedIssue?.id}`}
+    </Typography>
+  </DialogTitle>
+  <DialogContent sx={{ p: 2.5 }}>
+    {selectedIssue && (
+      <Stack spacing={2}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Number</Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.issueNumber || selectedIssue.id}</Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
+            <Chip
+              label={selectedIssue.status || 'ISSUED'}
+              color={selectedIssue.status === 'RETURNED' ? 'success' : selectedIssue.status === 'PARTIALLY_RETURNED' ? 'warning' : 'info'}
+              size="small"
+              sx={{ height: 20, fontSize: '0.65rem' }}
+            />
+          </Grid>
+          {selectedIssue.vehicleId && (
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Vehicle</Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                {vehicles.find(v => v.id === selectedIssue.vehicleId)?.registrationNumber || 
+                 vehicles.find(v => v.id === selectedIssue.vehicleId)?.make || 
+                 `Vehicle #${selectedIssue.vehicleId}`}
+              </Typography>
+            </Grid>
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowIssueDetailsDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+          {selectedIssue.driverId && (
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Driver</Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                {drivers.find(d => d.id === selectedIssue.driverId)?.fullName || 
+                 drivers.find(d => d.id === selectedIssue.driverId)?.firstName || 
+                 `Driver #${selectedIssue.driverId}`}
+              </Typography>
+            </Grid>
+          )}
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Items</Typography>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Item</TableCell>
+                    <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Quantity</TableCell>
+                    <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Condition</TableCell>
+                    <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Returned</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {selectedIssue.items?.map((item, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                        {item.itemName || inventoryItems.find(i => i.id === item.itemId)?.name || `Item #${item.itemId}`}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.quantityIssued || item.quantity || 0}</TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.condition || 'N/A'}</TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                        {item.returnedQuantity ? `${item.returnedQuantity} returned` : 'Not returned'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Date</Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+              {selectedIssue.issueDate ? new Date(selectedIssue.issueDate).toLocaleDateString() : 'N/A'}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Expected Return</Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+              {selectedIssue.expectedReturnDate ? new Date(selectedIssue.expectedReturnDate).toLocaleDateString() : 'N/A'}
+            </Typography>
+          </Grid>
+          {selectedIssue.notes && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.notes}</Typography>
+            </Grid>
+          )}
+        </Grid>
+      </Stack>
+    )}
+  </DialogContent>
+  <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+    <Button onClick={() => setShowIssueDetailsDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+      Close
+    </Button>
+  </DialogActions>
+</Dialog>
 
       {/* Vehicle Issue Dialog */}
       <Dialog open={showIssueDialog} onClose={() => setShowIssueDialog(false)} maxWidth="sm" fullWidth>
