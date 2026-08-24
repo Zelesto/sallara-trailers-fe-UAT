@@ -54,11 +54,15 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { token } = await login(credentials);
-      if (!token) {
-        throw new Error('No token returned from backend');
+      const result = await login(credentials);
+      
+      if (result.success) {
+        // Login successful - navigate to dashboard
+        navigate(from, { replace: true });
+      } else {
+        // Login failed - show error
+        setError(result.error || 'Login failed');
       }
-      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
