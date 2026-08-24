@@ -61,6 +61,7 @@ import {
   Category,
   Scale,
   Straighten,
+  Packaging,
 } from '@mui/icons-material';
 import { loadService } from '../../services/loadService';
 
@@ -70,105 +71,39 @@ import {
   COMMODITY_OPTIONS,
   getDisplayName,
   getColor,
+  getColorBg,
+  formatCurrency,
+  formatNumber,
+  formatDateTime,
+  formatDate,
 } from '../../constants';
 
 // ============================================================
-// UTILITY FUNCTIONS
+// COMPONENT: StatusChip (matching Dashboard)
 // ============================================================
-
-
-const getColorBg = (color) => {
-  const colors = {
-    primary: '#EEF2FF',
-    success: '#D1FAE5',
-    warning: '#FEF3C7',
-    error: '#FEE2E2',
-    info: '#DBEAFE',
-    secondary: '#F3F4F6',
-    purple: '#EDE9FE',
-    pink: '#FCE7F3',
-    teal: '#CCFBF1',
-    indigo: '#E0E7FF',
-  };
-  return colors[color] || colors.primary;
+const StatusChip = ({ status }) => {
+  const config = LOAD_STATUSES?.find(s => s.code === status);
+  
+  return (
+    <Chip
+      label={config?.displayName || status || 'Unknown'}
+      size="small"
+      sx={{
+        backgroundColor: config?.color ? `${config.color}20` : '#F3F4F6',
+        color: config?.color || '#6B7280',
+        fontWeight: 600,
+        fontSize: { xs: '0.5rem', sm: '0.6rem' },
+        height: { xs: 18, sm: 22 },
+        border: `1px solid ${config?.color || '#6B7280'}20`,
+        '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
+      }}
+    />
+  );
 };
-
-const formatCurrency = (amount) => {
-  if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numAmount);
-};
-
-const formatNumber = (num, decimals = 0) => {
-  if (num === null || num === undefined || isNaN(num)) return '0';
-  const number = typeof num === 'string' ? parseFloat(num) : num;
-  return new Intl.NumberFormat('en-ZA', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(number);
-};
-
-const formatDateTime = (date) => {
-  if (!date) return 'N/A';
-  try {
-    return new Date(date).toLocaleString('en-ZA', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return 'N/A';
-  }
-};
-
-const formatDate = (date) => {
-  if (!date) return 'N/A';
-  try {
-    return new Date(date).toLocaleDateString('en-ZA', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return 'N/A';
-  }
-};
-
-// ============================================================
-// COMPONENT: StatusChip
-// ============================================================
-
-    const StatusChip = ({ status }) => {
-      const config = LOAD_STATUSES.find(s => s.code === status);
-      
-      return (
-        <Chip
-          label={config?.displayName || status || 'Unknown'}
-          size="small"
-          sx={{
-            backgroundColor: config?.color ? `${config.color}20` : '#F3F4F6',
-            color: config?.color || '#6B7280',
-            fontWeight: 600,
-            fontSize: { xs: '0.5rem', sm: '0.6rem' },
-            height: { xs: 18, sm: 22 },
-            border: `1px solid ${config?.color || '#6B7280'}20`,
-            '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
-          }}
-        />
-      );
-    };
 
 // ============================================================
 // COMPONENT: InfoItem
 // ============================================================
-
 const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false, subValue = null }) => {
   const iconColor = getColor(color);
   const bgColor = getColorBg(color);
@@ -215,9 +150,8 @@ const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false,
 };
 
 // ============================================================
-// COMPONENT: StatCard
+// COMPONENT: StatCard (matching Dashboard)
 // ============================================================
-
 const StatCard = React.memo(({
   title,
   value,
@@ -233,19 +167,19 @@ const StatCard = React.memo(({
     <Card
       sx={{
         bgcolor: '#FFFFFF',
-        borderRadius: { xs: '10px', sm: '12px' },
+        borderRadius: { xs: '12px', sm: '14px', md: '16px' },
         border: '1px solid #ECECEC',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         height: '100%',
         width: '100%',
         '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
           borderColor: iconColor,
         },
       }}
     >
-      <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
@@ -254,7 +188,7 @@ const StatCard = React.memo(({
                 color: '#6B7280',
                 fontWeight: 600,
                 textTransform: 'uppercase',
-                fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
                 letterSpacing: '0.5px',
                 display: 'block',
                 mb: 0.25,
@@ -268,7 +202,7 @@ const StatCard = React.memo(({
               sx={{
                 fontWeight: 700,
                 color: '#111827',
-                fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' },
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
                 lineHeight: 1.2,
               }}
             >
@@ -282,7 +216,7 @@ const StatCard = React.memo(({
                   color: '#6B7280',
                   display: 'block',
                   mt: 0.25,
-                  fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
                 }}
               >
                 {subtitle}
@@ -293,17 +227,21 @@ const StatCard = React.memo(({
           <Box
             sx={{
               bgcolor: bgColor,
-              borderRadius: { xs: '8px', sm: '10px' },
-              p: { xs: 0.75, sm: 1 },
+              borderRadius: { xs: '10px', sm: '12px', md: '14px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)',
+              },
             }}
           >
             <SafeIcon sx={{ 
               color: iconColor, 
-              fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' },
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
             }} />
           </Box>
         </Stack>
@@ -315,7 +253,6 @@ const StatCard = React.memo(({
 // ============================================================
 // COMPONENT: SectionHeader
 // ============================================================
-
 const SectionHeader = ({ title, icon: Icon, subtitle }) => (
   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
     {Icon && <Icon sx={{ fontSize: '1.2rem', color: '#4F46E5' }} />}
@@ -335,7 +272,6 @@ const SectionHeader = ({ title, icon: Icon, subtitle }) => (
 // ============================================================
 // COMPONENT: TripTimelineItem
 // ============================================================
-
 const TripTimelineItem = ({ trip, index }) => {
   const totalDistance = (trip.fromDepotKm || 0) + (trip.toDepotKm || 0) + (trip.totalDistance || 0);
   
@@ -354,8 +290,8 @@ const TripTimelineItem = ({ trip, index }) => {
         },
       }}
     >
-      <Grid container spacing={1.5} alignItems="center">
-        <Grid item xs={12} sm={3}>
+      <Grid container spacing={{ xs: 1, sm: 1.5 }} alignItems="center">
+        <Grid size={{ xs: 12, sm: 3 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Avatar
               sx={{
@@ -379,7 +315,7 @@ const TripTimelineItem = ({ trip, index }) => {
           </Stack>
         </Grid>
 
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <LocationOn sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
             <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
@@ -394,7 +330,7 @@ const TripTimelineItem = ({ trip, index }) => {
           </Stack>
         </Grid>
 
-        <Grid item xs={6} sm={2}>
+        <Grid size={{ xs: 6, sm: 2 }}>
           <InfoItem
             label="Pickup"
             value={trip.fromDepotKm ? `${trip.fromDepotKm} km` : '0 km'}
@@ -403,7 +339,7 @@ const TripTimelineItem = ({ trip, index }) => {
           />
         </Grid>
 
-        <Grid item xs={6} sm={2}>
+        <Grid size={{ xs: 6, sm: 2 }}>
           <InfoItem
             label="Route"
             value={trip.totalDistance ? `${trip.totalDistance} km` : '0 km'}
@@ -412,7 +348,7 @@ const TripTimelineItem = ({ trip, index }) => {
           />
         </Grid>
 
-        <Grid item xs={6} sm={2}>
+        <Grid size={{ xs: 6, sm: 2 }}>
           <InfoItem
             label="Total"
             value={`${totalDistance} km`}
@@ -454,9 +390,31 @@ const TripTimelineItem = ({ trip, index }) => {
 };
 
 // ============================================================
+// COMPONENT: DistanceBreakdownCard
+// ============================================================
+const DistanceBreakdownCard = ({ title, value, icon: Icon, color, bgColor }) => (
+  <Card sx={{ 
+    borderRadius: { xs: '12px', sm: '14px' },
+    border: '1px solid #ECECEC',
+    bgcolor: bgColor,
+    height: '100%',
+    width: '100%',
+  }}>
+    <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+      <Icon sx={{ fontSize: '1.2rem', color: color, mb: 0.5 }} />
+      <Typography variant="caption" sx={{ fontSize: '0.6rem', color: color, display: 'block' }}>
+        {title}
+      </Typography>
+      <Typography variant="h6" fontWeight="700" sx={{ fontSize: '1rem', color: color }}>
+        {value} km
+      </Typography>
+    </CardContent>
+  </Card>
+);
+
+// ============================================================
 // MAIN COMPONENT: LoadDetails
 // ============================================================
-
 const LoadDetails = () => {
   const { loadNumber } = useParams();
   const navigate = useNavigate();
@@ -526,7 +484,7 @@ const LoadDetails = () => {
 
   if (error) {
     return (
-      <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: 2 }}>
+      <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 } }}>
         <Alert severity="error" sx={{ borderRadius: '12px', fontSize: '0.8rem' }}>
           {error}
         </Alert>
@@ -534,7 +492,7 @@ const LoadDetails = () => {
           variant="contained"
           size="small"
           onClick={() => navigate('/loads')}
-          sx={{ mt: 2, fontSize: '0.8rem', borderRadius: '10px' }}
+          sx={{ mt: 2, fontSize: '0.8rem', borderRadius: '10px', textTransform: 'none' }}
         >
           Back to Loads
         </Button>
@@ -544,7 +502,7 @@ const LoadDetails = () => {
 
   if (!load) {
     return (
-      <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: 2 }}>
+      <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 } }}>
         <Alert severity="warning" sx={{ borderRadius: '12px', fontSize: '0.8rem' }}>
           Load not found
         </Alert>
@@ -552,7 +510,7 @@ const LoadDetails = () => {
           variant="contained"
           size="small"
           onClick={() => navigate('/loads')}
-          sx={{ mt: 2, fontSize: '0.8rem', borderRadius: '10px' }}
+          sx={{ mt: 2, fontSize: '0.8rem', borderRadius: '10px', textTransform: 'none' }}
         >
           Back to Loads
         </Button>
@@ -566,9 +524,9 @@ const LoadDetails = () => {
       minHeight: '100vh',
       p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
     }}>
-      <Box sx={{ maxWidth: '1600px', margin: '0 auto' }}>
+      <Box sx={{ maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
         
-        {/* Header */}
+        {/* Header - matching Dashboard */}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
@@ -586,6 +544,7 @@ const LoadDetails = () => {
                 fontSize: { xs: '0.7rem', sm: '0.75rem' }, 
                 color: '#6B7280',
                 textTransform: 'none',
+                '&:hover': { bgcolor: 'transparent', color: '#4F46E5' },
               }}
             >
               Back to Loads
@@ -594,7 +553,7 @@ const LoadDetails = () => {
               variant="h5" 
               fontWeight="700" 
               sx={{ 
-                fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.4rem' } 
+                fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.4rem', lg: '1.5rem' } 
               }}
             >
               {load.loadNumber}
@@ -602,7 +561,7 @@ const LoadDetails = () => {
             <Typography 
               variant="body2" 
               color="text.secondary" 
-              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.85rem' } }}
             >
               {load.description || 'No description'} • {load.trips?.length || 0} trips
             </Typography>
@@ -615,8 +574,10 @@ const LoadDetails = () => {
               size="small"
               sx={{
                 borderRadius: '10px',
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
                 textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
               }}
             >
               Refresh
@@ -628,8 +589,10 @@ const LoadDetails = () => {
               size="small"
               sx={{
                 borderRadius: '10px',
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
                 textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
               }}
             >
               Edit
@@ -641,8 +604,10 @@ const LoadDetails = () => {
               size="small"
               sx={{
                 borderRadius: '10px',
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
                 textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
                 bgcolor: '#EF4444',
                 '&:hover': { bgcolor: '#DC2626' },
               }}
@@ -652,12 +617,12 @@ const LoadDetails = () => {
           </Stack>
         </Stack>
 
-        {/* Status Banner */}
+        {/* Status Banner - matching Dashboard */}
         <Paper
           elevation={0}
           sx={{
             p: { xs: 1.5, sm: 2 },
-            mb: 3,
+            mb: { xs: 2, sm: 2.5, md: 3 },
             borderRadius: { xs: '12px', sm: '16px' },
             border: '1px solid #ECECEC',
             bgcolor: '#FFFFFF',
@@ -666,9 +631,10 @@ const LoadDetails = () => {
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: 1,
+            width: '100%',
           }}
         >
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
             <StatusChip status={load.status} />
             {load.priority && load.priority !== 'NORMAL' && (
               <Chip
@@ -682,12 +648,14 @@ const LoadDetails = () => {
                            load.priority === 'HIGH' ? '#FEF3C7' : '#F3F4F6',
                   color: load.priority === 'URGENT' ? '#991B1B' :
                          load.priority === 'HIGH' ? '#92400E' : '#6B7280',
+                  border: `1px solid ${load.priority === 'URGENT' ? '#FECACA' : 
+                          load.priority === 'HIGH' ? '#FDE68A' : '#E5E7EB'}`,
                 }}
               />
             )}
             {load.hazardousMaterial && (
               <Chip
-                label="Hazardous"
+                label="⚠ Hazardous"
                 size="small"
                 sx={{
                   fontWeight: 600,
@@ -695,6 +663,7 @@ const LoadDetails = () => {
                   height: { xs: 18, sm: 22 },
                   bgcolor: '#FEE2E2',
                   color: '#991B1B',
+                  border: '1px solid #FECACA',
                 }}
               />
             )}
@@ -708,18 +677,27 @@ const LoadDetails = () => {
                   height: { xs: 18, sm: 22 },
                   bgcolor: '#F3F4F6',
                   color: '#6B7280',
+                  border: '1px solid #E5E7EB',
                 }}
               />
             )}
           </Stack>
-          <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#6B7280' }}>
+          <Typography variant="caption" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, color: '#6B7280' }}>
             Updated: {formatDateTime(load.lastStatusUpdate || load.updatedAt)}
           </Typography>
         </Paper>
 
-        {/* Stats Cards */}
-        <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={3}>
+        {/* Stats Cards - matching Dashboard */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+          sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            width: '100%',
+            margin: 0,
+          }}
+        >
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Total Trips"
               value={load.trips?.length || 0}
@@ -727,7 +705,7 @@ const LoadDetails = () => {
               color="primary"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Completed"
               value={load.completedTrips || 0}
@@ -736,7 +714,7 @@ const LoadDetails = () => {
               subtitle={`${load.trips?.length > 0 ? Math.round((load.completedTrips || 0) / load.trips.length * 100) : 0}% complete`}
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Incidents"
               value={load.incidentsLogged || 0}
@@ -744,7 +722,7 @@ const LoadDetails = () => {
               color="error"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Total Distance"
               value={`${overallTotal} km`}
@@ -754,104 +732,95 @@ const LoadDetails = () => {
           </Grid>
         </Grid>
 
-        {/* Distance Breakdown Cards */}
-        <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
-          <Grid item xs={4}>
-            <Card sx={{ 
-              borderRadius: { xs: '10px', sm: '12px' },
-              border: '1px solid #ECECEC',
-              bgcolor: '#DBEAFE',
-            }}>
-              <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                <Home sx={{ fontSize: '1.2rem', color: '#1E40AF', mb: 0.5 }} />
-                <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#1E40AF', display: 'block' }}>
-                  From Depot
-                </Typography>
-                <Typography variant="h6" fontWeight="700" sx={{ fontSize: '1rem', color: '#1E40AF' }}>
-                  {totalFromDepot} km
-                </Typography>
-              </CardContent>
-            </Card>
+        {/* Distance Breakdown Cards - matching Dashboard */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2 }}
+          sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            width: '100%',
+            margin: 0,
+          }}
+        >
+          <Grid size={{ xs: 4 }} sx={{ display: 'flex' }}>
+            <DistanceBreakdownCard
+              title="From Depot"
+              value={totalFromDepot}
+              icon={Home}
+              color="#1E40AF"
+              bgColor="#DBEAFE"
+            />
           </Grid>
-          <Grid item xs={4}>
-            <Card sx={{ 
-              borderRadius: { xs: '10px', sm: '12px' },
-              border: '1px solid #ECECEC',
-              bgcolor: '#FEF3C7',
-            }}>
-              <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                <RouteIcon sx={{ fontSize: '1.2rem', color: '#92400E', mb: 0.5 }} />
-                <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#92400E', display: 'block' }}>
-                  Route Distance
-                </Typography>
-                <Typography variant="h6" fontWeight="700" sx={{ fontSize: '1rem', color: '#92400E' }}>
-                  {totalRoute} km
-                </Typography>
-              </CardContent>
-            </Card>
+          <Grid size={{ xs: 4 }} sx={{ display: 'flex' }}>
+            <DistanceBreakdownCard
+              title="Route Distance"
+              value={totalRoute}
+              icon={RouteIcon}
+              color="#92400E"
+              bgColor="#FEF3C7"
+            />
           </Grid>
-          <Grid item xs={4}>
-            <Card sx={{ 
-              borderRadius: { xs: '10px', sm: '12px' },
-              border: '1px solid #ECECEC',
-              bgcolor: '#D1FAE5',
-            }}>
-              <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                <Map sx={{ fontSize: '1.2rem', color: '#065F46', mb: 0.5 }} />
-                <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#065F46', display: 'block' }}>
-                  Total Distance
-                </Typography>
-                <Typography variant="h6" fontWeight="700" sx={{ fontSize: '1rem', color: '#065F46' }}>
-                  {overallTotal} km
-                </Typography>
-              </CardContent>
-            </Card>
+          <Grid size={{ xs: 4 }} sx={{ display: 'flex' }}>
+            <DistanceBreakdownCard
+              title="Total Distance"
+              value={overallTotal}
+              icon={Map}
+              color="#065F46"
+              bgColor="#D1FAE5"
+            />
           </Grid>
         </Grid>
 
-        {/* Main Content Grid */}
-        <Grid container spacing={2}>
+        {/* Main Content Grid - MUI v2 Grid */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+          sx={{ 
+            width: '100%',
+            margin: 0,
+          }}
+        >
           {/* Left Column */}
-          <Grid item xs={12} lg={8}>
+          <Grid size={{ xs: 12, lg: 8 }} sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
             {/* Load Information */}
             <Paper
               elevation={0}
               sx={{
-                p: { xs: 2, sm: 2.5 },
-                mb: 2,
+                p: { xs: 1.5, sm: 2, md: 2.5 },
                 borderRadius: { xs: '12px', sm: '16px' },
                 border: '1px solid #ECECEC',
                 bgcolor: '#FFFFFF',
+                width: '100%',
               }}
             >
               <SectionHeader title="Load Information" icon={LocalShipping} />
-              <Grid container spacing={1}>
-                <Grid item xs={12} sm={6}>
+              <Grid container spacing={{ xs: 0.5, sm: 1 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <InfoItem label="Load Number" value={load.loadNumber} icon={LocalShipping} color="primary" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <InfoItem label="Reference Number" value={load.referenceNumber} icon={Bookmark} color="secondary" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <InfoItem label="Customer" value={load.customerName || load.customerId || 'N/A'} icon={Business} color="info" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <InfoItem label="Status" value={<StatusChip status={load.status} />} icon={Flag} color="warning" isChip />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <InfoItem label="Priority" value={load.priority || 'NORMAL'} icon={Flag} color="warning" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <InfoItem label="Commodity Type" value={load.commodityType} icon={Category} color="purple" />
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <InfoItem label="Commodity Type" value={load.commodityType || 'N/A'} icon={Category} color="purple" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <InfoItem label="Container Number" value={load.containerNumber} icon={LocalShipping} color="primary" />
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <InfoItem label="Container Number" value={load.containerNumber || 'N/A'} icon={LocalShipping} color="primary" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <InfoItem label="Pallet Count" value={load.palletCount} icon={Straighten} color="info" />
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <InfoItem label="Pallet Count" value={load.palletCount || 'N/A'} icon={Straighten} color="info" />
                 </Grid>
-                <Grid item xs={12}>
-                  <InfoItem label="Description" value={load.description} icon={Description} color="secondary" />
+                <Grid size={{ xs: 12 }}>
+                  <InfoItem label="Description" value={load.description || 'N/A'} icon={Description} color="secondary" />
                 </Grid>
               </Grid>
             </Paper>
@@ -860,20 +829,20 @@ const LoadDetails = () => {
             <Paper
               elevation={0}
               sx={{
-                p: { xs: 2, sm: 2.5 },
-                mb: 2,
+                p: { xs: 1.5, sm: 2, md: 2.5 },
                 borderRadius: { xs: '12px', sm: '16px' },
                 border: '1px solid #ECECEC',
                 bgcolor: '#FFFFFF',
+                width: '100%',
               }}
             >
               <SectionHeader title="Depot Distance Tracking" icon={Home} subtitle="Distances from/to depot across all trips" />
               
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <Card sx={{ bgcolor: '#DBEAFE', borderRadius: '10px' }}>
+              <Grid container spacing={{ xs: 1, sm: 1.5 }}>
+                <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+                  <Card sx={{ bgcolor: '#DBEAFE', borderRadius: '12px', width: '100%' }}>
                     <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                      <Typography variant="caption" sx={{ fontSize: '0.55rem', color: '#1E40AF' }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.55rem', color: '#1E40AF', display: 'block' }}>
                         From Depot (Pickup)
                       </Typography>
                       <Typography variant="h6" fontWeight="700" sx={{ fontSize: '0.9rem', color: '#1E40AF' }}>
@@ -885,10 +854,10 @@ const LoadDetails = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Card sx={{ bgcolor: '#FEF3C7', borderRadius: '10px' }}>
+                <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+                  <Card sx={{ bgcolor: '#FEF3C7', borderRadius: '12px', width: '100%' }}>
                     <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                      <Typography variant="caption" sx={{ fontSize: '0.55rem', color: '#92400E' }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.55rem', color: '#92400E', display: 'block' }}>
                         To Depot (Drop-off)
                       </Typography>
                       <Typography variant="h6" fontWeight="700" sx={{ fontSize: '0.9rem', color: '#92400E' }}>
@@ -900,10 +869,10 @@ const LoadDetails = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Card sx={{ bgcolor: '#D1FAE5', borderRadius: '10px' }}>
+                <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+                  <Card sx={{ bgcolor: '#D1FAE5', borderRadius: '12px', width: '100%' }}>
                     <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                      <Typography variant="caption" sx={{ fontSize: '0.55rem', color: '#065F46' }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.55rem', color: '#065F46', display: 'block' }}>
                         Total Depot KM
                       </Typography>
                       <Typography variant="h6" fontWeight="700" sx={{ fontSize: '0.9rem', color: '#065F46' }}>
@@ -922,10 +891,11 @@ const LoadDetails = () => {
             <Paper
               elevation={0}
               sx={{
-                p: { xs: 2, sm: 2.5 },
+                p: { xs: 1.5, sm: 2, md: 2.5 },
                 borderRadius: { xs: '12px', sm: '16px' },
                 border: '1px solid #ECECEC',
                 bgcolor: '#FFFFFF',
+                width: '100%',
               }}
             >
               <SectionHeader title="Trip Timeline" icon={RouteIcon} subtitle={`${load.trips?.length || 0} trips in this load`} />
@@ -934,9 +904,9 @@ const LoadDetails = () => {
                   <TripTimelineItem key={trip.id || index} trip={trip} index={index} />
                 ))
               ) : (
-                <Box sx={{ textAlign: 'center', py: 3 }}>
-                  <RouteIcon sx={{ fontSize: 40, color: '#D1D5DB', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <RouteIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
                     No trips associated with this load
                   </Typography>
                 </Box>
@@ -945,16 +915,16 @@ const LoadDetails = () => {
           </Grid>
 
           {/* Right Column */}
-          <Grid item xs={12} lg={4}>
+          <Grid size={{ xs: 12, lg: 4 }} sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
             {/* Measurements */}
             <Paper
               elevation={0}
               sx={{
-                p: { xs: 2, sm: 2.5 },
-                mb: 2,
+                p: { xs: 1.5, sm: 2, md: 2.5 },
                 borderRadius: { xs: '12px', sm: '16px' },
                 border: '1px solid #ECECEC',
                 bgcolor: '#FFFFFF',
+                width: '100%',
               }}
             >
               <SectionHeader title="Measurements & Values" icon={Scale} />
@@ -969,11 +939,11 @@ const LoadDetails = () => {
             <Paper
               elevation={0}
               sx={{
-                p: { xs: 2, sm: 2.5 },
-                mb: 2,
+                p: { xs: 1.5, sm: 2, md: 2.5 },
                 borderRadius: { xs: '12px', sm: '16px' },
                 border: '1px solid #ECECEC',
                 bgcolor: '#FFFFFF',
+                width: '100%',
               }}
             >
               <SectionHeader title="Dates" icon={CalendarToday} />
@@ -989,11 +959,11 @@ const LoadDetails = () => {
               <Paper
                 elevation={0}
                 sx={{
-                  p: { xs: 2, sm: 2.5 },
-                  mb: 2,
+                  p: { xs: 1.5, sm: 2, md: 2.5 },
                   borderRadius: { xs: '12px', sm: '16px' },
                   border: '1px solid #ECECEC',
                   bgcolor: '#FFFFFF',
+                  width: '100%',
                 }}
               >
                 <SectionHeader title="Special Handling" icon={Warning} />
@@ -1010,11 +980,11 @@ const LoadDetails = () => {
               <Paper
                 elevation={0}
                 sx={{
-                  p: { xs: 2, sm: 2.5 },
-                  mb: 2,
+                  p: { xs: 1.5, sm: 2, md: 2.5 },
                   borderRadius: { xs: '12px', sm: '16px' },
                   border: '1px solid #ECECEC',
                   bgcolor: '#FFFFFF',
+                  width: '100%',
                 }}
               >
                 <SectionHeader title="Insurance & Customs" icon={Security} />
@@ -1029,10 +999,11 @@ const LoadDetails = () => {
               <Paper
                 elevation={0}
                 sx={{
-                  p: { xs: 2, sm: 2.5 },
+                  p: { xs: 1.5, sm: 2, md: 2.5 },
                   borderRadius: { xs: '12px', sm: '16px' },
                   border: '1px solid #ECECEC',
                   bgcolor: '#FFFFFF',
+                  width: '100%',
                 }}
               >
                 <SectionHeader title="Facilities & Personnel" icon={Store} />
@@ -1046,10 +1017,11 @@ const LoadDetails = () => {
               <Paper
                 elevation={0}
                 sx={{
-                  p: { xs: 2, sm: 2.5 },
+                  p: { xs: 1.5, sm: 2, md: 2.5 },
                   borderRadius: { xs: '12px', sm: '16px' },
                   border: '1px solid #ECECEC',
                   bgcolor: '#FFFFFF',
+                  width: '100%',
                 }}
               >
                 <SectionHeader title="Audit Trail" icon={Info} />
