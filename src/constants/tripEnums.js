@@ -18,7 +18,8 @@ export const TRIP_TYPES = [
   { id: 37, code: 'EMPTY', displayName: 'Empty', description: 'Empty trip (no cargo)', sortOrder: 3, isDefault: false, color: '#9E9E9E' },
   { id: 38, code: 'MAINTENANCE', displayName: 'Maintenance', description: 'Maintenance trip', sortOrder: 4, isDefault: false, color: '#F44336' },
   { id: 39, code: 'DEDICATED', displayName: 'Dedicated', description: 'Dedicated customer trip', sortOrder: 5, isDefault: false, color: '#9C27B0' },
-  { id: 40, code: 'EXPRESS', displayName: 'Express', description: 'Express/urgent delivery', sortOrder: 6, isDefault: false, color: '#E91E63' },
+  { id: 40, code: 'PROJECT', displayName: 'Project', description: 'Site/Trip Projects', sortOrder: 6, isDefault: false, color: '#E91E1E' },
+  { id: 40, code: 'EXPRESS', displayName: 'Express', description: 'Express/urgent delivery', sortOrder: 7, isDefault: false, color: '#E91E63' },
   { id: 41, code: 'CONSOLIDATED', displayName: 'Consolidated', description: 'Consolidated shipment', sortOrder: 7, isDefault: false, color: '#00BCD4' },
 ];
 
