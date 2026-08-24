@@ -75,6 +75,9 @@ import {
   Adjust as AdjustIcon,
   CompareArrows as CompareArrowsIcon,
   Undo as UndoIcon,
+  People,
+  CarRental,
+  Inventory2,
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -85,7 +88,17 @@ import { inventoryMovementService } from '../services/inventoryMovementService';
 
 // Compact Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
-  <Card sx={{ height: '100%', position: 'relative' }}>
+  <Card sx={{ 
+    height: '100%', 
+    position: 'relative',
+    borderRadius: '12px',
+    border: '1px solid #ECECEC',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+    },
+  }}>
     <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
       <Stack direction="row" alignItems="center" spacing={1.5}>
         <Box
@@ -133,7 +146,9 @@ const TabPanel = ({ children, value, index, ...other }) => (
   </div>
 );
 
-// Inventory Item Component - FIXED
+// ============================================================
+// INVENTORY ITEM ROW - UPDATED WITH FLAGS
+// ============================================================
 const InventoryItemRow = ({
   item,
   onView,
@@ -157,6 +172,23 @@ const InventoryItemRow = ({
   const statusConfig = getStatusConfig(item.quantity, item.minLevel);
   const location = locations?.find(l => l.id === item.locationId);
   const isConsumable = item.isConsumable !== false;
+  const isDriverIssuable = item.isDriverIssuable !== false;
+  const isVehicleIssuable = item.isVehicleIssuable !== false;
+  const isHeld = item.isHeld || false;
+
+  // Determine issueable type
+  let issueType = 'N/A';
+  let issueTypeColor = 'default';
+  if (isDriverIssuable && isVehicleIssuable) {
+    issueType = 'Both';
+    issueTypeColor = 'success';
+  } else if (isDriverIssuable) {
+    issueType = 'Driver Only';
+    issueTypeColor = 'info';
+  } else if (isVehicleIssuable) {
+    issueType = 'Vehicle Only';
+    issueTypeColor = 'warning';
+  }
 
   return (
     <TableRow hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
@@ -197,6 +229,35 @@ const InventoryItemRow = ({
         </Typography>
       </TableCell>
 
+      {/* Flags - Consumable, Driver Issuable, Vehicle Issuable */}
+      <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+        <Stack spacing={0.25}>
+          {isConsumable ? (
+            <Chip
+              label="Consumable"
+              size="small"
+              color="primary"
+              variant="outlined"
+              sx={{ height: 16, fontSize: '0.5rem' }}
+            />
+          ) : (
+            <Chip
+              label="Non-Consumable"
+              size="small"
+              color="secondary"
+              variant="outlined"
+              sx={{ height: 16, fontSize: '0.5rem' }}
+            />
+          )}
+          <Chip
+            label={issueType}
+            size="small"
+            color={issueTypeColor}
+            sx={{ height: 16, fontSize: '0.5rem' }}
+          />
+        </Stack>
+      </TableCell>
+
       {/* Min Level */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -234,7 +295,7 @@ const InventoryItemRow = ({
             icon={statusConfig.icon}
             sx={{ height: 18, fontSize: '0.55rem' }}
           />
-          {item.isHeld && (
+          {isHeld && (
             <Chip
               label="On Hold"
               size="small"
@@ -246,7 +307,7 @@ const InventoryItemRow = ({
         </Stack>
       </TableCell>
 
-      {/* Actions - FIXED: Properly separated TableCell */}
+      {/* Actions */}
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
           {/* View Details */}
@@ -263,15 +324,15 @@ const InventoryItemRow = ({
             </IconButton>
           </Tooltip>
 
-          {/* STOCK MOVEMENT - CompareArrows Icon */}
+          {/* Stock Movement */}
           <Tooltip title="Stock Movement (Add/Remove/Adjust)">
             <IconButton size="small" color="info" onClick={() => onMovement(item)} sx={{ p: 0.5 }}>
               <CompareArrowsIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
 
-          {/* Issue to Vehicle */}
-          {isConsumable && !item.isHeld && item.isActive && item.isVehicleIssuable !== false && (
+          {/* Issue to Vehicle - only if vehicle issuable */}
+          {isConsumable && !isHeld && item.isActive && isVehicleIssuable && (
             <Tooltip title="Issue to Vehicle">
               <IconButton size="small" color="warning" onClick={() => onIssue(item)} sx={{ p: 0.5 }}>
                 <DirectionsCar sx={{ fontSize: '0.9rem' }} />
@@ -279,8 +340,8 @@ const InventoryItemRow = ({
             </Tooltip>
           )}
 
-          {/* Issue to Driver */}
-          {isConsumable && !item.isHeld && item.isActive && item.isDriverIssuable !== false && (
+          {/* Issue to Driver - only if driver issuable */}
+          {isConsumable && !isHeld && item.isActive && isDriverIssuable && (
             <Tooltip title="Issue to Driver">
               <IconButton size="small" color="info" onClick={() => onIssueToDriver(item)} sx={{ p: 0.5 }}>
                 <Person sx={{ fontSize: '0.9rem' }} />
@@ -288,8 +349,8 @@ const InventoryItemRow = ({
             </Tooltip>
           )}
 
-          {/* RECEIVE RETURN - Undo Icon */}
-          {isConsumable && !item.isHeld && item.isActive && (
+          {/* Receive Return */}
+          {isConsumable && !isHeld && item.isActive && (
             <Tooltip title="Receive Return">
               <IconButton size="small" color="success" onClick={() => onReceive(item)} sx={{ p: 0.5 }}>
                 <UndoIcon sx={{ fontSize: '0.9rem' }} />
@@ -309,8 +370,10 @@ const InventoryItemRow = ({
   );
 };
 
-// Vehicle Issue Row Component
-const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers }) => {
+// ============================================================
+// VEHICLE ISSUE ROW - ENHANCED WITH DETAILS
+// ============================================================
+const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, inventoryItems }) => {
   if (!issue) return null;
 
   const getStatusColor = (status) => {
@@ -344,11 +407,20 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers })
     return driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || `Driver #${driver.id}`;
   };
 
+  // Get item details
+  const firstItem = issue.items?.[0];
+  const itemName = firstItem?.itemName || 
+    inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 
+    'Unknown';
+
   return (
     <TableRow hover>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
           {issue.issueNumber || `Issue #${issue.id}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+          ID: {issue.id}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -363,6 +435,11 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers })
             </Typography>
           )}
         </Stack>
+        {vehicle && vehicle.id && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+            Vehicle ID: {vehicle.id}
+          </Typography>
+        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -371,16 +448,33 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers })
             {getDriverDisplay(driver)}
           </Typography>
         </Stack>
+        {driver && driver.id && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+            Driver ID: {driver.id}
+          </Typography>
+        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {issue.items?.length || 0} items
+          {itemName}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+          Qty: {firstItem?.quantityIssued || firstItem?.quantity || 0} 
+          {firstItem?.condition && ` • ${firstItem.condition}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+          {issue.items?.length || 0} item(s) total
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
           {issue.issueDate ? new Date(issue.issueDate).toLocaleDateString() : 'N/A'}
         </Typography>
+        {issue.expectedReturnDate && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+            Expected Return: {new Date(issue.expectedReturnDate).toLocaleDateString()}
+          </Typography>
+        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Chip
@@ -389,6 +483,11 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers })
           size="small"
           sx={{ height: 18, fontSize: '0.55rem' }}
         />
+        {issue.returnedDate && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+            Returned: {new Date(issue.returnedDate).toLocaleDateString()}
+          </Typography>
+        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
@@ -401,12 +500,12 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers })
             <>
               <Tooltip title="Return Items">
                 <IconButton size="small" color="success" onClick={() => onReturn(issue)} sx={{ p: 0.5 }}>
-                  <SwapHoriz sx={{ fontSize: '0.9rem' }} />
+                  <UndoIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Swap Item">
                 <IconButton size="small" color="warning" onClick={() => onSwap(issue)} sx={{ p: 0.5 }}>
-                  <LocalOffer sx={{ fontSize: '0.9rem' }} />
+                  <SwapHoriz sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
             </>
@@ -417,7 +516,9 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers })
   );
 };
 
-// Driver Issue Row Component
+// ============================================================
+// DRIVER ISSUE ROW - ENHANCED WITH DETAILS
+// ============================================================
 const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryItems }) => {
   if (!issue) return null;
 
@@ -442,13 +543,18 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
   };
 
   const firstItem = issue.items?.[0];
-  const itemName = firstItem?.itemName || 'Unknown';
+  const itemName = firstItem?.itemName || 
+    inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 
+    'Unknown';
 
   return (
     <TableRow hover>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.75rem' }}>
           {issue.issueNumber || `Issue #${issue.id}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+          ID: {issue.id}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -458,24 +564,51 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
             {getDriverDisplay(driver)}
           </Typography>
         </Stack>
+        {driver && driver.id && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+            Driver ID: {driver.id}
+          </Typography>
+        )}
+        {driver && driver.licenseNumber && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+            License: {driver.licenseNumber}
+          </Typography>
+        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
           {itemName}
         </Typography>
-      </TableCell>
-      <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {issue.items?.length || 0} items
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+          Qty: {firstItem?.quantityIssued || firstItem?.quantity || 0}
+          {firstItem?.condition && ` • ${firstItem.condition}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+          {issue.items?.length || 0} item(s) total
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
           {issue.issueDate ? new Date(issue.issueDate).toLocaleDateString() : 'N/A'}
         </Typography>
+        {issue.expectedReturnDate && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+            Expected Return: {new Date(issue.expectedReturnDate).toLocaleDateString()}
+          </Typography>
+        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-        <Chip label={issue.status || 'ISSUED'} color={getStatusColor(issue.status)} size="small" sx={{ height: 18, fontSize: '0.55rem' }} />
+        <Chip
+          label={issue.status || 'ISSUED'}
+          color={getStatusColor(issue.status)}
+          size="small"
+          sx={{ height: 18, fontSize: '0.55rem' }}
+        />
+        {issue.returnedDate && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem', display: 'block' }}>
+            Returned: {new Date(issue.returnedDate).toLocaleDateString()}
+          </Typography>
+        )}
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Stack direction="row" spacing={0.25}>
@@ -488,12 +621,12 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
             <>
               <Tooltip title="Return Items">
                 <IconButton size="small" color="success" onClick={() => onReturn(issue)} sx={{ p: 0.5 }}>
-                  <SwapHoriz sx={{ fontSize: '0.9rem' }} />
+                  <UndoIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Swap Item">
                 <IconButton size="small" color="warning" onClick={() => onSwap(issue)} sx={{ p: 0.5 }}>
-                  <LocalOffer sx={{ fontSize: '0.9rem' }} />
+                  <SwapHoriz sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
             </>
@@ -504,7 +637,9 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
   );
 };
 
-// Main Inventory Component
+// ============================================================
+// MAIN INVENTORY COMPONENT
+// ============================================================
 const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -515,6 +650,7 @@ const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [issueableFilter, setIssueableFilter] = useState('all');
   const [activeTab, setActiveTab] = useState(0);
   const [vehicleIssues, setVehicleIssues] = useState([]);
   const [driverIssues, setDriverIssues] = useState([]);
@@ -532,6 +668,7 @@ const Inventory = () => {
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [showSwapDialog, setShowSwapDialog] = useState(false);
   const [showMovementDialog, setShowMovementDialog] = useState(false);
+  const [showIssueDetailsDialog, setShowIssueDetailsDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedIssueItem, setSelectedIssueItem] = useState(null);
@@ -763,6 +900,12 @@ const Inventory = () => {
     if (newValue === 2) loadDriverIssues();
   };
 
+  // View Issue Details
+  const handleViewIssue = (issue) => {
+    setSelectedIssue(issue);
+    setShowIssueDetailsDialog(true);
+  };
+
   // Movement Operations
   const handleMovement = (item) => {
     setSelectedItem(item);
@@ -820,10 +963,8 @@ const Inventory = () => {
           referenceType = 'ADJUSTMENT';
       }
 
-      // Get current user from auth context
       const currentUser = 'SYSTEM';
 
-      // Build the payload with all fields
       const payload = {
         itemId: parseInt(movementFormData.itemId),
         quantity: parseFloat(movementFormData.quantity),
@@ -841,17 +982,9 @@ const Inventory = () => {
         approvedAt: movementFormData.requiresApproval ? null : new Date().toISOString(),
       };
 
-      console.log('📦 Submitting movement payload:', JSON.stringify(payload, null, 2));
+      await inventoryMovementService.recordMovement(payload);
 
-      // Use the existing inventoryMovementService
-      const response = await inventoryMovementService.recordMovement(payload);
-
-      if (response && response.data) {
-        showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
-      } else {
-        showSuccess('Stock movement recorded successfully');
-      }
-
+      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
       setShowMovementDialog(false);
       resetForms();
       await loadData();
@@ -1173,8 +1306,6 @@ const Inventory = () => {
         heldBy: formData.heldBy || null,
       };
 
-      console.log('📦 Submitting inventory item:', payload);
-
       if (selectedItem) {
         await inventoryService.updateInventoryItem(selectedItem.id, payload);
         showSuccess('Item updated successfully');
@@ -1261,7 +1392,7 @@ const Inventory = () => {
     return Array.from(cats).filter(Boolean);
   };
 
-  // Filter items
+  // Filter items with issueable filter
   const filteredItems = inventoryItems.filter(item => {
     const searchMatch =
       item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1277,7 +1408,17 @@ const Inventory = () => {
       else if (statusFilter === 'Out of Stock') statusMatch = quantity <= 0;
     }
 
-    return searchMatch && categoryMatch && statusMatch;
+    let issueableMatch = true;
+    if (issueableFilter !== 'all') {
+      const isDriver = item.isDriverIssuable !== false;
+      const isVehicle = item.isVehicleIssuable !== false;
+      if (issueableFilter === 'driver') issueableMatch = isDriver && !isVehicle;
+      else if (issueableFilter === 'vehicle') issueableMatch = isVehicle && !isDriver;
+      else if (issueableFilter === 'both') issueableMatch = isDriver && isVehicle;
+      else if (issueableFilter === 'neither') issueableMatch = !isDriver && !isVehicle;
+    }
+
+    return searchMatch && categoryMatch && statusMatch && issueableMatch;
   });
 
   // Loading state
@@ -1322,10 +1463,30 @@ const Inventory = () => {
       {/* Tabs */}
       <Paper sx={{ mb: 2 }}>
         <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 36 }}>
-          <Tab label="Items" icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />} iconPosition="start" sx={{ fontSize: '0.75rem', minHeight: 36 }} />
-          <Tab label="Vehicle Issues" icon={<DirectionsCar sx={{ fontSize: '0.9rem' }} />} iconPosition="start" sx={{ fontSize: '0.75rem', minHeight: 36 }} />
-          <Tab label="Driver Issues" icon={<Person sx={{ fontSize: '0.9rem' }} />} iconPosition="start" sx={{ fontSize: '0.75rem', minHeight: 36 }} />
-          <Tab label="Stock Movements" icon={<SwapHoriz sx={{ fontSize: '0.9rem' }} />} iconPosition="start" sx={{ fontSize: '0.75rem', minHeight: 36 }} />
+          <Tab 
+            label="Items" 
+            icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />} 
+            iconPosition="start" 
+            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
+          />
+          <Tab 
+            label={`Vehicle Issues (${vehicleIssues.length})`} 
+            icon={<DirectionsCar sx={{ fontSize: '0.9rem' }} />} 
+            iconPosition="start" 
+            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
+          />
+          <Tab 
+            label={`Driver Issues (${driverIssues.length})`} 
+            icon={<Person sx={{ fontSize: '0.9rem' }} />} 
+            iconPosition="start" 
+            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
+          />
+          <Tab 
+            label="Stock Movements" 
+            icon={<SwapHoriz sx={{ fontSize: '0.9rem' }} />} 
+            iconPosition="start" 
+            sx={{ fontSize: '0.75rem', minHeight: 36 }} 
+          />
         </Tabs>
       </Paper>
 
@@ -1334,7 +1495,7 @@ const Inventory = () => {
         {/* Search and Actions */}
         <Paper sx={{ p: 1.5, mb: 2 }}>
           <Grid container spacing={1.5} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 fullWidth
                 placeholder="Search by name, SKU, or category..."
@@ -1351,7 +1512,7 @@ const Inventory = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={2}>
               <FormControl fullWidth size="small">
                 <InputLabel sx={{ fontSize: '0.75rem' }}>Category</InputLabel>
                 <Select
@@ -1383,6 +1544,23 @@ const Inventory = () => {
                 </Select>
               </FormControl>
             </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Issueable To</InputLabel>
+                <Select
+                  value={issueableFilter}
+                  label="Issueable To"
+                  onChange={(e) => setIssueableFilter(e.target.value)}
+                  sx={{ fontSize: '0.75rem' }}
+                >
+                  <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All</MenuItem>
+                  <MenuItem value="both" sx={{ fontSize: '0.75rem' }}>Both</MenuItem>
+                  <MenuItem value="driver" sx={{ fontSize: '0.75rem' }}>Driver Only</MenuItem>
+                  <MenuItem value="vehicle" sx={{ fontSize: '0.75rem' }}>Vehicle Only</MenuItem>
+                  <MenuItem value="neither" sx={{ fontSize: '0.75rem' }}>Neither</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12} md={3}>
               <Stack direction="row" spacing={0.75}>
                 <Tooltip title="Refresh">
@@ -1410,13 +1588,28 @@ const Inventory = () => {
             <StatCard title="Total Items" value={inventoryItems.length} icon={InventoryIcon} color="primary" />
           </Grid>
           <Grid item xs={6} sm={3}>
-            <StatCard title="Low Stock" value={inventoryItems.filter(i => i.quantity > 0 && i.quantity <= i.minLevel).length} icon={WarningIcon} color="warning" />
+            <StatCard 
+              title="Low Stock" 
+              value={inventoryItems.filter(i => i.quantity > 0 && i.quantity <= i.minLevel).length} 
+              icon={WarningIcon} 
+              color="warning" 
+            />
           </Grid>
           <Grid item xs={6} sm={3}>
-            <StatCard title="Out of Stock" value={inventoryItems.filter(i => i.quantity <= 0).length} icon={CancelIcon} color="error" />
+            <StatCard 
+              title="Out of Stock" 
+              value={inventoryItems.filter(i => i.quantity <= 0).length} 
+              icon={CancelIcon} 
+              color="error" 
+            />
           </Grid>
           <Grid item xs={6} sm={3}>
-            <StatCard title="Locations" value={locations.length} icon={LocationOn} color="info" />
+            <StatCard 
+              title="Locations" 
+              value={locations.length} 
+              icon={LocationOn} 
+              color="info" 
+            />
           </Grid>
         </Grid>
 
@@ -1429,7 +1622,8 @@ const Inventory = () => {
                   <TableRow>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item</TableCell>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Category</TableCell>
-                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Quantity</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Qty</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Flags</TableCell>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Min Level</TableCell>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Location</TableCell>
                     <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
@@ -1439,7 +1633,7 @@ const Inventory = () => {
                 <TableBody>
                   {filteredItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
                         <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>No inventory items found</Typography>
                       </TableCell>
                     </TableRow>
@@ -1529,7 +1723,7 @@ const Inventory = () => {
                       <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Issue #</TableCell>
                       <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Vehicle</TableCell>
                       <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Driver</TableCell>
-                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Items</TableCell>
+                      <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Item</TableCell>
                       <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Date</TableCell>
                       <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Status</TableCell>
                       <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600, py: 0.75 }}>Actions</TableCell>
@@ -1540,11 +1734,12 @@ const Inventory = () => {
                       <VehicleIssueRow
                         key={issue.id}
                         issue={issue}
-                        onView={() => { }}
+                        onView={handleViewIssue}
                         onReturn={handleReturnItems}
                         onSwap={handleSwap}
                         vehicles={vehicles}
                         drivers={drivers}
+                        inventoryItems={inventoryItems}
                       />
                     ))}
                   </TableBody>
@@ -1623,7 +1818,7 @@ const Inventory = () => {
                       <DriverIssueRow
                         key={issue.id}
                         issue={issue}
-                        onView={() => { }}
+                        onView={handleViewIssue}
                         onReturn={handleReturnItems}
                         onSwap={handleSwap}
                         drivers={drivers}
@@ -1797,11 +1992,11 @@ const Inventory = () => {
 
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
-                  Settings & Flags
+                  Issue Settings
                 </Typography>
                 <Divider sx={{ my: 1 }} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -1811,9 +2006,44 @@ const Inventory = () => {
                       size="small"
                     />
                   }
-                  label="Is Consumable Item"
+                  label="Is Consumable"
                   sx={{ fontSize: '0.8rem' }}
                 />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isDriverIssuable"
+                      checked={formData.isDriverIssuable}
+                      onChange={handleFormChange}
+                      size="small"
+                    />
+                  }
+                  label="Driver Issuable"
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isVehicleIssuable"
+                      checked={formData.isVehicleIssuable}
+                      onChange={handleFormChange}
+                      size="small"
+                    />
+                  }
+                  label="Vehicle Issuable"
+                  sx={{ fontSize: '0.8rem' }}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
+                  Status & Hold
+                </Typography>
+                <Divider sx={{ my: 1 }} />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControlLabel
@@ -1833,27 +2063,13 @@ const Inventory = () => {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      name="isDriverIssuable"
-                      checked={formData.isDriverIssuable}
+                      name="isHeld"
+                      checked={formData.isHeld}
                       onChange={handleFormChange}
                       size="small"
                     />
                   }
-                  label="Can Issue to Drivers"
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="isVehicleIssuable"
-                      checked={formData.isVehicleIssuable}
-                      onChange={handleFormChange}
-                      size="small"
-                    />
-                  }
-                  label="Can Issue to Vehicles"
+                  label="On Hold"
                   sx={{ fontSize: '0.8rem' }}
                 />
               </Grid>
@@ -1867,27 +2083,6 @@ const Inventory = () => {
                   fullWidth
                   size="small"
                   InputLabelProps={{ shrink: true }}
-                  sx={{ fontSize: '0.8rem' }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', mt: 1 }}>
-                  Hold Information
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="isHeld"
-                      checked={formData.isHeld}
-                      onChange={handleFormChange}
-                      size="small"
-                    />
-                  }
-                  label="Item is on Hold"
                   sx={{ fontSize: '0.8rem' }}
                 />
               </Grid>
@@ -1976,7 +2171,7 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog */}
+      {/* View Item Dialog */}
       <Dialog open={showViewDialog} onClose={() => setShowViewDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Item Details</Typography>
@@ -2019,9 +2214,35 @@ const Inventory = () => {
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Reorder Level</Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedItem.reorderLevel || 0}</Typography>
                 </Grid>
+
+                {/* Flags Section */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Flags</Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                    <Chip
+                      label={selectedItem.isConsumable !== false ? 'Consumable' : 'Non-Consumable'}
+                      color={selectedItem.isConsumable !== false ? 'primary' : 'secondary'}
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                    />
+                    <Chip
+                      label={selectedItem.isDriverIssuable !== false ? 'Driver Issuable' : 'Not Driver Issuable'}
+                      color={selectedItem.isDriverIssuable !== false ? 'success' : 'error'}
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                    />
+                    <Chip
+                      label={selectedItem.isVehicleIssuable !== false ? 'Vehicle Issuable' : 'Not Vehicle Issuable'}
+                      color={selectedItem.isVehicleIssuable !== false ? 'info' : 'error'}
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                    />
+                  </Stack>
+                </Grid>
+
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                     <Chip
                       label={selectedItem.quantity <= 0 ? 'Out of Stock' : selectedItem.quantity <= selectedItem.minLevel ? 'Low Stock' : 'In Stock'}
                       color={selectedItem.quantity <= 0 ? 'error' : selectedItem.quantity <= selectedItem.minLevel ? 'warning' : 'success'}
@@ -2046,24 +2267,6 @@ const Inventory = () => {
                       />
                     )}
                   </Stack>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Driver Issuable</Typography>
-                  <Chip
-                    label={selectedItem.isDriverIssuable !== false ? 'Yes' : 'No'}
-                    color={selectedItem.isDriverIssuable !== false ? 'success' : 'error'}
-                    size="small"
-                    sx={{ height: 18, fontSize: '0.6rem' }}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Vehicle Issuable</Typography>
-                  <Chip
-                    label={selectedItem.isVehicleIssuable !== false ? 'Yes' : 'No'}
-                    color={selectedItem.isVehicleIssuable !== false ? 'success' : 'error'}
-                    size="small"
-                    sx={{ height: 18, fontSize: '0.6rem' }}
-                  />
                 </Grid>
                 {selectedItem.returnByDate && (
                   <Grid item xs={12}>
@@ -2126,6 +2329,104 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Issue Details Dialog */}
+      <Dialog open={showIssueDetailsDialog} onClose={() => setShowIssueDetailsDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+            Issue Details - {selectedIssue?.issueNumber || `Issue #${selectedIssue?.id}`}
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2.5 }}>
+          {selectedIssue && (
+            <Stack spacing={2}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Number</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.issueNumber || selectedIssue.id}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
+                  <Chip
+                    label={selectedIssue.status || 'ISSUED'}
+                    color={selectedIssue.status === 'RETURNED' ? 'success' : selectedIssue.status === 'PARTIALLY_RETURNED' ? 'warning' : 'info'}
+                    size="small"
+                    sx={{ height: 20, fontSize: '0.65rem' }}
+                  />
+                </Grid>
+                {selectedIssue.vehicleId && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Vehicle</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {vehicles.find(v => v.id === selectedIssue.vehicleId)?.registrationNumber || `Vehicle #${selectedIssue.vehicleId}`}
+                    </Typography>
+                  </Grid>
+                )}
+                {selectedIssue.driverId && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Driver</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                      {drivers.find(d => d.id === selectedIssue.driverId)?.fullName || `Driver #${selectedIssue.driverId}`}
+                    </Typography>
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Items</Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Item</TableCell>
+                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Quantity</TableCell>
+                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Condition</TableCell>
+                          <TableCell sx={{ fontSize: '0.6rem', fontWeight: 600, py: 0.5 }}>Returned</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedIssue.items?.map((item, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                              {item.itemName || inventoryItems.find(i => i.id === item.itemId)?.name || `Item #${item.itemId}`}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.quantityIssued || item.quantity || 0}</TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.condition || 'N/A'}</TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
+                              {item.returnedQuantity ? `${item.returnedQuantity} returned` : 'Not returned'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Date</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                    {selectedIssue.issueDate ? new Date(selectedIssue.issueDate).toLocaleDateString() : 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Expected Return</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                    {selectedIssue.expectedReturnDate ? new Date(selectedIssue.expectedReturnDate).toLocaleDateString() : 'N/A'}
+                  </Typography>
+                </Grid>
+                {selectedIssue.notes && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.notes}</Typography>
+                  </Grid>
+                )}
+              </Grid>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+          <Button onClick={() => setShowIssueDetailsDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Vehicle Issue Dialog */}
       <Dialog open={showIssueDialog} onClose={() => setShowIssueDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
@@ -2151,7 +2452,7 @@ const Inventory = () => {
               >
                 <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
                 {inventoryItems
-                  .filter(item => item.isVehicleIssuable !== false && !item.isHeld)
+                  .filter(item => item.isVehicleIssuable !== false && !item.isHeld && item.isActive)
                   .map((item) => (
                     <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
                       {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
@@ -2164,6 +2465,8 @@ const Inventory = () => {
               <>
                 <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
                   Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity} {selectedItem.unitOfMeasure || 'EA'})
+                  <br />
+                  <small>Consumable: {selectedItem.isConsumable !== false ? 'Yes' : 'No'}</small>
                 </Alert>
 
                 <FormControl fullWidth size="small" required>
@@ -2295,7 +2598,7 @@ const Inventory = () => {
               >
                 <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
                 {inventoryItems
-                  .filter(item => item.isDriverIssuable !== false && !item.isHeld)
+                  .filter(item => item.isDriverIssuable !== false && !item.isHeld && item.isActive)
                   .map((item) => (
                     <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
                       {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
@@ -2308,6 +2611,8 @@ const Inventory = () => {
               <>
                 <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
                   Issuing: <strong>{selectedItem.name}</strong> (Available: {selectedItem.quantity} {selectedItem.unitOfMeasure || 'EA'})
+                  <br />
+                  <small>Consumable: {selectedItem.isConsumable !== false ? 'Yes' : 'No'}</small>
                 </Alert>
 
                 <FormControl fullWidth size="small" required>
@@ -2577,6 +2882,8 @@ const Inventory = () => {
                 Current Quantity: <strong>{selectedItem.quantity}</strong> {selectedItem.unitOfMeasure || 'EA'}
                 <br />
                 Min Level: {selectedItem.minLevel || 0}
+                <br />
+                <small>Consumable: {selectedItem.isConsumable !== false ? 'Yes' : 'No'}</small>
               </Alert>
 
               {/* Operation Selection */}
