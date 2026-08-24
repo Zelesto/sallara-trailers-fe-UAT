@@ -1,3 +1,4 @@
+// src/pages/Inventory.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -77,7 +78,7 @@ import {
   People,
   CarRental,
   Inventory2,
-  QrCode
+  QrCode,
 } from '@mui/icons-material';
 import { inventoryService } from '../services/inventoryService';
 import { vehicleIssueService } from '../services/vehicleIssueService';
@@ -86,58 +87,142 @@ import { driverService } from '../services/driverService';
 import MovementHistory from './MovementHistory';
 import { inventoryMovementService } from '../services/inventoryMovementService';
 
-// Compact Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => (
-  <Card sx={{ 
-    height: '100%', 
-    position: 'relative',
-    borderRadius: '12px',
-    border: '1px solid #ECECEC',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-    },
-  }}>
-    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-      <Stack direction="row" alignItems="center" spacing={1.5}>
-        <Box
-          sx={{
-            bgcolor: `${color}.light`,
-            borderRadius: 1,
-            p: 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon sx={{ fontSize: '1.2rem', color: `${color}.main` }} />
-        </Box>
-        <Box>
-          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
-            {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
-              {subtitle}
+// ============================================================
+// STAT CARD - Matching Dashboard
+// ============================================================
+const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => {
+  const getColor = (colorName) => {
+    const colors = {
+      primary: '#4F46E5',
+      success: '#22C55E',
+      warning: '#F59E0B',
+      error: '#EF4444',
+      info: '#3B82F6',
+      secondary: '#6B7280',
+      purple: '#8B5CF6',
+      pink: '#EC4899',
+      teal: '#14B8A6',
+      indigo: '#6366F1',
+    };
+    return colors[colorName] || '#4F46E5';
+  };
+
+  const getColorBg = (color) => {
+    const bgColors = {
+      primary: '#EEF2FF',
+      success: '#D1FAE5',
+      warning: '#FEF3C7',
+      error: '#FEE2E2',
+      info: '#DBEAFE',
+      secondary: '#F3F4F6',
+      purple: '#EDE9FE',
+      pink: '#FCE7F3',
+      teal: '#CCFBF1',
+      indigo: '#E0E7FF',
+    };
+    return bgColors[color] || bgColors.primary;
+  };
+
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
+  const SafeIcon = Icon || InventoryIcon;
+
+  return (
+    <Card
+      sx={{
+        bgcolor: '#FFFFFF',
+        borderRadius: { xs: '12px', sm: '14px', md: '16px' },
+        border: '1px solid #ECECEC',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        height: '100%',
+        width: '100%',
+        position: 'relative',
+        overflow: 'visible',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          borderColor: iconColor,
+        },
+      }}
+    >
+      <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#6B7280',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                letterSpacing: '0.5px',
+                display: 'block',
+                mb: 0.25,
+              }}
+            >
+              {title}
             </Typography>
-          )}
-        </Box>
-      </Stack>
-      {badge && (
-        <Chip
-          label={badge}
-          size="small"
-          color={color}
-          sx={{ position: 'absolute', top: 8, right: 8, height: 18, fontSize: '0.5rem' }}
-        />
-      )}
-    </CardContent>
-  </Card>
-);
+            
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#111827',
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                lineHeight: 1.2,
+              }}
+            >
+              {value || 0}
+            </Typography>
+            
+            {subtitle && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#6B7280',
+                  display: 'block',
+                  mt: 0.25,
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+
+          <Box
+            sx={{
+              bgcolor: bgColor,
+              borderRadius: { xs: '10px', sm: '12px', md: '14px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)',
+              },
+            }}
+          >
+            <SafeIcon sx={{ 
+              color: iconColor, 
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+            }} />
+          </Box>
+        </Stack>
+        {badge && (
+          <Chip
+            label={badge}
+            size="small"
+            color={color}
+            sx={{ position: 'absolute', top: 8, right: 8, height: 18, fontSize: '0.5rem' }}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 // Tab Panel Component
 const TabPanel = ({ children, value, index, ...other }) => (
