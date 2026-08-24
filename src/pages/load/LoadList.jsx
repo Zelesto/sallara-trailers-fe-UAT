@@ -630,11 +630,32 @@ const LoadList = () => {
                 startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
                 onClick={async () => {
                     try {
-                        await axios.post('/api/distance/recalculate-all-loads');
-                        loadLoads();
-                        alert('All load distances recalculated!');
+                        setError(null);
+                        // Try to recalculate all loads
+                        const response = await api.post('/distance/recalculate-all-loads');
+                        if (response.success) {
+                            await loadLoads();
+                            alert('All load distances recalculated successfully!');
+                        }
                     } catch (err) {
                         console.error('Failed to recalculate:', err);
+                        // If the endpoint doesn't exist, try alternative approach
+                        try {
+                            // Get all loads and recalculate each one
+                            const loads = await loadService.getAllLoads(0, 100);
+                            const loadList = loads?.content || loads || [];
+                            let updated = 0;
+                            for (const load of loadList) {
+                                if (load.loadNumber) {
+                                    await api.post(`/distance/load/${load.loadNumber}`);
+                                    updated++;
+                                }
+                            }
+                            await loadLoads();
+                            alert(`Recalculated ${updated} loads!`);
+                        } catch (altErr) {
+                            setError('Failed to recalculate load distances. Please try again.');
+                        }
                     }
                 }}
                 size="small"
