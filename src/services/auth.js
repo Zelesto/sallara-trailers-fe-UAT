@@ -51,36 +51,27 @@ const authService = {
   },
 
   getCurrentUser: async () => {
-  try {
-    // Add a timeout to the request
-    const user = await api.get('/auth/me', {
-      timeout: 10000 // 10 second timeout
-    });
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-      sessionStorage.setItem('user', JSON.stringify(user));
+    try {
+      const user = await api.get('/auth/me');
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        sessionStorage.setItem('user', JSON.stringify(user));
+      }
+      return user;
+    } catch (error) {
+      console.error('Failed to get current user:', error);
+      
+      // If 401, clear auth data and dispatch session expiry
+      if (error.status === 401) {
+        authService.clearAuthData();
+        window.dispatchEvent(new CustomEvent('sessionExpired', {
+          detail: { message: 'Your session has expired. Please log in again.' }
+        }));
+      }
+      
+      throw error.response?.data || error;
     }
-    return user;
-  } catch (error) {
-    console.error('Failed to get current user:', error);
-    
-    // If timeout, don't throw - just return null
-    if (error.code === 'ECONNABORTED' || error.message === 'timeout of 10000ms exceeded') {
-      console.warn('⚠️ /auth/me timeout - backend may be slow or down');
-      // Don't clear auth data on timeout - keep existing user
-      return null;
-    }
-    
-    if (error.status === 401 || error.response?.status === 401) {
-      authService.clearAuthData();
-      window.dispatchEvent(new CustomEvent('sessionExpired', {
-        detail: { message: 'Your session has expired. Please log in again.' }
-      }));
-    }
-    
-    throw error.response?.data || error;
-  }
-},
+  },
 
   register: async (userData) => {
     try {
@@ -125,7 +116,11 @@ const authService = {
 
   isAuthenticated: () => {
     const token = localStorage.getItem('token');
-    return !!(token && token !== 'undefined' && token.trim() !== '');
+    return !!(
+      token &&
+      token !== 'undefined' &&
+      token.trim() !== ''
+    );
   },
 
   getStoredUser: () => {
@@ -172,7 +167,7 @@ const authService = {
     );
   },
 
-  // Session management - REMOVED automatic call
+  // Session management
   checkSession: async () => {
     if (!authService.isAuthenticated()) {
       return { valid: false, message: 'No token found' };
@@ -182,7 +177,7 @@ const authService = {
       await api.get('/auth/verify');
       return { valid: true };
     } catch (error) {
-      if (error.status === 401 || error.response?.status === 401) {
+      if (error.status === 401) {
         authService.clearAuthData();
         window.dispatchEvent(new CustomEvent('sessionExpired', {
           detail: { message: 'Your session has expired. Please log in again.' }
@@ -243,10 +238,14 @@ const authService = {
     });
   },
 
-  // Initialize cross-tab sync - REMOVED automatic session check
+  // Initialize cross-tab sync
   init: () => {
     authService.syncSession();
-    // REMOVED: authService.checkSession(); - This was causing the timeout
+    
+    // Check session on page load
+    if (authService.isAuthenticated()) {
+      authService.checkSession();
+    }
   }
 };
 
