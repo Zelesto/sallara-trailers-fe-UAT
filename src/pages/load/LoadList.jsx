@@ -625,7 +625,6 @@ const LoadList = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
-            // Add this button to the header
             <Button
                 variant="outlined"
                 startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
