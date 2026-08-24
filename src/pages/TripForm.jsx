@@ -1,4 +1,5 @@
-// src/pages/TripForm.jsx - Fully Dynamic with Database Enums
+// src/pages/TripForm.jsx
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dayjs from 'dayjs';
 import {
@@ -71,40 +72,15 @@ import { depotService } from '../services/depotService';
 import { loadService } from '../services/loadService';
 import { useEnums } from '../contexts/EnumContext';
 
-// Province Options (hardcoded as these are geographic, not enums)
-const PROVINCE_OPTIONS = [
-  'Gauteng',
-  'Western Cape',
-  'KwaZulu-Natal',
-  'Eastern Cape',
-  'Free State',
-  'Mpumalanga',
-  'Limpopo',
-  'North West',
-  'Northern Cape',
-];
-
-// Commodity Types (hardcoded as they're not in enum_master yet)
-const COMMODITY_OPTIONS = [
-  'GENERAL',
-  'HAZARDOUS',
-  'PERISHABLE',
-  'LIQUID',
-  'BULK',
-  'PALLETIZED',
-  'OVERSIZED',
-  'REFRIGERATED',
-  'AUTO',
-  'MACHINERY',
-  'CONSTRUCTION',
-  'MINING',
-  'AGRICULTURE',
-  'CHEMICALS',
-  'PHARMACEUTICALS',
-  'ELECTRONICS',
-  'FOOD',
-  'BEVERAGE',
-];
+// ✅ Import from tripConstants instead of hardcoding
+import {
+  PROVINCE_OPTIONS,
+  COMMODITY_OPTIONS,
+  DEPARTURE_OPTIONS,
+  TRIP_TYPE_OPTIONS as STATIC_TRIP_TYPE_OPTIONS,
+  PRIORITY_OPTIONS as STATIC_PRIORITY_OPTIONS,
+  APPROVAL_STATUS_OPTIONS as STATIC_APPROVAL_OPTIONS,
+} from '../constants/tripConstants';
 
 /* ============================================================
    HELPER FUNCTIONS
@@ -194,6 +170,27 @@ const getDefaultEnumCode = (options, defaultCode = null) => {
   const defaultOpt = options.find(opt => opt.isDefault);
   return defaultOpt?.value || (options.length > 0 ? options[0].value : '');
 };
+
+// ✅ Helper to convert static options to select format
+const toSelectOptions = (options) => {
+  if (!options) return [];
+  if (Array.isArray(options) && typeof options[0] === 'string') {
+    return options.map(value => ({ value, label: value }));
+  }
+  if (Array.isArray(options) && typeof options[0] === 'object' && options[0].value) {
+    return options;
+  }
+  return Object.keys(options).map(key => ({
+    value: key,
+    label: options[key].label || key,
+  }));
+};
+
+// ✅ Convert static options to select format
+const staticTripTypeOptions = toSelectOptions(STATIC_TRIP_TYPE_OPTIONS);
+const staticPriorityOptions = toSelectOptions(STATIC_PRIORITY_OPTIONS);
+const staticApprovalOptions = toSelectOptions(STATIC_APPROVAL_OPTIONS);
+const staticDepartureOptions = toSelectOptions(DEPARTURE_OPTIONS);
 
 /* ============================================================
    COMPONENT: AddressSection
@@ -624,6 +621,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const vehicleOptions = getVehicleOptions() || [];
   const supervisorOptions = getSupervisorOptions() || [];
 
+  // ✅ Fallback to static options if DB enums are not available
+  const finalTripTypeOptions = tripTypeOptions.length > 0 ? tripTypeOptions : staticTripTypeOptions;
+  const finalPriorityOptions = priorityOptions.length > 0 ? priorityOptions : staticPriorityOptions;
+  const finalApprovalOptions = approvalOptions.length > 0 ? approvalOptions : staticApprovalOptions;
+  const finalDepartureOptions = departureOptions.length > 0 ? departureOptions : staticDepartureOptions;
+
   // ✅ Check if enums are ready before rendering
   const isEnumReady = isReady && !enumsLoading;
 
@@ -632,10 +635,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     const defaults = getDefaultPlannedDates();
     return {
       ...getDefaultFormState(),
-      tripType: getDefaultEnumCode(tripTypeOptions, 'FREIGHT'),
+      tripType: getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
       status: getDefaultEnumCode(statusOptions, 'PLANNED'),
-      approvalStatus: getDefaultEnumCode(approvalOptions, 'PENDING'),
-      priority: getDefaultEnumCode(priorityOptions, 'NORMAL'),
+      approvalStatus: getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
+      priority: getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
       plannedStartDate: defaults.plannedStartDate,
       plannedEndDate: defaults.plannedEndDate,
     };
@@ -646,13 +649,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     if (isEnumReady && !initialData && mode === 'create') {
       setForm(prev => ({
         ...prev,
-        tripType: getDefaultEnumCode(tripTypeOptions, 'FREIGHT') || prev.tripType,
+        tripType: getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT') || prev.tripType,
         status: getDefaultEnumCode(statusOptions, 'PLANNED') || prev.status,
-        approvalStatus: getDefaultEnumCode(approvalOptions, 'PENDING') || prev.approvalStatus,
-        priority: getDefaultEnumCode(priorityOptions, 'NORMAL') || prev.priority,
+        approvalStatus: getDefaultEnumCode(finalApprovalOptions, 'PENDING') || prev.approvalStatus,
+        priority: getDefaultEnumCode(finalPriorityOptions, 'NORMAL') || prev.priority,
       }));
     }
-  }, [isEnumReady, tripTypeOptions, statusOptions, approvalOptions, priorityOptions, initialData, mode]);
+  }, [isEnumReady, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions, initialData, mode]);
 
   /* ============================================================
      DATA LOADING
@@ -798,10 +801,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       setForm(prev => ({
         ...prev,
         ...initialData,
-        tripType: initialData.tripType || getDefaultEnumCode(tripTypeOptions, 'FREIGHT'),
+        tripType: initialData.tripType || getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
         status: initialData.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
-        approvalStatus: initialData.approvalStatus || getDefaultEnumCode(approvalOptions, 'PENDING'),
-        priority: initialData.priority || getDefaultEnumCode(priorityOptions, 'NORMAL'),
+        approvalStatus: initialData.approvalStatus || getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
+        priority: initialData.priority || getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
         vehicleId: initialData.vehicleId || '',
         driverId: initialData.driverId || '',
         supervisorId: initialData.supervisorId || '',
@@ -838,7 +841,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         });
       }
     }
-  }, [initialData, open, tripTypeOptions, statusOptions, approvalOptions, priorityOptions]);
+  }, [initialData, open, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions]);
 
   // Set default planned dates for new trip
   useEffect(() => {
@@ -1362,10 +1365,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      {renderSelectField('tripType', 'Trip Type', tripTypeOptions)}
+                      {renderSelectField('tripType', 'Trip Type', finalTripTypeOptions)}
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      {renderSelectField('priority', 'Priority', priorityOptions)}
+                      {renderSelectField('priority', 'Priority', finalPriorityOptions)}
                     </Grid>
                   </Grid>
                 </Paper>
@@ -1465,7 +1468,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                   onDepartureTypeChange={handleDepartureTypeChange}
                   departureLocation={departureLocation}
                   onLocationChange={setDepartureLocation}
-                  departureOptions={departureOptions}
+                  departureOptions={finalDepartureOptions}
                 />
 
                 {/* Depot Distance Fields */}
@@ -2088,7 +2091,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                       {renderSelectField('status', 'Trip Status', statusOptions)}
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      {renderSelectField('approvalStatus', 'Approval Status', approvalOptions)}
+                      {renderSelectField('approvalStatus', 'Approval Status', finalApprovalOptions)}
                     </Grid>
                   </Grid>
                 </Paper>
