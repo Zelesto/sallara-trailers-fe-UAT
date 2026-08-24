@@ -15,7 +15,7 @@ import {
   useTheme,
   useMediaQuery,
   Stack,
-  CircularProgress,  // ← THIS WAS MISSING!
+  CircularProgress,
 } from '@mui/material';
 import {
   Visibility,
