@@ -625,6 +625,31 @@ const LoadList = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
+            // Add this button to the header
+            <Button
+                variant="outlined"
+                startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+                onClick={async () => {
+                    try {
+                        await axios.post('/api/distance/recalculate-all-loads');
+                        loadLoads();
+                        alert('All load distances recalculated!');
+                    } catch (err) {
+                        console.error('Failed to recalculate:', err);
+                    }
+                }}
+                size="small"
+                sx={{
+                    borderRadius: '10px',
+                    fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                    textTransform: 'none',
+                    py: { xs: 0.5, sm: 0.75 },
+                    px: { xs: 1.5, sm: 2 },
+                }}
+            >
+                Recalc Loads
+            </Button>
+            
             <Button
               variant="outlined"
               startIcon={<MergeIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
