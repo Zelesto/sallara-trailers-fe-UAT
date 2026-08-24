@@ -78,13 +78,13 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 
 
-// Add this import if missing:
 import {
   TRIP_STATUSES,
   TRIP_STATUS_OPTIONS,
+  TRIP_STATUS_CONFIG,
   getColor,
   getColorBg,
-} from '../constants';
+} from '../constants/tripConstants';
 
 const STATUS_CONFIG = Object.fromEntries(
   TRIP_STATUSES.map(item => [item.code, {
