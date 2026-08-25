@@ -19,6 +19,62 @@ export const loadService = {
     }
   },
 
+  // Recalculate all load distances
+  recalculateAllLoads: async () => {
+    try {
+      // Try the dedicated endpoint if it exists
+      const response = await api.post('/distance/recalculate-all-loads');
+      return response;
+    } catch (error) {
+      console.warn('Recalculate all loads endpoint failed:', error);
+      // Fallback: get all loads and update each one
+      try {
+        const loads = await loadService.getAllLoads(0, 100);
+        const loadList = loads?.content || loads || [];
+        let updated = 0;
+        let failed = 0;
+        for (const load of loadList) {
+          if (load.loadNumber) {
+            try {
+              await loadService.recalculateLoad(load.loadNumber);
+              updated++;
+            } catch (loadErr) {
+              console.warn(`Failed to update load ${load.loadNumber}:`, loadErr);
+              failed++;
+            }
+          }
+        }
+        return { success: true, updated, failed, total: loadList.length };
+      } catch (fallbackErr) {
+        console.error('Fallback failed:', fallbackErr);
+        throw fallbackErr;
+      }
+    }
+  },
+
+  // Recalculate a single load by number
+  recalculateLoad: async (loadNumber) => {
+    try {
+      const response = await api.post(`/distance/load/${loadNumber}`);
+      return response;
+    } catch (error) {
+      console.error(`Error recalculating load ${loadNumber}:`, error);
+      throw error;
+    }
+  },
+
+  // Get pending distance count
+  getPendingDistanceCount: async () => {
+    try {
+      const response = await api.get('/distance/pending/count');
+      return response;
+    } catch (error) {
+      console.error('Error getting pending count:', error);
+      return { count: 0 };
+    }
+  },
+
+
   // Get load by number
   getLoadByNumber: async (loadNumber) => {
     try {
