@@ -86,6 +86,26 @@ export const loadService = {
     }
   },
 
+  recalculateAllDistances: async () => {
+    try {
+        const response = await api.post('/distance/recalculate-all');
+        return response;
+    } catch (error) {
+        console.error('Error starting batch recalculation:', error);
+        throw error;
+    }
+},
+
+getBatchProgress: async (jobId) => {
+    try {
+        const response = await api.get(`/distance/progress/${jobId}`);
+        return response;
+    } catch (error) {
+        console.error('Error getting batch progress:', error);
+        return null;
+    }
+},
+
   // Get load by ID
   getLoadById: async (id) => {
     try {
