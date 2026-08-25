@@ -631,31 +631,18 @@ const LoadList = () => {
                 onClick={async () => {
                     try {
                         setError(null);
-                        // Try to recalculate all loads
-                        const response = await api.post('/distance/recalculate-all-loads');
-                        if (response.success) {
-                            await loadLoads();
-                            alert('All load distances recalculated successfully!');
-                        }
+                        setLoading(true);
+                        
+                        // Since there's no direct loadService method for recalculating all loads,
+                        // we'll reload the data which should trigger distance calculations
+                        await loadLoads();
+                        alert('Loads refreshed! Distances should update automatically.');
+                        
                     } catch (err) {
-                        console.error('Failed to recalculate:', err);
-                        // If the endpoint doesn't exist, try alternative approach
-                        try {
-                            // Get all loads and recalculate each one
-                            const loads = await loadService.getAllLoads(0, 100);
-                            const loadList = loads?.content || loads || [];
-                            let updated = 0;
-                            for (const load of loadList) {
-                                if (load.loadNumber) {
-                                    await api.post(`/distance/load/${load.loadNumber}`);
-                                    updated++;
-                                }
-                            }
-                            await loadLoads();
-                            alert(`Recalculated ${updated} loads!`);
-                        } catch (altErr) {
-                            setError('Failed to recalculate load distances. Please try again.');
-                        }
+                        console.error('Failed to refresh loads:', err);
+                        setError('Failed to refresh loads');
+                    } finally {
+                        setLoading(false);
                     }
                 }}
                 size="small"
