@@ -625,45 +625,56 @@ const LoadList = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
-          <Button
-              variant="outlined"
-              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
-              onClick={async () => {
-                  try {
-                      setError(null);
-                      setLoading(true);
-                      
-                      // Use loadService instead of direct API
-                      const result = await loadService.recalculateAllLoads();
-                      
-                      await loadLoads();
-                      
-                      if (result?.success) {
-                          const message = result.total 
-                              ? `Recalculated ${result.updated} of ${result.total} loads${result.failed > 0 ? ` (${result.failed} failed)` : ''}!`
-                              : 'All load distances recalculated successfully!';
-                          alert(message);
-                      } else {
-                          alert('Load distances recalculated!');
-                      }
-                  } catch (err) {
-                      console.error('Failed to recalculate:', err);
-                      setError('Failed to recalculate load distances');
-                  } finally {
-                      setLoading(false);
-                  }
-              }}
-              size="small"
-              sx={{
-                  borderRadius: '10px',
-                  fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
-                  textTransform: 'none',
-                  py: { xs: 0.5, sm: 0.75 },
-                  px: { xs: 1.5, sm: 2 },
-              }}
-          >
-              Recalc Loads
-          </Button>
+             <Button
+                variant="contained"
+                startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+                onClick={async () => {
+                    try {
+                        setError(null);
+                        setLoading(true);
+                        
+                        // Call the batch recalculate endpoint
+                        const response = await api.post('/distance/recalculate-all');
+                        
+                        if (response.success) {
+                            alert('Batch distance recalculation started!');
+                            // Poll for progress
+                            const jobId = response.jobId;
+                            let progress = 0;
+                            while (progress < 100) {
+                                const status = await api.get(`/distance/progress/${jobId}`);
+                                progress = status.percentage || 0;
+                                console.log(`Progress: ${progress}%`);
+                                if (status.completed) {
+                                    alert(`Completed: ${status.succeeded} succeeded, ${status.failed} failed out of ${status.totalTrips} trips`);
+                                    break;
+                                }
+                                await new Promise(r => setTimeout(r, 2000));
+                            }
+                            await loadLoads();
+                        }
+                    } catch (err) {
+                        console.error('Failed to recalculate:', err);
+                        setError('Failed to recalculate distances');
+                    } finally {
+                        setLoading(false);
+                    }
+                }}
+                size="small"
+                sx={{
+                    borderRadius: '10px',
+                    fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                    textTransform: 'none',
+                    py: { xs: 0.5, sm: 0.75 },
+                    px: { xs: 1.5, sm: 2 },
+                    background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                    '&:hover': {
+                        background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                    },
+                }}
+            >
+                Recalc All Distances
+            </Button>
             
             <Button
               variant="outlined"
