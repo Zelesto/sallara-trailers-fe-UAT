@@ -625,37 +625,45 @@ const LoadList = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
-            <Button
-                variant="outlined"
-                startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
-                onClick={async () => {
-                    try {
-                        setError(null);
-                        setLoading(true);
-                        
-                        // Since there's no direct loadService method for recalculating all loads,
-                        // we'll reload the data which should trigger distance calculations
-                        await loadLoads();
-                        alert('Loads refreshed! Distances should update automatically.');
-                        
-                    } catch (err) {
-                        console.error('Failed to refresh loads:', err);
-                        setError('Failed to refresh loads');
-                    } finally {
-                        setLoading(false);
-                    }
-                }}
-                size="small"
-                sx={{
-                    borderRadius: '10px',
-                    fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
-                    textTransform: 'none',
-                    py: { xs: 0.5, sm: 0.75 },
-                    px: { xs: 1.5, sm: 2 },
-                }}
-            >
-                Recalc Loads
-            </Button>
+          <Button
+              variant="outlined"
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={async () => {
+                  try {
+                      setError(null);
+                      setLoading(true);
+                      
+                      // Use loadService instead of direct API
+                      const result = await loadService.recalculateAllLoads();
+                      
+                      await loadLoads();
+                      
+                      if (result?.success) {
+                          const message = result.total 
+                              ? `Recalculated ${result.updated} of ${result.total} loads${result.failed > 0 ? ` (${result.failed} failed)` : ''}!`
+                              : 'All load distances recalculated successfully!';
+                          alert(message);
+                      } else {
+                          alert('Load distances recalculated!');
+                      }
+                  } catch (err) {
+                      console.error('Failed to recalculate:', err);
+                      setError('Failed to recalculate load distances');
+                  } finally {
+                      setLoading(false);
+                  }
+              }}
+              size="small"
+              sx={{
+                  borderRadius: '10px',
+                  fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                  textTransform: 'none',
+                  py: { xs: 0.5, sm: 0.75 },
+                  px: { xs: 1.5, sm: 2 },
+              }}
+          >
+              Recalc Loads
+          </Button>
             
             <Button
               variant="outlined"
