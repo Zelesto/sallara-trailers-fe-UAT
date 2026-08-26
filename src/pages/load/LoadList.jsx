@@ -633,27 +633,17 @@ const LoadList = () => {
             setError(null);
             setLoading(true);
             
-            // ✅ Use loadService.recalculateAllDistances() instead of direct API
-            const response = await loadService.recalculateAllDistances();
+            // ✅ Start the batch job (don't wait for completion)
+            const response = await api.post('/distance/recalculate-all');
             
             if (response.success) {
-                alert('Batch distance recalculation started!');
-                // Poll for progress
                 const jobId = response.jobId;
-                let progress = 0;
-                while (progress < 100) {
-                    const status = await loadService.getBatchProgress(jobId);
-                    if (status) {
-                        progress = status.percentage || 0;
-                        console.log(`Progress: ${progress}%`);
-                        if (status.completed) {
-                            alert(`Completed: ${status.succeeded} succeeded, ${status.failed} failed out of ${status.totalTrips} trips`);
-                            break;
-                        }
-                    }
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-                await loadLoads();
+                alert(`✅ Batch recalculation started! Job ID: ${jobId}\n\nIt will run in the background. Refresh the page later to see updated distances.`);
+                
+                // ✅ Don't poll - just refresh the load list
+                setTimeout(async () => {
+                    await loadLoads();
+                }, 3000);
             }
         } catch (err) {
             console.error('Failed to recalculate:', err);
