@@ -56,7 +56,6 @@ import {
   Schedule,
   AttachMoney,
   MonetizationOn,
-  Fleet,
   Engineering,
   Assignment,
 } from '@mui/icons-material';
@@ -125,7 +124,7 @@ const safeFormatDate = (date) => {
 };
 
 // ============================================================
-// STAT CARD COMPONENT
+// STAT CARD COMPONENT (No Gauge)
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -136,7 +135,6 @@ const StatCard = React.memo(({
   trend,
   subtitle,
   loading = false,
-  gauge = null,
   onClick,
 }) => {
   const SafeIcon = Icon || DashboardIcon;
@@ -290,23 +288,6 @@ const StatCard = React.memo(({
           </Box>
         </Stack>
 
-        {gauge && (
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            mt: { xs: 1, sm: 1.5, md: 2 },
-            opacity: loading ? 0.7 : 1,
-          }}>
-            <Gauge 
-              value={gauge.value || 0} 
-              max={gauge.max || 100} 
-              color={iconColor} 
-              unit={gauge.unit || '%'} 
-              size={100}
-            />
-          </Box>
-        )}
-
         {trendLabel && (
           <Chip
             label={trendLabel}
@@ -334,97 +315,69 @@ const StatCard = React.memo(({
 });
 
 // ============================================================
-// GAUGE COMPONENT
+// METRIC GROUP CARD - Combines related metrics
 // ============================================================
-const Gauge = ({ value, max = 100, size = 100, color = '#4F46E5', label, unit = '%' }) => {
-  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
-  const percentage = Math.min(Math.max((safeValue / max) * 100, 0), 100);
-  const circumference = 2 * Math.PI * 45;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  const svgWidth = Math.min(size, 120);
-  const svgHeight = svgWidth * 0.6;
-  const textSize = Math.max(14, svgWidth * 0.14);
-  const unitSize = Math.max(8, svgWidth * 0.07);
-  const strokeWidth = Math.max(8, svgWidth * 0.08);
+const MetricGroupCard = ({ title, icon: Icon, metrics, color = 'primary' }) => {
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
 
   return (
-    <Box sx={{ 
-      textAlign: 'center', 
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      width: '100%',
-      maxWidth: svgWidth + 20,
-      mx: 'auto'
-    }}>
-      <Box sx={{ 
-        width: svgWidth,
-        height: svgHeight,
-        flexShrink: 0,
-      }}>
-        <svg 
-          width="100%" 
-          height="100%" 
-          viewBox="0 0 120 70"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          <path
-            d="M 15 65 A 45 45 0 0 1 105 65"
-            fill="none"
-            stroke="#E5E7EB"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-          />
-          <path
-            d="M 15 65 A 45 45 0 0 1 105 65"
-            fill="none"
-            stroke={color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            style={{ 
-              transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          />
-          <text
-            x="60"
-            y="35"
-            textAnchor="middle"
-            fontSize={textSize}
-            fontWeight="700"
-            fill="#111827"
-          >
-            {safeValue.toFixed(1)}
-          </text>
-          <text
-            x="60"
-            y="50"
-            textAnchor="middle"
-            fontSize={unitSize}
-            fill="#6B7280"
-          >
-            {unit}
-          </text>
-        </svg>
-      </Box>
-      {label && (
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            mt: 0.5, 
-            fontSize: '0.6rem', 
-            color: '#6B7280',
-            fontWeight: 500,
-            letterSpacing: '0.3px',
-            textTransform: 'uppercase'
+    <Paper
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        width: '100%',
+        height: '100%',
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+        <Box
+          sx={{
+            bgcolor: bgColor,
+            borderRadius: '10px',
+            p: 0.75,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {label}
+          <Icon sx={{ color: iconColor, fontSize: '1.2rem' }} />
+        </Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
+          {title}
         </Typography>
-      )}
-    </Box>
+      </Stack>
+
+      <Grid container spacing={1.5}>
+        {metrics.map((metric, index) => (
+          <Grid key={index} size={{ xs: 6, sm: 4, md: 3 }}>
+            <Box
+              sx={{
+                textAlign: 'center',
+                p: 1,
+                bgcolor: '#F9FAFB',
+                borderRadius: '8px',
+                border: '1px solid #F3F4F6',
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem', display: 'block' }}>
+                {metric.label}
+              </Typography>
+              <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '1rem' }, fontWeight: 700 }}>
+                {metric.value}
+              </Typography>
+              {metric.sub && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
+                  {metric.sub}
+                </Typography>
+              )}
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+    </Paper>
   );
 };
 
@@ -1012,175 +965,83 @@ const Dashboard = () => {
         )}
 
         {/* ============================================================
-            KEY METRICS - ROW 1
+            KEY METRICS - COMBINED CARDS
             ============================================================ */}
+
+        {/* Row 1: Vehicle Metrics Group */}
         <Grid 
           container 
-          spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
           sx={{ 
             mb: { xs: 2, sm: 2.5, md: 3 },
             width: '100%',
             margin: 0,
           }}
         >
-          {/* Active Vehicles */}
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Active Vehicles"
-              value={vehicleStats.activeVehicles || 0}
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+            <MetricGroupCard
+              title="Vehicle Overview"
               icon={DirectionsCar}
               color="primary"
-              subtitle={`${vehicleStats.vehiclesInTrip || 0} in trip, ${vehicleStats.vehiclesNotAvailable || 0} not available`}
-              loading={refreshing}
-              gauge={{ value: vehicleStats.activeVehicles / Math.max(vehicleStats.totalVehicles || 1, 1) * 100, max: 100, unit: 'Utilized' }}
+              metrics={[
+                { label: 'Active Vehicles', value: vehicleStats.activeVehicles || 0 },
+                { label: 'In Trip', value: vehicleStats.vehiclesInTrip || 0 },
+                { label: 'Not Available', value: vehicleStats.vehiclesNotAvailable || 0 },
+                { label: 'Total Vehicles', value: vehicleStats.totalVehicles || 0 },
+              ]}
             />
           </Grid>
 
-          {/* Active Drivers */}
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Active Drivers"
-              value={driverStats.activeDrivers || 0}
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+            <MetricGroupCard
+              title="Vehicle Distance"
+              icon={Map}
+              color="info"
+              metrics={[
+                { label: 'Planned KMs', value: `${formatNumber(vehicleStats.plannedKm || 0)} km` },
+                { label: 'Travelled KMs', value: `${formatNumber(vehicleStats.travelledKm || 0)} km` },
+                { label: 'Total KMs', value: `${formatNumber(distanceStats.totalKm || 0)} km` },
+                { label: 'Avg per Trip', value: `${formatNumber(distanceStats.avgKmPerTrip || 0)} km` },
+              ]}
+            />
+          </Grid>
+        </Grid>
+
+        {/* Row 2: Driver Metrics Group */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+          sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            width: '100%',
+            margin: 0,
+          }}
+        >
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+            <MetricGroupCard
+              title="Driver Overview"
               icon={People}
               color="success"
-              subtitle={`${driverStats.driversInTrip || 0} in trip, ${driverStats.driversNotAvailable || 0} not available`}
-              loading={refreshing}
-              gauge={{ value: driverStats.activeDrivers / Math.max(driverStats.totalDrivers || 1, 1) * 100, max: 100, unit: 'Utilized' }}
+              metrics={[
+                { label: 'Active Drivers', value: driverStats.activeDrivers || 0 },
+                { label: 'In Trip', value: driverStats.driversInTrip || 0 },
+                { label: 'Not Available', value: driverStats.driversNotAvailable || 0 },
+                { label: 'Total Drivers', value: driverStats.totalDrivers || 0 },
+              ]}
             />
           </Grid>
 
-          {/* Fuel Efficiency */}
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Fuel Efficiency"
-              value={fuelStats.avgEfficiency || 0}
-              icon={LocalGasStation}
-              unit="km/L"
-              color="warning"
-              subtitle={`${formatCurrency(fuelStats.avgCostPerKm || 0)}/km avg`}
-              loading={refreshing}
-              gauge={{ value: fuelStats.avgEfficiency || 0, max: 10, unit: 'km/L' }}
-            />
-          </Grid>
-
-          {/* Total Distance */}
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Total Distance"
-              value={distanceStats.totalKm || 0}
-              icon={Map}
-              unit="km"
-              color="purple"
-              subtitle={`${distanceStats.totalTrips || 0} trips, ${distanceStats.completedTrips || 0} completed`}
-              loading={refreshing}
-              gauge={{ 
-                value: distanceStats.totalTrips > 0 ? (distanceStats.completedTrips / distanceStats.totalTrips) * 100 : 0, 
-                max: 100, 
-                unit: 'Complete' 
-              }}
-            />
-          </Grid>
-        </Grid>
-
-        {/* ============================================================
-            VEHICLE & DRIVER DETAILS - ROW 2
-            ============================================================ */}
-        <Grid 
-          container 
-          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
-          sx={{ 
-            mb: { xs: 2, sm: 2.5, md: 3 },
-            width: '100%',
-            margin: 0,
-          }}
-        >
-          {/* Vehicle Details */}
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Vehicles in Trip"
-              value={vehicleStats.vehiclesInTrip || 0}
-              icon={Route}
-              color="info"
-              subtitle={`${vehicleStats.activeVehicles || 0} active`}
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Planned KMs"
-              value={vehicleStats.plannedKm || 0}
-              icon={Schedule}
-              unit="km"
-              color="warning"
-              subtitle="Scheduled distance"
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Travelled KMs"
-              value={vehicleStats.travelledKm || 0}
-              icon={CheckCircle}
-              unit="km"
-              color="success"
-              subtitle="Actual distance covered"
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Vehicles Not Available"
-              value={vehicleStats.vehiclesNotAvailable || 0}
-              icon={Engineering}
-              color="error"
-              subtitle="Maintenance/Inactive"
-            />
-          </Grid>
-        </Grid>
-
-        {/* ============================================================
-            DRIVER DETAILS - ROW 3
-            ============================================================ */}
-        <Grid 
-          container 
-          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
-          sx={{ 
-            mb: { xs: 2, sm: 2.5, md: 3 },
-            width: '100%',
-            margin: 0,
-          }}
-        >
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Drivers in Trip"
-              value={driverStats.driversInTrip || 0}
-              icon={Person}
-              color="info"
-              subtitle={`${driverStats.activeDrivers || 0} active`}
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Planned Drivers"
-              value={driverStats.plannedDrivers || 0}
-              icon={Pending}
-              color="warning"
-              subtitle="Awaiting assignment"
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Driver Trips"
-              value={driverStats.totalTrips || 0}
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+            <MetricGroupCard
+              title="Driver Activity"
               icon={Assignment}
-              color="primary"
-              subtitle="Total trips assigned"
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Drivers Not Available"
-              value={driverStats.driversNotAvailable || 0}
-              icon={Cancel}
-              color="error"
-              subtitle="Leave/Inactive"
+              color="warning"
+              metrics={[
+                { label: 'Planned Drivers', value: driverStats.plannedDrivers || 0 },
+                { label: 'Driver Trips', value: driverStats.totalTrips || 0 },
+                { label: 'Total Trips', value: distanceStats.totalTrips || 0 },
+                { label: 'Completed', value: distanceStats.completedTrips || 0 },
+              ]}
             />
           </Grid>
         </Grid>
@@ -1197,7 +1058,7 @@ const Dashboard = () => {
         </Box>
 
         {/* ============================================================
-            TOP DRIVERS & ACTIVITY - ROW 4
+            TOP DRIVERS & ACTIVITY - ROW 3
             ============================================================ */}
         <Grid 
           container 
