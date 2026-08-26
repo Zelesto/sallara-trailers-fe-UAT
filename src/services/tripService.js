@@ -313,22 +313,37 @@ getAllTrips: async (params = {}) => {
   /**
    * End a trip
    */
-  endTrip: async (tripId, endData) => {
-    try {
-      const payload = {
-        actualEndOdometer: endData.endOdometer || endData.actualEndOdometer,
-        endTimestamp: new Date().toISOString(),
-        endReason: endData.endReason || 'COMPLETED',
-        ...endData,
-      };
-      delete payload.endOdometer;
-
-      const response = await api.post(`/trips/${tripId}/end`, payload);
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Ending trip ${tripId}`);
+  endTrip: async (tripId, actualEndOdometer) => {
+  try {
+    // Validate before sending
+    if (!tripId || tripId <= 0) {
+      throw new Error('Invalid trip ID');
     }
-  },
+    
+    if (!actualEndOdometer || actualEndOdometer <= 0) {
+      throw new Error('Please enter a valid odometer reading');
+    }
+    
+    const response = await api.post(`/trips/${tripId}/end`, {
+      actualEndOdometer: parseFloat(actualEndOdometer)
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error ending trip:', error);
+    
+    // Parse server error response
+    if (error.response?.data?.detail) {
+      const detail = error.response.data.detail;
+      if (detail.includes('cannot be less than start odometer')) {
+        throw new Error('End odometer cannot be less than start odometer. Please check the reading.');
+      }
+      throw new Error(detail);
+    }
+    
+    throw error;
+  }
+}
 
   /**
    * Pause a trip
