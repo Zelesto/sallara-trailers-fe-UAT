@@ -287,91 +287,123 @@ getAllTrips: async (params = {}) => {
     }
   },
 
-  // ============================================================
-  // TRIP LIFECYCLE
-  // ============================================================
-
-  /**
-   * Start a trip
-   */
-  startTrip: async (tripId, startData) => {
-    try {
-      const payload = {
-        actualStartOdometer: startData.startOdometer || startData.actualStartOdometer,
-        startTimestamp: new Date().toISOString(),
-        ...startData,
-      };
-      delete payload.startOdometer;
-
-      const response = await api.post(`/trips/${tripId}/start`, payload);
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Starting trip ${tripId}`);
-    }
-  },
-
-  /**
-   * End a trip
-   */
-  endTrip: async (tripId, actualEndOdometer) => {
-  try {
-    // Validate before sending
-    if (!tripId || tripId <= 0) {
-      throw new Error('Invalid trip ID');
-    }
-    
-    if (!actualEndOdometer || actualEndOdometer <= 0) {
-      throw new Error('Please enter a valid odometer reading');
-    }
-    
-    const response = await api.post(`/trips/${tripId}/end`, {
-      actualEndOdometer: parseFloat(actualEndOdometer)
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error('Error ending trip:', error);
-    
-    // Parse server error response
-    if (error.response?.data?.detail) {
-      const detail = error.response.data.detail;
-      if (detail.includes('cannot be less than start odometer')) {
-        throw new Error('End odometer cannot be less than start odometer. Please check the reading.');
-      }
-      throw new Error(detail);
-    }
-    
-    throw error;
-  }
-}
-
-  /**
-   * Pause a trip
-   */
-  pauseTrip: async (tripId, pauseData) => {
-    try {
-      const payload = {
-        ...pauseData,
-        pausedAt: new Date().toISOString(),
-      };
-      const response = await api.post(`/trips/${tripId}/pause`, payload);
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Pausing trip ${tripId}`);
-    }
-  },
-
-  /**
-   * Resume a trip
-   */
-  resumeTrip: async (tripId) => {
-    try {
-      const response = await api.post(`/trips/${tripId}/resume`);
-      return unwrap(response);
-    } catch (error) {
-      throw handleApiError(error, `Resuming trip ${tripId}`);
-    }
-  },
+     // ============================================================
+     // TRIP LIFECYCLE
+     // ============================================================
+   
+     /**
+      * Start a trip
+      */
+     startTrip: async (tripId, startData) => {
+       try {
+         const payload = {
+           actualStartOdometer: startData.startOdometer || startData.actualStartOdometer,
+           startTimestamp: new Date().toISOString(),
+           ...startData,
+         };
+         delete payload.startOdometer;
+   
+         const response = await api.post(`/trips/${tripId}/start`, payload);
+         return unwrap(response);
+       } catch (error) {
+         throw handleApiError(error, `Starting trip ${tripId}`);
+       }
+     },
+   
+     /**
+      * End a trip - FIXED with proper validation and error handling
+      */
+     endTrip: async (tripId, actualEndOdometer) => {
+       try {
+         // Validate inputs
+         if (!tripId || tripId <= 0) {
+           throw new Error('Invalid trip ID');
+         }
+         
+         if (actualEndOdometer === undefined || actualEndOdometer === null) {
+           throw new Error('Please enter an odometer reading');
+         }
+         
+         const endOdometerNum = parseFloat(actualEndOdometer);
+         
+         if (isNaN(endOdometerNum) || endOdometerNum <= 0) {
+           throw new Error('Please enter a valid odometer reading (positive number)');
+         }
+         
+         // First, get trip details to validate against start odometer
+         try {
+           const tripDetails = await api.get(`/trips/${tripId}`);
+           const tripData = unwrap(tripDetails);
+           const startOdometer = tripData?.actualStartOdometer;
+           
+           // Validate end odometer is greater than start odometer
+           if (startOdometer && endOdometerNum < startOdometer) {
+             throw new Error(
+               `End odometer (${endOdometerNum.toFixed(2)} km) cannot be less than start odometer (${startOdometer.toFixed(2)} km).\n\nPlease enter a valid ending odometer reading.`
+             );
+           }
+         } catch (fetchError) {
+           // If we can't fetch trip details, still try to end the trip
+           // The server will validate anyway
+           console.warn(`Could not fetch trip details for validation: ${fetchError.message}`);
+         }
+         
+         // Proceed with ending the trip
+         const response = await api.post(`/trips/${tripId}/end`, {
+           actualEndOdometer: endOdometerNum
+         });
+         
+         return unwrap(response);
+         
+       } catch (error) {
+         console.error('❌ Error ending trip:', error);
+         
+         // Parse server error response for better user messaging
+         if (error.response?.data?.detail) {
+           const detail = error.response.data.detail;
+           if (detail.includes('cannot be less than start odometer') || 
+               detail.includes('End odometer') && detail.includes('cannot be less than')) {
+             throw new Error('End odometer cannot be less than start odometer. Please check the reading.');
+           }
+           throw new Error(detail);
+         }
+         
+         // Re-throw the error with user-friendly message
+         if (error.message) {
+           throw error;
+         }
+         
+         throw new Error('Failed to end trip. Please try again.');
+       }
+     },
+   
+     /**
+      * Pause a trip
+      */
+     pauseTrip: async (tripId, pauseData) => {
+       try {
+         const payload = {
+           ...pauseData,
+           pausedAt: new Date().toISOString(),
+         };
+         const response = await api.post(`/trips/${tripId}/pause`, payload);
+         return unwrap(response);
+       } catch (error) {
+         throw handleApiError(error, `Pausing trip ${tripId}`);
+       }
+     },
+   
+     /**
+      * Resume a trip
+      */
+     resumeTrip: async (tripId) => {
+       try {
+         const response = await api.post(`/trips/${tripId}/resume`);
+         return unwrap(response);
+       } catch (error) {
+         throw handleApiError(error, `Resuming trip ${tripId}`);
+       }
+     },
 
   // ============================================================
 // INCIDENT MANAGEMENT - COMPLETE FIX
