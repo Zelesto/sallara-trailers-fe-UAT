@@ -460,11 +460,17 @@ const LoadDetails = () => {
     }
   };
 
-  // Calculate totals
-  const totalFromDepot = load?.totalFromDepotKm || 0;
-  const totalToDepot = load?.totalToDepotKm || 0;
-  const totalDepot = load?.totalDepotKm || 0;
-  const totalRoute = load?.totalDistanceKm || 0;
+  // Calculate totals using the correct fields
+  const totalFromDepot = load.totalFromDepotKm || 0;
+  const totalToDepot = load.totalToDepotKm || 0;
+  const totalDepot = load.totalDepotKm || 0;
+  
+  // ✅ Use the calculated distance fields
+  const totalRoute = load.totalCalculatedDistanceKm || 
+                     load.totalCalculatedDistance || 
+                     load.totalDistanceKm || 0;
+  
+  // Total distance = route distance + depot distances
   const overallTotal = totalDepot + totalRoute;
 
   if (loading) {
