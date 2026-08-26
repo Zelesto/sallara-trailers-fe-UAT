@@ -547,24 +547,25 @@ const LoadList = () => {
   }, [loads, searchTerm, filterStatus]);
 
   // Calculate total distances for a load
-  const calculateLoadDistances = (load) => {
-    if (!load.trips || load.trips.length === 0) {
-      return { totalPickupDistance: 0, totalRouteDistance: 0, totalDistance: 0 };
-    }
-    
-    let totalPickupDistance = 0;
-    let totalRouteDistance = 0;
-    
-    load.trips.forEach(trip => {
-      totalPickupDistance += trip.pickupDistance || 0;
-      totalRouteDistance += trip.routeDistance || trip.totalDistance || 0;
-    });
-    
-    return {
-      totalPickupDistance,
-      totalRouteDistance,
-      totalDistance: totalPickupDistance + totalRouteDistance,
-    };
+    const calculateLoadDistances = (load) => {
+      // ✅ Use the actual database fields
+      const totalPickupDistance = load.totalFromDepotKm || 0;  // from depot to pickup
+      const totalToDepot = load.totalToDepotKm || 0;          // to depot from drop-off
+      
+      // ✅ Use calculated distance fields from the load
+      const totalRouteDistance = load.totalCalculatedDistanceKm || 
+                                 load.totalCalculatedDistance || 
+                                 load.totalDistanceKm || 0;
+      
+      // Total distance = all combined
+      const totalDistance = totalPickupDistance + totalToDepot + totalRouteDistance;
+      
+      return {
+          totalPickupDistance,
+          totalToDepot,
+          totalRouteDistance,
+          totalDistance,
+      };
   };
 
   return (
