@@ -75,8 +75,6 @@ import {
   Speed as SpeedIcon,
   LocalGasStation,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
-
 
 import {
   TRIP_STATUSES,
@@ -94,11 +92,10 @@ const STATUS_CONFIG = Object.fromEntries(
     icon: item.icon || '📋'
   }])
 );
-// ============================================================
-// UTILITY FUNCTIONS (matching Dashboard styling)
-// ============================================================
 
-
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
 
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
@@ -121,7 +118,7 @@ const formatNumber = (num, decimals = 0) => {
 };
 
 // ============================================================
-// STATUS CONFIG (matching Dashboard patterns)
+// STATUS CONFIG
 // ============================================================
 
 const STATUS_KEYS = {
@@ -135,7 +132,7 @@ const STATUS_KEYS = {
 };
 
 // ============================================================
-// STAT CARD COMPONENT (matching Dashboard StatCard)
+// STAT CARD COMPONENT
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -248,7 +245,7 @@ const StatCard = React.memo(({
 });
 
 // ============================================================
-// STATUS CHIP (matching Dashboard Chip styling)
+// STATUS CHIP
 // ============================================================
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
@@ -273,7 +270,7 @@ const StatusChip = ({ status }) => {
 };
 
 // ============================================================
-// LOCATION DISPLAY (matching Dashboard patterns)
+// LOCATION DISPLAY
 // ============================================================
 const LocationDisplay = ({ city, zipCode, province, fullAddress, type }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -337,7 +334,7 @@ const InfoRow = ({ label, value }) => (
 );
 
 // ============================================================
-// NOTIFICATION HOOK (matching Dashboard)
+// NOTIFICATION HOOK
 // ============================================================
 const useSimpleNotification = () => {
   const [notification, setNotification] = useState(null);
@@ -357,6 +354,7 @@ function TripList() {
   
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('');
@@ -374,8 +372,15 @@ function TripList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  
+  // End Trip Dialog
+  const [endDialogOpen, setEndDialogOpen] = useState(false);
+  const [endTripId, setEndTripId] = useState(null);
+  const [endOdometer, setEndOdometer] = useState('');
+  const [endTripDetails, setEndTripDetails] = useState(null);
+  const [endingTrip, setEndingTrip] = useState(false);
 
-  // ✅ Metrics cache for performance
+  // Metrics cache for performance
   const metricsCache = useRef({});
   const fetchTimerRef = useRef(null);
 
@@ -401,6 +406,7 @@ function TripList() {
     customer = customerFilter 
   } = {}) => {
     setLoading(true);
+    setError(null);
     try {
       const params = {
         page: Number(page),
@@ -427,7 +433,7 @@ function TripList() {
         contentLength: response.content?.length
       });
 
-      // ✅ Fetch metrics for each trip with caching
+      // Fetch metrics for each trip with caching
       const tripsWithMetrics = await Promise.all(
         (response.content || []).map(async (trip) => {
           if (metricsCache.current[trip.id]) {
@@ -444,7 +450,6 @@ function TripList() {
         })
       );
 
-      // DEBUG: Log first trip with metrics
       if (tripsWithMetrics.length > 0) {
         console.log('🔍 First trip with metrics:', {
           id: tripsWithMetrics[0].id,
@@ -462,6 +467,7 @@ function TripList() {
       });
     } catch (err) {
       console.error('Error fetching trips:', err);
+      setError(err.message || 'Failed to load trips');
       showNotification('Failed to load trips', 'error');
       setTrips([]);
     } finally {
@@ -469,12 +475,12 @@ function TripList() {
     }
   }, [pagination.pageSize, searchText, statusFilter, cityFilter, customerFilter, showNotification]);
 
-  // ✅ Initial fetch
+  // Initial fetch
   useEffect(() => {
     fetchTrips({ page: 0, status: 'all' });
   }, []);
 
-  // ✅ Debounced filter changes
+  // Debounced filter changes
   useEffect(() => {
     if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
@@ -503,37 +509,78 @@ function TripList() {
       });
   };
 
-const handleEndTrip = async (tripId) => {
-  try {
-    // Show dialog to enter end odometer
-    const endOdometer = window.prompt('Enter ending odometer reading (km):');
-    
-    if (endOdometer === null) return; // User cancelled
-    
+  // ============================================================
+  // END TRIP - FIXED with proper dialog
+  // ============================================================
+  
+  const handleOpenEndDialog = async (trip) => {
+    try {
+      // Fetch trip details to get start odometer
+      const tripDetails = await tripService.getTripById(trip.id);
+      setEndTripId(trip.id);
+      setEndTripDetails(tripDetails);
+      setEndOdometer('');
+      setEndDialogOpen(true);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching trip details:', err);
+      showNotification('Failed to load trip details', 'error');
+    }
+  };
+
+  const handleCloseEndDialog = () => {
+    setEndDialogOpen(false);
+    setEndTripId(null);
+    setEndTripDetails(null);
+    setEndOdometer('');
+    setError(null);
+  };
+
+  const handleEndTripConfirm = async () => {
+    if (!endTripId || !endTripDetails) return;
+
     const endOdometerNum = parseFloat(endOdometer);
     
+    // Validate input
     if (isNaN(endOdometerNum) || endOdometerNum <= 0) {
-      alert('Please enter a valid odometer reading (positive number).');
+      setError('Please enter a valid odometer reading (positive number).');
       return;
     }
     
-    // Get trip details to validate against start odometer
-    const tripDetails = await tripService.getTripById(tripId);
-    const startOdometer = tripDetails?.actualStartOdometer;
-    
+    // Validate against start odometer
+    const startOdometer = endTripDetails.actualStartOdometer;
     if (startOdometer && endOdometerNum < startOdometer) {
-      alert(`End odometer (${endOdometerNum.toFixed(2)} km) cannot be less than start odometer (${startOdometer.toFixed(2)} km).\n\nPlease enter a valid ending odometer reading.`);
+      setError(
+        `❌ End odometer (${endOdometerNum.toFixed(2)} km) cannot be less than start odometer (${startOdometer.toFixed(2)} km).\n\nPlease enter a valid ending odometer reading.`
+      );
       return;
     }
-    
-    // Proceed with ending the trip
-    await tripService.endTrip(tripId, endOdometerNum);
-    loadTrips();
-  } catch (error) {
-    console.error('Error ending trip:', error);
-    setError(error.message || 'Failed to end trip');
-  }
-};
+
+    setEndingTrip(true);
+    setError(null);
+
+    try {
+      await tripService.endTrip(endTripId, endOdometerNum);
+      showNotification('Trip ended successfully!', 'success');
+      handleCloseEndDialog();
+      metricsCache.current = {};
+      fetchTrips({ page: pagination.page });
+    } catch (err) {
+      console.error('Error ending trip:', err);
+      let errorMessage = err.message || 'Failed to end trip';
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        if (detail.includes('cannot be less than start odometer')) {
+          errorMessage = '❌ End odometer cannot be less than start odometer. Please check the reading.';
+        } else {
+          errorMessage = detail;
+        }
+      }
+      setError(errorMessage);
+    } finally {
+      setEndingTrip(false);
+    }
+  };
 
   const handleOpenNoticeWizard = (trip) => {
     setSelectedTripForNotice(trip);
@@ -720,7 +767,18 @@ const handleEndTrip = async (tripId) => {
           </Alert>
         )}
 
-        {/* Header - matching Dashboard */}
+        {/* Error Alert */}
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem', whiteSpace: 'pre-line' }}
+            onClose={() => setError(null)}
+          >
+            {error}
+          </Alert>
+        )}
+
+        {/* Header */}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
@@ -798,7 +856,7 @@ const handleEndTrip = async (tripId) => {
           </Stack>
         </Stack>
 
-        {/* Stats Cards - matching Dashboard */}
+        {/* Stats Cards */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
@@ -846,7 +904,7 @@ const handleEndTrip = async (tripId) => {
           </Grid>
         </Grid>
 
-        {/* Filters - matching Dashboard filter style */}
+        {/* Filters */}
         <Paper
           elevation={0}
           sx={{
@@ -953,7 +1011,7 @@ const handleEndTrip = async (tripId) => {
           </Stack>
         </Paper>
 
-        {/* Table - matching Dashboard table styling */}
+        {/* Table */}
         <Paper
           elevation={0}
           sx={{
@@ -1087,7 +1145,6 @@ const handleEndTrip = async (tripId) => {
                           />
                         </TableCell>
 
-                        {/* ✅ Distance column with actual metrics */}
                         <TableCell sx={{ py: 0.5 }}>
                           {(() => {
                             const plannedDistance = trip.plannedDistanceKm;
@@ -1162,7 +1219,7 @@ const handleEndTrip = async (tripId) => {
                                 <IconButton 
                                   size="small" 
                                   color="error" 
-                                  onClick={() => handleEndTrip(trip)} 
+                                  onClick={() => handleOpenEndDialog(trip)} 
                                   sx={{ p: { xs: 0.25, sm: 0.5 } }}
                                 >
                                   <StopIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
@@ -1279,6 +1336,91 @@ const handleEndTrip = async (tripId) => {
             />
           )}
         </Paper>
+
+        {/* ============================================================
+            END TRIP DIALOG - FIXED
+            ============================================================ */}
+        <Dialog
+          open={endDialogOpen}
+          onClose={handleCloseEndDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+            <StopIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
+            End Trip
+          </DialogTitle>
+          <DialogContent>
+            {endTripDetails && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                  <strong>Trip:</strong> {endTripDetails.tripNumber}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                  <strong>Start Odometer:</strong> {endTripDetails.actualStartOdometer?.toFixed(2) || 'N/A'} km
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                  <strong>Status:</strong> {endTripDetails.status}
+                </Typography>
+              </Box>
+            )}
+            
+            {error && (
+              <Alert 
+                severity="error" 
+                sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem', whiteSpace: 'pre-line' }}
+                onClose={() => setError(null)}
+              >
+                {error}
+              </Alert>
+            )}
+            
+            <TextField
+              autoFocus
+              margin="dense"
+              label="End Odometer (km)"
+              type="number"
+              fullWidth
+              value={endOdometer}
+              onChange={(e) => {
+                setEndOdometer(e.target.value);
+                setError(null);
+              }}
+              helperText={endTripDetails?.actualStartOdometer 
+                ? `Must be greater than ${endTripDetails.actualStartOdometer.toFixed(2)} km` 
+                : 'Enter the ending odometer reading'}
+              error={!!error && !error.includes('cannot be less')}
+              inputProps={{ 
+                step: '0.01', 
+                min: endTripDetails?.actualStartOdometer || 0 
+              }}
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.8rem' } }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button 
+              onClick={handleCloseEndDialog} 
+              size="small" 
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+              disabled={endingTrip}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEndTripConfirm}
+              variant="contained"
+              color="error"
+              disabled={endingTrip || !endOdometer}
+              size="small"
+              sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                '&:hover': { bgcolor: '#DC2626' }
+              }}
+            >
+              {endingTrip ? <CircularProgress size={18} /> : 'End Trip'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Modals */}
         {showCreateModal && (
