@@ -1,4 +1,5 @@
 // src/services/analyticsService.js
+
 import api from './api';
 
 // Helper to build query strings safely
@@ -45,198 +46,183 @@ const calculateDaysBetween = (startDate, endDate) => {
 export const analyticsService = {
 
   checkAuth: async () => {
-  try {
-    const token = localStorage.getItem('auth_token');
-    console.log('🔑 Auth token exists:', !!token);
-    console.log('🔑 Token preview:', token?.substring(0, 20) + '...');
-    
-    const response = await api.get('/analytics/test-simple');
-    console.log('✅ Auth test response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Auth test failed:', error.response?.status, error.message);
-    throw error;
-  }
-},
+    try {
+      const token = localStorage.getItem('auth_token');
+      console.log('🔑 Auth token exists:', !!token);
+      console.log('🔑 Token preview:', token?.substring(0, 20) + '...');
+      
+      const response = await api.get('/analytics/test-simple');
+      console.log('✅ Auth test response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Auth test failed:', error.response?.status, error.message);
+      throw error;
+    }
+  },
+
   /**
    * Get comprehensive dashboard KPIs
    * @param {string} startDate - YYYY-MM-DD
    * @param {string} endDate - YYYY-MM-DD
    */
   getDashboardKPIs: async (startDate, endDate) => {
-  try {
-    const queryString = buildQuery({ startDate, endDate });
-    const url = `/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
-    
-    console.log('📊 Fetching dashboard KPIs:', url);
-    const response = await api.get(url);
-    
-    // ✅ FIX: Handle both response.data and direct response
-    const data = response.data || response;
-    
-    if (!data) {
-      throw new Error('No data received from server');
-    }
-    
-    console.log('✅ Dashboard data received:', data);
-    console.log('✅ Vehicle KPIs:', data.vehicleKpis);
-    console.log('✅ Driver KPIs:', data.driverKpis);
+    try {
+      const queryString = buildQuery({ startDate, endDate });
+      const url = `/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
       
-
-      // ✅ FIX: Ensure arrays exist
+      console.log('📊 Fetching dashboard KPIs:', url);
+      const response = await api.get(url);
+      
+      // Handle both response.data and direct response
+      const data = response.data || response;
+      
+      if (!data) {
+        throw new Error('No data received from server');
+      }
+      
+      console.log('✅ Dashboard data received:', data);
+      
+      // ============================================================
+      // EXTRACT DATA FROM BACKEND RESPONSE
+      // ============================================================
+      
+      // Summary data
       const summary = data.summary || {};
+      
+      // Vehicle stats - these come directly from the backend
+      const vehicleStats = data.vehicleStats || {
+        activeVehicles: 0,
+        vehiclesInTrip: 0,
+        vehiclesNotAvailable: 0,
+        totalVehicles: 0,
+        plannedKm: 0,
+        travelledKm: 0,
+      };
+      
+      // Driver stats - these come directly from the backend
+      const driverStats = data.driverStats || {
+        activeDrivers: 0,
+        driversInTrip: 0,
+        driversNotAvailable: 0,
+        plannedDrivers: 0,
+        totalDrivers: 0,
+        totalTrips: 0,
+      };
+      
+      // Fuel stats - these come directly from the backend
+      const fuelStats = data.fuelStats || {
+        totalKm: 0,
+        totalFuel: 0,
+        totalFuelCost: 0,
+        avgEfficiency: 0,
+        avgCostPerKm: 0,
+        vehicleEfficiency: {},
+        driverEfficiency: {},
+      };
+      
+      // Distance stats - these come directly from the backend
+      const distanceStats = data.distanceStats || {
+        totalKm: 0,
+        totalTrips: 0,
+        completedTrips: 0,
+        avgKmPerTrip: 0,
+      };
+      
+      // Vehicle KPIs
       const vehicleKpis = Array.isArray(data.vehicleKpis) ? data.vehicleKpis : [];
+      
+      // Driver KPIs
       const driverKpis = Array.isArray(data.driverKpis) ? data.driverKpis : [];
       
-      // Calculate derived metrics
-      const totalKm = summary.totalKm || 0;
-      const totalFuelLiters = summary.totalFuelLiters || 0;
-      const totalFuelCost = summary.totalFuelCost || 0;
-      const avgFuelEfficiency = totalFuelLiters > 0 ? totalKm / totalFuelLiters : 0;
-      const avgTripDistance = driverKpis.length > 0 
-        ? driverKpis.reduce((sum, d) => sum + (d.totalKm || 0), 0) / driverKpis.length 
-        : 0;
-      const costPerKm = totalKm > 0 ? totalFuelCost / totalKm : 0;
-
-      // Process top drivers
-      const topDrivers = driverKpis
-        .sort((a, b) => (b.profit || 0) - (a.profit || 0))
-        .slice(0, 5)
-        .map(d => ({
-          name: d.driverName || d.driver || 'Unknown Driver',
-          efficiency: d.efficiencyScore || 0,
-          tripCount: d.tripsCompleted || 0,
-          costPerKm: d.costPerKm || 0,
-          rating: Math.min(5, Math.floor(((d.efficiencyScore || 0) / 2) + 1)),
-          profit: d.profit || 0,
-          revenue: d.totalRevenue || 0,
-          totalKm: d.totalKm || 0,
-          fuelCost: d.fuelCost || 0
-        }));
-
-    
-      // Process top vehicles
-      const topVehicles = vehicleKpis
-        .sort((a, b) => (b.kmPerLiter || 0) - (a.kmPerLiter || 0))
-        .slice(0, 5)
-        .map(v => ({
-          registrationNumber: v.registrationNumber || 'Unknown',
-          kmPerLiter: v.kmPerLiter || 0,
-          totalKm: v.totalKm || 0,
-          fuelLiters: v.fuelLiters || 0,
-          costPerKm: v.costPerKm || 0,
-          efficiency: v.kmPerLiter || 0,
-          fuelCost: v.fuelCost || 0
-        }));
-
-      // Generate recent activities from real data
-      const recentActivities = [];
+      // Top drivers
+      const topDrivers = Array.isArray(data.topDrivers) ? data.topDrivers : [];
       
-      // Add vehicle activities
-      vehicleKpis.slice(0, 3).forEach(vehicle => {
-        if (vehicle.registrationNumber && vehicle.totalKm > 0) {
-          recentActivities.push({
-            type: 'vehicle',
-            message: `${vehicle.registrationNumber} - ${vehicle.kmPerLiter?.toFixed(1) || 0} km/L efficiency`,
-            vehicle: vehicle.registrationNumber,
-            time: 'Today',
-            status: vehicle.kmPerLiter > 8 ? 'success' : 'warning'
-          });
-        }
-      });
+      // Most efficient vehicle
+      const mostEfficientVehicle = data.mostEfficientVehicle || {
+        registration: 'N/A',
+        efficiency: 0,
+      };
       
-      // Add driver activities
-      driverKpis.slice(0, 3).forEach(driver => {
-        if ((driver.driverName || driver.driver) && driver.tripsCompleted > 0) {
-          recentActivities.push({
-            type: 'driver',
-            message: `${driver.driverName || driver.driver} completed ${driver.tripsCompleted} trips`,
-            vehicle: 'Fleet',
-            time: 'Today',
-            status: 'success'
-          });
-        }
-      });
-
-      // Add fuel activity
-      if (totalFuelCost > 0) {
-        recentActivities.push({
-          type: 'fuel',
-          message: `Total fuel expenditure: R ${totalFuelCost.toFixed(2)}`,
-          vehicle: 'All Vehicles',
-          time: 'This period',
-          status: 'info'
-        });
+      // Top driver
+      const topDriver = data.topDriver || {
+        name: 'N/A',
+        profit: 0,
+        tripsCompleted: 0,
+      };
+      
+      // Recent activities - generate from available data if not provided
+      let recentActivities = data.recentActivities || [];
+      if (recentActivities.length === 0) {
+        recentActivities = generateRecentActivities(vehicleStats, driverStats, fuelStats, topDrivers);
       }
-
+      
+      // ============================================================
+      // BUILD THE RESPONSE
+      // ============================================================
+      
       return {
         success: true,
-        timestamp: new Date().toISOString(),
-        period: {
-          startDate: data.period?.startDate || startDate,
-          endDate: data.period?.endDate || endDate,
-          days: data.period?.days || calculateDaysBetween(startDate, endDate),
-          vehicleTrend: data.period?.vehicleTrend || 0,
-          driverTrend: data.period?.driverTrend || 0,
-          efficiencyTrend: data.period?.efficiencyTrend || 0,
-          costTrend: data.period?.costTrend || 0
+        timestamp: data.timestamp || new Date().toISOString(),
+        period: data.period || {
+          startDate: startDate || 'N/A',
+          endDate: endDate || 'N/A',
+          days: calculateDaysBetween(startDate, endDate),
         },
+        
+        // Summary data
         summary: {
-          activeVehicles: summary.activeVehicles || 0,
-          activeDrivers: summary.activeDrivers || 0,
-          totalVehicles: summary.activeVehicles || 0,
-          totalDrivers: summary.activeDrivers || 0,
-          avgFuelEfficiency,
-          fuelEfficiency: avgFuelEfficiency,
-          totalFuelCost,
-          fuelCost: totalFuelCost,
-          totalFuelLiters,
-          totalKm,
+          totalVehicles: summary.totalVehicles || 0,
+          totalDrivers: summary.totalDrivers || 0,
+          totalTrips: summary.totalTrips || 0,
+          completedTrips: summary.completedTrips || 0,
+          totalKm: summary.totalKm || 0,
+          totalFuelLiters: summary.totalFuelLiters || 0,
+          totalFuelCost: summary.totalFuelCost || 0,
           totalRevenue: summary.totalRevenue || 0,
           totalProfit: summary.totalProfit || 0,
-          avgTripDistance,
-          costPerKm,
-          vehicleTrend: summary.vehicleTrend || 0,
-          driverTrend: summary.driverTrend || 0,
-          efficiencyTrend: summary.efficiencyTrend || 0,
-          costTrend: summary.costTrend || 0
+          avgFuelEfficiency: summary.avgFuelEfficiency || 0,
+          avgCostPerKm: summary.avgCostPerKm || 0,
         },
-        topDrivers,
-        topVehicles,
-        vehicleKpis: topVehicles,
-        driverKpis: driverKpis.slice(0, 5),
-        recentActivities: recentActivities.slice(0, 5),
-        periodStats: {
-          startDate: data.period?.startDate || startDate,
-          endDate: data.period?.endDate || endDate,
-          vehicleTrend: data.period?.vehicleTrend || 0,
-          driverTrend: data.period?.driverTrend || 0,
-          efficiencyTrend: data.period?.efficiencyTrend || 0,
-          costTrend: data.period?.costTrend || 0
-        },
-        mostEfficientVehicle: data.mostEfficientVehicle || {
-          registration: topVehicles[0]?.registrationNumber || 'N/A',
-          efficiency: topVehicles[0]?.kmPerLiter || 0
-        },
-        topDriver: data.topDriver || {
-          name: topDrivers[0]?.name || 'N/A',
-          profit: topDrivers[0]?.profit || 0,
-          tripsCompleted: topDrivers[0]?.tripCount || 0
-        }
+        
+        // Vehicle stats - directly from backend
+        vehicleStats: vehicleStats,
+        
+        // Driver stats - directly from backend
+        driverStats: driverStats,
+        
+        // Fuel stats - directly from backend
+        fuelStats: fuelStats,
+        
+        // Distance stats - directly from backend
+        distanceStats: distanceStats,
+        
+        // Vehicle KPIs
+        vehicleKpis: vehicleKpis,
+        
+        // Driver KPIs
+        driverKpis: driverKpis,
+        
+        // Top drivers
+        topDrivers: topDrivers,
+        
+        // Most efficient vehicle
+        mostEfficientVehicle: mostEfficientVehicle,
+        
+        // Top driver
+        topDriver: topDriver,
+        
+        // Recent activities
+        recentActivities: recentActivities,
       };
+      
     } catch (error) {
       console.error('❌ Error fetching dashboard data:', error);
       
-      // Rethrow the error with details
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
         throw new Error(`Server error: ${error.response.status} - ${error.response.data?.message || 'Unknown error'}`);
       } else if (error.request) {
-        // The request was made but no response was received
         throw new Error('No response from server. Please check your connection.');
       } else {
-        // Something happened in setting up the request that triggered an Error
         throw new Error(error.message || 'Failed to fetch dashboard data');
       }
     }
@@ -335,3 +321,80 @@ export const analyticsService = {
     }
   }
 };
+
+// ============================================================
+// HELPER: Generate recent activities
+// ============================================================
+function generateRecentActivities(vehicleStats, driverStats, fuelStats, topDrivers) {
+  const activities = [];
+  
+  // Vehicle activity
+  if (vehicleStats.activeVehicles > 0) {
+    activities.push({
+      type: 'vehicle',
+      message: `${vehicleStats.activeVehicles} active vehicles, ${vehicleStats.vehiclesInTrip || 0} in trip`,
+      vehicle: 'Fleet',
+      time: 'Today',
+      status: 'info',
+    });
+  }
+  
+  // Driver activity
+  if (driverStats.activeDrivers > 0) {
+    activities.push({
+      type: 'driver',
+      message: `${driverStats.activeDrivers} active drivers, ${driverStats.driversInTrip || 0} in trip`,
+      vehicle: 'Fleet',
+      time: 'Today',
+      status: 'info',
+    });
+  }
+  
+  // Fuel activity
+  if (fuelStats.totalFuelCost > 0) {
+    activities.push({
+      type: 'fuel',
+      message: `Total fuel cost: ${formatCurrency(fuelStats.totalFuelCost)}`,
+      vehicle: 'All Vehicles',
+      time: 'This period',
+      status: 'info',
+    });
+  }
+  
+  // Top driver activity
+  if (topDrivers && topDrivers.length > 0) {
+    const top = topDrivers[0];
+    activities.push({
+      type: 'driver',
+      message: `${top.name || 'Top driver'} has completed ${top.tripsCompleted || 0} trips`,
+      vehicle: 'Fleet',
+      time: 'This period',
+      status: 'success',
+    });
+  }
+  
+  // Default activity if nothing else
+  if (activities.length === 0) {
+    activities.push({
+      type: 'info',
+      message: 'System is operational',
+      vehicle: 'Fleet',
+      time: 'Just now',
+      status: 'info',
+    });
+  }
+  
+  return activities;
+}
+
+// Helper function for currency formatting
+function formatCurrency(amount) {
+  if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-ZA', {
+    style: 'currency',
+    currency: 'ZAR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numAmount);
+}
