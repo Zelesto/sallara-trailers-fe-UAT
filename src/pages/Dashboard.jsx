@@ -726,13 +726,24 @@ const Dashboard = () => {
 
       const formatDate = (date) => date.toISOString().split('T')[0];
 
+      console.log('📊 Fetching dashboard KPIs:', `/analytics/dashboard?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}`);
+
       const [response, lowStock, activeTripsData] = await Promise.all([
         analyticsService.getDashboardKPIs(formatDate(startDate), formatDate(endDate)),
         inventoryNotificationService.getLowStockItems().catch(() => []),
         fetchActiveTrips(),
       ]);
 
+      console.log('📊 Raw dashboard response:', response);
+
       if (response && response.success !== false) {
+        // Log the data we're receiving
+        console.log('✅ Vehicle Stats:', response.vehicleStats);
+        console.log('✅ Driver Stats:', response.driverStats);
+        console.log('✅ Fuel Stats:', response.fuelStats);
+        console.log('✅ Distance Stats:', response.distanceStats);
+        console.log('✅ Top Drivers:', response.topDrivers);
+        
         setDashboardData(response);
       } else {
         throw new Error(response?.message || 'Invalid response structure');
@@ -742,7 +753,7 @@ const Dashboard = () => {
       setActiveTrips(activeTripsData);
 
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
+      console.error('❌ Error fetching dashboard data:', err);
       setError(err.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
@@ -755,9 +766,42 @@ const Dashboard = () => {
   }, [period]);
 
   // ============================================================
-  // DERIVED DATA
+  // DERIVED DATA - Safely extract with fallbacks
   // ============================================================
 
+  const summary = dashboardData?.summary || {};
+  const vehicleStats = dashboardData?.vehicleStats || {
+    activeVehicles: 0,
+    vehiclesInTrip: 0,
+    vehiclesNotAvailable: 0,
+    totalVehicles: 0,
+    plannedKm: 0,
+    travelledKm: 0,
+  };
+  const driverStats = dashboardData?.driverStats || {
+    activeDrivers: 0,
+    driversInTrip: 0,
+    driversNotAvailable: 0,
+    plannedDrivers: 0,
+    totalDrivers: 0,
+    totalTrips: 0,
+  };
+  const fuelStats = dashboardData?.fuelStats || {
+    avgEfficiency: 0,
+    avgCostPerKm: 0,
+    totalFuelCost: 0,
+    totalFuel: 0,
+  };
+  const distanceStats = dashboardData?.distanceStats || {
+    totalKm: 0,
+    totalTrips: 0,
+    completedTrips: 0,
+    avgKmPerTrip: 0,
+  };
+  const topDrivers = dashboardData?.topDrivers || [];
+  const mostEfficientVehicle = dashboardData?.mostEfficientVehicle || {};
+
+  // Availability from active trips
   const availability = useMemo(() => {
     const driversInTrips = new Set();
     const vehiclesInTrips = new Set();
@@ -767,8 +811,8 @@ const Dashboard = () => {
       if (trip.vehicleId) vehiclesInTrips.add(trip.vehicleId);
     });
 
-    const totalDrivers = dashboardData?.summary?.totalDrivers || 0;
-    const totalVehicles = dashboardData?.summary?.totalVehicles || 0;
+    const totalDrivers = summary?.totalDrivers || 0;
+    const totalVehicles = summary?.totalVehicles || 0;
 
     return {
       activeDrivers: driversInTrips.size,
@@ -776,16 +820,16 @@ const Dashboard = () => {
       availableDrivers: Math.max(0, totalDrivers - driversInTrips.size),
       availableVehicles: Math.max(0, totalVehicles - vehiclesInTrips.size),
     };
-  }, [activeTrips, dashboardData]);
+  }, [activeTrips, summary]);
 
-  // Extract data from dashboard response
-  const summary = dashboardData?.summary || {};
-  const vehicleStats = dashboardData?.vehicleStats || {};
-  const driverStats = dashboardData?.driverStats || {};
-  const fuelStats = dashboardData?.fuelStats || {};
-  const distanceStats = dashboardData?.distanceStats || {};
-  const topDrivers = dashboardData?.topDrivers || [];
-  const mostEfficientVehicle = dashboardData?.mostEfficientVehicle || {};
+  // Log what we're rendering
+  console.log('📊 Rendering Dashboard with:', {
+    vehicleStats,
+    driverStats,
+    fuelStats,
+    distanceStats,
+    topDrivers: topDrivers.length,
+  });
 
   // ============================================================
   // LOADING STATE
@@ -867,7 +911,7 @@ const Dashboard = () => {
                 } 
               }}
             >
-              Real-time fleet insights and analytics • {summary.totalVehicles || 0} vehicles, {summary.totalDrivers || 0} drivers
+              Real-time fleet insights and analytics • {summary?.totalVehicles || 0} vehicles, {summary?.totalDrivers || 0} drivers
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
