@@ -626,48 +626,49 @@ const LoadList = () => {
           </Box>
           <Stack direction="row" spacing={1}>
             <Button
-    variant="contained"
-    startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
-    onClick={async () => {
-        try {
-            setError(null);
-            setLoading(true);
-            
-            // ✅ Start the batch job (don't wait for completion)
-            const response = await api.post('/distance/recalculate-all');
-            
-            if (response.success) {
-                const jobId = response.jobId;
-                alert(`✅ Batch recalculation started! Job ID: ${jobId}\n\nIt will run in the background. Refresh the page later to see updated distances.`);
-                
-                // ✅ Don't poll - just refresh the load list
-                setTimeout(async () => {
-                    await loadLoads();
-                }, 3000);
-            }
-        } catch (err) {
-            console.error('Failed to recalculate:', err);
-            setError('Failed to recalculate distances');
-        } finally {
-            setLoading(false);
-        }
-    }}
-    size="small"
-    sx={{
-        borderRadius: '10px',
-        fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
-        textTransform: 'none',
-        py: { xs: 0.5, sm: 0.75 },
-        px: { xs: 1.5, sm: 2 },
-        background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-        '&:hover': {
-            background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
-        },
-    }}
->
-    Recalc All Distances
-</Button>
-            
+                variant="contained"
+                startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+                onClick={async () => {
+                    try {
+                        setError(null);
+                        setLoading(true);
+                        
+                        // ✅ Use loadService.recalculateAllDistances()
+                        const response = await loadService.recalculateAllDistances();
+                        
+                        if (response.success) {
+                            const jobId = response.jobId;
+                            alert(`✅ Batch recalculation started! Job ID: ${jobId}\n\nIt will run in the background. Refresh the page later to see updated distances.`);
+                            
+                            // ✅ Refresh the load list after a short delay
+                            setTimeout(async () => {
+                                await loadLoads();
+                            }, 3000);
+                        } else {
+                            throw new Error(response.message || 'Failed to start recalculation');
+                        }
+                    } catch (err) {
+                        console.error('Failed to recalculate:', err);
+                        setError(err.message || 'Failed to recalculate distances');
+                    } finally {
+                        setLoading(false);
+                    }
+                }}
+                size="small"
+                sx={{
+                    borderRadius: '10px',
+                    fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                    textTransform: 'none',
+                    py: { xs: 0.5, sm: 0.75 },
+                    px: { xs: 1.5, sm: 2 },
+                    background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                    '&:hover': {
+                        background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                    },
+                }}
+            >
+                Recalc All Distances
+            </Button> 
             <Button
               variant="outlined"
               startIcon={<MergeIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
