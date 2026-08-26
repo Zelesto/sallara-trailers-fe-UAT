@@ -1,4 +1,5 @@
 // src/pages/load/LoadDetails.jsx
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -61,7 +62,6 @@ import {
   Category,
   Scale,
   Straighten,
-
 } from '@mui/icons-material';
 import { loadService } from '../../services/loadService';
 
@@ -79,7 +79,7 @@ import {
 } from '../../constants/loadEnums';
 
 // ============================================================
-// COMPONENT: StatusChip (matching Dashboard)
+// COMPONENT: StatusChip
 // ============================================================
 const StatusChip = ({ status }) => {
   const config = LOAD_STATUSES?.find(s => s.code === status);
@@ -102,13 +102,14 @@ const StatusChip = ({ status }) => {
 };
 
 // ============================================================
-// COMPONENT: InfoItem
+// COMPONENT: InfoItem - FIXED null safety
 // ============================================================
 const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false, subValue = null }) => {
   const iconColor = getColor(color);
   const bgColor = getColorBg(color);
   
-  const displayValue = value === null || value === undefined || value === '' ? 'N/A' : value;
+  // Safe display value with null check
+  const displayValue = (value === null || value === undefined || value === '') ? 'N/A' : value;
   
   return (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, py: 0.75, borderBottom: '1px solid #F3F4F6' }}>
@@ -150,7 +151,7 @@ const InfoItem = ({ label, value, icon: Icon, color = 'primary', isChip = false,
 };
 
 // ============================================================
-// COMPONENT: StatCard (matching Dashboard)
+// COMPONENT: StatCard
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -162,6 +163,9 @@ const StatCard = React.memo(({
   const iconColor = getColor(color);
   const bgColor = getColorBg(color);
   const SafeIcon = Icon || LocalShipping;
+
+  // Ensure value is always a number or string
+  const displayValue = (value === null || value === undefined) ? 0 : value;
 
   return (
     <Card
@@ -206,7 +210,7 @@ const StatCard = React.memo(({
                 lineHeight: 1.2,
               }}
             >
-              {value || 0}
+              {typeof displayValue === 'number' ? displayValue : displayValue}
             </Typography>
             
             {subtitle && (
@@ -270,100 +274,164 @@ const SectionHeader = ({ title, icon: Icon, subtitle }) => (
 );
 
 // ============================================================
-// COMPONENT: TripTimelineItem
+// COMPONENT: TripTimelineItem - FIXED null safety
 // ============================================================
 const TripTimelineItem = ({ trip, index }) => {
-    // ✅ Use the correct trip distance fields
-    const fromDepot = trip.fromDepotKm || 0;
-    const toDepot = trip.toDepotKm || 0;
-    const tripDistance = trip.calculatedDistanceKm || 
-                         trip.actualDistanceKm || 
-                         trip.totalDistance || 
-                         0;
-    
-    const totalDistance = fromDepot + toDepot + tripDistance;
-    
-    return (
-        <Paper sx={{ /* ... */ }}>
-            <Grid container spacing={{ xs: 1, sm: 1.5 }} alignItems="center">
-                {/* ... rest of the grid ... */}
-                
-                <Grid size={{ xs: 6, sm: 2 }}>
-                    <InfoItem
-                        label="Pickup"
-                        value={fromDepot ? `${fromDepot} km` : '0 km'}
-                        icon={Home}
-                        color="info"
-                    />
-                </Grid>
-
-                <Grid size={{ xs: 6, sm: 2 }}>
-                    <InfoItem
-                        label="Route"
-                        value={tripDistance ? `${tripDistance} km` : '0 km'}
-                        icon={RouteIcon}
-                        color="warning"
-                    />
-                </Grid>
-
-                <Grid size={{ xs: 6, sm: 2 }}>
-                    <InfoItem
-                        label="Total"
-                        value={`${totalDistance} km`}
-                        icon={Map}
-                        color="success"
-                    />
-                </Grid>
-            </Grid>
-            
-            {/* Progress bar showing distance breakdown */}
-            <Box sx={{ mt: 1.5 }}>
-                <LinearProgress
-                    variant="determinate"
-                    value={100}
-                    sx={{ height: 6, borderRadius: 3, bgcolor: '#F3F4F6' }}
-                />
-                <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
-                        From Depot: {fromDepot} km
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
-                        Route: {tripDistance} km
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
-                        To Depot: {toDepot} km
-                    </Typography>
-                </Stack>
+  // SAFE ACCESS with null checks - trip might be undefined or null
+  if (!trip) {
+    return null;
+  }
+  
+  const fromDepot = trip.fromDepotKm ?? 0;
+  const toDepot = trip.toDepotKm ?? 0;
+  const tripDistance = trip.calculatedDistanceKm ?? 
+                       trip.actualDistanceKm ?? 
+                       trip.totalDistance ?? 0;
+  
+  const totalDistance = fromDepot + toDepot + tripDistance;
+  
+  return (
+    <Paper
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        mb: 1.5,
+        borderRadius: { xs: '10px', sm: '12px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#F9FAFB',
+        '&:last-child': { mb: 0 },
+        '&:hover': {
+          borderColor: '#4F46E5',
+          bgcolor: '#EEF2FF',
+        },
+      }}
+    >
+      <Grid container spacing={{ xs: 1, sm: 1.5 }} alignItems="center">
+        <Grid size={{ xs: 12, sm: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Avatar
+              sx={{
+                width: 28,
+                height: 28,
+                bgcolor: '#4F46E5',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+              }}
+            >
+              {index + 1}
+            </Avatar>
+            <Box>
+              <Typography variant="body2" fontWeight="600" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                {trip.tripNumber || `Trip ${index + 1}`}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
+                {trip.status || 'N/A'}
+              </Typography>
             </Box>
-        </Paper>
-    );
+          </Stack>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <LocationOn sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
+            <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+              {trip.originLocation || trip.originCity || 'N/A'}
+            </Typography>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <LocationOn sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
+            <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+              {trip.destinationLocation || trip.destinationCity || 'N/A'}
+            </Typography>
+          </Stack>
+        </Grid>
+
+        <Grid size={{ xs: 6, sm: 2 }}>
+          <InfoItem
+            label="Pickup"
+            value={fromDepot ? `${fromDepot} km` : '0 km'}
+            icon={Home}
+            color="info"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 6, sm: 2 }}>
+          <InfoItem
+            label="Route"
+            value={tripDistance ? `${tripDistance} km` : '0 km'}
+            icon={RouteIcon}
+            color="warning"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 6, sm: 2 }}>
+          <InfoItem
+            label="Total"
+            value={`${totalDistance} km`}
+            icon={Map}
+            color="success"
+          />
+        </Grid>
+      </Grid>
+
+      <Box sx={{ mt: 1.5 }}>
+        <LinearProgress
+          variant="determinate"
+          value={100}
+          sx={{
+            height: 6,
+            borderRadius: 3,
+            bgcolor: '#F3F4F6',
+            '& .MuiLinearProgress-bar': {
+              bgcolor: '#4F46E5',
+              borderRadius: 3,
+            },
+          }}
+        />
+        <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+          <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
+            From Depot: {fromDepot} km
+          </Typography>
+          <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
+            Route: {tripDistance} km
+          </Typography>
+          <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
+            To Depot: {toDepot} km
+          </Typography>
+        </Stack>
+      </Box>
+    </Paper>
+  );
 };
 
 // ============================================================
 // COMPONENT: DistanceBreakdownCard
 // ============================================================
-const DistanceBreakdownCard = ({ title, value, icon: Icon, color, bgColor }) => (
-  <Card sx={{ 
-    borderRadius: { xs: '12px', sm: '14px' },
-    border: '1px solid #ECECEC',
-    bgcolor: bgColor,
-    height: '100%',
-    width: '100%',
-  }}>
-    <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-      <Icon sx={{ fontSize: '1.2rem', color: color, mb: 0.5 }} />
-      <Typography variant="caption" sx={{ fontSize: '0.6rem', color: color, display: 'block' }}>
-        {title}
-      </Typography>
-      <Typography variant="h6" fontWeight="700" sx={{ fontSize: '1rem', color: color }}>
-        {value} km
-      </Typography>
-    </CardContent>
-  </Card>
-);
+const DistanceBreakdownCard = ({ title, value, icon: Icon, color, bgColor }) => {
+  const safeValue = (value === null || value === undefined) ? 0 : value;
+  
+  return (
+    <Card sx={{ 
+      borderRadius: { xs: '12px', sm: '14px' },
+      border: '1px solid #ECECEC',
+      bgcolor: bgColor,
+      height: '100%',
+      width: '100%',
+    }}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+        <Icon sx={{ fontSize: '1.2rem', color: color, mb: 0.5 }} />
+        <Typography variant="caption" sx={{ fontSize: '0.6rem', color: color, display: 'block' }}>
+          {title}
+        </Typography>
+        <Typography variant="h6" fontWeight="700" sx={{ fontSize: '1rem', color: color }}>
+          {safeValue} km
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+};
 
 // ============================================================
-// MAIN COMPONENT: LoadDetails
+// MAIN COMPONENT: LoadDetails - FIXED null safety
 // ============================================================
 const LoadDetails = () => {
   const { loadNumber } = useParams();
@@ -373,17 +441,22 @@ const LoadDetails = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadLoadDetails();
+    if (loadNumber) {
+      loadLoadDetails();
+    }
   }, [loadNumber]);
 
   const loadLoadDetails = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await loadService.getLoadByNumber(loadNumber);
-      setLoad(data);
+      console.log('📦 Load details received:', data);
+      setLoad(data || {});
     } catch (err) {
       console.error('Error loading load details:', err);
       setError('Failed to load load details');
+      setLoad({}); // Set empty object to prevent null errors
     } finally {
       setLoading(false);
     }
@@ -398,8 +471,8 @@ const LoadDetails = () => {
   };
 
   const handleDelete = async () => {
-    if (!load) return;
-    if (!window.confirm(`Are you sure you want to delete load ${load.loadNumber}?`)) return;
+    if (!load || !load.id) return;
+    if (!window.confirm(`Are you sure you want to delete load ${load.loadNumber || 'this load'}?`)) return;
     
     try {
       await loadService.deleteLoad(load.id);
@@ -410,18 +483,40 @@ const LoadDetails = () => {
     }
   };
 
-  // Calculate totals using the correct fields
-  const totalFromDepot = load.totalFromDepotKm || 0;
-  const totalToDepot = load.totalToDepotKm || 0;
-  const totalDepot = load.totalDepotKm || 0;
+  // ============================================================
+  // DISTANCE CALCULATIONS - COMPREHENSIVE NULL SAFETY
+  // ============================================================
   
-  // ✅ Use the calculated distance fields
-  const totalRoute = load.totalCalculatedDistanceKm || 
-                     load.totalCalculatedDistance || 
-                     load.totalDistanceKm || 0;
+  // SAFE ACCESS using optional chaining and nullish coalescing
+  // The load object might be null or undefined, so use optional chaining
+  const safeLoad = load || {};
+  
+  const totalFromDepot = safeLoad.totalFromDepotKm ?? 0;
+  const totalToDepot = safeLoad.totalToDepotKm ?? 0;
+  const totalDepot = safeLoad.totalDepotKm ?? 0;
+  
+  // Use the calculated distance fields with null safety
+  const totalRoute = safeLoad.totalCalculatedDistanceKm ?? 
+                     safeLoad.totalCalculatedDistance ?? 
+                     safeLoad.totalDistanceKm ?? 0;
   
   // Total distance = route distance + depot distances
   const overallTotal = totalDepot + totalRoute;
+  
+  // Calculate completed trips safely
+  const trips = safeLoad.trips || [];
+  const completedTrips = trips.filter(
+    t => t?.status === 'COMPLETED' || t?.status === 'FINALIZED'
+  ).length;
+  
+  // Calculate completion percentage safely
+  const completionPercentage = trips.length > 0 
+    ? Math.round((completedTrips || 0) / trips.length * 100) 
+    : 0;
+
+  // ============================================================
+  // LOADING STATE
+  // ============================================================
 
   if (loading) {
     return (
@@ -456,11 +551,12 @@ const LoadDetails = () => {
     );
   }
 
-  if (!load) {
+  // If load is empty or null, show a message
+  if (!load || Object.keys(load).length === 0) {
     return (
       <Box sx={{ bgcolor: '#F7F7FC', minHeight: '100vh', p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 } }}>
         <Alert severity="warning" sx={{ borderRadius: '12px', fontSize: '0.8rem' }}>
-          Load not found
+          Load not found or no data available
         </Alert>
         <Button
           variant="contained"
@@ -474,6 +570,10 @@ const LoadDetails = () => {
     );
   }
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <Box sx={{ 
       bgcolor: '#F7F7FC', 
@@ -482,7 +582,7 @@ const LoadDetails = () => {
     }}>
       <Box sx={{ maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
         
-        {/* Header - matching Dashboard */}
+        {/* Header */}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
@@ -512,14 +612,14 @@ const LoadDetails = () => {
                 fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.4rem', lg: '1.5rem' } 
               }}
             >
-              {load.loadNumber}
+              {safeLoad.loadNumber || 'Load Details'}
             </Typography>
             <Typography 
               variant="body2" 
               color="text.secondary" 
               sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.85rem' } }}
             >
-              {load.description || 'No description'} • {load.trips?.length || 0} trips
+              {safeLoad.description || 'No description'} • {trips.length || 0} trips
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
@@ -573,7 +673,7 @@ const LoadDetails = () => {
           </Stack>
         </Stack>
 
-        {/* Status Banner - matching Dashboard */}
+        {/* Status Banner */}
         <Paper
           elevation={0}
           sx={{
@@ -591,25 +691,25 @@ const LoadDetails = () => {
           }}
         >
           <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
-            <StatusChip status={load.status} />
-            {load.priority && load.priority !== 'NORMAL' && (
+            <StatusChip status={safeLoad.status} />
+            {safeLoad.priority && safeLoad.priority !== 'NORMAL' && (
               <Chip
-                label={load.priority}
+                label={safeLoad.priority}
                 size="small"
                 sx={{
                   fontWeight: 600,
                   fontSize: { xs: '0.5rem', sm: '0.6rem' },
                   height: { xs: 18, sm: 22 },
-                  bgcolor: load.priority === 'URGENT' ? '#FEE2E2' :
-                           load.priority === 'HIGH' ? '#FEF3C7' : '#F3F4F6',
-                  color: load.priority === 'URGENT' ? '#991B1B' :
-                         load.priority === 'HIGH' ? '#92400E' : '#6B7280',
-                  border: `1px solid ${load.priority === 'URGENT' ? '#FECACA' : 
-                          load.priority === 'HIGH' ? '#FDE68A' : '#E5E7EB'}`,
+                  bgcolor: safeLoad.priority === 'URGENT' ? '#FEE2E2' :
+                           safeLoad.priority === 'HIGH' ? '#FEF3C7' : '#F3F4F6',
+                  color: safeLoad.priority === 'URGENT' ? '#991B1B' :
+                         safeLoad.priority === 'HIGH' ? '#92400E' : '#6B7280',
+                  border: `1px solid ${safeLoad.priority === 'URGENT' ? '#FECACA' : 
+                          safeLoad.priority === 'HIGH' ? '#FDE68A' : '#E5E7EB'}`,
                 }}
               />
             )}
-            {load.hazardousMaterial && (
+            {safeLoad.hazardousMaterial && (
               <Chip
                 label="⚠ Hazardous"
                 size="small"
@@ -623,7 +723,7 @@ const LoadDetails = () => {
                 }}
               />
             )}
-            {load.isActive === false && (
+            {safeLoad.isActive === false && (
               <Chip
                 label="Inactive"
                 size="small"
@@ -639,11 +739,11 @@ const LoadDetails = () => {
             )}
           </Stack>
           <Typography variant="caption" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, color: '#6B7280' }}>
-            Updated: {formatDateTime(load.lastStatusUpdate || load.updatedAt)}
+            Updated: {formatDateTime(safeLoad.lastStatusUpdate || safeLoad.updatedAt)}
           </Typography>
         </Paper>
 
-        {/* Stats Cards - matching Dashboard */}
+        {/* Stats Cards */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
@@ -656,7 +756,7 @@ const LoadDetails = () => {
           <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Total Trips"
-              value={load.trips?.length || 0}
+              value={trips.length || 0}
               icon={RouteIcon}
               color="primary"
             />
@@ -664,16 +764,16 @@ const LoadDetails = () => {
           <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Completed"
-              value={load.completedTrips || 0}
+              value={completedTrips}
               icon={CheckCircle}
               color="success"
-              subtitle={`${load.trips?.length > 0 ? Math.round((load.completedTrips || 0) / load.trips.length * 100) : 0}% complete`}
+              subtitle={`${completionPercentage}% complete`}
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
             <StatCard
               title="Incidents"
-              value={load.incidentsLogged || 0}
+              value={safeLoad.incidentsLogged || 0}
               icon={Warning}
               color="error"
             />
@@ -688,7 +788,7 @@ const LoadDetails = () => {
           </Grid>
         </Grid>
 
-        {/* Distance Breakdown Cards - matching Dashboard */}
+        {/* Distance Breakdown Cards */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2 }}
@@ -727,7 +827,7 @@ const LoadDetails = () => {
           </Grid>
         </Grid>
 
-        {/* Main Content Grid - MUI v2 Grid */}
+        {/* Main Content Grid */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
@@ -752,31 +852,31 @@ const LoadDetails = () => {
               <SectionHeader title="Load Information" icon={LocalShipping} />
               <Grid container spacing={{ xs: 0.5, sm: 1 }}>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Load Number" value={load.loadNumber} icon={LocalShipping} color="primary" />
+                  <InfoItem label="Load Number" value={safeLoad.loadNumber} icon={LocalShipping} color="primary" />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Reference Number" value={load.referenceNumber} icon={Bookmark} color="secondary" />
+                  <InfoItem label="Reference Number" value={safeLoad.referenceNumber} icon={Bookmark} color="secondary" />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Customer" value={load.customerName || load.customerId || 'N/A'} icon={Business} color="info" />
+                  <InfoItem label="Customer" value={safeLoad.customerName || safeLoad.customerId || 'N/A'} icon={Business} color="info" />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Status" value={<StatusChip status={load.status} />} icon={Flag} color="warning" isChip />
+                  <InfoItem label="Status" value={<StatusChip status={safeLoad.status} />} icon={Flag} color="warning" isChip />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Priority" value={load.priority || 'NORMAL'} icon={Flag} color="warning" />
+                  <InfoItem label="Priority" value={safeLoad.priority || 'NORMAL'} icon={Flag} color="warning" />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Commodity Type" value={load.commodityType || 'N/A'} icon={Category} color="purple" />
+                  <InfoItem label="Commodity Type" value={safeLoad.commodityType || 'N/A'} icon={Category} color="purple" />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Container Number" value={load.containerNumber || 'N/A'} icon={LocalShipping} color="primary" />
+                  <InfoItem label="Container Number" value={safeLoad.containerNumber || 'N/A'} icon={LocalShipping} color="primary" />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem label="Pallet Count" value={load.palletCount || 'N/A'} icon={Straighten} color="info" />
+                  <InfoItem label="Pallet Count" value={safeLoad.palletCount || 'N/A'} icon={Straighten} color="info" />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                  <InfoItem label="Description" value={load.description || 'N/A'} icon={Description} color="secondary" />
+                  <InfoItem label="Description" value={safeLoad.description || 'N/A'} icon={Description} color="secondary" />
                 </Grid>
               </Grid>
             </Paper>
@@ -805,7 +905,7 @@ const LoadDetails = () => {
                         {totalFromDepot} km
                       </Typography>
                       <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#1E40AF' }}>
-                        {load.trips?.length || 0} trips
+                        {trips.length || 0} trips
                       </Typography>
                     </CardContent>
                   </Card>
@@ -820,7 +920,7 @@ const LoadDetails = () => {
                         {totalToDepot} km
                       </Typography>
                       <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#92400E' }}>
-                        {load.trips?.length || 0} trips
+                        {trips.length || 0} trips
                       </Typography>
                     </CardContent>
                   </Card>
@@ -854,10 +954,10 @@ const LoadDetails = () => {
                 width: '100%',
               }}
             >
-              <SectionHeader title="Trip Timeline" icon={RouteIcon} subtitle={`${load.trips?.length || 0} trips in this load`} />
-              {load.trips && load.trips.length > 0 ? (
-                load.trips.map((trip, index) => (
-                  <TripTimelineItem key={trip.id || index} trip={trip} index={index} />
+              <SectionHeader title="Trip Timeline" icon={RouteIcon} subtitle={`${trips.length || 0} trips in this load`} />
+              {trips.length > 0 ? (
+                trips.map((trip, index) => (
+                  <TripTimelineItem key={trip?.id || index} trip={trip} index={index} />
                 ))
               ) : (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -884,11 +984,11 @@ const LoadDetails = () => {
               }}
             >
               <SectionHeader title="Measurements & Values" icon={Scale} />
-              <InfoItem label="Weight (kg)" value={load.weightKg ? `${load.weightKg} kg` : 'N/A'} icon={Scale} color="warning" />
-              <InfoItem label="Volume (m³)" value={load.volumeCubicM ? `${load.volumeCubicM} m³` : 'N/A'} icon={Straighten} color="info" />
+              <InfoItem label="Weight (kg)" value={safeLoad.weightKg ? `${safeLoad.weightKg} kg` : 'N/A'} icon={Scale} color="warning" />
+              <InfoItem label="Volume (m³)" value={safeLoad.volumeCubicM ? `${safeLoad.volumeCubicM} m³` : 'N/A'} icon={Straighten} color="info" />
               <Divider sx={{ my: 1 }} />
-              <InfoItem label="Estimated Value" value={formatCurrency(load.estimatedValue)} icon={MonetizationOn} color="primary" />
-              <InfoItem label="Actual Value" value={formatCurrency(load.actualValue)} icon={MonetizationOn} color="success" />
+              <InfoItem label="Estimated Value" value={formatCurrency(safeLoad.estimatedValue)} icon={MonetizationOn} color="primary" />
+              <InfoItem label="Actual Value" value={formatCurrency(safeLoad.actualValue)} icon={MonetizationOn} color="success" />
             </Paper>
 
             {/* Dates */}
@@ -903,15 +1003,15 @@ const LoadDetails = () => {
               }}
             >
               <SectionHeader title="Dates" icon={CalendarToday} />
-              <InfoItem label="Loading Date" value={formatDateTime(load.loadingDate)} icon={CalendarToday} color="info" />
-              <InfoItem label="Unloading Date" value={formatDateTime(load.unloadingDate) || 'N/A'} icon={CalendarToday} color="secondary" />
-              <InfoItem label="Created" value={formatDateTime(load.createdAt)} icon={Schedule} color="primary" />
-              <InfoItem label="Last Updated" value={formatDateTime(load.updatedAt)} icon={Schedule} color="secondary" />
-              <InfoItem label="Last Status Update" value={formatDateTime(load.lastStatusUpdate)} icon={Schedule} color="warning" />
+              <InfoItem label="Loading Date" value={formatDateTime(safeLoad.loadingDate)} icon={CalendarToday} color="info" />
+              <InfoItem label="Unloading Date" value={formatDateTime(safeLoad.unloadingDate) || 'N/A'} icon={CalendarToday} color="secondary" />
+              <InfoItem label="Created" value={formatDateTime(safeLoad.createdAt)} icon={Schedule} color="primary" />
+              <InfoItem label="Last Updated" value={formatDateTime(safeLoad.updatedAt)} icon={Schedule} color="secondary" />
+              <InfoItem label="Last Status Update" value={formatDateTime(safeLoad.lastStatusUpdate)} icon={Schedule} color="warning" />
             </Paper>
 
             {/* Special Handling */}
-            {(load.specialHandling || load.handlingInstructions || load.hazardClass || load.temperatureRequirements || load.packagingType) && (
+            {(safeLoad.specialHandling || safeLoad.handlingInstructions || safeLoad.hazardClass || safeLoad.temperatureRequirements || safeLoad.packagingType) && (
               <Paper
                 elevation={0}
                 sx={{
@@ -923,16 +1023,16 @@ const LoadDetails = () => {
                 }}
               >
                 <SectionHeader title="Special Handling" icon={Warning} />
-                {load.hazardClass && <InfoItem label="Hazard Class" value={load.hazardClass} icon={Dangerous} color="error" />}
-                {load.temperatureRequirements && <InfoItem label="Temperature Requirements" value={load.temperatureRequirements} icon={Thermostat} color="info" />}
-                {load.packagingType && <InfoItem label="Packaging Type" value={load.packagingType} icon={Inventory} color="secondary" />}
-                {load.specialHandling && <InfoItem label="Special Instructions" value={load.specialHandling} icon={Warning} color="warning" />}
-                {load.handlingInstructions && <InfoItem label="Handling Instructions" value={load.handlingInstructions} icon={Settings} color="purple" />}
+                {safeLoad.hazardClass && <InfoItem label="Hazard Class" value={safeLoad.hazardClass} icon={Dangerous} color="error" />}
+                {safeLoad.temperatureRequirements && <InfoItem label="Temperature Requirements" value={safeLoad.temperatureRequirements} icon={Thermostat} color="info" />}
+                {safeLoad.packagingType && <InfoItem label="Packaging Type" value={safeLoad.packagingType} icon={Inventory} color="secondary" />}
+                {safeLoad.specialHandling && <InfoItem label="Special Instructions" value={safeLoad.specialHandling} icon={Warning} color="warning" />}
+                {safeLoad.handlingInstructions && <InfoItem label="Handling Instructions" value={safeLoad.handlingInstructions} icon={Settings} color="purple" />}
               </Paper>
             )}
 
             {/* Insurance & Customs */}
-            {(load.insurancePolicyNumber || load.insuranceExpiry || load.customsClearanceStatus) && (
+            {(safeLoad.insurancePolicyNumber || safeLoad.insuranceExpiry || safeLoad.customsClearanceStatus) && (
               <Paper
                 elevation={0}
                 sx={{
@@ -944,46 +1044,9 @@ const LoadDetails = () => {
                 }}
               >
                 <SectionHeader title="Insurance & Customs" icon={Security} />
-                {load.insurancePolicyNumber && <InfoItem label="Insurance Policy" value={load.insurancePolicyNumber} icon={Security} color="primary" />}
-                {load.insuranceExpiry && <InfoItem label="Insurance Expiry" value={formatDate(load.insuranceExpiry)} icon={CalendarToday} color="warning" />}
-                {load.customsClearanceStatus && <InfoItem label="Customs Clearance" value={load.customsClearanceStatus} icon={Verified} color="success" />}
-              </Paper>
-            )}
-
-            {/* Warehouse & Supervisor */}
-            {(load.warehouseId || load.supervisorId) && (
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 1.5, sm: 2, md: 2.5 },
-                  borderRadius: { xs: '12px', sm: '16px' },
-                  border: '1px solid #ECECEC',
-                  bgcolor: '#FFFFFF',
-                  width: '100%',
-                }}
-              >
-                <SectionHeader title="Facilities & Personnel" icon={Store} />
-                {load.warehouseId && <InfoItem label="Warehouse ID" value={load.warehouseId} icon={Warehouse} color="info" />}
-                {load.supervisorId && <InfoItem label="Supervisor ID" value={load.supervisorId} icon={SupervisorAccount} color="secondary" />}
-              </Paper>
-            )}
-
-            {/* Audit Trail */}
-            {load.auditTrail && (
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 1.5, sm: 2, md: 2.5 },
-                  borderRadius: { xs: '12px', sm: '16px' },
-                  border: '1px solid #ECECEC',
-                  bgcolor: '#FFFFFF',
-                  width: '100%',
-                }}
-              >
-                <SectionHeader title="Audit Trail" icon={Info} />
-                <Typography variant="body2" sx={{ fontSize: '0.7rem', whiteSpace: 'pre-wrap', color: '#6B7280' }}>
-                  {load.auditTrail}
-                </Typography>
+                {safeLoad.insurancePolicyNumber && <InfoItem label="Insurance Policy" value={safeLoad.insurancePolicyNumber} icon={Security} color="primary" />}
+                {safeLoad.insuranceExpiry && <InfoItem label="Insurance Expiry" value={formatDate(safeLoad.insuranceExpiry)} icon={CalendarToday} color="warning" />}
+                {safeLoad.customsClearanceStatus && <InfoItem label="Customs Clearance" value={safeLoad.customsClearanceStatus} icon={Verified} color="success" />}
               </Paper>
             )}
           </Grid>
