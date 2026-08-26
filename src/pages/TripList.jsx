@@ -503,28 +503,37 @@ function TripList() {
       });
   };
 
-  const handleEndTrip = (trip) => {
-    if (!window.confirm(`End trip #${trip.tripNumber}?`)) return;
+const handleEndTrip = async (tripId) => {
+  try {
+    // Show dialog to enter end odometer
+    const endOdometer = window.prompt('Enter ending odometer reading (km):');
     
-    const endOdometer = prompt('Enter ending odometer reading (km):');
-    if (!endOdometer) return;
-
-    const endReason = prompt('Enter end reason (optional):', 'COMPLETED');
+    if (endOdometer === null) return; // User cancelled
     
-    tripService.endTrip(trip.id, {
-      actualEndOdometer: parseFloat(endOdometer),
-      endReason: endReason || 'COMPLETED'
-    })
-      .then(() => {
-        showNotification('Trip ended successfully!', 'success');
-        metricsCache.current = {};
-        fetchTrips({ page: pagination.page });
-      })
-      .catch(err => {
-        console.error('Error ending trip:', err);
-        showNotification(err.message || 'Failed to end trip', 'error');
-      });
-  };
+    const endOdometerNum = parseFloat(endOdometer);
+    
+    if (isNaN(endOdometerNum) || endOdometerNum <= 0) {
+      alert('Please enter a valid odometer reading (positive number).');
+      return;
+    }
+    
+    // Get trip details to validate against start odometer
+    const tripDetails = await tripService.getTripById(tripId);
+    const startOdometer = tripDetails?.actualStartOdometer;
+    
+    if (startOdometer && endOdometerNum < startOdometer) {
+      alert(`End odometer (${endOdometerNum.toFixed(2)} km) cannot be less than start odometer (${startOdometer.toFixed(2)} km).\n\nPlease enter a valid ending odometer reading.`);
+      return;
+    }
+    
+    // Proceed with ending the trip
+    await tripService.endTrip(tripId, endOdometerNum);
+    loadTrips();
+  } catch (error) {
+    console.error('Error ending trip:', error);
+    setError(error.message || 'Failed to end trip');
+  }
+};
 
   const handleOpenNoticeWizard = (trip) => {
     setSelectedTripForNotice(trip);
