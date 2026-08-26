@@ -273,120 +273,70 @@ const SectionHeader = ({ title, icon: Icon, subtitle }) => (
 // COMPONENT: TripTimelineItem
 // ============================================================
 const TripTimelineItem = ({ trip, index }) => {
-  const totalDistance = (trip.fromDepotKm || 0) + (trip.toDepotKm || 0) + (trip.totalDistance || 0);
-  
-  return (
-    <Paper
-      sx={{
-        p: { xs: 1.5, sm: 2 },
-        mb: 1.5,
-        borderRadius: { xs: '10px', sm: '12px' },
-        border: '1px solid #ECECEC',
-        bgcolor: '#F9FAFB',
-        '&:last-child': { mb: 0 },
-        '&:hover': {
-          borderColor: '#4F46E5',
-          bgcolor: '#EEF2FF',
-        },
-      }}
-    >
-      <Grid container spacing={{ xs: 1, sm: 1.5 }} alignItems="center">
-        <Grid size={{ xs: 12, sm: 3 }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Avatar
-              sx={{
-                width: 28,
-                height: 28,
-                bgcolor: '#4F46E5',
-                fontSize: '0.7rem',
-                fontWeight: 600,
-              }}
-            >
-              {index + 1}
-            </Avatar>
-            <Box>
-              <Typography variant="body2" fontWeight="600" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                {trip.tripNumber || `Trip ${index + 1}`}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' } }}>
-                {trip.status || 'N/A'}
-              </Typography>
+    // ✅ Use the correct trip distance fields
+    const fromDepot = trip.fromDepotKm || 0;
+    const toDepot = trip.toDepotKm || 0;
+    const tripDistance = trip.calculatedDistanceKm || 
+                         trip.actualDistanceKm || 
+                         trip.totalDistance || 
+                         0;
+    
+    const totalDistance = fromDepot + toDepot + tripDistance;
+    
+    return (
+        <Paper sx={{ /* ... */ }}>
+            <Grid container spacing={{ xs: 1, sm: 1.5 }} alignItems="center">
+                {/* ... rest of the grid ... */}
+                
+                <Grid size={{ xs: 6, sm: 2 }}>
+                    <InfoItem
+                        label="Pickup"
+                        value={fromDepot ? `${fromDepot} km` : '0 km'}
+                        icon={Home}
+                        color="info"
+                    />
+                </Grid>
+
+                <Grid size={{ xs: 6, sm: 2 }}>
+                    <InfoItem
+                        label="Route"
+                        value={tripDistance ? `${tripDistance} km` : '0 km'}
+                        icon={RouteIcon}
+                        color="warning"
+                    />
+                </Grid>
+
+                <Grid size={{ xs: 6, sm: 2 }}>
+                    <InfoItem
+                        label="Total"
+                        value={`${totalDistance} km`}
+                        icon={Map}
+                        color="success"
+                    />
+                </Grid>
+            </Grid>
+            
+            {/* Progress bar showing distance breakdown */}
+            <Box sx={{ mt: 1.5 }}>
+                <LinearProgress
+                    variant="determinate"
+                    value={100}
+                    sx={{ height: 6, borderRadius: 3, bgcolor: '#F3F4F6' }}
+                />
+                <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
+                        From Depot: {fromDepot} km
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
+                        Route: {tripDistance} km
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
+                        To Depot: {toDepot} km
+                    </Typography>
+                </Stack>
             </Box>
-          </Stack>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 3 }}>
-          <Stack direction="row" alignItems="center" spacing={0.5}>
-            <LocationOn sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
-            <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-              {trip.originLocation || trip.originCity || 'N/A'}
-            </Typography>
-          </Stack>
-          <Stack direction="row" alignItems="center" spacing={0.5}>
-            <LocationOn sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
-            <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-              {trip.destinationLocation || trip.destinationCity || 'N/A'}
-            </Typography>
-          </Stack>
-        </Grid>
-
-        <Grid size={{ xs: 6, sm: 2 }}>
-          <InfoItem
-            label="Pickup"
-            value={trip.fromDepotKm ? `${trip.fromDepotKm} km` : '0 km'}
-            icon={Home}
-            color="info"
-          />
-        </Grid>
-
-        <Grid size={{ xs: 6, sm: 2 }}>
-          <InfoItem
-            label="Route"
-            value={trip.totalDistance ? `${trip.totalDistance} km` : '0 km'}
-            icon={RouteIcon}
-            color="warning"
-          />
-        </Grid>
-
-        <Grid size={{ xs: 6, sm: 2 }}>
-          <InfoItem
-            label="Total"
-            value={`${totalDistance} km`}
-            icon={Map}
-            color="success"
-          />
-        </Grid>
-      </Grid>
-
-      {/* Progress bar showing distance breakdown */}
-      <Box sx={{ mt: 1.5 }}>
-        <LinearProgress
-          variant="determinate"
-          value={100}
-          sx={{
-            height: 6,
-            borderRadius: 3,
-            bgcolor: '#F3F4F6',
-            '& .MuiLinearProgress-bar': {
-              bgcolor: '#4F46E5',
-              borderRadius: 3,
-            },
-          }}
-        />
-        <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
-          <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
-            From Depot: {trip.fromDepotKm || 0} km
-          </Typography>
-          <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
-            Route: {trip.totalDistance || 0} km
-          </Typography>
-          <Typography variant="caption" sx={{ fontSize: '0.5rem', color: '#6B7280' }}>
-            To Depot: {trip.toDepotKm || 0} km
-          </Typography>
-        </Stack>
-      </Box>
-    </Paper>
-  );
+        </Paper>
+    );
 };
 
 // ============================================================
