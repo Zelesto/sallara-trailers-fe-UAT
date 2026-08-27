@@ -440,110 +440,80 @@ const TripReports = () => {
   // ============================================================
 
   const handleGenerateReport = async () => {
-    if (!selectedReport) return;
+  if (!selectedReport) return;
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    try {
-      const params = { ...parameters };
-      
-      if (params.dateRange) {
-        params.startDate = params.dateRange.from;
-        params.endDate = params.dateRange.to;
-        delete params.dateRange;
-      }
+  try {
+    const params = { ...parameters };
+    
+    if (params.dateRange) {
+      params.startDate = params.dateRange.from;
+      params.endDate = params.dateRange.to;
+      delete params.dateRange;
+    }
 
-      let htmlContent = null;
-      let reportTitle = '';
-      let reportType = selectedReport;
+    let htmlContent = null;
+    let reportTitle = '';
+    let reportType = selectedReport;
 
-      switch (selectedReport) {
-        case 'trip':
-          if (!params.tripNumber) {
-            setError('Please enter a trip number');
-            setLoading(false);
-            return;
-          }
-          reportTitle = `Trip Report: ${params.tripNumber}`;
-          // ✅ Call the service - returns HTML directly
-          htmlContent = await reportService.generateTripReport(params.tripNumber);
-          break;
-
-        case 'load':
-          if (!params.loadNumber) {
-            setError('Please enter a load number');
-            setLoading(false);
-            return;
-          }
-          reportTitle = `Load Report: ${params.loadNumber}`;
-          htmlContent = await reportService.generateLoadReport(params.loadNumber);
-          break;
-
-        case 'fuel':
-          reportTitle = 'Fuel Consumption Report';
-          htmlContent = await reportService.generateFuelReport(
-            params.vehicleId || null,
-            params.startDate || null,
-            params.endDate || null
-          );
-          break;
-
-        case 'driver':
-          if (!params.driverId) {
-            setError('Please select a driver');
-            setLoading(false);
-            return;
-          }
-          const driverName = drivers.find(d => d.id === params.driverId)?.name || params.driverId;
-          reportTitle = `Driver Report: ${driverName}`;
-          // For driver report, use trip report with driver filter
-          htmlContent = await reportService.generateTripReport(params.driverId);
-          break;
-
-        case 'vehicle':
-          if (!params.vehicleId) {
-            setError('Please select a vehicle');
-            setLoading(false);
-            return;
-          }
-          const vehicleReg = vehicles.find(v => v.id === params.vehicleId)?.registrationNumber || params.vehicleId;
-          reportTitle = `Vehicle Report: ${vehicleReg}`;
-          htmlContent = await reportService.generateTripReport(params.vehicleId);
-          break;
-
-        case 'custom':
-          reportTitle = 'Custom Report';
-          // For custom, we might want to use a different endpoint
-          htmlContent = await reportService.generateTripReport(params.search || '');
-          break;
-
-        default:
-          setError('Unsupported report type');
+    switch (selectedReport) {
+      case 'trip':
+        if (!params.tripNumber) {
+          setError('Please enter a trip number');
           setLoading(false);
           return;
-      }
+        }
+        reportTitle = `Trip Report: ${params.tripNumber}`;
+        htmlContent = await reportService.generateTripReport(params.tripNumber);
+        break;
 
-      // ✅ Check if we got HTML content
-      if (!htmlContent || typeof htmlContent !== 'string') {
-        setError('Failed to generate report: No content received');
+      case 'load':
+        if (!params.loadNumber) {
+          setError('Please enter a load number');
+          setLoading(false);
+          return;
+        }
+        reportTitle = `Load Report: ${params.loadNumber}`;
+        htmlContent = await reportService.generateLoadReport(params.loadNumber);
+        break;
+
+      case 'fuel':
+        reportTitle = 'Fuel Consumption Report';
+        htmlContent = await reportService.generateFuelReport(
+          params.vehicleId || null,
+          params.startDate || null,
+          params.endDate || null
+        );
+        break;
+
+      default:
+        setError('Unsupported report type');
         setLoading(false);
         return;
-      }
-
-      // ✅ Set the HTML content directly in the report viewer
-      setReportViewerData(htmlContent);
-      setReportViewerType(selectedReport);
-      setReportViewerTitle(reportTitle);
-      setShowReportViewer(true);
-
-    } catch (err) {
-      console.error('Error generating report:', err);
-      setError(err.message || 'Failed to generate report');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // ✅ Check if we got HTML content
+    if (!htmlContent || typeof htmlContent !== 'string') {
+      setError('Failed to generate report: No content received');
+      setLoading(false);
+      return;
+    }
+
+    // ✅ Set the HTML content directly in the report viewer
+    setReportViewerData(htmlContent);
+    setReportViewerType(selectedReport);
+    setReportViewerTitle(reportTitle);
+    setShowReportViewer(true);
+
+  } catch (err) {
+    console.error('Error generating report:', err);
+    setError(err.message || 'Failed to generate report');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleParameterChange = (fieldId, value) => {
     setParameters(prev => ({ ...prev, [fieldId]: value }));
