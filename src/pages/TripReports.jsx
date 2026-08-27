@@ -37,6 +37,7 @@ import {
   Switch,
   FormControlLabel,
   Snackbar,
+  TableSortLabel,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -59,12 +60,15 @@ import {
   PictureAsPdf as PdfIcon,
   TableChart as TableChartIcon,
   FileCopy as FileCopyIcon,
+  Visibility as VisibilityIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
+import TripReportDetail from '../components/TripReportDetail';
 import {
   TRIP_STATUSES,
   TRIP_STATUS_OPTIONS,
@@ -110,7 +114,7 @@ const StatusChip = ({ status }) => {
 };
 
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, loading = false }) => (
-  <Card sx={{ height: '100%' }}>
+  <Card sx={{ height: '100%', borderRadius: '12px' }}>
     <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Box>
@@ -181,6 +185,15 @@ const TripReports = () => {
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // Report Detail Dialog
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [selectedTrip, setSelectedTrip] = useState(null);
+
+  // Sorting
+  const [orderBy, setOrderBy] = useState('tripNumber');
+  const [order, setOrder] = useState('asc');
 
   // ============================================================
   // FETCH REAL DATA
@@ -189,11 +202,10 @@ const TripReports = () => {
     setLoading(true);
     setError(null);
     try {
-      // Build query params
       const params = {
         startDate: dateRange.start?.format('YYYY-MM-DD'),
         endDate: dateRange.end?.format('YYYY-MM-DD'),
-        size: 1000, // Get all trips for reporting
+        size: 1000,
         sort: 'id,desc',
       };
       
@@ -203,7 +215,6 @@ const TripReports = () => {
 
       console.log('📊 Fetching trip reports with params:', params);
 
-      // Fetch trips from the API
       const response = await tripService.getAllTrips(params);
       const trips = response.content || [];
       
@@ -212,7 +223,6 @@ const TripReports = () => {
       setReports(trips);
       setFilteredReports(trips);
       
-      // Calculate stats from real data
       if (trips.length > 0) {
         const completed = trips.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED');
         const active = trips.filter(t => t.status === 'ACTIVE' || t.status === 'IN_PROGRESS');
@@ -224,7 +234,6 @@ const TripReports = () => {
           : 0;
         const avgCostPerKm = totalDistance > 0 ? totalCost / totalDistance : 0;
         
-        // Calculate on-time rate (based on actual vs planned end date)
         const onTimeTrips = completed.filter(t => {
           if (t.plannedEndDate && t.actualEndDate) {
             return dayjs(t.actualEndDate).isBefore(dayjs(t.plannedEndDate)) || 
@@ -244,18 +253,6 @@ const TripReports = () => {
           onTimeRate: completed.length > 0 ? (onTimeTrips.length / completed.length) * 100 : 0,
           avgCostPerKm,
         });
-      } else {
-        setStats({
-          totalTrips: 0,
-          completedTrips: 0,
-          activeTrips: 0,
-          totalDistance: 0,
-          totalCost: 0,
-          totalRevenue: 0,
-          avgDuration: 0,
-          onTimeRate: 0,
-          avgCostPerKm: 0,
-        });
       }
     } catch (err) {
       console.error('Error fetching trip reports:', err);
@@ -267,7 +264,6 @@ const TripReports = () => {
     }
   }, [dateRange, statusFilter]);
 
-  // Initial fetch and filter changes
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
@@ -279,7 +275,7 @@ const TripReports = () => {
       return;
     }
 
-    let filtered = reports;
+    let filtered = [...reports];
     
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -293,12 +289,69 @@ const TripReports = () => {
       );
     }
     
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aVal, bVal;
+      switch (orderBy) {
+        case 'tripNumber':
+          aVal = a.tripNumber || '';
+          bVal = b.tripNumber || '';
+          break;
+        case 'status':
+          aVal = a.status || '';
+          bVal = b.status || '';
+          break;
+        case 'origin':
+          aVal = a.originCity || a.originLocation || '';
+          bVal = b.originCity || b.originLocation || '';
+          break;
+        case 'destination':
+          aVal = a.destinationCity || a.destinationLocation || '';
+          bVal = b.destinationCity || b.destinationLocation || '';
+          break;
+        case 'distance':
+          aVal = a.actualDistanceKm || a.plannedDistanceKm || 0;
+          bVal = b.actualDistanceKm || b.plannedDistanceKm || 0;
+          break;
+        case 'cost':
+          aVal = a.costAmount || 0;
+          bVal = b.costAmount || 0;
+          break;
+        default:
+          aVal = a.tripNumber || '';
+          bVal = b.tripNumber || '';
+      }
+      
+      if (typeof aVal === 'string') {
+        return order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return order === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+    
     setFilteredReports(filtered);
-  }, [searchTerm, reports]);
+  }, [searchTerm, reports, orderBy, order]);
 
   // ============================================================
-  // EXPORT FUNCTIONS
+  // HANDLERS
   // ============================================================
+
+  const handleViewReport = (trip) => {
+    setSelectedTrip(trip);
+    setSelectedTripId(trip.id);
+    setShowReportDialog(true);
+  };
+
+  const handleCloseReport = () => {
+    setShowReportDialog(false);
+    setSelectedTripId(null);
+    setSelectedTrip(null);
+  };
+
+  const handleSort = (field) => {
+    const isAsc = orderBy === field && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(field);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -312,14 +365,12 @@ const TripReports = () => {
 
     setExportLoading(true);
     try {
-      // Headers
       const headers = [
         'Trip #', 'Status', 'Origin', 'Destination', 'Driver', 'Vehicle',
         'Distance (km)', 'Duration (hrs)', 'Cost (ZAR)', 'Revenue (ZAR)',
         'Start Date', 'End Date', 'On-Time'
       ];
 
-      // Build CSV content
       let csvContent = headers.join(',') + '\n';
       
       filteredReports.forEach(trip => {
@@ -341,7 +392,6 @@ const TripReports = () => {
         csvContent += row.join(',') + '\n';
       });
 
-      // Download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -360,16 +410,6 @@ const TripReports = () => {
     }
   };
 
-  const handleExportPDF = () => {
-    if (filteredReports.length === 0) {
-      setSnackbar({ open: true, message: 'No data to export', severity: 'warning' });
-      return;
-    }
-
-    // Open print dialog which can save as PDF
-    window.print();
-  };
-
   const handleCopyToClipboard = () => {
     if (filteredReports.length === 0) {
       setSnackbar({ open: true, message: 'No data to copy', severity: 'warning' });
@@ -377,7 +417,6 @@ const TripReports = () => {
     }
 
     try {
-      // Build text representation
       let textContent = 'TRIP REPORTS\n';
       textContent += `Generated: ${dayjs().format('YYYY-MM-DD HH:mm:ss')}\n`;
       textContent += `Total Trips: ${filteredReports.length}\n`;
@@ -399,10 +438,6 @@ const TripReports = () => {
       setSnackbar({ open: true, message: 'Failed to copy: ' + err.message, severity: 'error' });
     }
   };
-
-  // ============================================================
-  // FILTER HANDLERS
-  // ============================================================
 
   const handleApplyFilters = () => {
     setShowFilterDialog(false);
@@ -657,13 +692,31 @@ const TripReports = () => {
                 <TableHead sx={{ bgcolor: '#F9FAFB' }}>
                   <TableRow>
                     <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
-                      Trip #
+                      <TableSortLabel
+                        active={orderBy === 'tripNumber'}
+                        direction={orderBy === 'tripNumber' ? order : 'asc'}
+                        onClick={() => handleSort('tripNumber')}
+                      >
+                        Trip #
+                      </TableSortLabel>
                     </TableCell>
                     <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
-                      Status
+                      <TableSortLabel
+                        active={orderBy === 'status'}
+                        direction={orderBy === 'status' ? order : 'asc'}
+                        onClick={() => handleSort('status')}
+                      >
+                        Status
+                      </TableSortLabel>
                     </TableCell>
                     <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
-                      Route
+                      <TableSortLabel
+                        active={orderBy === 'origin'}
+                        direction={orderBy === 'origin' ? order : 'asc'}
+                        onClick={() => handleSort('origin')}
+                      >
+                        Route
+                      </TableSortLabel>
                     </TableCell>
                     <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
                       Driver
@@ -672,19 +725,31 @@ const TripReports = () => {
                       Vehicle
                     </TableCell>
                     <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
-                      Distance
+                      <TableSortLabel
+                        active={orderBy === 'distance'}
+                        direction={orderBy === 'distance' ? order : 'asc'}
+                        onClick={() => handleSort('distance')}
+                      >
+                        Distance
+                      </TableSortLabel>
                     </TableCell>
                     <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
                       Duration
                     </TableCell>
                     <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
-                      Cost
+                      <TableSortLabel
+                        active={orderBy === 'cost'}
+                        direction={orderBy === 'cost' ? order : 'asc'}
+                        onClick={() => handleSort('cost')}
+                      >
+                        Cost
+                      </TableSortLabel>
                     </TableCell>
                     <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
                       Revenue
                     </TableCell>
                     <TableCell align="center" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
-                      On-Time
+                      Report
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -706,7 +771,15 @@ const TripReports = () => {
                       const duration = trip.actualDurationHours || trip.estimatedDurationHours || 0;
                       
                       return (
-                        <TableRow key={trip.id} hover sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
+                        <TableRow 
+                          key={trip.id} 
+                          hover 
+                          sx={{ 
+                            '&:hover': { bgcolor: '#F9FAFB', cursor: 'pointer' },
+                            transition: 'background-color 0.2s ease',
+                          }}
+                          onClick={() => handleViewReport(trip)}
+                        >
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
                             <Typography fontWeight="500" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#4F46E5' }}>
                               {trip.tripNumber}
@@ -744,28 +817,23 @@ const TripReports = () => {
                             {formatCurrency(trip.revenueAmount)}
                           </TableCell>
                           <TableCell align="center" sx={{ py: 0.5 }}>
-                            {isCompleted ? (
-                              <Chip
-                                label="Yes"
-                                size="small"
-                                color="success"
-                                sx={{ height: 18, fontSize: '0.6rem' }}
-                              />
-                            ) : trip.status === 'PLANNED' || trip.status === 'ASSIGNED' ? (
-                              <Chip
-                                label="Pending"
-                                size="small"
-                                color="warning"
-                                sx={{ height: 18, fontSize: '0.6rem' }}
-                              />
-                            ) : (
-                              <Chip
-                                label="N/A"
-                                size="small"
-                                variant="outlined"
-                                sx={{ height: 18, fontSize: '0.6rem' }}
-                              />
-                            )}
+                            <Tooltip title="View Full Report" arrow>
+                              <IconButton 
+                                size="small" 
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewReport(trip);
+                                }}
+                                sx={{ 
+                                  p: { xs: 0.25, sm: 0.5 },
+                                  bgcolor: '#EEF2FF',
+                                  '&:hover': { bgcolor: '#C7D2FE' }
+                                }}
+                              >
+                                <ReceiptIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />
+                              </IconButton>
+                            </Tooltip>
                           </TableCell>
                         </TableRow>
                       );
@@ -792,7 +860,7 @@ const TripReports = () => {
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export as PDF (Print to PDF)">
-                <IconButton size="small" onClick={handleExportPDF} disabled={exportLoading}>
+                <IconButton size="small" onClick={handlePrint} disabled={exportLoading}>
                   <PdfIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
@@ -903,6 +971,19 @@ const TripReports = () => {
               </Button>
             </DialogActions>
           </Dialog>
+
+          {/* ============================================================
+              TRIP REPORT DETAIL DIALOG
+              ============================================================ */}
+          <TripReportDetail
+            open={showReportDialog}
+            tripId={selectedTripId}
+            trip={selectedTrip}
+            onClose={handleCloseReport}
+            onPrint={(trip) => {
+              console.log('Printing report for trip:', trip?.tripNumber);
+            }}
+          />
 
           {/* ============================================================
               SNACKBAR
