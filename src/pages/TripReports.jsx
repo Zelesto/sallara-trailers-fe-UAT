@@ -446,123 +446,81 @@ const TripReports = () => {
   // ============================================================
 
   const handleGenerateReport = async () => {
-    if (!selectedReport) return;
+  if (!selectedReport) return;
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    try {
-      const params = { ...parameters };
-      
-      if (params.dateRange) {
-        params.startDate = params.dateRange.from;
-        params.endDate = params.dateRange.to;
-        delete params.dateRange;
-      }
+  try {
+    const params = { ...parameters };
+    
+    if (params.dateRange) {
+      params.startDate = params.dateRange.from;
+      params.endDate = params.dateRange.to;
+      delete params.dateRange;
+    }
 
-      let data = null;
-      let resultId = null;
-      let reportTitle = '';
+    let htmlContent = null;
+    let reportTitle = '';
+    let reportType = selectedReport;
 
-      switch (selectedReport) {
-        case 'trip':
-          if (!params.tripNumber) {
-            setError('Please enter a trip number');
-            setLoading(false);
-            return;
-          }
-          // ✅ Use the new TripReportViewer with BIRT fallback
-          setReportTripNumber(params.tripNumber);
-          setShowTripReportViewer(true);
+    switch (selectedReport) {
+      case 'trip':
+        if (!params.tripNumber) {
+          setError('Please enter a trip number');
           setLoading(false);
           return;
+        }
+        reportTitle = `Trip Report: ${params.tripNumber}`;
+        // ✅ Call the service - returns HTML directly
+        htmlContent = await reportService.generateTripReport(params.tripNumber);
+        break;
 
-        case 'load':
-          if (!params.loadNumber) {
-            setError('Please enter a load number');
-            setLoading(false);
-            return;
-          }
-          try {
-            data = await loadService.getLoadByNumber(params.loadNumber);
-            if (data) {
-              resultId = data?.id;
-              reportTitle = `Load Report: ${data?.loadNumber || params.loadNumber}`;
-            } else {
-              throw new Error(`Load "${params.loadNumber}" not found`);
-            }
-          } catch (err) {
-            setError(`Load "${params.loadNumber}" not found. Please check the load number.`);
-            setLoading(false);
-            return;
-          }
-          break;
+      case 'load':
+        if (!params.loadNumber) {
+          setError('Please enter a load number');
+          setLoading(false);
+          return;
+        }
+        reportTitle = `Load Report: ${params.loadNumber}`;
+        htmlContent = await reportService.generateLoadReport(params.loadNumber);
+        break;
 
-        case 'fuel':
-          const fuelParams = {};
-          if (params.vehicleId) fuelParams.vehicleId = params.vehicleId;
-          if (params.startDate) fuelParams.from = params.startDate;
-          if (params.endDate) fuelParams.to = params.endDate;
-          data = await fuelService.getFuelSlips(fuelParams);
-          reportTitle = `Fuel Report${params.vehicleId ? ` - Vehicle ${params.vehicleId}` : ''}`;
-          break;
+      case 'fuel':
+        reportTitle = 'Fuel Consumption Report';
+        htmlContent = await reportService.generateFuelReport(
+          params.vehicleId || null,
+          params.startDate || null,
+          params.endDate || null
+        );
+        break;
 
-        case 'driver':
-          if (!params.driverId) {
-            setError('Please select a driver');
-            setLoading(false);
-            return;
-          }
-          data = await tripService.getTripsByDriver(params.driverId);
-          const driverName = drivers.find(d => d.id === params.driverId)?.name || params.driverId;
-          reportTitle = `Driver Report: ${driverName}`;
-          break;
-
-        case 'vehicle':
-          if (!params.vehicleId) {
-            setError('Please select a vehicle');
-            setLoading(false);
-            return;
-          }
-          data = await tripService.getTripsByVehicle(params.vehicleId);
-          const vehicleReg = vehicles.find(v => v.id === params.vehicleId)?.registrationNumber || params.vehicleId;
-          reportTitle = `Vehicle Report: ${vehicleReg}`;
-          break;
-
-        case 'custom':
-          const customParams = { size: 1000 };
-          if (params.status) customParams.status = params.status;
-          if (params.search) customParams.search = params.search;
-          if (params.startDate) customParams.startDate = params.startDate;
-          if (params.endDate) customParams.endDate = params.endDate;
-          const response = await tripService.getAllTrips(customParams);
-          data = response.content || [];
-          reportTitle = 'Custom Report';
-          break;
-
-        default:
-          break;
-      }
-
-      if (!data || (Array.isArray(data) && data.length === 0)) {
-        setError('No data found for the specified parameters');
+      default:
+        setError('Unsupported report type');
         setLoading(false);
         return;
-      }
-
-      // For non-trip reports, show in the viewer
-      setReportViewerData(data);
-      setReportViewerType(selectedReport);
-      setReportViewerTitle(reportTitle);
-      setShowReportViewer(true);
-
-    } catch (err) {
-      console.error('Error generating report:', err);
-      setError(err.message || 'Failed to generate report');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // ✅ Check if we got HTML content
+    if (!htmlContent || typeof htmlContent !== 'string') {
+      setError('Failed to generate report: No content received');
+      setLoading(false);
+      return;
+    }
+
+    // ✅ Set the HTML content directly in the report viewer
+    setReportViewerData(htmlContent);
+    setReportViewerType(selectedReport);
+    setReportViewerTitle(reportTitle);
+    setShowReportViewer(true);
+
+  } catch (err) {
+    console.error('Error generating report:', err);
+    setError(err.message || 'Failed to generate report');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleParameterChange = (fieldId, value) => {
     setParameters(prev => ({ ...prev, [fieldId]: value }));
