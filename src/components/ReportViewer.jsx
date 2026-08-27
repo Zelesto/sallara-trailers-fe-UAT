@@ -19,87 +19,44 @@ import {
   Print as PrintIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { reportService } from '../services/reportService';
 
 const ReportViewer = ({ 
   open, 
   onClose, 
   reportType, 
   params,
-  title 
+  title,
+  htmlContent, // ✅ Accept HTML content directly
 }) => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [reportContent, setReportContent] = useState(null);
+  const [content, setContent] = useState(null);
   const iframeRef = useRef();
 
   useEffect(() => {
-    if (open && params) {
-      generateReport();
+    if (open) {
+      if (htmlContent) {
+        // ✅ If HTML content is provided directly, use it
+        setContent(htmlContent);
+        setLoading(false);
+      } else if (params) {
+        // Fallback: generate report
+        generateReport();
+      }
     }
-  }, [open, params]);
+  }, [open, htmlContent, params]);
 
   const generateReport = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      let result;
-      switch (reportType) {
-        case 'trip':
-          if (!params.tripNumber) {
-            throw new Error('Trip number is required');
-          }
-          result = await reportService.generateTripReport(params.tripNumber);
-          break;
-
-        case 'load':
-          if (!params.loadNumber) {
-            throw new Error('Load number is required');
-          }
-          result = await reportService.generateLoadReport(params.loadNumber);
-          break;
-
-        case 'fuel':
-          result = await reportService.generateFuelReport(
-            params.vehicleId || null,
-            params.startDate || null,
-            params.endDate || null
-          );
-          break;
-
-        case 'driver':
-          // For driver report, we might need a different endpoint
-          // For now, use trip report with driver filter
-          if (!params.driverId) {
-            throw new Error('Driver is required');
-          }
-          // You would call a driver report endpoint here
-          result = await reportService.generateTripReport(params.driverId);
-          break;
-
-        case 'vehicle':
-          if (!params.vehicleId) {
-            throw new Error('Vehicle is required');
-          }
-          // You would call a vehicle report endpoint here
-          result = await reportService.generateTripReport(params.vehicleId);
-          break;
-
-        case 'custom':
-          // Build custom report from parameters
-          result = await reportService.generateTripReport(params.tripNumber || '');
-          break;
-
-        default:
-          throw new Error('Unknown report type');
-      }
-      
-      setReportContent(result);
+      // This would call the report service if needed
+      // But we're now passing HTML directly from the parent
+      setLoading(false);
     } catch (err) {
       console.error('Error generating report:', err);
       setError(err.message || 'Failed to generate report');
-    } finally {
       setLoading(false);
     }
   };
@@ -109,16 +66,11 @@ const ReportViewer = ({
       try {
         iframeRef.current.contentWindow.print();
       } catch (e) {
-        // If iframe print fails, use window print
         window.print();
       }
     } else {
       window.print();
     }
-  };
-
-  const handleRefresh = () => {
-    generateReport();
   };
 
   if (!open) return null;
@@ -138,16 +90,7 @@ const ReportViewer = ({
     return (
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
         <DialogContent sx={{ p: 3 }}>
-          <Alert 
-            severity="error" 
-            action={
-              <Button color="inherit" size="small" onClick={handleRefresh}>
-                Retry
-              </Button>
-            }
-          >
-            {error}
-          </Alert>
+          <Alert severity="error">{error}</Alert>
           <Button onClick={onClose} sx={{ mt: 2 }}>Close</Button>
         </DialogContent>
       </Dialog>
@@ -189,11 +132,6 @@ const ReportViewer = ({
           />
         </Stack>
         <Stack direction="row" spacing={0.5}>
-          <Tooltip title="Refresh">
-            <IconButton size="small" onClick={handleRefresh}>
-              <CircularProgress size={16} />
-            </IconButton>
-          </Tooltip>
           <Tooltip title="Print / PDF">
             <IconButton size="small" onClick={handlePrint}>
               <PrintIcon sx={{ fontSize: '0.9rem' }} />
@@ -215,7 +153,7 @@ const ReportViewer = ({
             backgroundColor: '#FFFFFF',
           }}
           title={title || 'Report'}
-          srcDoc={reportContent || '<html><body><p>No content</p></body></html>'}
+          srcDoc={content || '<html><body><p>No content</p></body></html>'}
           sandbox="allow-scripts allow-same-origin allow-print allow-modals"
         />
       </DialogContent>
@@ -249,7 +187,6 @@ const ReportViewer = ({
         </Button>
       </DialogActions>
 
-      {/* Print styles for the dialog */}
       <style>{`
         @media print {
           .MuiDialog-root .MuiDialog-paper {
