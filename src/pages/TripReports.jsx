@@ -1,5 +1,6 @@
 // src/pages/TripReports.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -25,8 +26,6 @@ import {
   Select,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
   Stack,
   Divider,
   LinearProgress,
@@ -34,7 +33,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  useTheme
+  useTheme,
+  Switch,
+  FormControlLabel,
+  Snackbar,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -55,14 +57,14 @@ import {
   FilterList as FilterListIcon,
   Clear as ClearIcon,
   PictureAsPdf as PdfIcon,
-  TableChart as TableChartIcon
+  TableChart as TableChartIcon,
+  FileCopy as FileCopyIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
-
 import {
   TRIP_STATUSES,
   TRIP_STATUS_OPTIONS,
@@ -70,7 +72,9 @@ import {
   getColor,
 } from '../constants';
 
-// Status configuration
+// ============================================================
+// STATUS CONFIGURATION
+// ============================================================
 const STATUS_CONFIG = Object.fromEntries(
   TRIP_STATUSES.map(item => [item.code, {
     color: item.color || '#9e9e9e',
@@ -79,6 +83,10 @@ const STATUS_CONFIG = Object.fromEntries(
     icon: item.icon || '📋'
   }])
 );
+
+// ============================================================
+// COMPONENTS
+// ============================================================
 
 const StatusChip = ({ status }) => {
   const config = STATUS_CONFIG[status];
@@ -101,8 +109,7 @@ const StatusChip = ({ status }) => {
   return <Chip label={status || 'Unknown'} size="small" />;
 };
 
-// Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => (
+const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle, loading = false }) => (
   <Card sx={{ height: '100%' }}>
     <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -110,13 +117,19 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => 
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
             {title}
           </Typography>
-          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem', mt: 0.25 }}>
-            {value}
-          </Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-              {subtitle}
-            </Typography>
+          {loading ? (
+            <CircularProgress size={20} sx={{ mt: 0.5 }} />
+          ) : (
+            <>
+              <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem', mt: 0.25 }}>
+                {value}
+              </Typography>
+              {subtitle && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                  {subtitle}
+                </Typography>
+              )}
+            </>
           )}
         </Box>
         <Box
@@ -136,8 +149,13 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => 
   </Card>
 );
 
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 const TripReports = () => {
   const theme = useTheme();
+  const printRef = useRef();
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [reports, setReports] = useState([]);
@@ -149,10 +167,11 @@ const TripReports = () => {
     totalDistance: 0,
     totalCost: 0,
     avgDuration: 0,
-    onTimeRate: 0
+    onTimeRate: 0,
+    totalRevenue: 0,
+    avgCostPerKm: 0,
   });
   
-  const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState({
@@ -161,42 +180,69 @@ const TripReports = () => {
   });
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Fetch reports data
+  // ============================================================
+  // FETCH REAL DATA
+  // ============================================================
   const fetchReports = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Build query params
       const params = {
         startDate: dateRange.start?.format('YYYY-MM-DD'),
         endDate: dateRange.end?.format('YYYY-MM-DD'),
-        ...(statusFilter !== 'all' && { status: statusFilter })
+        size: 1000, // Get all trips for reporting
+        sort: 'id,desc',
       };
-
-      const data = await tripService.getTripReports(params);
-      setReports(data);
-      setFilteredReports(data);
       
-      // Calculate stats
-      if (data && data.length > 0) {
-        const completed = data.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED');
-        const active = data.filter(t => t.status === 'ACTIVE' || t.status === 'IN_PROGRESS');
-        const totalDistance = data.reduce((sum, t) => sum + (t.totalDistance || 0), 0);
-        const totalCost = data.reduce((sum, t) => sum + (t.costAmount || 0), 0);
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+
+      console.log('📊 Fetching trip reports with params:', params);
+
+      // Fetch trips from the API
+      const response = await tripService.getAllTrips(params);
+      const trips = response.content || [];
+      
+      console.log(`📊 Fetched ${trips.length} trips for reports`);
+
+      setReports(trips);
+      setFilteredReports(trips);
+      
+      // Calculate stats from real data
+      if (trips.length > 0) {
+        const completed = trips.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED');
+        const active = trips.filter(t => t.status === 'ACTIVE' || t.status === 'IN_PROGRESS');
+        const totalDistance = trips.reduce((sum, t) => sum + (t.actualDistanceKm || t.plannedDistanceKm || 0), 0);
+        const totalCost = trips.reduce((sum, t) => sum + (t.costAmount || 0), 0);
+        const totalRevenue = trips.reduce((sum, t) => sum + (t.revenueAmount || 0), 0);
         const avgDuration = completed.length > 0 
-          ? completed.reduce((sum, t) => sum + (t.totalDurationHours || 0), 0) / completed.length
+          ? completed.reduce((sum, t) => sum + (t.actualDurationHours || t.estimatedDurationHours || 0), 0) / completed.length
           : 0;
+        const avgCostPerKm = totalDistance > 0 ? totalCost / totalDistance : 0;
+        
+        // Calculate on-time rate (based on actual vs planned end date)
+        const onTimeTrips = completed.filter(t => {
+          if (t.plannedEndDate && t.actualEndDate) {
+            return dayjs(t.actualEndDate).isBefore(dayjs(t.plannedEndDate)) || 
+                   dayjs(t.actualEndDate).isSame(dayjs(t.plannedEndDate));
+          }
+          return true;
+        });
         
         setStats({
-          totalTrips: data.length,
+          totalTrips: trips.length,
           completedTrips: completed.length,
           activeTrips: active.length,
           totalDistance,
           totalCost,
+          totalRevenue,
           avgDuration,
-          onTimeRate: completed.length > 0 
-            ? (completed.filter(t => t.onTime !== false).length / completed.length) * 100
-            : 0
+          onTimeRate: completed.length > 0 ? (onTimeTrips.length / completed.length) * 100 : 0,
+          avgCostPerKm,
         });
       } else {
         setStats({
@@ -205,56 +251,23 @@ const TripReports = () => {
           activeTrips: 0,
           totalDistance: 0,
           totalCost: 0,
+          totalRevenue: 0,
           avgDuration: 0,
-          onTimeRate: 0
+          onTimeRate: 0,
+          avgCostPerKm: 0,
         });
       }
     } catch (err) {
-      console.error('Error fetching reports:', err);
+      console.error('Error fetching trip reports:', err);
       setError('Failed to load trip reports');
-      // Set some sample data for demo
-      setReports(generateSampleData());
-      setFilteredReports(generateSampleData());
+      setReports([]);
+      setFilteredReports([]);
     } finally {
       setLoading(false);
     }
   }, [dateRange, statusFilter]);
 
-  // Generate sample data for demo
-  const generateSampleData = () => {
-    const statuses = ['PLANNED', 'ACTIVE', 'COMPLETED', 'FINALIZED', 'CANCELLED'];
-    const cities = ['Johannesburg', 'Cape Town', 'Durban', 'Pretoria', 'Port Elizabeth', 'Bloemfontein'];
-    const sampleData = [];
-    
-    for (let i = 1; i <= 25; i++) {
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const origin = cities[Math.floor(Math.random() * cities.length)];
-      const dest = cities[Math.floor(Math.random() * cities.length)];
-      const distance = Math.floor(Math.random() * 800) + 100;
-      const duration = distance / 80 + Math.random() * 2;
-      
-      sampleData.push({
-        id: i,
-        tripNumber: `TRP-${String(1000 + i)}`,
-        status,
-        origin,
-        destination: dest,
-        originCity: origin,
-        destinationCity: dest,
-        totalDistance: distance,
-        totalDurationHours: duration,
-        costAmount: distance * 12 + Math.random() * 500,
-        plannedStartDate: dayjs().subtract(Math.floor(Math.random() * 30), 'days').toISOString(),
-        plannedEndDate: dayjs().subtract(Math.floor(Math.random() * 10), 'days').toISOString(),
-        driverName: `Driver ${i}`,
-        vehicleRegistration: `ABC-${String(100 + i).padStart(3, '0')}`,
-        onTime: Math.random() > 0.2,
-        fuelUsedLiters: distance * 0.3 + Math.random() * 20
-      });
-    }
-    return sampleData;
-  };
-
+  // Initial fetch and filter changes
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
@@ -274,24 +287,122 @@ const TripReports = () => {
         trip.tripNumber?.toLowerCase().includes(term) ||
         trip.originCity?.toLowerCase().includes(term) ||
         trip.destinationCity?.toLowerCase().includes(term) ||
-        trip.driverName?.toLowerCase().includes(term)
+        trip.driverName?.toLowerCase().includes(term) ||
+        trip.vehicle?.registrationNumber?.toLowerCase().includes(term) ||
+        trip.referenceNumber?.toLowerCase().includes(term)
       );
     }
     
     setFilteredReports(filtered);
   }, [searchTerm, reports]);
 
-  const handleExport = async (format = 'csv') => {
+  // ============================================================
+  // EXPORT FUNCTIONS
+  // ============================================================
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportCSV = () => {
+    if (filteredReports.length === 0) {
+      setSnackbar({ open: true, message: 'No data to export', severity: 'warning' });
+      return;
+    }
+
     setExportLoading(true);
     try {
-      await tripService.exportReports({ format, ...dateRange });
-      // Show success message
+      // Headers
+      const headers = [
+        'Trip #', 'Status', 'Origin', 'Destination', 'Driver', 'Vehicle',
+        'Distance (km)', 'Duration (hrs)', 'Cost (ZAR)', 'Revenue (ZAR)',
+        'Start Date', 'End Date', 'On-Time'
+      ];
+
+      // Build CSV content
+      let csvContent = headers.join(',') + '\n';
+      
+      filteredReports.forEach(trip => {
+        const row = [
+          trip.tripNumber || '',
+          trip.status || '',
+          trip.originCity || trip.originLocation || '',
+          trip.destinationCity || trip.destinationLocation || '',
+          trip.driverName || trip.driver?.firstName || '',
+          trip.vehicle?.registrationNumber || '',
+          trip.actualDistanceKm || trip.plannedDistanceKm || 0,
+          trip.actualDurationHours || trip.estimatedDurationHours || 0,
+          trip.costAmount || 0,
+          trip.revenueAmount || 0,
+          trip.plannedStartDate ? dayjs(trip.plannedStartDate).format('YYYY-MM-DD') : '',
+          trip.actualEndDate ? dayjs(trip.actualEndDate).format('YYYY-MM-DD') : '',
+          trip.status === 'COMPLETED' || trip.status === 'FINALIZED' ? 'Yes' : 'No'
+        ];
+        csvContent += row.join(',') + '\n';
+      });
+
+      // Download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `trip_reports_${dayjs().format('YYYY-MM-DD')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      setSnackbar({ open: true, message: `Exported ${filteredReports.length} trips to CSV`, severity: 'success' });
     } catch (err) {
       console.error('Export failed:', err);
+      setSnackbar({ open: true, message: 'Export failed: ' + err.message, severity: 'error' });
     } finally {
       setExportLoading(false);
     }
   };
+
+  const handleExportPDF = () => {
+    if (filteredReports.length === 0) {
+      setSnackbar({ open: true, message: 'No data to export', severity: 'warning' });
+      return;
+    }
+
+    // Open print dialog which can save as PDF
+    window.print();
+  };
+
+  const handleCopyToClipboard = () => {
+    if (filteredReports.length === 0) {
+      setSnackbar({ open: true, message: 'No data to copy', severity: 'warning' });
+      return;
+    }
+
+    try {
+      // Build text representation
+      let textContent = 'TRIP REPORTS\n';
+      textContent += `Generated: ${dayjs().format('YYYY-MM-DD HH:mm:ss')}\n`;
+      textContent += `Total Trips: ${filteredReports.length}\n`;
+      textContent += '='.repeat(80) + '\n\n';
+      
+      filteredReports.forEach((trip, index) => {
+        textContent += `${index + 1}. ${trip.tripNumber || 'N/A'}\n`;
+        textContent += `   Status: ${trip.status || 'N/A'}\n`;
+        textContent += `   Route: ${trip.originCity || trip.originLocation || 'N/A'} → ${trip.destinationCity || trip.destinationLocation || 'N/A'}\n`;
+        textContent += `   Driver: ${trip.driverName || trip.driver?.firstName || 'N/A'}\n`;
+        textContent += `   Distance: ${trip.actualDistanceKm || trip.plannedDistanceKm || 0} km\n`;
+        textContent += `   Cost: R ${(trip.costAmount || 0).toFixed(2)}\n`;
+        textContent += '-' .repeat(40) + '\n';
+      });
+
+      navigator.clipboard.writeText(textContent);
+      setSnackbar({ open: true, message: 'Copied to clipboard', severity: 'success' });
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Failed to copy: ' + err.message, severity: 'error' });
+    }
+  };
+
+  // ============================================================
+  // FILTER HANDLERS
+  // ============================================================
 
   const handleApplyFilters = () => {
     setShowFilterDialog(false);
@@ -308,6 +419,10 @@ const TripReports = () => {
     setShowFilterDialog(false);
     fetchReports();
   };
+
+  // ============================================================
+  // FORMATTING HELPERS
+  // ============================================================
 
   const formatCurrency = (amount) => {
     if (!amount) return 'R 0.00';
@@ -327,329 +442,522 @@ const TripReports = () => {
     }).format(num);
   };
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box>
-        {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Box>
-            <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1.1rem' }}>
-              Trip Reports
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-              Track and analyze trip performance
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={0.75}>
-            <Button
-              startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />}
-              onClick={fetchReports}
-              variant="outlined"
-              size="small"
-              sx={{ fontSize: '0.75rem', py: 0.5 }}
-            >
-              Refresh
-            </Button>
-            <Button
-              startIcon={<FilterListIcon sx={{ fontSize: '0.9rem' }} />}
-              onClick={() => setShowFilterDialog(true)}
-              variant="outlined"
-              size="small"
-              sx={{ fontSize: '0.75rem', py: 0.5 }}
-            >
-              Filters
-            </Button>
-            <Button
-              startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
-              onClick={() => handleExport('csv')}
-              variant="contained"
-              size="small"
-              sx={{ fontSize: '0.75rem', py: 0.5 }}
-              disabled={exportLoading}
-            >
-              {exportLoading ? <CircularProgress size={16} /> : 'Export'}
-            </Button>
+      <Box sx={{ 
+        bgcolor: '#F7F7FC', 
+        minHeight: '100vh',
+        p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 }
+      }}>
+        <Box sx={{ maxWidth: '1600px', margin: '0 auto' }}>
+          
+          {/* ============================================================
+              HEADER
+              ============================================================ */}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            mb={{ xs: 2, sm: 2.5 }}
+            spacing={{ xs: 1, sm: 0 }}
+          >
+            <Box>
+              <Typography variant="h5" fontWeight="700" sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
+                Trip Reports
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                Track and analyze trip performance • {filteredReports.length} trips
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1}>
+              <Button
+                startIcon={<RefreshIcon sx={{ fontSize: '0.9rem' }} />}
+                onClick={fetchReports}
+                variant="outlined"
+                size="small"
+                sx={{ 
+                  borderRadius: '10px',
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  textTransform: 'none',
+                  py: 0.5,
+                  px: 1.5
+                }}
+              >
+                Refresh
+              </Button>
+              <Button
+                startIcon={<FilterListIcon sx={{ fontSize: '0.9rem' }} />}
+                onClick={() => setShowFilterDialog(true)}
+                variant="outlined"
+                size="small"
+                sx={{ 
+                  borderRadius: '10px',
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  textTransform: 'none',
+                  py: 0.5,
+                  px: 1.5
+                }}
+              >
+                Filters
+              </Button>
+              <Button
+                startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
+                onClick={handleExportCSV}
+                variant="contained"
+                size="small"
+                sx={{ 
+                  borderRadius: '10px',
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  textTransform: 'none',
+                  py: 0.5,
+                  px: 1.5,
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                  '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' }
+                }}
+                disabled={exportLoading}
+              >
+                {exportLoading ? <CircularProgress size={16} /> : 'Export CSV'}
+              </Button>
+            </Stack>
           </Stack>
-        </Box>
 
-        {/* Stats Cards */}
-        <Grid container spacing={1.5} sx={{ mb: 2 }}>
-          <Grid item xs={6} sm={4} md={2}>
-            <StatCard
-              title="Total Trips"
-              value={stats.totalTrips}
-              icon={TimelineIcon}
-              color="primary"
-            />
+          {/* ============================================================
+              STATS CARDS
+              ============================================================ */}
+          <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 2, sm: 2.5 } }}>
+            <Grid item xs={6} sm={4} md={2}>
+              <StatCard
+                title="Total Trips"
+                value={stats.totalTrips}
+                icon={TimelineIcon}
+                color="primary"
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={4} md={2}>
+              <StatCard
+                title="Completed"
+                value={`${stats.completedTrips}/${stats.totalTrips}`}
+                icon={CheckCircleIcon}
+                color="success"
+                subtitle={`${stats.totalTrips > 0 ? Math.round((stats.completedTrips / stats.totalTrips) * 100) : 0}% completion`}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={4} md={2}>
+              <StatCard
+                title="Active"
+                value={stats.activeTrips}
+                icon={CarIcon}
+                color="warning"
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={4} md={2}>
+              <StatCard
+                title="Total Distance"
+                value={`${formatNumber(stats.totalDistance)} km`}
+                icon={CarIcon}
+                color="info"
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={4} md={2}>
+              <StatCard
+                title="Total Cost"
+                value={formatCurrency(stats.totalCost)}
+                icon={MoneyIcon}
+                color="error"
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={4} md={2}>
+              <StatCard
+                title="On-Time Rate"
+                value={`${stats.onTimeRate.toFixed(0)}%`}
+                icon={AssessmentIcon}
+                color="success"
+                loading={loading}
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={6} sm={4} md={2}>
-            <StatCard
-              title="Completed"
-              value={`${stats.completedTrips}/${stats.totalTrips}`}
-              icon={CheckCircleIcon}
-              color="success"
-              subtitle={`${stats.totalTrips > 0 ? Math.round((stats.completedTrips / stats.totalTrips) * 100) : 0}% completion`}
-            />
-          </Grid>
-          <Grid item xs={6} sm={4} md={2}>
-            <StatCard
-              title="Active Trips"
-              value={stats.activeTrips}
-              icon={CarIcon}
-              color="warning"
-            />
-          </Grid>
-          <Grid item xs={6} sm={4} md={2}>
-            <StatCard
-              title="Total Distance"
-              value={`${formatNumber(stats.totalDistance)} km`}
-              icon={CarIcon}
-              color="info"
-            />
-          </Grid>
-          <Grid item xs={6} sm={4} md={2}>
-            <StatCard
-              title="Total Cost"
-              value={formatCurrency(stats.totalCost)}
-              icon={MoneyIcon}
-              color="error"
-            />
-          </Grid>
-          <Grid item xs={6} sm={4} md={2}>
-            <StatCard
-              title="On-Time Rate"
-              value={`${stats.onTimeRate.toFixed(0)}%`}
-              icon={AssessmentIcon}
-              color="success"
-            />
-          </Grid>
-        </Grid>
 
-        {/* Search Bar */}
-        <Paper sx={{ p: 1, mb: 2 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search trips by number, city, or driver..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: '0.9rem' }} />
-                </InputAdornment>
-              ),
-              endAdornment: searchTerm && (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm('')}>
-                    <ClearIcon sx={{ fontSize: '0.9rem' }} />
-                  </IconButton>
-                </InputAdornment>
-              ),
-              sx: { fontSize: '0.8rem' }
+          {/* ============================================================
+              SEARCH BAR
+              ============================================================ */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1, sm: 1.5 },
+              mb: { xs: 1.5, sm: 2 },
+              borderRadius: '12px',
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF'
             }}
-          />
-        </Paper>
+          >
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search trips by number, city, driver, or reference..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchTerm('')}>
+                      <ClearIcon sx={{ fontSize: '0.9rem' }} />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+                sx: { fontSize: '0.8rem' }
+              }}
+            />
+          </Paper>
 
-        {/* Error Display */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+          {/* ============================================================
+              ERROR / LOADING
+              ============================================================ */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
 
-        {/* Loading State */}
-        {loading && (
-          <Box sx={{ width: '100%', mb: 2 }}>
-            <LinearProgress />
-          </Box>
-        )}
+          {loading && (
+            <Box sx={{ width: '100%', mb: 2 }}>
+              <LinearProgress />
+            </Box>
+          )}
 
-        {/* Reports Table */}
-        <TableContainer component={Paper} sx={{ borderRadius: 1 }}>
-          <Table size="small">
-            <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-              <TableRow>
-                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Trip #</TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Status</TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Route</TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Driver</TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Vehicle</TableCell>
-                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Distance</TableCell>
-                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Duration</TableCell>
-                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>Cost</TableCell>
-                <TableCell align="center" sx={{ fontSize: '0.7rem', fontWeight: 600, py: 1 }}>On-Time</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredReports.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
-                    <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                      {searchTerm || statusFilter !== 'all' 
-                        ? 'No trips match your filters' 
-                        : 'No trip reports available'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredReports.map((trip) => (
-                  <TableRow key={trip.id} hover>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      <Typography fontWeight="500" sx={{ fontSize: '0.75rem' }}>
-                        {trip.tripNumber}
-                      </Typography>
+          {/* ============================================================
+              REPORTS TABLE
+              ============================================================ */}
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: '12px',
+              border: '1px solid #ECECEC',
+              bgcolor: '#FFFFFF',
+              overflow: 'hidden',
+            }}
+            ref={printRef}
+          >
+            <TableContainer sx={{ maxHeight: 600 }}>
+              <Table size="small" stickyHeader>
+                <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Trip #
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      <StatusChip status={trip.status} />
+                    <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Status
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-                        {trip.originCity || trip.origin} → {trip.destinationCity || trip.destination}
-                      </Typography>
+                    <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Route
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.driverName || 'N/A'}
+                    <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Driver
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.vehicleRegistration || 'N/A'}
+                    <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Vehicle
                     </TableCell>
-                    <TableCell align="right" sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {formatNumber(trip.totalDistance)} km
+                    <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Distance
                     </TableCell>
-                    <TableCell align="right" sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.totalDurationHours ? `${trip.totalDurationHours.toFixed(1)}h` : '-'}
+                    <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Duration
                     </TableCell>
-                    <TableCell align="right" sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {formatCurrency(trip.costAmount)}
+                    <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Cost
                     </TableCell>
-                    <TableCell align="center" sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                      {trip.onTime !== undefined && (
-                        <Chip
-                          label={trip.onTime ? 'Yes' : 'No'}
-                          size="small"
-                          color={trip.onTime ? 'success' : 'error'}
-                          sx={{ height: 18, fontSize: '0.6rem' }}
-                        />
-                      )}
+                    <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      Revenue
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                      On-Time
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {filteredReports.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                        <Typography color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                          {searchTerm || statusFilter !== 'all' 
+                            ? 'No trips match your filters' 
+                            : 'No trip reports available'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredReports.map((trip) => {
+                      const isCompleted = trip.status === 'COMPLETED' || trip.status === 'FINALIZED';
+                      const distance = trip.actualDistanceKm || trip.plannedDistanceKm || 0;
+                      const duration = trip.actualDurationHours || trip.estimatedDurationHours || 0;
+                      
+                      return (
+                        <TableRow key={trip.id} hover sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            <Typography fontWeight="500" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#4F46E5' }}>
+                              {trip.tripNumber}
+                            </Typography>
+                            {trip.referenceNumber && (
+                              <Typography variant="caption" sx={{ fontSize: '0.55rem', color: '#6B7280', display: 'block' }}>
+                                REF: {trip.referenceNumber}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
+                            <StatusChip status={trip.status} />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            <Typography variant="body2" sx={{ fontSize: '0.65rem' }}>
+                              {trip.originCity || trip.originLocation || 'N/A'} → {trip.destinationCity || trip.destinationLocation || 'N/A'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            {trip.driverName || trip.driver?.firstName || 'N/A'}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            {trip.vehicle?.registrationNumber || 'N/A'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            {distance > 0 ? `${formatNumber(distance)} km` : '-'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            {duration > 0 ? `${duration.toFixed(1)}h` : '-'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            {formatCurrency(trip.costAmount)}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                            {formatCurrency(trip.revenueAmount)}
+                          </TableCell>
+                          <TableCell align="center" sx={{ py: 0.5 }}>
+                            {isCompleted ? (
+                              <Chip
+                                label="Yes"
+                                size="small"
+                                color="success"
+                                sx={{ height: 18, fontSize: '0.6rem' }}
+                              />
+                            ) : trip.status === 'PLANNED' || trip.status === 'ASSIGNED' ? (
+                              <Chip
+                                label="Pending"
+                                size="small"
+                                color="warning"
+                                sx={{ height: 18, fontSize: '0.6rem' }}
+                              />
+                            ) : (
+                              <Chip
+                                label="N/A"
+                                size="small"
+                                variant="outlined"
+                                sx={{ height: 18, fontSize: '0.6rem' }}
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
 
-        {/* Footer */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mt={1.5}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-            Showing {filteredReports.length} of {reports.length} trips
-          </Typography>
-          <Stack direction="row" spacing={0.75}>
-            <Tooltip title="Print Report">
-              <IconButton size="small" onClick={() => window.print()}>
-                <PrintIcon sx={{ fontSize: '0.9rem' }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Export to PDF">
-              <IconButton size="small" onClick={() => handleExport('pdf')} disabled={exportLoading}>
-                <PdfIcon sx={{ fontSize: '0.9rem' }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Export to Excel">
-              <IconButton size="small" onClick={() => handleExport('csv')} disabled={exportLoading}>
-                <TableChartIcon sx={{ fontSize: '0.9rem' }} />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        </Box>
-
-        {/* Filter Dialog */}
-        <Dialog 
-          open={showFilterDialog} 
-          onClose={() => setShowFilterDialog(false)} 
-          maxWidth="sm" 
-          fullWidth
-          PaperProps={{ sx: { borderRadius: 1.5 } }}
-        >
-          <DialogTitle sx={{ py: 1.5, px: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-              Filter Reports
+          {/* ============================================================
+              FOOTER
+              ============================================================ */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mt={1.5} flexWrap="wrap" gap={1}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+              Showing {filteredReports.length} of {reports.length} trips
+              {statusFilter !== 'all' && ` • Filtered by: ${STATUS_CONFIG[statusFilter]?.label || statusFilter}`}
+              {dateRange.start && dateRange.end && ` • ${dateRange.start.format('DD MMM YYYY')} - ${dateRange.end.format('DD MMM YYYY')}`}
             </Typography>
-          </DialogTitle>
-          <DialogContent sx={{ p: 2 }}>
-            <Stack spacing={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Statuses</MenuItem>
-                  {Object.keys(STATUS_CONFIG).map(status => (
-                    <MenuItem key={status} value={status} sx={{ fontSize: '0.75rem' }}>
-                      {STATUS_CONFIG[status].label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <DatePicker
-                label="Start Date"
-                value={dateRange.start}
-                onChange={(newValue) => setDateRange({ ...dateRange, start: newValue })}
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                    size: 'small',
-                    sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
-                  }
-                }}
-              />
-
-              <DatePicker
-                label="End Date"
-                value={dateRange.end}
-                onChange={(newValue) => setDateRange({ ...dateRange, end: newValue })}
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                    size: 'small',
-                    sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } }
-                  }
-                }}
-              />
+            <Stack direction="row" spacing={0.75}>
+              <Tooltip title="Print Report">
+                <IconButton size="small" onClick={handlePrint}>
+                  <PrintIcon sx={{ fontSize: '0.9rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export as PDF (Print to PDF)">
+                <IconButton size="small" onClick={handleExportPDF} disabled={exportLoading}>
+                  <PdfIcon sx={{ fontSize: '0.9rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Copy to Clipboard">
+                <IconButton size="small" onClick={handleCopyToClipboard}>
+                  <FileCopyIcon sx={{ fontSize: '0.9rem' }} />
+                </IconButton>
+              </Tooltip>
             </Stack>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-            <Button 
-              onClick={handleClearFilters}
-              size="small"
-              sx={{ fontSize: '0.8rem' }}
+          </Box>
+
+          {/* ============================================================
+              FILTER DIALOG
+              ============================================================ */}
+          <Dialog 
+            open={showFilterDialog} 
+            onClose={() => setShowFilterDialog(false)} 
+            maxWidth="sm" 
+            fullWidth
+            PaperProps={{ sx: { borderRadius: '16px' } }}
+          >
+            <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                <FilterListIcon sx={{ verticalAlign: 'middle', mr: 1, fontSize: '1.1rem' }} />
+                Filter Reports
+              </Typography>
+            </DialogTitle>
+            <DialogContent sx={{ p: 2.5 }}>
+              <Stack spacing={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Status</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    label="Status"
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
+                  >
+                    <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>All Statuses</MenuItem>
+                    {Object.keys(STATUS_CONFIG).map(status => (
+                      <MenuItem key={status} value={status} sx={{ fontSize: '0.75rem' }}>
+                        {STATUS_CONFIG[status].label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <DatePicker
+                  label="Start Date"
+                  value={dateRange.start}
+                  onChange={(newValue) => setDateRange({ ...dateRange, start: newValue })}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: 'small',
+                      sx: { 
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiInputBase-root': { borderRadius: '10px' }
+                      }
+                    }
+                  }}
+                />
+
+                <DatePicker
+                  label="End Date"
+                  value={dateRange.end}
+                  onChange={(newValue) => setDateRange({ ...dateRange, end: newValue })}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: 'small',
+                      sx: { 
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiInputBase-root': { borderRadius: '10px' }
+                      }
+                    }
+                  }}
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ p: 2.5, borderTop: 1, borderColor: 'divider' }}>
+              <Button 
+                onClick={handleClearFilters}
+                size="small"
+                sx={{ fontSize: '0.8rem', textTransform: 'none' }}
+              >
+                Clear All
+              </Button>
+              <Button 
+                onClick={() => setShowFilterDialog(false)}
+                size="small"
+                sx={{ fontSize: '0.8rem', textTransform: 'none', color: '#6B7280' }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleApplyFilters}
+                variant="contained"
+                size="small"
+                sx={{ 
+                  fontSize: '0.8rem', 
+                  textTransform: 'none',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                  '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' }
+                }}
+              >
+                Apply Filters
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* ============================================================
+              SNACKBAR
+              ============================================================ */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={4000}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <Alert 
+              severity={snackbar.severity} 
+              sx={{ borderRadius: '12px' }}
+              onClose={() => setSnackbar({ ...snackbar, open: false })}
             >
-              Clear All
-            </Button>
-            <Button 
-              onClick={() => setShowFilterDialog(false)}
-              size="small"
-              sx={{ fontSize: '0.8rem' }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleApplyFilters}
-              variant="contained"
-              size="small"
-              sx={{ fontSize: '0.8rem' }}
-            >
-              Apply Filters
-            </Button>
-          </DialogActions>
-        </Dialog>
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+
+        </Box>
       </Box>
+
+      {/* ============================================================
+          PRINT STYLES
+          ============================================================ */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #print-area, #print-area * {
+            visibility: visible;
+          }
+          #print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .MuiTable-root {
+            font-size: 10px !important;
+          }
+          .MuiTableCell-root {
+            padding: 4px 6px !important;
+            font-size: 9px !important;
+          }
+          .MuiChip-root {
+            font-size: 8px !important;
+            height: 16px !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
     </LocalizationProvider>
   );
 };
