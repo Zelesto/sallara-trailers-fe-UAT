@@ -55,6 +55,7 @@ import {
   Timeline,
   TrendingUp,
   TrendingDown,
+  NoAccounts as NoIncidentsIcon,
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
@@ -184,17 +185,19 @@ const MetricCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) =
 const TripReportDetail = ({ 
   open, 
   tripId, 
+  trip: propTrip,
   onClose,
   onPrint,
 }) => {
   const printRef = useRef();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [trip, setTrip] = useState(null);
+  const [trip, setTrip] = useState(propTrip || null);
   const [fuelSlips, setFuelSlips] = useState([]);
   const [loadData, setLoadData] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [notices, setNotices] = useState([]);
+  const [noticesLoading, setNoticesLoading] = useState(false);
 
   // Fetch all trip data
   useEffect(() => {
@@ -207,9 +210,16 @@ const TripReportDetail = ({
     setLoading(true);
     setError(null);
     try {
-      // Fetch trip details
-      const tripData = await tripService.getTripById(tripId);
-      setTrip(tripData);
+      // If trip was passed as prop, use it
+      let tripData = propTrip;
+      
+      // Otherwise fetch trip details
+      if (!tripData) {
+        tripData = await tripService.getTripById(tripId);
+        setTrip(tripData);
+      } else {
+        setTrip(tripData);
+      }
 
       // Fetch metrics
       try {
@@ -240,13 +250,17 @@ const TripReportDetail = ({
         }
       }
 
-      // Fetch notices/incidents
+      // ✅ Fetch notices/incidents - with better error handling
+      setNoticesLoading(true);
       try {
         const incidents = await tripService.getTripIncidents(tripId);
         setNotices(Array.isArray(incidents) ? incidents : []);
       } catch (e) {
-        console.warn('No incidents found:', e);
+        console.warn('Error fetching incidents (expected if none exist):', e.message);
+        // ✅ Set empty array instead of failing
         setNotices([]);
+      } finally {
+        setNoticesLoading(false);
       }
 
     } catch (err) {
@@ -312,6 +326,10 @@ LOAD
 ----
 Load Number: ${loadData?.loadNumber || trip.loadId || 'N/A'}
 Description: ${loadData?.description || trip.loadDescription || 'N/A'}
+
+NOTICES
+-------
+${notices.length > 0 ? notices.map(n => `- ${n.type || n.incidentType || 'Notice'}: ${n.description || n.message || 'No description'}`).join('\n') : 'No notices recorded'}
     `;
     
     navigator.clipboard.writeText(textContent);
@@ -808,14 +826,29 @@ Description: ${loadData?.description || trip.loadDescription || 'N/A'}
                 )}
               </Paper>
 
-              {/* Notices / Incidents */}
+              {/* Notices / Incidents - Improved with better handling */}
               <Paper sx={{ p: 2.5, borderRadius: '12px', bgcolor: '#FFFFFF' }}>
                 <Typography variant="subtitle2" fontWeight="600" sx={{ mb: 2, fontSize: '0.85rem' }}>
                   <WarningIcon sx={{ fontSize: '0.9rem', verticalAlign: 'middle', mr: 0.5 }} />
-                  Notices / Incidents ({notices.length})
+                  Notices / Incidents 
+                  <Chip 
+                    label={notices.length} 
+                    size="small" 
+                    sx={{ 
+                      ml: 1, 
+                      height: 18, 
+                      fontSize: '0.55rem',
+                      bgcolor: notices.length > 0 ? '#FEE2E2' : '#F3F4F6',
+                      color: notices.length > 0 ? '#991B1B' : '#6B7280'
+                    }} 
+                  />
                 </Typography>
 
-                {notices.length > 0 ? (
+                {noticesLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : notices.length > 0 ? (
                   notices.map((notice, idx) => (
                     <Box key={idx} sx={{ 
                       p: 1.5, 
@@ -826,7 +859,7 @@ Description: ${loadData?.description || trip.loadDescription || 'N/A'}
                     }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 600, color: notice.severity === 'HIGH' || notice.severity === 'CRITICAL' ? '#991B1B' : '#92400E' }}>
-                          {notice.type || notice.incidentType || 'Notice'}
+                          {notice.type || notice.incidentType || notice.category || 'Notice'}
                         </Typography>
                         <Chip
                           label={notice.severity || 'MEDIUM'}
@@ -850,9 +883,12 @@ Description: ${loadData?.description || trip.loadDescription || 'N/A'}
                     </Box>
                   ))
                 ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', textAlign: 'center', py: 1 }}>
-                    No notices or incidents reported
-                  </Typography>
+                  <Box sx={{ textAlign: 'center', py: 2 }}>
+                    <NoIncidentsIcon sx={{ fontSize: 32, color: '#D1D5DB', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                      No notices or incidents reported
+                    </Typography>
+                  </Box>
                 )}
               </Paper>
             </Grid>
