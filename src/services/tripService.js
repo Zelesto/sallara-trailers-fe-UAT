@@ -166,108 +166,107 @@ export const tripService = {
     }
   },
 
-  /**
-   * Get trip by trip number with fallback to search
-   * ✅ Handles 500 errors gracefully
-   */
-  getTripByTripNumber: async (tripNumber) => {
-    try {
-      const cleanedNumber = tripNumber.toUpperCase().trim();
-      
-      if (!cleanedNumber) {
-        throw new Error('Please enter a trip number');
-      }
-      
-      console.log(`🔍 Fetching trip by number: ${cleanedNumber}`);
-      
-      // First try the direct endpoint
-      try {
-        const response = await api.get(`/trips/number/${encodeURIComponent(cleanedNumber)}`);
-        const data = unwrap(response);
-        if (data) {
-          console.log(`✅ Found trip by number: ${cleanedNumber}`);
-          return data;
-        }
-      } catch (directError) {
-        console.warn(`Direct endpoint failed for ${cleanedNumber}:`, directError.response?.status);
-        // If it's a 500 error or any error, fallback to search
-      }
-      
-      // Fallback: Search for the trip using the regular trips endpoint
-      try {
-        const searchResponse = await api.get('/trips', {
-          params: { 
-            size: 1000,
-            sort: 'id,desc'
-          }
-        });
-        
-        const trips = searchResponse.data?.content || [];
-        console.log(`🔍 Searching ${trips.length} trips for "${cleanedNumber}"`);
-        
-        // Try exact match first
-        let foundTrip = trips.find(t => 
-          t.tripNumber?.toUpperCase() === cleanedNumber
-        );
-        
-        // If no exact match, try contains
-        if (!foundTrip) {
-          foundTrip = trips.find(t => 
-            t.tripNumber?.toUpperCase().includes(cleanedNumber)
-          );
-        }
-        
-        // If still no match, try starts with
-        if (!foundTrip) {
-          foundTrip = trips.find(t => 
-            t.tripNumber?.toUpperCase().startsWith(cleanedNumber)
-          );
-        }
-        
-        if (foundTrip) {
-          console.log(`✅ Found trip via search: ${foundTrip.tripNumber}`);
-          return foundTrip;
-        }
-        
-        // If we have trips but no match, show suggestions
-        if (trips.length > 0) {
-          // Find similar trips
-          const suggestions = trips
-            .filter(t => {
-              const num = t.tripNumber?.toUpperCase() || '';
-              return cleanedNumber.length >= 4 && 
-                     (num.includes(cleanedNumber.substring(0, 8)) || 
-                      cleanedNumber.includes(num.substring(0, 8)));
-            })
-            .slice(0, 5)
-            .map(t => t.tripNumber);
+       /**
+       * Get trip by trip number with fallback to search
+       * ✅ Handles 500 errors gracefully
+       */
+      getTripByTripNumber: async (tripNumber) => {
+        try {
+          const cleanedNumber = tripNumber.toUpperCase().trim();
           
-          if (suggestions.length > 0) {
-            throw new Error(`Trip "${tripNumber}" not found. Did you mean: ${suggestions.join(', ')}?`);
+          if (!cleanedNumber) {
+            throw new Error('Please enter a trip number');
           }
           
-          const examples = trips.slice(0, 5).map(t => t.tripNumber).join(', ');
-          throw new Error(`Trip "${tripNumber}" not found. Available trips: ${examples}`);
+          console.log(`🔍 Fetching trip by number: ${cleanedNumber}`);
+          
+          // First try the direct endpoint
+          try {
+            const response = await api.get(`/trips/number/${encodeURIComponent(cleanedNumber)}`);
+            const data = unwrap(response);
+            if (data) {
+              console.log(`✅ Found trip by number: ${cleanedNumber}`);
+              return data;
+            }
+          } catch (directError) {
+            console.warn(`Direct endpoint failed for ${cleanedNumber}:`, directError.response?.status);
+            // If it's a 500 error or any error, fallback to search
+          }
+          
+          // Fallback: Try to get trips with a search filter first
+          try {
+            // Try searching with the trip number
+            const searchResponse = await api.get('/trips', {
+              params: { 
+                search: cleanedNumber,
+                size: 100,
+                sort: 'id,desc'
+              }
+            });
+            
+            const trips = searchResponse.data?.content || [];
+            console.log(`🔍 Search returned ${trips.length} trips matching "${cleanedNumber}"`);
+            
+            if (trips.length > 0) {
+              // Try exact match first
+              let foundTrip = trips.find(t => 
+                t.tripNumber?.toUpperCase() === cleanedNumber
+              );
+              
+              // If no exact match, try contains
+              if (!foundTrip) {
+                foundTrip = trips.find(t => 
+                  t.tripNumber?.toUpperCase().includes(cleanedNumber)
+                );
+              }
+              
+              if (foundTrip) {
+                console.log(`✅ Found trip via search: ${foundTrip.tripNumber}`);
+                return foundTrip;
+              }
+              
+              // If we found trips but no exact match, show suggestions
+              const suggestions = trips.slice(0, 5).map(t => t.tripNumber).join(', ');
+              throw new Error(`Trip "${tripNumber}" not found. Did you mean: ${suggestions}?`);
+            }
+            
+            // If search returned 0, try getting all trips to show suggestions
+            console.log(`No trips found for "${cleanedNumber}", fetching all trips for suggestions...`);
+            
+            const allTripsResponse = await api.get('/trips', {
+              params: { 
+                size: 100,
+                sort: 'id,desc'
+              }
+            });
+            
+            const allTrips = allTripsResponse.data?.content || [];
+            console.log(`Found ${allTrips.length} total trips`);
+            
+            if (allTrips.length === 0) {
+              throw new Error(`No trips found in the system. Please check your connection or try again later.`);
+            }
+            
+            // Show available trip numbers
+            const examples = allTrips.slice(0, 5).map(t => t.tripNumber).join(', ');
+            throw new Error(`Trip "${tripNumber}" not found. Available trip numbers include: ${examples}`);
+            
+          } catch (searchError) {
+            console.error(`Search fallback failed:`, searchError);
+            if (searchError.message) {
+              throw searchError;
+            }
+            throw new Error(`Trip "${tripNumber}" not found. Please check the trip number and try again.`);
+          }
+          
+        } catch (error) {
+          console.error(`Error fetching trip by number ${tripNumber}:`, error);
+          if (error.message) {
+            throw error;
+          }
+          throw new Error(`Trip "${tripNumber}" not found`);
         }
-        
-        throw new Error(`Trip "${tripNumber}" not found`);
-        
-      } catch (searchError) {
-        console.error(`Search fallback failed:`, searchError);
-        if (searchError.message) {
-          throw searchError;
-        }
-        throw new Error(`Trip "${tripNumber}" not found`);
-      }
-      
-    } catch (error) {
-      console.error(`Error fetching trip by number ${tripNumber}:`, error);
-      if (error.message) {
-        throw error;
-      }
-      throw new Error(`Trip "${tripNumber}" not found`);
-    }
-  },
+      },
 
   /**
    * Get trip by ID with retry logic for race conditions
