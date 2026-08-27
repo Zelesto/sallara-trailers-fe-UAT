@@ -171,6 +171,104 @@ getAllTrips: async (params = {}) => {
   }
 },
 
+   
+   /**
+    * Find a trip by number with fallback to search
+    * @param {string} tripNumber - The trip number (case insensitive)
+    * @returns {Promise<Object>} - The trip object
+    */
+   findTripByNumber: async (tripNumber) => {
+     try {
+       // Clean and uppercase the trip number
+       const cleanedNumber = tripNumber.toUpperCase().trim();
+       
+       if (!cleanedNumber) {
+         throw new Error('Please enter a trip number');
+       }
+       
+       console.log(`🔍 Finding trip by number: ${cleanedNumber}`);
+       
+       // First try the direct endpoint
+       try {
+         const response = await api.get(`/trips/number/${encodeURIComponent(cleanedNumber)}`);
+         const data = unwrap(response);
+         if (data) {
+           console.log(`✅ Found trip by number: ${cleanedNumber}`);
+           return data;
+         }
+       } catch (directError) {
+         // If direct fails with 404, try searching
+         if (directError.response?.status === 404) {
+           console.warn(`Trip ${cleanedNumber} not found directly, searching...`);
+         } else {
+           // If it's a 500 error, also try searching
+           console.warn(`Direct endpoint failed with ${directError.response?.status}, searching...`);
+         }
+       }
+       
+       // Fallback: Search for the trip using the search endpoint
+       try {
+         const searchResponse = await api.get('/trips', {
+           params: { 
+             search: cleanedNumber, 
+             size: 20,
+             sort: 'id,desc'
+           }
+         });
+         
+         const trips = searchResponse.data?.content || [];
+         console.log(`🔍 Search found ${trips.length} trips matching "${cleanedNumber}"`);
+         
+         // Try exact match first (case-insensitive)
+         let foundTrip = trips.find(t => 
+           t.tripNumber?.toUpperCase() === cleanedNumber
+         );
+         
+         // If no exact match, try contains
+         if (!foundTrip) {
+           foundTrip = trips.find(t => 
+             t.tripNumber?.toUpperCase().includes(cleanedNumber)
+           );
+         }
+         
+         // If still no match, try the first result if it's close
+         if (!foundTrip && trips.length > 0) {
+           // Check if the search term is similar to the first result
+           const firstTrip = trips[0];
+           if (firstTrip.tripNumber?.toUpperCase().includes(cleanedNumber) || 
+               cleanedNumber.includes(firstTrip.tripNumber?.toUpperCase().substring(0, 8))) {
+             foundTrip = firstTrip;
+           }
+         }
+         
+         if (foundTrip) {
+           console.log(`✅ Found trip via search: ${foundTrip.tripNumber}`);
+           return foundTrip;
+         }
+         
+         // If we have trips but no exact match, show the first result as suggestion
+         if (trips.length > 0) {
+           const suggestions = trips.slice(0, 3).map(t => t.tripNumber).join(', ');
+           throw new Error(`Trip "${tripNumber}" not found. Did you mean: ${suggestions}?`);
+         }
+         
+         throw new Error(`Trip "${tripNumber}" not found. Please check the trip number and try again.`);
+         
+       } catch (searchError) {
+         console.error(`Error searching for trip ${cleanedNumber}:`, searchError);
+         throw new Error(`Trip "${tripNumber}" not found. Please check the trip number and try again.`);
+       }
+       
+     } catch (error) {
+       console.error(`Error finding trip by number ${tripNumber}:`, error);
+       // Re-throw with user-friendly message
+       if (error.message) {
+         throw error;
+       }
+       throw new Error(`Failed to find trip "${tripNumber}". Please try again.`);
+     }
+   },
+
   /**
    * Get trip by ID with retry logic for race conditions
    */
@@ -1026,6 +1124,7 @@ export const {
   getTripKPIs,
   checkTripNumberExists,
   getTripByTripNumber,
+   findTripByNumber,
   getTripStatusHistory,
   updateTripStatus,
   uploadTripDocument,
