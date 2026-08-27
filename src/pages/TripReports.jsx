@@ -27,10 +27,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Autocomplete,
-  Tabs,
-  Tab,
-  Badge,
 } from '@mui/material';
 import {
   Description as DescriptionIcon,
@@ -45,7 +41,6 @@ import {
   Download as DownloadIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
-  Receipt as ReceiptIcon,
   Route as RouteIcon,
   Schedule as ScheduleIcon,
   TrendingUp as TrendingUpIcon,
@@ -330,7 +325,6 @@ const ParameterInput = ({ field, value, onChange, options = [] }) => {
           placeholder={field.placeholder}
           value={value || ''}
           onChange={(e) => {
-            // Convert trip/load numbers to uppercase
             const newValue = field.id === 'tripNumber' || field.id === 'loadNumber' 
               ? e.target.value.toUpperCase() 
               : e.target.value;
@@ -379,14 +373,11 @@ const TripReports = () => {
   const [reportData, setReportData] = useState(null);
   const [reportId, setReportId] = useState(null);
   
-  // Parameters state
   const [parameters, setParameters] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [reportResults, setReportResults] = useState([]);
   
-  // Options for selects
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -440,7 +431,6 @@ const TripReports = () => {
     return [];
   };
 
-  // Filter report types by search
   const filteredReports = REPORT_TYPES.filter(report =>
     report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     report.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -471,41 +461,44 @@ const TripReports = () => {
 
       switch (selectedReport) {
         case 'trip':
-          if (params.tripNumber) {
-            try {
-              data = await tripService.findTripByNumber(params.tripNumber);
-              if (data) {
-                resultId = data?.id;
-                reportTitle = `Trip Report: ${data?.tripNumber || params.tripNumber}`;
-              } else {
-                throw new Error(`Trip "${params.tripNumber}" not found`);
-              }
-            } catch (err) {
-              console.error('Error finding trip:', err);
-              setError(err.message || `Trip "${params.tripNumber}" not found. Please check the trip number.`);
-              setLoading(false);
-              return;
-            }
-          } else {
+          if (!params.tripNumber) {
             setError('Please enter a trip number');
+            setLoading(false);
+            return;
+          }
+          try {
+            // ✅ Use the existing getTripByTripNumber method
+            data = await tripService.getTripByTripNumber(params.tripNumber);
+            if (data) {
+              resultId = data?.id;
+              reportTitle = `Trip Report: ${data?.tripNumber || params.tripNumber}`;
+            } else {
+              throw new Error(`Trip "${params.tripNumber}" not found`);
+            }
+          } catch (err) {
+            console.error('Error finding trip:', err);
+            setError(err.message || `Trip "${params.tripNumber}" not found. Please check the trip number.`);
             setLoading(false);
             return;
           }
           break;
 
         case 'load':
-          if (params.loadNumber) {
-            try {
-              data = await loadService.getLoadByNumber(params.loadNumber);
+          if (!params.loadNumber) {
+            setError('Please enter a load number');
+            setLoading(false);
+            return;
+          }
+          try {
+            data = await loadService.getLoadByNumber(params.loadNumber);
+            if (data) {
               resultId = data?.id;
               reportTitle = `Load Report: ${data?.loadNumber || params.loadNumber}`;
-            } catch (err) {
-              setError(`Load "${params.loadNumber}" not found. Please check the load number.`);
-              setLoading(false);
-              return;
+            } else {
+              throw new Error(`Load "${params.loadNumber}" not found`);
             }
-          } else {
-            setError('Please enter a load number');
+          } catch (err) {
+            setError(`Load "${params.loadNumber}" not found. Please check the load number.`);
             setLoading(false);
             return;
           }
@@ -521,27 +514,25 @@ const TripReports = () => {
           break;
 
         case 'driver':
-          if (params.driverId) {
-            data = await tripService.getTripsByDriver(params.driverId);
-            const driverName = drivers.find(d => d.id === params.driverId)?.name || params.driverId;
-            reportTitle = `Driver Report: ${driverName}`;
-          } else {
+          if (!params.driverId) {
             setError('Please select a driver');
             setLoading(false);
             return;
           }
+          data = await tripService.getTripsByDriver(params.driverId);
+          const driverName = drivers.find(d => d.id === params.driverId)?.name || params.driverId;
+          reportTitle = `Driver Report: ${driverName}`;
           break;
 
         case 'vehicle':
-          if (params.vehicleId) {
-            data = await tripService.getTripsByVehicle(params.vehicleId);
-            const vehicleReg = vehicles.find(v => v.id === params.vehicleId)?.registrationNumber || params.vehicleId;
-            reportTitle = `Vehicle Report: ${vehicleReg}`;
-          } else {
+          if (!params.vehicleId) {
             setError('Please select a vehicle');
             setLoading(false);
             return;
           }
+          data = await tripService.getTripsByVehicle(params.vehicleId);
+          const vehicleReg = vehicles.find(v => v.id === params.vehicleId)?.registrationNumber || params.vehicleId;
+          reportTitle = `Vehicle Report: ${vehicleReg}`;
           break;
 
         case 'custom':
