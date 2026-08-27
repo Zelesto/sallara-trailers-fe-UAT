@@ -330,7 +330,7 @@ const ParameterInput = ({ field, value, onChange, options = [] }) => {
           placeholder={field.placeholder}
           value={value || ''}
           onChange={(e) => {
-            // Convert trip number to uppercase
+            // Convert trip/load numbers to uppercase
             const newValue = field.id === 'tripNumber' || field.id === 'loadNumber' 
               ? e.target.value.toUpperCase() 
               : e.target.value;
@@ -345,6 +345,16 @@ const ParameterInput = ({ field, value, onChange, options = [] }) => {
             startAdornment: field.type === 'text' && (
               <InputAdornment position="start">
                 <SearchIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
+              </InputAdornment>
+            ),
+            endAdornment: value && (
+              <InputAdornment position="end">
+                <IconButton 
+                  size="small" 
+                  onClick={() => onChange(field.id, '')}
+                >
+                  <ClearIcon sx={{ fontSize: '0.7rem' }} />
+                </IconButton>
               </InputAdornment>
             ),
           }}
@@ -463,12 +473,12 @@ const TripReports = () => {
         case 'trip':
           if (params.tripNumber) {
             try {
-              // ✅ Use findTripByNumber with fallback
+              // Use findTripByNumber with fallback
               data = await tripService.findTripByNumber(params.tripNumber);
               resultId = data?.id;
               reportTitle = `Trip Report: ${data?.tripNumber || params.tripNumber}`;
             } catch (err) {
-              setError(`Trip "${params.tripNumber}" not found. Please check the trip number.`);
+              setError(err.message || `Trip "${params.tripNumber}" not found. Please check the trip number.`);
               setLoading(false);
               return;
             }
@@ -481,9 +491,15 @@ const TripReports = () => {
 
         case 'load':
           if (params.loadNumber) {
-            data = await loadService.getLoadByNumber(params.loadNumber);
-            resultId = data?.id;
-            reportTitle = `Load Report: ${data?.loadNumber || params.loadNumber}`;
+            try {
+              data = await loadService.getLoadByNumber(params.loadNumber);
+              resultId = data?.id;
+              reportTitle = `Load Report: ${data?.loadNumber || params.loadNumber}`;
+            } catch (err) {
+              setError(`Load "${params.loadNumber}" not found. Please check the load number.`);
+              setLoading(false);
+              return;
+            }
           } else {
             setError('Please enter a load number');
             setLoading(false);
