@@ -4,16 +4,30 @@ import api from './api';
 
 export const reportService = {
   /**
-   * Generate trip report - returns HTML directly
+   * Generate trip report - returns HTML content
    */
   generateTripReport: async (tripNumber) => {
     try {
       const response = await api.post(`/reports/trip/${tripNumber}`, null, {
         params: { format: 'html' },
-        responseType: 'text', // ✅ Important: expect text response
       });
-      // ✅ The response is HTML text directly
-      return response.data;
+      
+      // ✅ Handle both JSON and HTML responses
+      if (response.data && typeof response.data === 'object') {
+        if (response.data.success) {
+          return response.data.content;
+        } else {
+          throw new Error(response.data.error || 'Report generation failed');
+        }
+      }
+      
+      // Fallback: if response is HTML directly (backward compatibility)
+      if (typeof response.data === 'string') {
+        return response.data;
+      }
+      
+      throw new Error('Unexpected response format');
+      
     } catch (error) {
       console.error('Error generating trip report:', error);
       throw error;
@@ -24,9 +38,22 @@ export const reportService = {
     try {
       const response = await api.post(`/reports/load/${loadNumber}`, null, {
         params: { format: 'html' },
-        responseType: 'text',
       });
-      return response.data;
+      
+      if (response.data && typeof response.data === 'object') {
+        if (response.data.success) {
+          return response.data.content;
+        } else {
+          throw new Error(response.data.error || 'Report generation failed');
+        }
+      }
+      
+      if (typeof response.data === 'string') {
+        return response.data;
+      }
+      
+      throw new Error('Unexpected response format');
+      
     } catch (error) {
       console.error('Error generating load report:', error);
       throw error;
@@ -37,9 +64,22 @@ export const reportService = {
     try {
       const response = await api.post('/reports/fuel', null, {
         params: { vehicleId, startDate, endDate, format: 'html' },
-        responseType: 'text',
       });
-      return response.data;
+      
+      if (response.data && typeof response.data === 'object') {
+        if (response.data.success) {
+          return response.data.content;
+        } else {
+          throw new Error(response.data.error || 'Report generation failed');
+        }
+      }
+      
+      if (typeof response.data === 'string') {
+        return response.data;
+      }
+      
+      throw new Error('Unexpected response format');
+      
     } catch (error) {
       console.error('Error generating fuel report:', error);
       throw error;
