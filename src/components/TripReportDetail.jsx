@@ -61,6 +61,7 @@ import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
 import { fuelService } from '../services/fuelService';
 import { loadService } from '../services/loadService';
+import { incidentService } from '../services/incidentService';
 import {
   TRIP_STATUSES,
   getDisplayName,
@@ -253,16 +254,15 @@ const TripReportDetail = ({
       // ✅ Fetch notices/incidents - with better error handling
       setNoticesLoading(true);
       try {
-        const incidents = await tripService.getTripIncidents(tripId);
+        const incidents = await incidentService.getTripIncidents(tripId);
         setNotices(Array.isArray(incidents) ? incidents : []);
       } catch (e) {
         console.warn('Error fetching incidents (expected if none exist):', e.message);
-        // ✅ Set empty array instead of failing
         setNotices([]);
       } finally {
         setNoticesLoading(false);
       }
-
+  
     } catch (err) {
       console.error('Error fetching trip data:', err);
       setError(err.message || 'Failed to load trip report');
