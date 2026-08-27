@@ -253,12 +253,14 @@ const TripReportDetail = ({
 
       // ✅ Fetch notices/incidents - with better error handling
       setNoticesLoading(true);
-      try {
+        try {
         const incidents = await incidentService.getTripIncidents(tripId);
+        // incidents will always be an array (empty if error)
         setNotices(Array.isArray(incidents) ? incidents : []);
+        console.log(`📋 Found ${notices.length} incidents for trip ${tripId}`);
       } catch (e) {
-        console.warn('Error fetching incidents (expected if none exist):', e.message);
-        setNotices([]);
+        console.warn('Error fetching incidents:', e.message);
+        setNotices([]); // ✅ Always set to empty array on error
       } finally {
         setNoticesLoading(false);
       }
