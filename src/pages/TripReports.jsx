@@ -58,6 +58,7 @@ import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
 import TripReportDetail from '../components/TripReportDetail';
 import ReportViewer from '../components/ReportViewer';
+import TripReportViewer from '../components/TripReportViewer';
 
 // ============================================================
 // REPORT TYPES CONFIGURATION
@@ -373,6 +374,10 @@ const TripReports = () => {
   const [reportData, setReportData] = useState(null);
   const [reportId, setReportId] = useState(null);
   
+  // ✅ New state for TripReportViewer (BIRT + HTML fallback)
+  const [showTripReportViewer, setShowTripReportViewer] = useState(false);
+  const [reportTripNumber, setReportTripNumber] = useState('');
+  
   const [parameters, setParameters] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -437,7 +442,7 @@ const TripReports = () => {
   );
 
   // ============================================================
-  // REPORT GENERATION
+  // REPORT GENERATION - UPDATED
   // ============================================================
 
   const handleGenerateReport = async () => {
@@ -466,33 +471,11 @@ const TripReports = () => {
             setLoading(false);
             return;
           }
-          try {
-            data = await tripService.getTripByTripNumber(params.tripNumber);
-            if (data) {
-              resultId = data?.id;
-              reportTitle = `Trip Report: ${data?.tripNumber || params.tripNumber}`;
-            } else {
-              throw new Error(`Trip "${params.tripNumber}" not found`);
-            }
-          } catch (err) {
-            console.error('Error finding trip:', err);
-            // Show a more helpful error message
-            let errorMsg = err.message || `Trip "${params.tripNumber}" not found.`;
-            
-            // If the error contains "Available trip numbers", format it nicely
-            if (errorMsg.includes('Available trip numbers')) {
-              // Keep as is - it already has the suggestions
-            } else if (errorMsg.includes('Did you mean')) {
-              // Keep as is - it already has suggestions
-            } else {
-              errorMsg = `Trip "${params.tripNumber}" not found. Please check the trip number and try again.`;
-            }
-            
-            setError(errorMsg);
-            setLoading(false);
-            return;
-          }
-          break;
+          // ✅ Use the new TripReportViewer with BIRT fallback
+          setReportTripNumber(params.tripNumber);
+          setShowTripReportViewer(true);
+          setLoading(false);
+          return;
 
         case 'load':
           if (!params.loadNumber) {
@@ -567,16 +550,7 @@ const TripReports = () => {
         return;
       }
 
-      // For trip report, show the detail view
-      if (selectedReport === 'trip' && resultId) {
-        setReportId(resultId);
-        setReportData(data);
-        setShowReportDetail(true);
-        setLoading(false);
-        return;
-      }
-
-      // Show other reports in the viewer
+      // For non-trip reports, show in the viewer
       setReportViewerData(data);
       setReportViewerType(selectedReport);
       setReportViewerTitle(reportTitle);
@@ -693,7 +667,7 @@ const TripReports = () => {
           />
         </Paper>
 
-        {/* REPORT VIEWER */}
+        {/* REPORT VIEWER for non-trip reports */}
         {showReportViewer && (
           <ReportViewer
             open={showReportViewer}
@@ -704,6 +678,18 @@ const TripReports = () => {
             title={reportViewerTitle}
             reportData={reportViewerData}
             reportType={reportViewerType}
+          />
+        )}
+
+        {/* ✅ TRIP REPORT VIEWER (BIRT + HTML Fallback) */}
+        {showTripReportViewer && (
+          <TripReportViewer
+            open={showTripReportViewer}
+            tripNumber={reportTripNumber}
+            onClose={() => {
+              setShowTripReportViewer(false);
+              setReportTripNumber('');
+            }}
           />
         )}
         
@@ -833,21 +819,6 @@ const TripReports = () => {
             </Grid>
           </Paper>
         )}
-
-        {/* TRIP REPORT DETAIL VIEW */}
-        <TripReportDetail
-          open={showReportDetail}
-          tripId={reportId}
-          trip={reportData}
-          onClose={() => {
-            setShowReportDetail(false);
-            setReportId(null);
-            setReportData(null);
-          }}
-          onPrint={(trip) => {
-            console.log('Printing report for trip:', trip?.tripNumber);
-          }}
-        />
 
         {/* RESULTS DIALOG */}
         <Dialog
