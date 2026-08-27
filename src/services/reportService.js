@@ -4,60 +4,40 @@ import api from './api';
 
 export const reportService = {
   /**
-   * Check if BIRT is available on the backend
-   */
-  checkBirtAvailability: async () => {
-    try {
-      const response = await api.get('/reports/health');
-      return response.data?.birtAvailable || false;
-    } catch (error) {
-      console.warn('BIRT health check failed:', error);
-      return false;
-    }
-  },
-
-  /**
-   * Generate a trip report - tries BIRT first, falls back to HTML
+   * Generate a trip report
    */
   generateTripReport: async (tripNumber, format = 'html') => {
     try {
-      // Try BIRT first
-      try {
-        const response = await api.post(`/reports/trip/${tripNumber}`, null, {
-          params: { format },
-          responseType: format === 'html' ? 'text' : 'blob',
-        });
-        
-        // If BIRT succeeded, return the response
-        if (response.status === 200) {
+      const response = await api.post(`/reports/trip/${tripNumber}`, null, {
+        params: { format },
+        responseType: format === 'html' ? 'text' : 'blob',
+      });
+
+      if (response.status === 200) {
+        if (format === 'html') {
           return {
             success: true,
-            format: 'birt',
             data: response.data,
-            contentType: format === 'html' ? 'text/html' : 'application/pdf',
+          };
+        } else {
+          // For PDF/Excel downloads
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `Trip_Report_${tripNumber}.${format}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          return {
+            success: true,
+            data: response.data,
           };
         }
-      } catch (birtError) {
-        console.warn('BIRT report generation failed, using HTML fallback:', birtError.message);
       }
-      
-      // Fallback: Get data for HTML viewer
-      const fallbackResponse = await api.post(`/reports/trip/${tripNumber}`, null, {
-        params: { format: 'html' },
-        headers: { 'Accept': 'application/json' },
-      });
-      
-      if (fallbackResponse.data?.success === false) {
-        throw new Error(fallbackResponse.data.error || 'Failed to generate report');
-      }
-      
-      return {
-        success: true,
-        format: 'html',
-        data: fallbackResponse.data,
-        contentType: 'application/json',
-      };
-      
+
+      throw new Error('Failed to generate report');
     } catch (error) {
       console.error('Error generating report:', error);
       throw error;
