@@ -467,7 +467,6 @@ const TripReports = () => {
             return;
           }
           try {
-            // ✅ Use the existing getTripByTripNumber method
             data = await tripService.getTripByTripNumber(params.tripNumber);
             if (data) {
               resultId = data?.id;
@@ -477,7 +476,19 @@ const TripReports = () => {
             }
           } catch (err) {
             console.error('Error finding trip:', err);
-            setError(err.message || `Trip "${params.tripNumber}" not found. Please check the trip number.`);
+            // Show a more helpful error message
+            let errorMsg = err.message || `Trip "${params.tripNumber}" not found.`;
+            
+            // If the error contains "Available trip numbers", format it nicely
+            if (errorMsg.includes('Available trip numbers')) {
+              // Keep as is - it already has the suggestions
+            } else if (errorMsg.includes('Did you mean')) {
+              // Keep as is - it already has suggestions
+            } else {
+              errorMsg = `Trip "${params.tripNumber}" not found. Please check the trip number and try again.`;
+            }
+            
+            setError(errorMsg);
             setLoading(false);
             return;
           }
