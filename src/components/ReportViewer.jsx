@@ -1,6 +1,6 @@
 // src/components/ReportViewer.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,6 +14,7 @@ import {
   Stack,
   Typography,
   Chip,
+  Box,
 } from '@mui/material';
 import {
   Print as PrintIcon,
@@ -24,42 +25,12 @@ const ReportViewer = ({
   open, 
   onClose, 
   reportType, 
-  params,
   title,
-  htmlContent, // ✅ Accept HTML content directly
+  htmlContent,
+  loading = false,
+  error = null,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [content, setContent] = useState(null);
   const iframeRef = useRef();
-
-  useEffect(() => {
-    if (open) {
-      if (htmlContent) {
-        // ✅ If HTML content is provided directly, use it
-        setContent(htmlContent);
-        setLoading(false);
-      } else if (params) {
-        // Fallback: generate report
-        generateReport();
-      }
-    }
-  }, [open, htmlContent, params]);
-
-  const generateReport = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // This would call the report service if needed
-      // But we're now passing HTML directly from the parent
-      setLoading(false);
-    } catch (err) {
-      console.error('Error generating report:', err);
-      setError(err.message || 'Failed to generate report');
-      setLoading(false);
-    }
-  };
 
   const handlePrint = () => {
     if (iframeRef.current) {
@@ -144,18 +115,24 @@ const ReportViewer = ({
       </DialogTitle>
 
       <DialogContent sx={{ p: 0, overflow: 'hidden', flex: 1 }}>
-        <iframe
-          ref={iframeRef}
-          style={{
-            width: '100%',
-            height: 'calc(90vh - 80px)',
-            border: 'none',
-            backgroundColor: '#FFFFFF',
-          }}
-          title={title || 'Report'}
-          srcDoc={content || '<html><body><p>No content</p></body></html>'}
-          sandbox="allow-scripts allow-same-origin allow-print allow-modals"
-        />
+        {htmlContent ? (
+          <iframe
+            ref={iframeRef}
+            style={{
+              width: '100%',
+              height: 'calc(90vh - 80px)',
+              border: 'none',
+              backgroundColor: '#FFFFFF',
+            }}
+            title={title || 'Report'}
+            srcDoc={htmlContent}
+            sandbox="allow-scripts allow-same-origin allow-print allow-modals"
+          />
+        ) : (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 300 }}>
+            <Typography color="text.secondary">No report content available</Typography>
+          </Box>
+        )}
       </DialogContent>
 
       <DialogActions sx={{ 
