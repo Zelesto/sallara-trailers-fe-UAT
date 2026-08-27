@@ -62,6 +62,7 @@ import { fuelService } from '../services/fuelService';
 import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
 import TripReportDetail from '../components/TripReportDetail';
+import ReportViewer from '../components/ReportViewer';
 
 // ============================================================
 // REPORT TYPES CONFIGURATION
@@ -350,6 +351,12 @@ const ParameterInput = ({ field, value, onChange, options = [] }) => {
 // MAIN COMPONENT
 // ============================================================
 const TripReports = () => {
+
+  const [showReportViewer, setShowReportViewer] = useState(false);
+  const [reportViewerData, setReportViewerData] = useState(null);
+  const [reportViewerType, setReportViewerType] = useState('trip');
+  const [reportViewerTitle, setReportViewerTitle] = useState('');
+  
   const [selectedReport, setSelectedReport] = useState(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showReportDetail, setShowReportDetail] = useState(false);
@@ -428,111 +435,106 @@ const TripReports = () => {
   // ============================================================
 
   const handleGenerateReport = async () => {
-    if (!selectedReport) return;
+  if (!selectedReport) return;
 
-    setLoading(true);
-    setError(null);
-    setShowReportDialog(false);
+  setLoading(true);
+  setError(null);
 
-    try {
-      const params = { ...parameters };
-      
-      // Format parameters based on report type
-      if (params.dateRange) {
-        params.startDate = params.dateRange.from;
-        params.endDate = params.dateRange.to;
-        delete params.dateRange;
-      }
-
-      let data = null;
-      let resultId = null;
-
-      switch (selectedReport) {
-        case 'trip':
-          if (params.tripNumber) {
-            data = await tripService.getTripByTripNumber(params.tripNumber);
-            resultId = data?.id;
-          }
-          break;
-
-        case 'load':
-          if (params.loadNumber) {
-            data = await loadService.getLoadByNumber(params.loadNumber);
-            resultId = data?.id;
-          }
-          break;
-
-        case 'fuel':
-          const fuelParams = {};
-          if (params.vehicleId) fuelParams.vehicleId = params.vehicleId;
-          if (params.startDate) fuelParams.from = params.startDate;
-          if (params.endDate) fuelParams.to = params.endDate;
-          data = await fuelService.getFuelSlips(fuelParams);
-          break;
-
-        case 'driver':
-          if (params.driverId) {
-            data = await tripService.getTripsByDriver(params.driverId);
-            if (params.startDate && params.endDate) {
-              data = data.filter(t => 
-                t.plannedStartDate >= params.startDate && 
-                t.plannedStartDate <= params.endDate
-              );
-            }
-          }
-          break;
-
-        case 'vehicle':
-          if (params.vehicleId) {
-            data = await tripService.getTripsByVehicle(params.vehicleId);
-            if (params.startDate && params.endDate) {
-              data = data.filter(t => 
-                t.plannedStartDate >= params.startDate && 
-                t.plannedStartDate <= params.endDate
-              );
-            }
-          }
-          break;
-
-        case 'custom':
-          // Fetch trips with filters
-          const customParams = { size: 1000 };
-          if (params.status) customParams.status = params.status;
-          if (params.search) customParams.search = params.search;
-          if (params.startDate) customParams.startDate = params.startDate;
-          if (params.endDate) customParams.endDate = params.endDate;
-          const response = await tripService.getAllTrips(customParams);
-          data = response.content || [];
-          break;
-
-        default:
-          break;
-      }
-
-      if (!data || (Array.isArray(data) && data.length === 0)) {
-        setError('No data found for the specified parameters');
-        return;
-      }
-
-      // For trip report, open the detail view
-      if (selectedReport === 'trip' && resultId) {
-        setReportId(resultId);
-        setReportData(data);
-        setShowReportDetail(true);
-        return;
-      }
-
-      // For other reports, show results in a table view
-      setReportData(data);
-      setShowReportDialog(true);
-
-    } catch (err) {
-      console.error('Error generating report:', err);
-      setError(err.message || 'Failed to generate report');
-    } finally {
-      setLoading(false);
+  try {
+    const params = { ...parameters };
+    
+    if (params.dateRange) {
+      params.startDate = params.dateRange.from;
+      params.endDate = params.dateRange.to;
+      delete params.dateRange;
     }
-  };
+
+    let data = null;
+    let resultId = null;
+    let reportTitle = '';
+
+    switch (selectedReport) {
+      case 'trip':
+        if (params.tripNumber) {
+          try {
+            data = await tripService.findTripByNumber(params.tripNumber);
+            resultId = data?.id;
+            reportTitle = `Trip Report: ${data?.tripNumber || params.tripNumber}`;
+          } catch (err) {
+            setError(`Trip "${params.tripNumber}" not found. Please check the trip number.`);
+            setLoading(false);
+            return;
+          }
+        }
+        break;
+
+      case 'load':
+        if (params.loadNumber) {
+          data = await loadService.getLoadByNumber(params.loadNumber);
+          resultId = data?.id;
+          reportTitle = `Load Report: ${data?.loadNumber || params.loadNumber}`;
+        }
+        break;
+
+      case 'fuel':
+        const fuelParams = {};
+        if (params.vehicleId) fuelParams.vehicleId = params.vehicleId;
+        if (params.startDate) fuelParams.from = params.startDate;
+        if (params.endDate) fuelParams.to = params.endDate;
+        data = await fuelService.getFuelSlips(fuelParams);
+        reportTitle = `Fuel Report${params.vehicleId ? ` - Vehicle ${params.vehicleId}` : ''}`;
+        break;
+
+      case 'driver':
+        if (params.driverId) {
+          data = await tripService.getTripsByDriver(params.driverId);
+          const driverName = drivers.find(d => d.id === params.driverId)?.name || params.driverId;
+          reportTitle = `Driver Report: ${driverName}`;
+        }
+        break;
+
+      case 'vehicle':
+        if (params.vehicleId) {
+          data = await tripService.getTripsByVehicle(params.vehicleId);
+          const vehicleReg = vehicles.find(v => v.id === params.vehicleId)?.registrationNumber || params.vehicleId;
+          reportTitle = `Vehicle Report: ${vehicleReg}`;
+        }
+        break;
+
+      case 'custom':
+        const customParams = { size: 1000 };
+        if (params.status) customParams.status = params.status;
+        if (params.search) customParams.search = params.search;
+        if (params.startDate) customParams.startDate = params.startDate;
+        if (params.endDate) customParams.endDate = params.endDate;
+        const response = await tripService.getAllTrips(customParams);
+        data = response.content || [];
+        reportTitle = 'Custom Report';
+        break;
+
+      default:
+        break;
+    }
+
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      setError('No data found for the specified parameters');
+      setLoading(false);
+      return;
+    }
+
+    // Show the report in the viewer
+    setReportViewerData(data);
+    setReportViewerType(selectedReport);
+    setReportViewerTitle(reportTitle);
+    setShowReportViewer(true);
+
+  } catch (err) {
+    console.error('Error generating report:', err);
+    setError(err.message || 'Failed to generate report');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleParameterChange = (fieldId, value) => {
     setParameters(prev => ({ ...prev, [fieldId]: value }));
@@ -558,6 +560,7 @@ const TripReports = () => {
   const handlePrintReport = () => {
     window.print();
   };
+  
 
   return (
     <Box sx={{ 
@@ -641,6 +644,20 @@ const TripReports = () => {
           />
         </Paper>
 
+
+        {showReportViewer && (
+          <ReportViewer
+            open={showReportViewer}
+            onClose={() => {
+              setShowReportViewer(false);
+              setReportViewerData(null);
+            }}
+            title={reportViewerTitle}
+            reportData={reportViewerData}
+            reportType={reportViewerType}
+          />
+        )}
+        
         {/* ============================================================
             ERROR DISPLAY
             ============================================================ */}
