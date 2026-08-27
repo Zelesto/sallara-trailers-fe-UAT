@@ -473,11 +473,15 @@ const TripReports = () => {
         case 'trip':
           if (params.tripNumber) {
             try {
-              // Use findTripByNumber with fallback
               data = await tripService.findTripByNumber(params.tripNumber);
-              resultId = data?.id;
-              reportTitle = `Trip Report: ${data?.tripNumber || params.tripNumber}`;
+              if (data) {
+                resultId = data?.id;
+                reportTitle = `Trip Report: ${data?.tripNumber || params.tripNumber}`;
+              } else {
+                throw new Error(`Trip "${params.tripNumber}" not found`);
+              }
             } catch (err) {
+              console.error('Error finding trip:', err);
               setError(err.message || `Trip "${params.tripNumber}" not found. Please check the trip number.`);
               setLoading(false);
               return;
