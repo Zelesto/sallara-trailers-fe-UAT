@@ -725,6 +725,28 @@ const TripReports = () => {
                 >
                   Clear All
                 </Button>
+                // In TripReports.jsx - Add to the parameters panel
+
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PdfIcon />}
+                  onClick={async () => {
+                    try {
+                      await reportService.downloadTripReportPDF(parameters.tripNumber);
+                    } catch (error) {
+                      setError('Failed to download PDF: ' + error.message);
+                    }
+                  }}
+                  disabled={!parameters.tripNumber}
+                  sx={{ 
+                    fontSize: '0.75rem', 
+                    textTransform: 'none',
+                    borderRadius: '10px',
+                  }}
+                >
+                  Download PDF
+                </Button>
                 <Button
                   variant="contained"
                   size="small"
