@@ -1,6 +1,6 @@
 // src/components/ReportViewer.jsx
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,11 +14,11 @@ import {
   Stack,
   Typography,
   Chip,
-  Box,
 } from '@mui/material';
 import {
   Print as PrintIcon,
   Close as CloseIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 
 const ReportViewer = ({ 
@@ -37,17 +37,31 @@ const ReportViewer = ({
       try {
         iframeRef.current.contentWindow.print();
       } catch (e) {
+        console.warn('Print failed:', e);
         window.print();
       }
-    } else {
-      window.print();
+    }
+  };
+
+  const handleDownload = () => {
+    if (!htmlContent) return;
+    
+    try {
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title || 'report'}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Download failed:', e);
     }
   };
 
   if (!open) return null;
-
-  // If there's an error but we have HTML content (error HTML), show it
-  const displayContent = htmlContent || (error ? `<h2 style="color:red;text-align:center;padding:40px;">⚠️ ${error}</h2>` : null);
 
   if (loading) {
     return (
@@ -71,7 +85,7 @@ const ReportViewer = ({
     );
   }
 
-  if (!displayContent) {
+  if (!htmlContent) {
     return (
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
         <DialogContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -125,11 +139,18 @@ const ReportViewer = ({
         </Stack>
         <Stack direction="row" spacing={0.5}>
           {!error && (
-            <Tooltip title="Print / PDF">
-              <IconButton size="small" onClick={handlePrint}>
-                <PrintIcon sx={{ fontSize: '0.9rem' }} />
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title="Print / PDF">
+                <IconButton size="small" onClick={handlePrint}>
+                  <PrintIcon sx={{ fontSize: '0.9rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Download HTML">
+                <IconButton size="small" onClick={handleDownload}>
+                  <DownloadIcon sx={{ fontSize: '0.9rem' }} />
+                </IconButton>
+              </Tooltip>
+            </>
           )}
           <IconButton size="small" onClick={onClose}>
             <CloseIcon sx={{ fontSize: '0.9rem' }} />
@@ -147,7 +168,7 @@ const ReportViewer = ({
             backgroundColor: '#FFFFFF',
           }}
           title={title || 'Report'}
-          srcDoc={displayContent}
+          srcDoc={htmlContent}
           sandbox="allow-scripts allow-same-origin allow-print allow-modals"
         />
       </DialogContent>
@@ -156,31 +177,52 @@ const ReportViewer = ({
         p: 2, 
         borderTop: '1px solid #ECECEC',
         bgcolor: '#F9FAFB',
+        justifyContent: 'space-between',
       }}>
-        <Button 
-          onClick={onClose} 
-          size="small" 
-          sx={{ fontSize: '0.8rem', textTransform: 'none' }}
-        >
-          Close
-        </Button>
-        {!error && (
-          <Button
-            onClick={handlePrint}
-            variant="contained"
-            size="small"
-            startIcon={<PrintIcon sx={{ fontSize: '0.9rem' }} />}
-            sx={{ 
-              fontSize: '0.8rem', 
-              textTransform: 'none',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-              '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' }
-            }}
+        <Typography variant="caption" color="text.secondary">
+          {error ? '⚠️ Report generated with warnings' : '✓ Report ready'}
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button 
+            onClick={onClose} 
+            size="small" 
+            sx={{ fontSize: '0.8rem', textTransform: 'none' }}
           >
-            Print / PDF
+            Close
           </Button>
-        )}
+          {!error && (
+            <>
+              <Button
+                onClick={handleDownload}
+                variant="outlined"
+                size="small"
+                startIcon={<DownloadIcon sx={{ fontSize: '0.9rem' }} />}
+                sx={{ 
+                  fontSize: '0.8rem', 
+                  textTransform: 'none',
+                  borderRadius: '10px',
+                }}
+              >
+                Download
+              </Button>
+              <Button
+                onClick={handlePrint}
+                variant="contained"
+                size="small"
+                startIcon={<PrintIcon sx={{ fontSize: '0.9rem' }} />}
+                sx={{ 
+                  fontSize: '0.8rem', 
+                  textTransform: 'none',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                  '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' }
+                }}
+              >
+                Print / PDF
+              </Button>
+            </>
+          )}
+        </Stack>
       </DialogActions>
 
       <style>{`
