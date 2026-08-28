@@ -2,6 +2,50 @@
 
 import api from './api';
 
+// Helper function to decode HTML entities
+const decodeHtmlEntities = (html) => {
+  if (!html || typeof html !== 'string') return html;
+  
+  // If it doesn't contain HTML entities, return as is
+  if (!html.includes('&lt;') && !html.includes('&gt;') && !html.includes('&amp;')) {
+    return html;
+  }
+  
+  // Use DOMParser for reliable decoding
+  try {
+    const doc = new DOMParser().parseFromString(
+      `<!DOCTYPE html><html><body><div id="content">${html}</div></body></html>`,
+      'text/html'
+    );
+    const element = doc.getElementById('content');
+    if (element) {
+      return element.innerHTML;
+    }
+  } catch (e) {
+    console.warn('DOMParser decoding failed, falling back to textarea');
+  }
+  
+  // Fallback: Use textarea
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = html;
+    return textarea.value;
+  } catch (e) {
+    console.warn('Textarea decoding failed, using manual replacement');
+  }
+  
+  // Ultimate fallback: Manual replacement
+  return html
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (match, num) => String.fromCharCode(parseInt(num, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+};
+
 export const reportService = {
   /**
    * Generate trip report - returns HTML content
@@ -10,50 +54,62 @@ export const reportService = {
     try {
       console.log('📤 Generating trip report for:', tripNumber);
       
-      // ✅ Let axios handle JSON response normally
+      // ✅ Use responseType: 'json' to parse JSON properly
       const response = await api.post(`/reports/trip/${tripNumber}`, null, {
         params: { format: 'html' },
-        // Remove responseType: 'text' - we want JSON
+        // ✅ Don't use responseType: 'text' - we want JSON
       });
       
       console.log('📥 Response status:', response.status);
       console.log('📥 Response type:', typeof response.data);
-      console.log('📥 Response keys:', Object.keys(response.data || {}));
+      console.log('📥 Response data:', response.data);
       
-      // ✅ Handle JSON response from backend
+      // ✅ Handle the response
       if (response.data && typeof response.data === 'object') {
         // Check for success
         if (response.data.success === true) {
-          // Extract HTML content
           let htmlContent = response.data.content || '';
+          console.log('📥 Raw content length:', htmlContent.length);
+          console.log('📥 Raw content preview:', htmlContent.substring(0, 100));
           
-          // If content appears to be HTML-escaped, decode it
-          if (htmlContent && htmlContent.includes('&lt;') || htmlContent.includes('&gt;')) {
-            htmlContent = decodeHtmlEntities(htmlContent);
-            console.log('📥 Decoded HTML content (first 100 chars):', htmlContent.substring(0, 100));
+          // ✅ DECODE the HTML entities
+          const decodedHtml = decodeHtmlEntities(htmlContent);
+          console.log('📥 Decoded content preview:', decodedHtml.substring(0, 100));
+          
+          // Check if it's valid HTML
+          if (decodedHtml && decodedHtml.trim().startsWith('<')) {
+            return decodedHtml;
+          } else {
+            console.error('❌ Decoded content is not HTML:', decodedHtml?.substring(0, 200));
+            // Try returning the raw content as a fallback
+            if (htmlContent && htmlContent.trim().startsWith('<')) {
+              return htmlContent;
+            }
+            throw new Error('Invalid HTML content received');
           }
-          
-          return htmlContent;
         } else {
-          // Handle error response
+          // Handle error from backend
           const errorMsg = response.data.error || 'Report generation failed';
-          console.error('❌ Report generation error:', errorMsg);
+          console.error('❌ Backend error:', errorMsg);
           throw new Error(errorMsg);
         }
       }
       
-      // Fallback: If response is a string (for backwards compatibility)
+      // ✅ Fallback: If response is a string
       if (typeof response.data === 'string') {
+        console.log('📥 String response received');
         if (response.data.trim().startsWith('<')) {
           return response.data;
         }
+        // Try to parse as JSON
         try {
           const parsed = JSON.parse(response.data);
           if (parsed.success && parsed.content) {
-            return parsed.content;
+            const decoded = decodeHtmlEntities(parsed.content);
+            return decoded;
           }
         } catch (e) {
-          // Not JSON, return as is
+          // Not JSON
         }
         return response.data;
       }
@@ -63,27 +119,34 @@ export const reportService = {
     } catch (error) {
       console.error('❌ Error generating trip report:', error);
       
-      // Check if error response has content we can use
+      // ✅ Check if error response has data we can use
       if (error.response) {
         console.error('❌ Error response status:', error.response.status);
         console.error('❌ Error response data:', error.response.data);
         
-        // If error response has HTML content, return it
         if (error.response.data && typeof error.response.data === 'object') {
           if (error.response.data.content) {
-            let htmlContent = error.response.data.content;
-            if (htmlContent && (htmlContent.includes('&lt;') || htmlContent.includes('&gt;'))) {
-              htmlContent = decodeHtmlEntities(htmlContent);
-            }
-            return htmlContent;
+            const decoded = decodeHtmlEntities(error.response.data.content);
+            return decoded;
           }
           if (error.response.data.error) {
             throw new Error(error.response.data.error);
           }
         }
         
-        if (typeof error.response.data === 'string' && error.response.data.trim().startsWith('<')) {
-          return error.response.data;
+        if (typeof error.response.data === 'string') {
+          if (error.response.data.trim().startsWith('<')) {
+            return error.response.data;
+          }
+          try {
+            const parsed = JSON.parse(error.response.data);
+            if (parsed.content) {
+              const decoded = decodeHtmlEntities(parsed.content);
+              return decoded;
+            }
+          } catch (e) {
+            // Not JSON
+          }
         }
       }
       
@@ -107,8 +170,9 @@ export const reportService = {
       if (response.data && typeof response.data === 'object') {
         if (response.data.success === true) {
           let htmlContent = response.data.content || '';
-          if (htmlContent && (htmlContent.includes('&lt;') || htmlContent.includes('&gt;'))) {
-            htmlContent = decodeHtmlEntities(htmlContent);
+          const decoded = decodeHtmlEntities(htmlContent);
+          if (decoded && decoded.trim().startsWith('<')) {
+            return decoded;
           }
           return htmlContent;
         } else {
@@ -123,11 +187,9 @@ export const reportService = {
         try {
           const parsed = JSON.parse(response.data);
           if (parsed.success && parsed.content) {
-            return parsed.content;
+            return decodeHtmlEntities(parsed.content);
           }
-        } catch (e) {
-          // Not JSON
-        }
+        } catch (e) {}
         return response.data;
       }
       
@@ -136,19 +198,9 @@ export const reportService = {
     } catch (error) {
       console.error('❌ Error generating load report:', error);
       
-      if (error.response && error.response.data) {
-        if (error.response.data.content) {
-          let htmlContent = error.response.data.content;
-          if (htmlContent && (htmlContent.includes('&lt;') || htmlContent.includes('&gt;'))) {
-            htmlContent = decodeHtmlEntities(htmlContent);
-          }
-          return htmlContent;
-        }
-        if (typeof error.response.data === 'string' && error.response.data.trim().startsWith('<')) {
-          return error.response.data;
-        }
+      if (error.response?.data?.content) {
+        return decodeHtmlEntities(error.response.data.content);
       }
-      
       throw error;
     }
   },
@@ -175,8 +227,9 @@ export const reportService = {
       if (response.data && typeof response.data === 'object') {
         if (response.data.success === true) {
           let htmlContent = response.data.content || '';
-          if (htmlContent && (htmlContent.includes('&lt;') || htmlContent.includes('&gt;'))) {
-            htmlContent = decodeHtmlEntities(htmlContent);
+          const decoded = decodeHtmlEntities(htmlContent);
+          if (decoded && decoded.trim().startsWith('<')) {
+            return decoded;
           }
           return htmlContent;
         } else {
@@ -191,11 +244,9 @@ export const reportService = {
         try {
           const parsed = JSON.parse(response.data);
           if (parsed.success && parsed.content) {
-            return parsed.content;
+            return decodeHtmlEntities(parsed.content);
           }
-        } catch (e) {
-          // Not JSON
-        }
+        } catch (e) {}
         return response.data;
       }
       
@@ -204,77 +255,12 @@ export const reportService = {
     } catch (error) {
       console.error('❌ Error generating fuel report:', error);
       
-      if (error.response && error.response.data) {
-        if (error.response.data.content) {
-          let htmlContent = error.response.data.content;
-          if (htmlContent && (htmlContent.includes('&lt;') || htmlContent.includes('&gt;'))) {
-            htmlContent = decodeHtmlEntities(htmlContent);
-          }
-          return htmlContent;
-        }
-        if (typeof error.response.data === 'string' && error.response.data.trim().startsWith('<')) {
-          return error.response.data;
-        }
+      if (error.response?.data?.content) {
+        return decodeHtmlEntities(error.response.data.content);
       }
-      
       throw error;
     }
   },
 };
-
-/**
- * Helper function to decode HTML entities
- */
-function decodeHtmlEntities(html) {
-  if (!html) return '';
-  
-  // Create a temporary element to decode HTML entities
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = html;
-  return textarea.value;
-}
-
-/**
- * Alternative: Manual decoding (safer)
- */
-function decodeHtmlEntitiesManual(html) {
-  if (!html) return '';
-  
-  const entities = {
-    '&lt;': '<',
-    '&gt;': '>',
-    '&amp;': '&',
-    '&quot;': '"',
-    '&#39;': "'",
-    '&nbsp;': ' ',
-    '&copy;': '©',
-    '&reg;': '®',
-    '&apos;': "'",
-    '&mdash;': '—',
-    '&ndash;': '–',
-    '&hellip;': '…',
-    '&ldquo;': '"',
-    '&rdquo;': '"',
-    '&lsquo;': "'",
-    '&rsquo;': "'",
-  };
-  
-  let decoded = html;
-  for (const [entity, char] of Object.entries(entities)) {
-    decoded = decoded.replaceAll(entity, char);
-  }
-  
-  // Handle numeric entities like &#123;
-  decoded = decoded.replace(/&#([0-9]+);/g, (match, num) => {
-    return String.fromCharCode(parseInt(num, 10));
-  });
-  
-  // Handle hex entities like &#x123;
-  decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
-    return String.fromCharCode(parseInt(hex, 16));
-  });
-  
-  return decoded;
-}
 
 export default reportService;
