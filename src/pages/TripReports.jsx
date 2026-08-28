@@ -363,15 +363,15 @@ const ParameterInput = ({ field, value, onChange, options = [] }) => {
 // ============================================================
 const TripReports = () => {
 
+  // State for Report Viewer
   const [showReportViewer, setShowReportViewer] = useState(false);
   const [reportViewerData, setReportViewerData] = useState(null);
   const [reportViewerType, setReportViewerType] = useState('trip');
   const [reportViewerTitle, setReportViewerTitle] = useState('');
+  const [reportViewerLoading, setReportViewerLoading] = useState(false);
+  const [reportViewerError, setReportViewerError] = useState(null);
   
   const [selectedReport, setSelectedReport] = useState(null);
-  const [showReportDialog, setShowReportDialog] = useState(false);
-  const [reportData, setReportData] = useState(null);
-  
   const [parameters, setParameters] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -436,93 +436,133 @@ const TripReports = () => {
   );
 
   // ============================================================
-  // REPORT GENERATION
+  // REPORT GENERATION - FIXED
   // ============================================================
 
   const handleGenerateReport = async () => {
-  if (!selectedReport) return;
-
-  setLoading(true);
-  setError(null);
-
-  try {
-    const params = { ...parameters };
-    
-    if (params.dateRange) {
-      params.startDate = params.dateRange.from;
-      params.endDate = params.dateRange.to;
-      delete params.dateRange;
-    }
-
-    let htmlContent = null;
-    let reportTitle = '';
-    let reportType = selectedReport;
-
-    switch (selectedReport) {
-      case 'trip':
-        if (!params.tripNumber) {
-          setError('Please enter a trip number');
-          setLoading(false);
-          return;
-        }
-        reportTitle = `Trip Report: ${params.tripNumber}`;
-        htmlContent = await reportService.generateTripReport(params.tripNumber);
-        break;
-
-      case 'load':
-        if (!params.loadNumber) {
-          setError('Please enter a load number');
-          setLoading(false);
-          return;
-        }
-        reportTitle = `Load Report: ${params.loadNumber}`;
-        htmlContent = await reportService.generateLoadReport(params.loadNumber);
-        break;
-
-      case 'fuel':
-        reportTitle = 'Fuel Consumption Report';
-        htmlContent = await reportService.generateFuelReport(
-          params.vehicleId || null,
-          params.startDate || null,
-          params.endDate || null
-        );
-        break;
-
-      default:
-        setError('Unsupported report type');
-        setLoading(false);
-        return;
-    }
-
-    // ✅ Check if we got HTML content
-    if (!htmlContent || typeof htmlContent !== 'string') {
-      setError('Failed to generate report: No content received');
-      setLoading(false);
+    if (!selectedReport) {
+      setError('Please select a report type');
       return;
     }
 
-    // ✅ Set the HTML content directly in the report viewer
-    setReportViewerData(htmlContent);
-    setReportViewerType(selectedReport);
-    setReportViewerTitle(reportTitle);
-    setShowReportViewer(true);
+    // Validate required fields
+    const missingField = selectedReportConfig?.fields.find(f => f.required && !parameters[f.id]);
+    if (missingField) {
+      setError(`Please enter ${missingField.label}`);
+      return;
+    }
 
-  } catch (err) {
-    console.error('Error generating report:', err);
-    setError(err.message || 'Failed to generate report');
-  } finally {
-    setLoading(false);
-  }
-};
+    setReportViewerLoading(true);
+    setReportViewerError(null);
+    setError(null);
+
+    try {
+      // Prepare parameters
+      const params = { ...parameters };
+      
+      // Handle date range
+      if (params.dateRange) {
+        params.startDate = params.dateRange.from || null;
+        params.endDate = params.dateRange.to || null;
+        delete params.dateRange;
+      }
+
+      let htmlContent = null;
+      let reportTitle = '';
+      let reportType = selectedReport;
+
+      console.log('🔄 Generating report with params:', params);
+
+      // Call the appropriate report service
+      switch (selectedReport) {
+        case 'trip':
+          if (!params.tripNumber) {
+            setError('Please enter a trip number');
+            setReportViewerLoading(false);
+            return;
+          }
+          reportTitle = `Trip Report: ${params.tripNumber}`;
+          htmlContent = await reportService.generateTripReport(params.tripNumber);
+          break;
+
+        case 'load':
+          if (!params.loadNumber) {
+            setError('Please enter a load number');
+            setReportViewerLoading(false);
+            return;
+          }
+          reportTitle = `Load Report: ${params.loadNumber}`;
+          htmlContent = await reportService.generateLoadReport(params.loadNumber);
+          break;
+
+        case 'fuel':
+          reportTitle = 'Fuel Consumption Report';
+          // Handle vehicle filter
+          const vehicleId = params.vehicleId || null;
+          const startDate = params.startDate || null;
+          const endDate = params.endDate || null;
+          
+          console.log('📊 Fuel report params:', { vehicleId, startDate, endDate });
+          htmlContent = await reportService.generateFuelReport(vehicleId, startDate, endDate);
+          break;
+
+        default:
+          setError(`Report type "${selectedReport}" is not fully implemented yet`);
+          setReportViewerLoading(false);
+          return;
+      }
+
+      console.log('📥 Received HTML content length:', htmlContent?.length);
+
+      // ✅ CRITICAL FIX: Check if we got valid HTML content
+      if (!htmlContent || typeof htmlContent !== 'string') {
+        setReportViewerError('Failed to generate report: No content received');
+        setReportViewerLoading(false);
+        return;
+      }
+
+      // ✅ Validate it's HTML
+      if (htmlContent.trim().startsWith('<')) {
+        console.log('✅ Valid HTML content received');
+        setReportViewerData(htmlContent);
+        setReportViewerType(selectedReport);
+        setReportViewerTitle(reportTitle);
+        setShowReportViewer(true);
+        setReportViewerLoading(false);
+      } else {
+        // ✅ If it's not HTML, it might be an error message
+        console.error('❌ Content is not HTML:', htmlContent.substring(0, 200));
+        setReportViewerError('Generated content is not valid HTML. Please try again.');
+        setReportViewerLoading(false);
+      }
+
+    } catch (err) {
+      console.error('❌ Error generating report:', err);
+      
+      // ✅ Check if error contains HTML content we can show
+      if (err.message && err.message.includes('<!DOCTYPE')) {
+        setReportViewerData(err.message);
+        setReportViewerType(selectedReport);
+        setReportViewerTitle(`Report (Error)`);
+        setReportViewerError('Report generated with warnings');
+        setShowReportViewer(true);
+      } else {
+        setReportViewerError(err.message || 'Failed to generate report. Please try again.');
+      }
+      setReportViewerLoading(false);
+    }
+  };
 
   const handleParameterChange = (fieldId, value) => {
     setParameters(prev => ({ ...prev, [fieldId]: value }));
     setError(null);
+    setReportViewerError(null);
   };
 
   const handleClearParameters = () => {
     setParameters({});
     setError(null);
+    setReportViewerError(null);
   };
 
   const handleSelectReport = (reportId) => {
@@ -534,11 +574,13 @@ const TripReports = () => {
       setParameters({});
     }
     setError(null);
+    setReportViewerError(null);
   };
 
   const handleCloseViewer = () => {
     setShowReportViewer(false);
     setReportViewerData(null);
+    setReportViewerError(null);
   };
 
   const handlePrintReport = () => {
@@ -632,6 +674,8 @@ const TripReports = () => {
           reportType={reportViewerType}
           title={reportViewerTitle}
           htmlContent={reportViewerData}
+          loading={reportViewerLoading}
+          error={reportViewerError}
         />
         
         {/* ERROR DISPLAY */}
@@ -725,7 +769,7 @@ const TripReports = () => {
                   variant="contained"
                   size="small"
                   onClick={handleGenerateReport}
-                  disabled={loading || !isReportValid}
+                  disabled={reportViewerLoading || !isReportValid}
                   sx={{ 
                     fontSize: '0.75rem', 
                     textTransform: 'none', 
@@ -734,7 +778,7 @@ const TripReports = () => {
                     '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' }
                   }}
                 >
-                  {loading ? <CircularProgress size={16} /> : 'Generate Report'}
+                  {reportViewerLoading ? <CircularProgress size={16} /> : 'Generate Report'}
                 </Button>
               </Stack>
             </Stack>
@@ -761,7 +805,7 @@ const TripReports = () => {
           </Paper>
         )}
 
-        {/* RESULTS DIALOG (Fallback) */}
+        {/* LEGACY DIALOG (Keep for fallback) */}
         <Dialog
           open={showReportDialog}
           onClose={() => setShowReportDialog(false)}
