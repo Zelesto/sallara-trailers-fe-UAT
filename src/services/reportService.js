@@ -6,82 +6,42 @@ export const reportService = {
   /**
    * Generate trip report - returns HTML content
    */
-  generateTripReport: async (tripNumber) => {
-    try {
-      console.log('📤 Generating trip report for:', tripNumber);
-      
-      // ✅ Remove responseType: 'text' - let axios handle JSON
-      const response = await api.post(`/reports/trip/${tripNumber}`, null, {
-        params: { format: 'html' },
-        // ❌ REMOVE: responseType: 'text',
-      });
-      
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response data type:', typeof response.data);
-      console.log('📥 Response data keys:', Object.keys(response.data || {}));
-      
-      // ✅ Handle JSON response
-      if (response.data && typeof response.data === 'object') {
-        if (response.data.success === true) {
-          const htmlContent = response.data.content || '';
-          console.log('📥 HTML content length:', htmlContent.length);
-          console.log('📥 HTML preview:', htmlContent.substring(0, 100));
-          
-          // Validate it's HTML
-          if (htmlContent && htmlContent.trim().startsWith('<')) {
-            return htmlContent;
-          } else {
-            console.warn('⚠️ Content does not start with <, might be escaped');
-            // Try to decode if needed
-            if (htmlContent.includes('&lt;')) {
-              const decoded = decodeHtmlEntities(htmlContent);
-              if (decoded.trim().startsWith('<')) {
-                return decoded;
-              }
-            }
-            return htmlContent; // Return as is
-          }
-        } else {
-          throw new Error(response.data.error || 'Report generation failed');
-        }
-      }
-      
-      // Fallback: If response is a string
-      if (typeof response.data === 'string') {
-        if (response.data.trim().startsWith('<')) {
-          return response.data;
-        }
-        try {
-          const parsed = JSON.parse(response.data);
-          if (parsed.success && parsed.content) {
-            return parsed.content;
-          }
-        } catch (e) {
-          // Not JSON
-        }
-        return response.data;
-      }
-      
-      throw new Error('Unexpected response format');
-      
-    } catch (error) {
-      console.error('❌ Error generating trip report:', error);
-      
-      // Check if error response has content we can use
-      if (error.response && error.response.data) {
-        console.error('❌ Error response:', error.response.data);
-        
-        if (typeof error.response.data === 'object' && error.response.data.content) {
-          return error.response.data.content;
-        }
-        if (typeof error.response.data === 'string' && error.response.data.trim().startsWith('<')) {
-          return error.response.data;
-        }
-      }
-      
-      throw error;
+generateTripReport: async (tripNumber) => {
+  try {
+    console.log('📤 Generating trip report for:', tripNumber);
+
+    // api.post() returns the parsed body directly in this project.
+    const body = await api.post(`/reports/trip/${encodeURIComponent(tripNumber)}`, null, {
+      params: { format: 'html' },
+    });
+
+    console.log('📥 Raw report body:', body);
+    console.log('📥 Body type:', typeof body);
+    console.log('📥 Body keys:', body && typeof body === 'object' ? Object.keys(body) : []);
+
+    if (!body || typeof body !== 'object') {
+      throw new Error('Report API returned a non-object response');
     }
-  },
+
+    if (body.success !== true) {
+      throw new Error(body.error || 'Report generation failed');
+    }
+
+    const htmlContent = body.content;
+    if (typeof htmlContent !== 'string' || !htmlContent.trim()) {
+      throw new Error('Report API returned empty HTML content');
+    }
+
+    console.log('📥 HTML content length:', htmlContent.length);
+    console.log('📥 HTML preview:', htmlContent.slice(0, 100));
+
+    return htmlContent;
+  } catch (error) {
+    console.error('❌ Error generating trip report:', error);
+    throw error;
+  }
+},
+
 
   /**
    * Generate load report - returns HTML content
