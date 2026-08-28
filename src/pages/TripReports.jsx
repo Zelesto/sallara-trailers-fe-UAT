@@ -1,6 +1,6 @@
 // src/pages/TripReports.jsx
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -29,36 +29,20 @@ import {
   MenuItem,
 } from '@mui/material';
 import {
-  Description as DescriptionIcon,
   LocalShipping as LoadIcon,
   LocalGasStation as FuelIcon,
   People as DriverIcon,
   DirectionsCar as VehicleIcon,
   Assessment as ReportIcon,
   Print as PrintIcon,
-  PictureAsPdf as PdfIcon,
-  FileCopy as CopyIcon,
-  Download as DownloadIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
   Route as RouteIcon,
-  Schedule as ScheduleIcon,
-  TrendingUp as TrendingUpIcon,
-  AttachMoney as MoneyIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  CalendarToday as CalendarIcon,
-  Business as BusinessIcon,
 } from '@mui/icons-material';
-import dayjs from 'dayjs';
-import { tripService } from '../services/tripService';
-import { loadService } from '../services/loadService';
-import { fuelService } from '../services/fuelService';
-import { driverService } from '../services/driverService';
-import { vehicleService } from '../services/vehicleService';
-import TripReportDetail from '../components/TripReportDetail';
 import ReportViewer from '../components/ReportViewer';
 import { reportService } from '../services/reportService';
+import { vehicleService } from '../services/vehicleService';
+import { driverService } from '../services/driverService';
 
 // ============================================================
 // REPORT TYPES CONFIGURATION
@@ -362,8 +346,7 @@ const ParameterInput = ({ field, value, onChange, options = [] }) => {
 // MAIN COMPONENT
 // ============================================================
 const TripReports = () => {
-
-  // State for Report Viewer
+  // ✅ Report Viewer state
   const [showReportViewer, setShowReportViewer] = useState(false);
   const [reportViewerData, setReportViewerData] = useState(null);
   const [reportViewerType, setReportViewerType] = useState('trip');
@@ -371,12 +354,13 @@ const TripReports = () => {
   const [reportViewerLoading, setReportViewerLoading] = useState(false);
   const [reportViewerError, setReportViewerError] = useState(null);
   
+  // ✅ Report selection state
   const [selectedReport, setSelectedReport] = useState(null);
   const [parameters, setParameters] = useState({});
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // ✅ Dropdown options
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -436,7 +420,7 @@ const TripReports = () => {
   );
 
   // ============================================================
-  // REPORT GENERATION - FIXED
+  // REPORT GENERATION
   // ============================================================
 
   const handleGenerateReport = async () => {
@@ -497,7 +481,6 @@ const TripReports = () => {
 
         case 'fuel':
           reportTitle = 'Fuel Consumption Report';
-          // Handle vehicle filter
           const vehicleId = params.vehicleId || null;
           const startDate = params.startDate || null;
           const endDate = params.endDate || null;
@@ -514,7 +497,7 @@ const TripReports = () => {
 
       console.log('📥 Received HTML content length:', htmlContent?.length);
 
-      // ✅ CRITICAL FIX: Check if we got valid HTML content
+      // ✅ Check if we got valid HTML content
       if (!htmlContent || typeof htmlContent !== 'string') {
         setReportViewerError('Failed to generate report: No content received');
         setReportViewerLoading(false);
@@ -530,7 +513,6 @@ const TripReports = () => {
         setShowReportViewer(true);
         setReportViewerLoading(false);
       } else {
-        // ✅ If it's not HTML, it might be an error message
         console.error('❌ Content is not HTML:', htmlContent.substring(0, 200));
         setReportViewerError('Generated content is not valid HTML. Please try again.');
         setReportViewerLoading(false);
@@ -583,10 +565,6 @@ const TripReports = () => {
     setReportViewerError(null);
   };
 
-  const handlePrintReport = () => {
-    window.print();
-  };
-
   return (
     <Box sx={{ 
       bgcolor: '#F7F7FC', 
@@ -611,22 +589,6 @@ const TripReports = () => {
               Generate and view detailed reports for trips, loads, fuel, drivers, and vehicles
             </Typography>
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<SearchIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => setSearchTerm('')}
-            size="small"
-            sx={{ 
-              borderRadius: '10px',
-              fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              textTransform: 'none',
-              py: 0.5,
-              px: 1.5,
-              visibility: searchTerm ? 'visible' : 'hidden'
-            }}
-          >
-            Clear Search
-          </Button>
         </Stack>
 
         {/* SEARCH FILTER */}
@@ -646,7 +608,6 @@ const TripReports = () => {
             placeholder="Search report types..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -660,13 +621,12 @@ const TripReports = () => {
                   </IconButton>
                 </InputAdornment>
               ),
-              sx: { fontSize: '0.8rem' }
             }}
           />
         </Paper>
 
         {/* ============================================================
-            REPORT VIEWER - MAIN REPORT DISPLAY
+            REPORT VIEWER
             ============================================================ */}
         <ReportViewer
           open={showReportViewer}
@@ -804,95 +764,6 @@ const TripReports = () => {
             </Grid>
           </Paper>
         )}
-
-        {/* LEGACY DIALOG (Keep for fallback) */}
-        <Dialog
-          open={showReportDialog}
-          onClose={() => setShowReportDialog(false)}
-          maxWidth="lg"
-          fullWidth
-          PaperProps={{ sx: { borderRadius: '16px' } }}
-        >
-          <DialogTitle sx={{ 
-            py: 1.5, 
-            px: 2.5, 
-            borderBottom: 1, 
-            borderColor: 'divider',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-              <ReportIcon sx={{ verticalAlign: 'middle', mr: 1, fontSize: '1.1rem' }} />
-              {selectedReportConfig?.name} Results
-            </Typography>
-            <Stack direction="row" spacing={0.5}>
-              <Tooltip title="Print">
-                <IconButton size="small" onClick={handlePrintReport}>
-                  <PrintIcon sx={{ fontSize: '0.9rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Close">
-                <IconButton size="small" onClick={() => setShowReportDialog(false)}>
-                  <ClearIcon sx={{ fontSize: '0.9rem' }} />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          </DialogTitle>
-          <DialogContent sx={{ p: 2.5 }}>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : reportData ? (
-              <Box>
-                <Alert severity="info" sx={{ mb: 2, borderRadius: '12px' }}>
-                  Found {Array.isArray(reportData) ? reportData.length : 1} results
-                </Alert>
-                <Paper sx={{ p: 2, bgcolor: '#F9FAFB', borderRadius: '12px' }}>
-                  <pre style={{ 
-                    margin: 0, 
-                    fontSize: '0.75rem', 
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    maxHeight: '400px',
-                    overflow: 'auto'
-                  }}>
-                    {JSON.stringify(reportData, null, 2)}
-                  </pre>
-                </Paper>
-              </Box>
-            ) : (
-              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No data to display
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-            <Button 
-              onClick={() => setShowReportDialog(false)}
-              size="small"
-              sx={{ fontSize: '0.8rem', textTransform: 'none' }}
-            >
-              Close
-            </Button>
-            <Button
-              onClick={handlePrintReport}
-              variant="contained"
-              size="small"
-              startIcon={<PrintIcon sx={{ fontSize: '0.9rem' }} />}
-              sx={{ 
-                fontSize: '0.8rem', 
-                textTransform: 'none',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-                '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' }
-              }}
-            >
-              Print / PDF
-            </Button>
-          </DialogActions>
-        </Dialog>
 
       </Box>
     </Box>
