@@ -161,16 +161,17 @@ const ReportViewer = ({
       <DialogContent sx={{ p: 0, overflow: 'hidden', flex: 1 }}>
         <iframe
           ref={iframeRef}
+          title={title || 'Report'}
+          srcDoc={htmlContent}
           style={{
+            display: 'block',
             width: '100%',
             height: 'calc(90vh - 80px)',
             border: 'none',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: '#fff',
           }}
-          title={title || 'Report'}
-          srcDoc={htmlContent}
-          sandbox="allow-scripts allow-same-origin allow-print allow-modals"
         />
+
       </DialogContent>
 
       <DialogActions sx={{ 
