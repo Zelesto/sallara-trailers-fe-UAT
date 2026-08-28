@@ -2,50 +2,6 @@
 
 import api from './api';
 
-// Helper function to decode HTML entities
-const decodeHtmlEntities = (html) => {
-  if (!html || typeof html !== 'string') return html;
-  
-  // If it doesn't contain HTML entities, return as is
-  if (!html.includes('&lt;') && !html.includes('&gt;') && !html.includes('&amp;')) {
-    return html;
-  }
-  
-  // Use DOMParser for reliable decoding
-  try {
-    const doc = new DOMParser().parseFromString(
-      `<!DOCTYPE html><html><body><div id="content">${html}</div></body></html>`,
-      'text/html'
-    );
-    const element = doc.getElementById('content');
-    if (element) {
-      return element.innerHTML;
-    }
-  } catch (e) {
-    console.warn('DOMParser decoding failed, falling back to textarea');
-  }
-  
-  // Fallback: Use textarea
-  try {
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = html;
-    return textarea.value;
-  } catch (e) {
-    console.warn('Textarea decoding failed, using manual replacement');
-  }
-  
-  // Ultimate fallback: Manual replacement
-  return html
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#(\d+);/g, (match, num) => String.fromCharCode(parseInt(num, 10)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
-};
-
 export const reportService = {
   /**
    * Generate trip report - returns HTML content
@@ -54,59 +10,51 @@ export const reportService = {
     try {
       console.log('📤 Generating trip report for:', tripNumber);
       
-      // ✅ Use responseType: 'json' to parse JSON properly
+      // ✅ Remove responseType: 'text' - let axios handle JSON
       const response = await api.post(`/reports/trip/${tripNumber}`, null, {
         params: { format: 'html' },
-        // ✅ Don't use responseType: 'text' - we want JSON
+        // ❌ REMOVE: responseType: 'text',
       });
       
       console.log('📥 Response status:', response.status);
-      console.log('📥 Response type:', typeof response.data);
-      console.log('📥 Response data:', response.data);
+      console.log('📥 Response data type:', typeof response.data);
+      console.log('📥 Response data keys:', Object.keys(response.data || {}));
       
-      // ✅ Handle the response
+      // ✅ Handle JSON response
       if (response.data && typeof response.data === 'object') {
-        // Check for success
         if (response.data.success === true) {
-          let htmlContent = response.data.content || '';
-          console.log('📥 Raw content length:', htmlContent.length);
-          console.log('📥 Raw content preview:', htmlContent.substring(0, 100));
+          const htmlContent = response.data.content || '';
+          console.log('📥 HTML content length:', htmlContent.length);
+          console.log('📥 HTML preview:', htmlContent.substring(0, 100));
           
-          // ✅ DECODE the HTML entities
-          const decodedHtml = decodeHtmlEntities(htmlContent);
-          console.log('📥 Decoded content preview:', decodedHtml.substring(0, 100));
-          
-          // Check if it's valid HTML
-          if (decodedHtml && decodedHtml.trim().startsWith('<')) {
-            return decodedHtml;
+          // Validate it's HTML
+          if (htmlContent && htmlContent.trim().startsWith('<')) {
+            return htmlContent;
           } else {
-            console.error('❌ Decoded content is not HTML:', decodedHtml?.substring(0, 200));
-            // Try returning the raw content as a fallback
-            if (htmlContent && htmlContent.trim().startsWith('<')) {
-              return htmlContent;
+            console.warn('⚠️ Content does not start with <, might be escaped');
+            // Try to decode if needed
+            if (htmlContent.includes('&lt;')) {
+              const decoded = decodeHtmlEntities(htmlContent);
+              if (decoded.trim().startsWith('<')) {
+                return decoded;
+              }
             }
-            throw new Error('Invalid HTML content received');
+            return htmlContent; // Return as is
           }
         } else {
-          // Handle error from backend
-          const errorMsg = response.data.error || 'Report generation failed';
-          console.error('❌ Backend error:', errorMsg);
-          throw new Error(errorMsg);
+          throw new Error(response.data.error || 'Report generation failed');
         }
       }
       
-      // ✅ Fallback: If response is a string
+      // Fallback: If response is a string
       if (typeof response.data === 'string') {
-        console.log('📥 String response received');
         if (response.data.trim().startsWith('<')) {
           return response.data;
         }
-        // Try to parse as JSON
         try {
           const parsed = JSON.parse(response.data);
           if (parsed.success && parsed.content) {
-            const decoded = decodeHtmlEntities(parsed.content);
-            return decoded;
+            return parsed.content;
           }
         } catch (e) {
           // Not JSON
@@ -119,34 +67,15 @@ export const reportService = {
     } catch (error) {
       console.error('❌ Error generating trip report:', error);
       
-      // ✅ Check if error response has data we can use
-      if (error.response) {
-        console.error('❌ Error response status:', error.response.status);
-        console.error('❌ Error response data:', error.response.data);
+      // Check if error response has content we can use
+      if (error.response && error.response.data) {
+        console.error('❌ Error response:', error.response.data);
         
-        if (error.response.data && typeof error.response.data === 'object') {
-          if (error.response.data.content) {
-            const decoded = decodeHtmlEntities(error.response.data.content);
-            return decoded;
-          }
-          if (error.response.data.error) {
-            throw new Error(error.response.data.error);
-          }
+        if (typeof error.response.data === 'object' && error.response.data.content) {
+          return error.response.data.content;
         }
-        
-        if (typeof error.response.data === 'string') {
-          if (error.response.data.trim().startsWith('<')) {
-            return error.response.data;
-          }
-          try {
-            const parsed = JSON.parse(error.response.data);
-            if (parsed.content) {
-              const decoded = decodeHtmlEntities(parsed.content);
-              return decoded;
-            }
-          } catch (e) {
-            // Not JSON
-          }
+        if (typeof error.response.data === 'string' && error.response.data.trim().startsWith('<')) {
+          return error.response.data;
         }
       }
       
@@ -165,14 +94,11 @@ export const reportService = {
         params: { format: 'html' },
       });
       
-      console.log('📥 Response status:', response.status);
-      
       if (response.data && typeof response.data === 'object') {
         if (response.data.success === true) {
-          let htmlContent = response.data.content || '';
-          const decoded = decodeHtmlEntities(htmlContent);
-          if (decoded && decoded.trim().startsWith('<')) {
-            return decoded;
+          const htmlContent = response.data.content || '';
+          if (htmlContent && htmlContent.trim().startsWith('<')) {
+            return htmlContent;
           }
           return htmlContent;
         } else {
@@ -180,16 +106,7 @@ export const reportService = {
         }
       }
       
-      if (typeof response.data === 'string') {
-        if (response.data.trim().startsWith('<')) {
-          return response.data;
-        }
-        try {
-          const parsed = JSON.parse(response.data);
-          if (parsed.success && parsed.content) {
-            return decodeHtmlEntities(parsed.content);
-          }
-        } catch (e) {}
+      if (typeof response.data === 'string' && response.data.trim().startsWith('<')) {
         return response.data;
       }
       
@@ -199,7 +116,7 @@ export const reportService = {
       console.error('❌ Error generating load report:', error);
       
       if (error.response?.data?.content) {
-        return decodeHtmlEntities(error.response.data.content);
+        return error.response.data.content;
       }
       throw error;
     }
@@ -222,14 +139,11 @@ export const reportService = {
         params,
       });
       
-      console.log('📥 Response status:', response.status);
-      
       if (response.data && typeof response.data === 'object') {
         if (response.data.success === true) {
-          let htmlContent = response.data.content || '';
-          const decoded = decodeHtmlEntities(htmlContent);
-          if (decoded && decoded.trim().startsWith('<')) {
-            return decoded;
+          const htmlContent = response.data.content || '';
+          if (htmlContent && htmlContent.trim().startsWith('<')) {
+            return htmlContent;
           }
           return htmlContent;
         } else {
@@ -237,16 +151,7 @@ export const reportService = {
         }
       }
       
-      if (typeof response.data === 'string') {
-        if (response.data.trim().startsWith('<')) {
-          return response.data;
-        }
-        try {
-          const parsed = JSON.parse(response.data);
-          if (parsed.success && parsed.content) {
-            return decodeHtmlEntities(parsed.content);
-          }
-        } catch (e) {}
+      if (typeof response.data === 'string' && response.data.trim().startsWith('<')) {
         return response.data;
       }
       
@@ -256,11 +161,32 @@ export const reportService = {
       console.error('❌ Error generating fuel report:', error);
       
       if (error.response?.data?.content) {
-        return decodeHtmlEntities(error.response.data.content);
+        return error.response.data.content;
       }
       throw error;
     }
   },
 };
+
+/**
+ * Helper: Decode HTML entities (fallback if needed)
+ */
+function decodeHtmlEntities(html) {
+  if (!html || typeof html !== 'string') return html;
+  
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = html;
+    return textarea.value;
+  } catch (e) {
+    return html
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ');
+  }
+}
 
 export default reportService;
