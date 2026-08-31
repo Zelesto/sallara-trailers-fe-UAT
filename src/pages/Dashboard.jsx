@@ -58,6 +58,9 @@ import {
   MonetizationOn,
   Engineering,
   Assignment,
+  Warehouse,
+  EventNote,
+  TrendingFlat,
 } from '@mui/icons-material';
 import { analyticsService } from '../services/analyticsService';
 import { inventoryNotificationService } from '../services/inventoryNotificationService';
@@ -124,7 +127,160 @@ const safeFormatDate = (date) => {
 };
 
 // ============================================================
-// STAT CARD COMPONENT (No Gauge)
+// STATUS CHIP
+// ============================================================
+const StatusChip = ({ status, type = 'trip' }) => {
+  let config;
+  if (type === 'trip') {
+    config = TRIP_STATUS_CONFIG[status];
+  } else if (type === 'driver') {
+    config = DRIVER_STATUS_CONFIG[status];
+  } else if (type === 'vehicle') {
+    config = VEHICLE_STATUS_CONFIG[status];
+  }
+
+  if (config) {
+    return (
+      <Chip
+        label={config.displayName || status}
+        size="small"
+        sx={{
+          backgroundColor: config.color ? `${config.color}20` : '#F3F4F6',
+          color: config.color || '#6B7280',
+          fontWeight: 600,
+          fontSize: { xs: '0.5rem', sm: '0.6rem' },
+          height: { xs: 18, sm: 22 },
+          border: `1px solid ${config.color || '#6B7280'}20`,
+        }}
+      />
+    );
+  }
+
+  return (
+    <Chip
+      label={status || 'Unknown'}
+      size="small"
+      sx={{
+        backgroundColor: '#F3F4F6',
+        color: '#6B7280',
+        fontWeight: 600,
+        fontSize: { xs: '0.5rem', sm: '0.6rem' },
+        height: { xs: 18, sm: 22 },
+      }}
+    />
+  );
+};
+
+// ============================================================
+// METRIC BOX - Simple metric display
+// ============================================================
+const MetricBox = ({ label, value, subValue, color = 'primary', icon: Icon }) => {
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
+
+  return (
+    <Box
+      sx={{
+        textAlign: 'center',
+        p: { xs: 1, sm: 1.5 },
+        bgcolor: '#F9FAFB',
+        borderRadius: '10px',
+        border: '1px solid #F3F4F6',
+        height: '100%',
+        transition: 'all 0.2s ease',
+        '&:hover': {
+          bgcolor: bgColor,
+          borderColor: iconColor,
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        },
+      }}
+    >
+      {Icon && (
+        <Icon
+          sx={{
+            fontSize: { xs: '1rem', sm: '1.2rem' },
+            color: iconColor,
+            mb: 0.5,
+            display: 'block',
+            margin: '0 auto',
+          }}
+        />
+      )}
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{
+          fontSize: { xs: '0.5rem', sm: '0.6rem' },
+          display: 'block',
+          textTransform: 'uppercase',
+          letterSpacing: '0.3px',
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        variant="h6"
+        sx={{
+          fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' },
+          fontWeight: 700,
+          color: '#111827',
+          lineHeight: 1.2,
+        }}
+      >
+        {value}
+      </Typography>
+      {subValue && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontSize: { xs: '0.45rem', sm: '0.55rem' }, display: 'block' }}
+        >
+          {subValue}
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
+// ============================================================
+// SECTION HEADER
+// ============================================================
+const SectionHeader = ({ title, icon: Icon, color = 'primary' }) => {
+  const iconColor = getColor(color);
+  const bgColor = getColorBg(color);
+
+  return (
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+      <Box
+        sx={{
+          bgcolor: bgColor,
+          borderRadius: '8px',
+          p: 0.75,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon sx={{ color: iconColor, fontSize: { xs: '1rem', sm: '1.2rem' } }} />
+      </Box>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+          fontSize: { xs: '0.85rem', sm: '0.95rem' },
+          color: '#111827',
+        }}
+      >
+        {title}
+      </Typography>
+    </Stack>
+  );
+};
+
+// ============================================================
+// STAT CARD COMPONENT
 // ============================================================
 const StatCard = React.memo(({
   title,
@@ -159,25 +315,6 @@ const StatCard = React.memo(({
   const trendLabel = useMemo(() => {
     if (trend === undefined || trend === null || isNaN(trend)) return null;
     return trend > 0 ? `+${trend.toFixed(1)}%` : `${trend.toFixed(1)}%`;
-  }, [trend]);
-
-  const trendColor = useMemo(() => {
-    if (trend === undefined || trend === null || isNaN(trend)) return '#DBEAFE';
-    return trend > 0 ? '#D1FAE5' : trend < 0 ? '#FEE2E2' : '#DBEAFE';
-  }, [trend]);
-
-  const trendTextColor = useMemo(() => {
-    if (trend === undefined || trend === null || isNaN(trend)) return '#1E40AF';
-    return trend > 0 ? '#065F46' : trend < 0 ? '#991B1B' : '#1E40AF';
-  }, [trend]);
-
-  const trendIcon = useMemo(() => {
-    if (trend === undefined || trend === null || isNaN(trend)) {
-      return <Timeline sx={{ fontSize: '0.6rem' }} />;
-    }
-    return trend > 0 
-      ? <TrendingUp sx={{ fontSize: '0.6rem' }} />
-      : <TrendingDown sx={{ fontSize: '0.6rem' }} />;
   }, [trend]);
 
   return (
@@ -294,19 +431,14 @@ const StatCard = React.memo(({
             size="small"
             sx={{
               mt: { xs: 0.5, sm: 1, md: 1.5 },
-              bgcolor: trendColor,
-              color: trendTextColor,
+              bgcolor: trend > 0 ? '#D1FAE5' : '#FEE2E2',
+              color: trend > 0 ? '#065F46' : '#991B1B',
               fontWeight: 600,
               fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
               height: { xs: 18, sm: 20, md: 22 },
               borderRadius: '6px',
-              transition: 'all 0.3s ease',
-              '& .MuiChip-icon': {
-                fontSize: { xs: '0.6rem', sm: '0.65rem', md: '0.7rem' },
-                color: trendTextColor,
-              },
             }}
-            icon={trendIcon}
+            icon={trend > 0 ? <TrendingUp sx={{ fontSize: '0.6rem' }} /> : <TrendingDown sx={{ fontSize: '0.6rem' }} />}
           />
         )}
       </CardContent>
@@ -315,7 +447,7 @@ const StatCard = React.memo(({
 });
 
 // ============================================================
-// METRIC GROUP CARD - Combines related metrics
+// METRIC GROUP CARD - Enhanced version
 // ============================================================
 const MetricGroupCard = ({ title, icon: Icon, metrics, color = 'primary' }) => {
   const iconColor = getColor(color);
@@ -350,79 +482,20 @@ const MetricGroupCard = ({ title, icon: Icon, metrics, color = 'primary' }) => {
         </Typography>
       </Stack>
 
-      <Grid container spacing={1.5}>
+      <Grid container spacing={1}>
         {metrics.map((metric, index) => (
-          <Grid key={index} size={{ xs: 6, sm: 4, md: 3 }}>
-            <Box
-              sx={{
-                textAlign: 'center',
-                p: 1,
-                bgcolor: '#F9FAFB',
-                borderRadius: '8px',
-                border: '1px solid #F3F4F6',
-              }}
-            >
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem', display: 'block' }}>
-                {metric.label}
-              </Typography>
-              <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '1rem' }, fontWeight: 700 }}>
-                {metric.value}
-              </Typography>
-              {metric.sub && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.5rem' }}>
-                  {metric.sub}
-                </Typography>
-              )}
-            </Box>
+          <Grid key={index} size={{ xs: 4, sm: 3, md: 2 }}>
+            <MetricBox
+              label={metric.label}
+              value={metric.value}
+              subValue={metric.sub}
+              color={metric.color || color}
+              icon={metric.icon}
+            />
           </Grid>
         ))}
       </Grid>
     </Paper>
-  );
-};
-
-// ============================================================
-// STATUS CHIP
-// ============================================================
-const StatusChip = ({ status, type = 'trip' }) => {
-  let config;
-  if (type === 'trip') {
-    config = TRIP_STATUS_CONFIG[status];
-  } else if (type === 'driver') {
-    config = DRIVER_STATUS_CONFIG[status];
-  } else if (type === 'vehicle') {
-    config = VEHICLE_STATUS_CONFIG[status];
-  }
-
-  if (config) {
-    return (
-      <Chip
-        label={config.displayName || status}
-        size="small"
-        sx={{
-          backgroundColor: config.color ? `${config.color}20` : '#F3F4F6',
-          color: config.color || '#6B7280',
-          fontWeight: 600,
-          fontSize: { xs: '0.5rem', sm: '0.6rem' },
-          height: { xs: 18, sm: 22 },
-          border: `1px solid ${config.color || '#6B7280'}20`,
-        }}
-      />
-    );
-  }
-
-  return (
-    <Chip
-      label={status || 'Unknown'}
-      size="small"
-      sx={{
-        backgroundColor: '#F3F4F6',
-        color: '#6B7280',
-        fontWeight: 600,
-        fontSize: { xs: '0.5rem', sm: '0.6rem' },
-        height: { xs: 18, sm: 22 },
-      }}
-    />
   );
 };
 
@@ -737,13 +810,6 @@ const Dashboard = () => {
       console.log('📊 Raw dashboard response:', response);
 
       if (response && response.success !== false) {
-        // Log the data we're receiving
-        console.log('✅ Vehicle Stats:', response.vehicleStats);
-        console.log('✅ Driver Stats:', response.driverStats);
-        console.log('✅ Fuel Stats:', response.fuelStats);
-        console.log('✅ Distance Stats:', response.distanceStats);
-        console.log('✅ Top Drivers:', response.topDrivers);
-        
         setDashboardData(response);
       } else {
         throw new Error(response?.message || 'Invalid response structure');
@@ -766,25 +832,31 @@ const Dashboard = () => {
   }, [period]);
 
   // ============================================================
-  // DERIVED DATA - Safely extract with fallbacks
+  // DERIVED DATA
   // ============================================================
 
   const summary = dashboardData?.summary || {};
   const vehicleStats = dashboardData?.vehicleStats || {
-    activeVehicles: 0,
-    vehiclesInTrip: 0,
-    vehiclesNotAvailable: 0,
     totalVehicles: 0,
+    active: 0,
+    inTrip: 0,
+    notAvailable: 0,
+    inYard: 0,
+    maintenance: 0,
+    decomm: 0,
     plannedKm: 0,
     travelledKm: 0,
   };
   const driverStats = dashboardData?.driverStats || {
-    activeDrivers: 0,
-    driversInTrip: 0,
-    driversNotAvailable: 0,
-    plannedDrivers: 0,
     totalDrivers: 0,
+    active: 0,
+    inTrip: 0,
+    notAvailable: 0,
+    plannedDrivers: 0,
     totalTrips: 0,
+    inYard: 0,
+    leave: 0,
+    inActive: 0,
   };
   const fuelStats = dashboardData?.fuelStats || {
     avgEfficiency: 0,
@@ -797,39 +869,57 @@ const Dashboard = () => {
     totalTrips: 0,
     completedTrips: 0,
     avgKmPerTrip: 0,
+    plannedKm: 0,
+    plannedTrips: 0,
   };
   const topDrivers = dashboardData?.topDrivers || [];
   const mostEfficientVehicle = dashboardData?.mostEfficientVehicle || {};
 
-  // Availability from active trips
-  const availability = useMemo(() => {
-    const driversInTrips = new Set();
-    const vehiclesInTrips = new Set();
+  // ============================================================
+  // METRICS DEFINITIONS - Based on your layout
+  // ============================================================
 
-    activeTrips.forEach(trip => {
-      if (trip.driverId) driversInTrips.add(trip.driverId);
-      if (trip.vehicleId) vehiclesInTrips.add(trip.vehicleId);
-    });
+  // Vehicle Overview Metrics (8 items)
+  const vehicleOverviewMetrics = [
+    { label: 'Total', value: vehicleStats.totalVehicles || 0, icon: DirectionsCar, color: 'primary' },
+    { label: 'In Yard', value: vehicleStats.inYard || 0, icon: Warehouse, color: 'secondary' },
+    { label: 'Active', value: vehicleStats.active || 0, icon: CheckCircle, color: 'success' },
+    { label: 'In Trip', value: vehicleStats.inTrip || 0, icon: Route, color: 'info' },
+    { label: 'Not Available', value: vehicleStats.notAvailable || 0, icon: WarningIcon, color: 'warning' },
+    { label: 'Maintenance', value: vehicleStats.maintenance || 0, icon: Engineering, color: 'error' },
+    { label: 'Decommissioned', value: vehicleStats.decomm || 0, icon: Cancel, color: 'error' },
+  ];
 
-    const totalDrivers = summary?.totalDrivers || 0;
-    const totalVehicles = summary?.totalVehicles || 0;
+  // Vehicle Distance Metrics (6 items)
+  const vehicleDistanceMetrics = [
+    { label: 'Total KMs', value: formatNumber(distanceStats.totalKm || 0), icon: Map, color: 'primary' },
+    { label: 'Planned', value: formatNumber(distanceStats.plannedKm || 0), icon: Schedule, color: 'warning' },
+    { label: 'Trips', value: distanceStats.plannedTrips || 0, icon: EventNote, color: 'info' },
+    { label: 'Av/Trip', value: formatNumber(distanceStats.avgKmPerTrip || 0), icon: TrendingFlat, color: 'secondary' },
+    { label: 'Completed', value: formatNumber(distanceStats.completedTrips || 0), icon: CheckCircle, color: 'success' },
+    { label: 'Trips', value: distanceStats.totalTrips || 0, icon: Route, color: 'primary' },
+  ];
 
-    return {
-      activeDrivers: driversInTrips.size,
-      activeVehicles: vehiclesInTrips.size,
-      availableDrivers: Math.max(0, totalDrivers - driversInTrips.size),
-      availableVehicles: Math.max(0, totalVehicles - vehiclesInTrips.size),
-    };
-  }, [activeTrips, summary]);
+  // Driver Overview Metrics (8 items)
+  const driverOverviewMetrics = [
+    { label: 'Total Drivers', value: driverStats.totalDrivers || 0, icon: People, color: 'primary' },
+    { label: 'In Yard', value: driverStats.inYard || 0, icon: Warehouse, color: 'secondary' },
+    { label: 'Active', value: driverStats.active || 0, icon: CheckCircle, color: 'success' },
+    { label: 'In Trip', value: driverStats.inTrip || 0, icon: Route, color: 'info' },
+    { label: 'Not Available', value: driverStats.notAvailable || 0, icon: WarningIcon, color: 'warning' },
+    { label: 'Leave', value: driverStats.leave || 0, icon: EventNote, color: 'error' },
+    { label: 'Inactive', value: driverStats.inActive || 0, icon: Cancel, color: 'error' },
+  ];
 
-  // Log what we're rendering
-  console.log('📊 Rendering Dashboard with:', {
-    vehicleStats,
-    driverStats,
-    fuelStats,
-    distanceStats,
-    topDrivers: topDrivers.length,
-  });
+  // Driver Distance Metrics (6 items)
+  const driverDistanceMetrics = [
+    { label: 'Total KMs', value: formatNumber(distanceStats.totalKm || 0), icon: Map, color: 'primary' },
+    { label: 'Planned', value: formatNumber(distanceStats.plannedKm || 0), icon: Schedule, color: 'warning' },
+    { label: 'Trips', value: distanceStats.plannedTrips || 0, icon: EventNote, color: 'info' },
+    { label: 'Av/Trip', value: formatNumber(distanceStats.avgKmPerTrip || 0), icon: TrendingFlat, color: 'secondary' },
+    { label: 'Completed KMs', value: formatNumber(distanceStats.totalKm || 0), icon: CheckCircle, color: 'success' },
+    { label: 'Trips', value: distanceStats.totalTrips || 0, icon: Route, color: 'primary' },
+  ];
 
   // ============================================================
   // LOADING STATE
@@ -911,7 +1001,7 @@ const Dashboard = () => {
                 } 
               }}
             >
-              Real-time fleet insights and analytics • {summary?.totalVehicles || 0} vehicles, {summary?.totalDrivers || 0} drivers
+              Real-time fleet insights and analytics • {vehicleStats.totalVehicles || 0} vehicles, {driverStats.totalDrivers || 0} drivers
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
@@ -972,47 +1062,8 @@ const Dashboard = () => {
         <LowStockAlert items={lowStockItems} />
 
         {/* ============================================================
-            AVAILABILITY INFO
+            SECTION 1: VEHICLE OVERVIEW
             ============================================================ */}
-        {(availability.availableDrivers > 0 || availability.availableVehicles > 0) && (
-          <Paper
-            sx={{
-              p: { xs: 1, sm: 1.5 },
-              mb: 2,
-              borderRadius: '12px',
-              bgcolor: '#EEF2FF',
-              border: '1px solid #C7D2FE',
-              width: '100%',
-            }}
-          >
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 1.5 }}>
-              {availability.availableDrivers > 0 && (
-                <Chip
-                  icon={<Person sx={{ fontSize: '0.7rem' }} />}
-                  label={`${availability.availableDrivers} available drivers`}
-                  color="success"
-                  size="small"
-                  sx={{ fontSize: '0.6rem' }}
-                />
-              )}
-              {availability.availableVehicles > 0 && (
-                <Chip
-                  icon={<CarRental sx={{ fontSize: '0.7rem' }} />}
-                  label={`${availability.availableVehicles} available vehicles`}
-                  color="success"
-                  size="small"
-                  sx={{ fontSize: '0.6rem' }}
-                />
-              )}
-            </Stack>
-          </Paper>
-        )}
-
-        {/* ============================================================
-            KEY METRICS - COMBINED CARDS
-            ============================================================ */}
-
-        {/* Row 1: Vehicle Metrics Group */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
@@ -1022,36 +1073,36 @@ const Dashboard = () => {
             margin: 0,
           }}
         >
-          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-            <MetricGroupCard
-              title="Vehicle Overview"
-              icon={DirectionsCar}
-              color="primary"
-              metrics={[
-                { label: 'Active Vehicles', value: vehicleStats.activeVehicles || 0 },
-                { label: 'In Trip', value: vehicleStats.vehiclesInTrip || 0 },
-                { label: 'Not Available', value: vehicleStats.vehiclesNotAvailable || 0 },
-                { label: 'Total Vehicles', value: vehicleStats.totalVehicles || 0 },
-              ]}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-            <MetricGroupCard
-              title="Vehicle Distance"
-              icon={Map}
-              color="info"
-              metrics={[
-                { label: 'Planned KMs', value: `${formatNumber(vehicleStats.plannedKm || 0)} km` },
-                { label: 'Travelled KMs', value: `${formatNumber(vehicleStats.travelledKm || 0)} km` },
-                { label: 'Total KMs', value: `${formatNumber(distanceStats.totalKm || 0)} km` },
-                { label: 'Avg per Trip', value: `${formatNumber(distanceStats.avgKmPerTrip || 0)} km` },
-              ]}
-            />
+          <Grid size={{ xs: 12 }} sx={{ display: 'flex' }}>
+            <Paper
+              sx={{
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: '12px', sm: '16px' },
+                border: '1px solid #ECECEC',
+                bgcolor: '#FFFFFF',
+                width: '100%',
+              }}
+            >
+              <SectionHeader title="Vehicle Overview" icon={DirectionsCar} color="primary" />
+              <Grid container spacing={1}>
+                {vehicleOverviewMetrics.map((metric, index) => (
+                  <Grid key={index} size={{ xs: 4, sm: 3, md: 2 }}>
+                    <MetricBox
+                      label={metric.label}
+                      value={metric.value}
+                      icon={metric.icon}
+                      color={metric.color}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
           </Grid>
         </Grid>
 
-        {/* Row 2: Driver Metrics Group */}
+        {/* ============================================================
+            SECTION 2: VEHICLE DISTANCE
+            ============================================================ */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
@@ -1061,37 +1112,113 @@ const Dashboard = () => {
             margin: 0,
           }}
         >
-          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-            <MetricGroupCard
-              title="Driver Overview"
-              icon={People}
-              color="success"
-              metrics={[
-                { label: 'Active Drivers', value: driverStats.activeDrivers || 0 },
-                { label: 'In Trip', value: driverStats.driversInTrip || 0 },
-                { label: 'Not Available', value: driverStats.driversNotAvailable || 0 },
-                { label: 'Total Drivers', value: driverStats.totalDrivers || 0 },
-              ]}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-            <MetricGroupCard
-              title="Driver Activity"
-              icon={Assignment}
-              color="warning"
-              metrics={[
-                { label: 'Planned Drivers', value: driverStats.plannedDrivers || 0 },
-                { label: 'Driver Trips', value: driverStats.totalTrips || 0 },
-                { label: 'Total Trips', value: distanceStats.totalTrips || 0 },
-                { label: 'Completed', value: distanceStats.completedTrips || 0 },
-              ]}
-            />
+          <Grid size={{ xs: 12 }} sx={{ display: 'flex' }}>
+            <Paper
+              sx={{
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: '12px', sm: '16px' },
+                border: '1px solid #ECECEC',
+                bgcolor: '#FFFFFF',
+                width: '100%',
+              }}
+            >
+              <SectionHeader title="Vehicle Distance" icon={Map} color="info" />
+              <Grid container spacing={1}>
+                {vehicleDistanceMetrics.map((metric, index) => (
+                  <Grid key={index} size={{ xs: 4, sm: 3, md: 2 }}>
+                    <MetricBox
+                      label={metric.label}
+                      value={metric.value}
+                      icon={metric.icon}
+                      color={metric.color}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
           </Grid>
         </Grid>
 
         {/* ============================================================
-            FUEL EFFICIENCY DETAIL CARD
+            SECTION 3: DRIVER OVERVIEW
+            ============================================================ */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+          sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            width: '100%',
+            margin: 0,
+          }}
+        >
+          <Grid size={{ xs: 12 }} sx={{ display: 'flex' }}>
+            <Paper
+              sx={{
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: '12px', sm: '16px' },
+                border: '1px solid #ECECEC',
+                bgcolor: '#FFFFFF',
+                width: '100%',
+              }}
+            >
+              <SectionHeader title="Driver Overview" icon={People} color="success" />
+              <Grid container spacing={1}>
+                {driverOverviewMetrics.map((metric, index) => (
+                  <Grid key={index} size={{ xs: 4, sm: 3, md: 2 }}>
+                    <MetricBox
+                      label={metric.label}
+                      value={metric.value}
+                      icon={metric.icon}
+                      color={metric.color}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* ============================================================
+            SECTION 4: DRIVER DISTANCE
+            ============================================================ */}
+        <Grid 
+          container 
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+          sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            width: '100%',
+            margin: 0,
+          }}
+        >
+          <Grid size={{ xs: 12 }} sx={{ display: 'flex' }}>
+            <Paper
+              sx={{
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: '12px', sm: '16px' },
+                border: '1px solid #ECECEC',
+                bgcolor: '#FFFFFF',
+                width: '100%',
+              }}
+            >
+              <SectionHeader title="Driver Distance" icon={Route} color="warning" />
+              <Grid container spacing={1}>
+                {driverDistanceMetrics.map((metric, index) => (
+                  <Grid key={index} size={{ xs: 4, sm: 3, md: 2 }}>
+                    <MetricBox
+                      label={metric.label}
+                      value={metric.value}
+                      icon={metric.icon}
+                      color={metric.color}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* ============================================================
+            FUEL EFFICIENCY CARD
             ============================================================ */}
         <Box sx={{ mb: { xs: 2, sm: 2.5, md: 3 }, width: '100%' }}>
           <FuelEfficiencyCard 
@@ -1102,18 +1229,17 @@ const Dashboard = () => {
         </Box>
 
         {/* ============================================================
-            TOP DRIVERS & ACTIVITY - ROW 3
+            TOP DRIVERS
             ============================================================ */}
         <Grid 
           container 
           spacing={{ xs: 1.5, sm: 2, md: 3 }}
           sx={{ 
+            mb: { xs: 2, sm: 2.5, md: 3 },
             width: '100%',
             margin: 0,
-            flex: 1,
           }}
         >
-          {/* Top Drivers */}
           <Grid size={{ xs: 12, lg: 8 }} sx={{ display: 'flex' }}>
             <Paper
               elevation={0}
@@ -1136,7 +1262,6 @@ const Dashboard = () => {
             </Paper>
           </Grid>
 
-          {/* Recent Activity */}
           <Grid size={{ xs: 12, lg: 4 }} sx={{ display: 'flex' }}>
             <Paper
               elevation={0}
