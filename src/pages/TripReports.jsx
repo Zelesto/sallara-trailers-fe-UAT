@@ -726,8 +726,6 @@ const TripReports = () => {
                 >
                   Clear All
                 </Button>
-                // In TripReports.jsx - Add to the parameters panel
-
                 <Button
                   variant="outlined"
                   size="small"
