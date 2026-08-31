@@ -38,6 +38,7 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon,
   Route as RouteIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import ReportViewer from '../components/ReportViewer';
 import { reportService } from '../services/reportService';
