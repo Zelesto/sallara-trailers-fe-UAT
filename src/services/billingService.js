@@ -19,6 +19,18 @@ const billingService = {
     return response.data;
   },
 
+  // ========== LOAD BILLING ==========
+getLoadsWithBillings: async () => {
+  try {
+    const response = await api.get('/billing/loads/billable');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching loads with billings:', error);
+    // Return empty array instead of throwing
+    return [];
+  }
+},
+  
   getLoadBillingSummary: async (loadId) => {
     const response = await api.get(`/billing/load/${loadId}/summary`);
     return response.data;
