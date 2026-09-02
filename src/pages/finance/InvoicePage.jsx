@@ -20,7 +20,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import invoiceService from '../../services/invoiceService';
+import invoiceService from '../../services/invoice.service';
 import billingService from '../../services/billingService';
 import customerService from '../../services/customerService';
 import accountService from '../../services/account.service';
