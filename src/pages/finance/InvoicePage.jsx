@@ -27,7 +27,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 
 // ✅ Fixed imports to match your actual file names
-import invoiceService from '../../services/invoice.service';
+import invoiceService from '../../services/invoice';
 import billingService from '../../services/billingService';
 import customerService from '../../services/customerService';
 import accountService from '../../services/account';
