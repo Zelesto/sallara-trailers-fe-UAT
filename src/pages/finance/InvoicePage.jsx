@@ -180,32 +180,40 @@ const InvoicesPage = () => {
   };
 
   const fetchCustomers = async () => {
-    try {
-      const data = await customerService.getAllCustomers();
-      setCustomers(data);
-    } catch (err) {
-      console.error('Error fetching customers:', err);
-    }
-  };
-
+  try {
+    const data = await customerService.getAllCustomers();
+    // ✅ Add array check
+    const customersArray = Array.isArray(data) ? data : [];
+    setCustomers(customersArray);
+  } catch (err) {
+    console.error('Error fetching customers:', err);
+    setCustomers([]);
+  }
+};
   const fetchAccounts = async () => {
-    try {
-      const accountService = (await import('../../services/account')).default;
-      const data = await accountService.getAllAccounts();
-      setAccounts(data.filter(acc => acc.status === 'ACTIVE'));
-    } catch (err) {
-      console.error('Error fetching accounts:', err);
-    }
-  };
+  try {
+    const accountService = (await import('../../services/account')).default;
+    const data = await accountService.getAllAccounts();
+    // ✅ Add array check
+    const accountsArray = Array.isArray(data) ? data : [];
+    setAccounts(accountsArray.filter(acc => acc && acc.status === 'ACTIVE'));
+  } catch (err) {
+    console.error('Error fetching accounts:', err);
+    setAccounts([]);
+  }
+};
 
   const fetchLoadsWithBillings = async () => {
-    try {
-      const data = await billingService.getLoadsWithBillings();
-      setLoadsWithBillings(data);
-    } catch (err) {
-      console.error('Error fetching loads with billings:', err);
-    }
-  };
+  try {
+    const data = await billingService.getLoadsWithBillings();
+    // ✅ Add array check
+    setLoadsWithBillings(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error('Error fetching loads with billings:', err);
+    setLoadsWithBillings([]);
+  }
+};
+
 
   const fetchLoadBillingSummary = async (loadId) => {
     if (!loadId) return;
