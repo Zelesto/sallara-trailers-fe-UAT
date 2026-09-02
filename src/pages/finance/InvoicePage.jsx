@@ -15,7 +15,7 @@ import {
   Visibility as ViewIcon, Refresh as RefreshIcon,
   Email as EmailIcon, Payment as PaymentIcon,
   Search as SearchIcon, Receipt as ReceiptIcon,
-  BillingIcon,
+  Receipt as BillingIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
