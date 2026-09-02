@@ -103,30 +103,52 @@ const InvoicePage = () => {
     status: 'DRAFT'
   });
 
-  // Data fetching
+  // ========== DATA FETCHING ==========
   const fetchInvoices = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const response = await invoiceService.getAllInvoices();
       
-      // Safe data extraction
+      const response = await invoiceService.getAllInvoices();
+      console.log('📋 Invoice API Response:', response);
+      
+      // 🔥 SAFE DATA EXTRACTION - Handle multiple response formats
       let invoiceData = [];
+      
       if (response) {
+        // Case 1: Direct array
         if (Array.isArray(response)) {
           invoiceData = response;
-        } else if (response.content) {
+        }
+        // Case 2: Paginated response { content: [], totalElements: X }
+        else if (response.content && Array.isArray(response.content)) {
           invoiceData = response.content;
           setTotalElements(response.totalElements || response.content.length);
-        } else if (response.data) {
-          invoiceData = Array.isArray(response.data) ? response.data : 
-                        response.data.content || [];
+        }
+        // Case 3: Nested data { data: [] }
+        else if (response.data) {
+          if (Array.isArray(response.data)) {
+            invoiceData = response.data;
+          } else if (response.data.content && Array.isArray(response.data.content)) {
+            invoiceData = response.data.content;
+            setTotalElements(response.data.totalElements || response.data.content.length);
+          }
+        }
+        // Case 4: Response is the data itself with content
+        else if (response._embedded) {
+          // Spring HATEOAS format
+          const embeddedKey = Object.keys(response._embedded)[0];
+          if (embeddedKey && Array.isArray(response._embedded[embeddedKey])) {
+            invoiceData = response._embedded[embeddedKey];
+          }
         }
       }
       
+      console.log(`📋 Loaded ${invoiceData.length} invoices`);
       setInvoices(invoiceData);
+      
     } catch (err) {
-      console.error('Error fetching invoices:', err);
+      console.error('❌ Error fetching invoices:', err);
       setError('Failed to load invoices: ' + (err.message || 'Unknown error'));
       setInvoices([]);
     } finally {
@@ -137,11 +159,13 @@ const InvoicePage = () => {
   const fetchCustomers = useCallback(async () => {
     try {
       const response = await customerService.getAllCustomers();
+      console.log('👤 Customers API Response:', response);
+      
       let customerData = [];
       if (response) {
         if (Array.isArray(response)) {
           customerData = response;
-        } else if (response.content) {
+        } else if (response.content && Array.isArray(response.content)) {
           customerData = response.content;
         } else if (response.data) {
           customerData = Array.isArray(response.data) ? response.data : [];
@@ -157,11 +181,13 @@ const InvoicePage = () => {
   const fetchAccounts = useCallback(async () => {
     try {
       const response = await accountService.getAllAccounts();
+      console.log('🏦 Accounts API Response:', response);
+      
       let accountData = [];
       if (response) {
         if (Array.isArray(response)) {
           accountData = response;
-        } else if (response.content) {
+        } else if (response.content && Array.isArray(response.content)) {
           accountData = response.content;
         } else if (response.data) {
           accountData = Array.isArray(response.data) ? response.data : [];
@@ -177,11 +203,13 @@ const InvoicePage = () => {
   const fetchLoadsWithBillings = useCallback(async () => {
     try {
       const response = await billingService.getLoadsWithBillings();
+      console.log('📦 Loads with Billings Response:', response);
+      
       let loadsData = [];
       if (response) {
         if (Array.isArray(response)) {
           loadsData = response;
-        } else if (response.content) {
+        } else if (response.content && Array.isArray(response.content)) {
           loadsData = response.content;
         } else if (response.data) {
           loadsData = Array.isArray(response.data) ? response.data : [];
