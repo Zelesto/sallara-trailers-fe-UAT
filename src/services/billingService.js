@@ -2,65 +2,59 @@
 import api from './api';
 
 const billingService = {
-  // ========== TRIP BILLING ==========
-  getTripBilling: async (tripId) => {
-    const response = await api.get(`/billing/trip/${tripId}`);
-    return response.data;
+  // Get loads with billings
+  getLoadsWithBillings: async () => {
+    try {
+      const response = await api.get('/billing/loads/billable');
+      return response.data || [];
+    } catch (error) {
+      console.error('Error fetching loads with billings:', error);
+      return [];
+    }
   },
 
-  calculateTripBilling: async (tripId) => {
-    const response = await api.post(`/billing/trip/${tripId}/calculate`);
-    return response.data;
-  },
-
-  // ========== LOAD BILLING ==========
-  getLoadBilling: async (loadId) => {
-    const response = await api.get(`/billing/load/${loadId}`);
-    return response.data;
-  },
-
-  // ========== LOAD BILLING ==========
-getLoadsWithBillings: async () => {
-  try {
-    const response = await api.get('/billing/loads/billable');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching loads with billings:', error);
-    // Return empty array instead of throwing
-    return [];
-  }
-},
-  
+  // Get load billing summary
   getLoadBillingSummary: async (loadId) => {
-    const response = await api.get(`/billing/load/${loadId}/summary`);
-    return response.data;
+    try {
+      const response = await api.get(`/billing/loads/${loadId}/summary`);
+      return response.data || null;
+    } catch (error) {
+      console.error(`Error fetching billing summary for load ${loadId}:`, error);
+      return null;
+    }
   },
 
-  calculateLoadBilling: async (loadId) => {
-    const response = await api.post(`/billing/load/${loadId}/calculate`);
-    return response.data;
-  },
-
-  recalculateLoadBilling: async (loadId) => {
-    const response = await api.post(`/billing/load/${loadId}/recalculate`);
-    return response.data;
-  },
-
-  // ========== INVOICE GENERATION ==========
+  // Generate invoice from load
   generateInvoiceFromLoad: async (loadId) => {
-    const response = await api.post(`/billing/load/${loadId}/invoice`);
-    return response.data;
+    try {
+      const response = await api.post(`/billing/loads/${loadId}/generate-invoice`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error generating invoice from load ${loadId}:`, error);
+      throw error;
+    }
   },
 
-  generateInvoiceFromTrip: async (tripId) => {
-    const response = await api.post(`/billing/trip/${tripId}/invoice`);
-    return response.data;
+  // Get trip billing
+  getTripBilling: async (tripId) => {
+    try {
+      const response = await api.get(`/billing/trips/${tripId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching trip billing for ${tripId}:`, error);
+      return null;
+    }
   },
 
-  // ========== BULK OPERATIONS ==========
-  bulkGenerateInvoices: async (loadIds) => {
-    const response = await api.post('/billing/load/bulk-invoice', loadIds);
-    return response.data;
+  // Calculate trip billing
+  calculateTripBilling: async (tripId) => {
+    try {
+      const response = await api.post(`/billing/trips/${tripId}/calculate`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error calculating trip billing for ${tripId}:`, error);
+      throw error;
+    }
   },
 };
 
