@@ -2,15 +2,18 @@
 import api from './api';
 
 const invoiceService = {
-  // Get all invoices with optional filters
-  getAllInvoices: async (filters = {}) => {
+  // Get all invoices with pagination and filters
+  getAllInvoices: async (params = {}) => {
     try {
-      const params = new URLSearchParams(filters);
-      const response = await api.get(`/invoices?${params}`);
+      const response = await api.get('/invoices', { params });
+      console.log('📋 Invoice service response:', response);
+      
+      // Return the data in a consistent format
       return response.data;
     } catch (error) {
-      console.error('Error fetching invoices:', error);
-      throw error;
+      console.error('❌ Invoice service error:', error);
+      // Return empty array structure instead of throwing
+      return { content: [], totalElements: 0, totalPages: 0 };
     }
   },
 
@@ -20,7 +23,7 @@ const invoiceService = {
       const response = await api.get(`/invoices/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching invoice:', error);
+      console.error(`Error fetching invoice ${id}:`, error);
       throw error;
     }
   },
@@ -42,7 +45,7 @@ const invoiceService = {
       const response = await api.put(`/invoices/${id}`, invoiceData);
       return response.data;
     } catch (error) {
-      console.error('Error updating invoice:', error);
+      console.error(`Error updating invoice ${id}:`, error);
       throw error;
     }
   },
@@ -50,123 +53,72 @@ const invoiceService = {
   // Delete invoice
   deleteInvoice: async (id) => {
     try {
-      const response = await api.delete(`/invoices/${id}`);
-      return response.data;
+      await api.delete(`/invoices/${id}`);
     } catch (error) {
-      console.error('Error deleting invoice:', error);
-      throw error;
-    }
-  },
-
-  // Send invoice via email
-  sendInvoiceEmail: async (id, emailData = {}) => {
-    try {
-      const response = await api.post(`/invoices/${id}/send-email`, emailData);
-      return response.data;
-    } catch (error) {
-      console.error('Error sending invoice email:', error);
+      console.error(`Error deleting invoice ${id}:`, error);
       throw error;
     }
   },
 
   // Mark invoice as paid
-  markAsPaid: async (id, paymentData = {}) => {
+  markAsPaid: async (id) => {
     try {
-      const response = await api.post(`/invoices/${id}/mark-as-paid`, paymentData);
+      const response = await api.post(`/invoices/${id}/mark-as-paid`);
       return response.data;
     } catch (error) {
-      console.error('Error marking invoice as paid:', error);
+      console.error(`Error marking invoice ${id} as paid:`, error);
       throw error;
     }
   },
 
-  // Record partial payment
-  recordPartialPayment: async (id, paymentData) => {
+  // Send invoice email
+  sendInvoiceEmail: async (id) => {
     try {
-      const response = await api.post(`/invoices/${id}/partial-payment`, paymentData);
+      const response = await api.post(`/invoices/${id}/send-email`);
       return response.data;
     } catch (error) {
-      console.error('Error recording partial payment:', error);
+      console.error(`Error sending invoice ${id} email:`, error);
       throw error;
     }
   },
 
-  // Download invoice PDF
-  downloadInvoicePdf: async (id) => {
+  // Get invoice stats
+  getInvoiceStats: async () => {
     try {
-      const response = await api.get(`/invoices/${id}/download-pdf`, {
-        responseType: 'blob'
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error downloading invoice PDF:', error);
-      throw error;
-    }
-  },
-
-  // Get invoice statistics
-  getInvoiceStats: async (filters = {}) => {
-    try {
-      const params = new URLSearchParams(filters);
-      const response = await api.get(`/invoices/stats?${params}`);
+      const response = await api.get('/invoices/stats');
       return response.data;
     } catch (error) {
       console.error('Error fetching invoice stats:', error);
-      throw error;
+      return {
+        totalInvoices: 0,
+        overdueCount: 0,
+        totalPaid: 0,
+        totalOutstanding: 0
+      };
     }
   },
 
   // Get invoices by customer
-  getInvoicesByCustomer: async (customerId, filters = {}) => {
+  getInvoicesByCustomer: async (customerId) => {
     try {
-      const params = new URLSearchParams(filters);
-      const response = await api.get(`/invoices/customer/${customerId}?${params}`);
+      const response = await api.get(`/invoices/customer/${customerId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching customer invoices:', error);
-      throw error;
+      console.error(`Error fetching invoices for customer ${customerId}:`, error);
+      return [];
     }
   },
 
   // Get overdue invoices
-  getOverdueInvoices: async (filters = {}) => {
+  getOverdueInvoices: async () => {
     try {
-      const params = new URLSearchParams(filters);
-      const response = await api.get(`/invoices/overdue?${params}`);
+      const response = await api.get('/invoices/overdue');
       return response.data;
     } catch (error) {
       console.error('Error fetching overdue invoices:', error);
-      throw error;
+      return [];
     }
   },
-
-  // Export invoices to Excel
-  exportInvoices: async (filters = {}) => {
-    try {
-      const params = new URLSearchParams(filters);
-      const response = await api.get(`/invoices/export?${params}`, {
-        responseType: 'blob'
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error exporting invoices:', error);
-      throw error;
-    }
-  },
-
-  // Bulk update invoice status
-  bulkUpdateStatus: async (invoiceIds, status) => {
-    try {
-      const response = await api.post('/invoices/bulk-update-status', {
-        invoiceIds,
-        status
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error bulk updating invoice status:', error);
-      throw error;
-    }
-  }
 };
 
 export default invoiceService;
