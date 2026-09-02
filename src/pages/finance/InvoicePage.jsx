@@ -23,7 +23,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import invoiceService from '../../services/invoice';
 import billingService from '../../services/billingService';
 import customerService from '../../services/customerService';
-import accountService from '../../services/account.service';
+import accountService from '../../services/account';
 
 // Constants
 const INVOICE_STATUS_OPTIONS = [
