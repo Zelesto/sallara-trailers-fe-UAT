@@ -8,19 +8,26 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   MenuItem, Select, FormControl, InputLabel, Alert,
   LinearProgress, Card, CardContent, Divider, Tab, Tabs,
-  Tooltip, Avatar, List, ListItem, ListItemText, ListItemAvatar,
+  Tooltip,
 } from '@mui/material';
 import {
-  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
-  Visibility as ViewIcon, Refresh as RefreshIcon,
-  Email as EmailIcon, Payment as PaymentIcon,
-  Search as SearchIcon, Receipt as ReceiptIcon,
-  Receipt as BillingIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  Refresh as RefreshIcon,
+  Email as EmailIcon,
+  Payment as PaymentIcon,
+  Search as SearchIcon,
+  Receipt as ReceiptIcon,
+  Receipt as BillingIcon,  // ✅ Using ReceiptIcon as BillingIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import invoiceService from '../../services/invoice';
+
+// ✅ Fixed imports to match your actual file names
+import invoiceService from '../../services/invoice.service';
 import billingService from '../../services/billingService';
 import customerService from '../../services/customerService';
 import accountService from '../../services/account';
@@ -40,7 +47,6 @@ const INVOICE_TYPE_OPTIONS = [
   { value: 'PAYABLE', label: 'Payable', color: 'secondary' },
 ];
 
-// Helper function
 const formatCurrency = (amount, currency = 'ZAR') => {
   if (amount === null || amount === undefined) amount = 0;
   return new Intl.NumberFormat('en-ZA', {
@@ -69,7 +75,7 @@ const InvoicePage = () => {
   // State
   const [tabValue, setTabValue] = useState(0);
   const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -112,44 +118,34 @@ const InvoicePage = () => {
       const response = await invoiceService.getAllInvoices();
       console.log('📋 Invoice API Response:', response);
       
-      // 🔥 SAFE DATA EXTRACTION - Handle multiple response formats
       let invoiceData = [];
+      let total = 0;
       
       if (response) {
-        // Case 1: Direct array
         if (Array.isArray(response)) {
           invoiceData = response;
-        }
-        // Case 2: Paginated response { content: [], totalElements: X }
-        else if (response.content && Array.isArray(response.content)) {
+          total = response.length;
+        } else if (response.content && Array.isArray(response.content)) {
           invoiceData = response.content;
-          setTotalElements(response.totalElements || response.content.length);
-        }
-        // Case 3: Nested data { data: [] }
-        else if (response.data) {
+          total = response.totalElements || response.content.length;
+        } else if (response.data) {
           if (Array.isArray(response.data)) {
             invoiceData = response.data;
-          } else if (response.data.content && Array.isArray(response.data.content)) {
+            total = response.data.length;
+          } else if (response.data.content) {
             invoiceData = response.data.content;
-            setTotalElements(response.data.totalElements || response.data.content.length);
-          }
-        }
-        // Case 4: Response is the data itself with content
-        else if (response._embedded) {
-          // Spring HATEOAS format
-          const embeddedKey = Object.keys(response._embedded)[0];
-          if (embeddedKey && Array.isArray(response._embedded[embeddedKey])) {
-            invoiceData = response._embedded[embeddedKey];
+            total = response.data.totalElements || response.data.content.length;
           }
         }
       }
       
-      console.log(`📋 Loaded ${invoiceData.length} invoices`);
       setInvoices(invoiceData);
+      setTotalElements(total);
+      console.log(`📋 Loaded ${invoiceData.length} invoices`);
       
     } catch (err) {
       console.error('❌ Error fetching invoices:', err);
-      setError('Failed to load invoices: ' + (err.message || 'Unknown error'));
+      setError('Failed to load invoices');
       setInvoices([]);
     } finally {
       setLoading(false);
@@ -158,17 +154,19 @@ const InvoicePage = () => {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const response = await customerService.getAllCustomers();
+      const response = await customerService.getAllCustomers(0, 100);
       console.log('👤 Customers API Response:', response);
       
       let customerData = [];
       if (response) {
-        if (Array.isArray(response)) {
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            customerData = response.data;
+          } else if (response.data.content) {
+            customerData = response.data.content;
+          }
+        } else if (Array.isArray(response)) {
           customerData = response;
-        } else if (response.content && Array.isArray(response.content)) {
-          customerData = response.content;
-        } else if (response.data) {
-          customerData = Array.isArray(response.data) ? response.data : [];
         }
       }
       setCustomers(customerData);
@@ -187,13 +185,13 @@ const InvoicePage = () => {
       if (response) {
         if (Array.isArray(response)) {
           accountData = response;
-        } else if (response.content && Array.isArray(response.content)) {
+        } else if (response.content) {
           accountData = response.content;
         } else if (response.data) {
           accountData = Array.isArray(response.data) ? response.data : [];
         }
       }
-      setAccounts(accountData.filter(acc => acc && acc.status === 'ACTIVE'));
+      setAccounts(accountData.filter(acc => acc && acc.active !== false));
     } catch (err) {
       console.error('Error fetching accounts:', err);
       setAccounts([]);
@@ -209,7 +207,7 @@ const InvoicePage = () => {
       if (response) {
         if (Array.isArray(response)) {
           loadsData = response;
-        } else if (response.content && Array.isArray(response.content)) {
+        } else if (response.content) {
           loadsData = response.content;
         } else if (response.data) {
           loadsData = Array.isArray(response.data) ? response.data : [];
@@ -241,7 +239,7 @@ const InvoicePage = () => {
     fetchLoadsWithBillings();
   }, [fetchInvoices, fetchCustomers, fetchAccounts, fetchLoadsWithBillings]);
 
-  // Handlers
+  // ========== HANDLERS ==========
   const handleTabChange = (event, newValue) => setTabValue(newValue);
   const handleChangePage = (event, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
@@ -344,7 +342,7 @@ const InvoicePage = () => {
       handleCloseDialog();
     } catch (err) {
       console.error('Error saving invoice:', err);
-      setError('Failed to save invoice: ' + (err.message || 'Unknown error'));
+      setError('Failed to save invoice');
     }
   };
 
@@ -355,7 +353,7 @@ const InvoicePage = () => {
         await fetchInvoices();
       } catch (err) {
         console.error('Error deleting invoice:', err);
-        setError('Failed to delete invoice: ' + (err.message || 'Unknown error'));
+        setError('Failed to delete invoice');
       }
     }
   };
@@ -412,7 +410,7 @@ const InvoicePage = () => {
       }
     } catch (err) {
       console.error('Error generating invoice:', err);
-      setError('Failed to generate invoice: ' + (err.message || 'Unknown error'));
+      setError('Failed to generate invoice');
     } finally {
       setGeneratingInvoice(false);
     }
@@ -441,7 +439,6 @@ const InvoicePage = () => {
 
   const totals = calculateTotals();
 
-  // Render loading
   if (loading && invoices.length === 0) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -575,7 +572,7 @@ const InvoicePage = () => {
           </TabPanel>
         ))}
 
-        {/* Invoice Dialog - Same as before */}
+        {/* Invoice Dialog */}
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
           <DialogTitle>
             {selectedInvoice ? 'Edit Invoice' : 'Create New Invoice'}
@@ -638,7 +635,7 @@ const InvoicePage = () => {
                     >
                       {customers.map((customer) => (
                         <MenuItem key={customer.id} value={customer.id}>
-                          {customer.name} ({customer.email})
+                          {customer.name || customer.customerName} ({customer.email})
                         </MenuItem>
                       ))}
                     </Select>
@@ -797,11 +794,11 @@ const InvoicePage = () => {
                   onChange={(e) => handleLoadSelect(e.target.value)}
                 >
                   {loadsWithBillings.map((load) => (
-                    <MenuItem key={load.loadId} value={load.loadId}>
+                    <MenuItem key={load.loadId || load.id} value={load.loadId || load.id}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                        <span>Load #{load.loadId}</span>
+                        <span>Load #{load.loadId || load.id}</span>
                         <span style={{ color: '#6B7280', fontSize: '0.85rem' }}>
-                          {load.trips || 0} trips · {formatCurrency(load.totalAmount || 0)}
+                          {load.totalTrips || 0} trips · {formatCurrency(load.total || load.totalAmount || 0)}
                         </span>
                       </Box>
                     </MenuItem>
@@ -837,7 +834,7 @@ const InvoicePage = () => {
                     <Grid item xs={6}>
                       <Typography variant="body2" color="text.secondary">Total (incl. VAT):</Typography>
                       <Typography variant="h6" color="primary.main" fontWeight={700}>
-                        {formatCurrency(loadBillingSummary.totalAmount || 0)}
+                        {formatCurrency(loadBillingSummary.totalAmount || loadBillingSummary.total || 0)}
                       </Typography>
                     </Grid>
                   </Grid>
@@ -884,16 +881,8 @@ const InvoiceList = ({
   onRefresh,
   showSource = false,
 }) => {
-  const formatCurrency = (amount, currency = 'ZAR') => {
-    if (amount === null || amount === undefined) amount = 0;
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
+  const displayInvoices = Array.isArray(invoices) ? invoices : [];
+  
   return (
     <Box>
       {/* Filters */}
@@ -941,7 +930,7 @@ const InvoiceList = ({
       {/* Table */}
       {loading ? (
         <LinearProgress sx={{ my: 4 }} />
-      ) : invoices.length === 0 ? (
+      ) : displayInvoices.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">No invoices found</Typography>
         </Paper>
@@ -964,7 +953,7 @@ const InvoiceList = ({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {invoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((invoice) => {
+                {displayInvoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((invoice) => {
                   const customer = customers.find(c => c.id === invoice.customerId);
                   const statusOption = INVOICE_STATUS_OPTIONS.find(s => s.value === invoice.status);
                   const typeOption = INVOICE_TYPE_OPTIONS.find(t => t.value === invoice.invoiceType);
@@ -995,7 +984,9 @@ const InvoiceList = ({
                         />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{customer?.name || invoice.customerName || invoice.customerId || 'N/A'}</Typography>
+                        <Typography variant="body2">
+                          {customer?.name || invoice.customerName || invoice.customerId || 'N/A'}
+                        </Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 150 }}>
@@ -1064,7 +1055,7 @@ const InvoiceList = ({
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={invoices.length}
+            count={displayInvoices.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={onPageChange}
