@@ -324,6 +324,7 @@ const menuSections = [
     icon: <MoneyIcon sx={{ color: '#6B7280' }} />,
     items: [
       { text: 'Finance Dashboard', icon: <DashboardIcon sx={{ color: '#6B7280' }} />, path: '/finance' },
+      { text: 'Billing', icon: <ReceiptIcon sx={{ color: '#6B7280' }} />, path: '/billing' },
       { text: 'Expenses', icon: <ReceiptLongIcon sx={{ color: '#6B7280' }} />, path: '/finance/expenses' },
       { text: 'Accounts', icon: <AccountBalanceIcon sx={{ color: '#6B7280' }} />, path: '/finance/accounts' },
       { text: 'Invoices', icon: <DescriptionIcon sx={{ color: '#6B7280' }} />, path: '/finance/invoices' },
