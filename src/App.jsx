@@ -57,6 +57,7 @@ const CustomerForm = lazy(() => import("./pages/customer/CustomerForm"));
 const CustomerDetails = lazy(() => import("./pages/customer/CustomerDetails"));
 
 const FinanceDashboard = lazy(() => import("./pages/finance/FinanceDashboard"));
+const BillingPage = lazy(() => import("./pages/Billing"));
 const AccountsPage = lazy(() => import("./pages/finance/AccountsPage"));
 const ExpensesPage = lazy(() => import("./pages/finance/ExpensePage"));
 const InvoicesPage = lazy(() => import("./pages/finance/InvoicePage"));
@@ -273,6 +274,7 @@ function App() {
 
                       {/* Finance */}
                       <Route path="finance" element={<FinanceDashboard />} />
+                      <Route path="billing" element={<BillingPage />} />
                       <Route path="finance/accounts" element={<AccountsPage />} />
                       <Route path="finance/expenses" element={<ExpensesPage />} />
                       <Route path="finance/invoices" element={<InvoicesPage />} />
@@ -285,7 +287,7 @@ function App() {
                       <Route path="reports" element={<Reports />} />
 
                       {/* Other */}
-                      <Route path="billing" element={<Billing />} />
+                      <Route path="billing" element={<BillingPage />} />
                       <Route path="logs" element={<Logs />} />
                       <Route path="inventory" element={<Inventory />} />
                       <Route path="inventory/movements" element={<MovementHistory />} />
