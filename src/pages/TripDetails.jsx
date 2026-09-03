@@ -37,6 +37,9 @@ import {
   Schedule as ScheduleIcon,
   Speed as SpeedIcon,
 } from '@mui/icons-material';
+import RouteIcon from '@mui/icons-material/Route';
+import ScaleIcon from '@mui/icons-material/Scale';
+import CraneIcon from '@mui/icons-material/Construction';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -329,6 +332,7 @@ const StatCard = React.memo(({
   );
 });
 
+
 // ============================================================
 // COMPONENT: FuelStatCard (matching Dashboard style)
 // ============================================================
@@ -377,6 +381,290 @@ const FuelStatCard = ({ icon: Icon, title, value, subtitle, color = 'primary' })
       </CardContent>
     </Card>
   );
+};
+
+
+// Add this billing tab to TripDetails.jsx
+
+const BillingTab = ({ tripId, trip }) => {
+    const [billing, setBilling] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const fetchBilling = useCallback(async () => {
+        if (!tripId) return;
+        setLoading(true);
+        try {
+            const data = await tripService.getTripBilling(tripId);
+            setBilling(data);
+        } catch (err) {
+            console.error('Error fetching billing:', err);
+            setError('Failed to load billing data');
+        } finally {
+            setLoading(false);
+        }
+    }, [tripId]);
+
+    useEffect(() => {
+        if (tripId) {
+            fetchBilling();
+        }
+    }, [tripId, fetchBilling]);
+
+    const handleRecalculate = async () => {
+        setLoading(true);
+        try {
+            await tripService.recalculateTripBilling(tripId);
+            await fetchBilling();
+        } catch (err) {
+            setError('Failed to recalculate billing');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+                <CircularProgress size={30} />
+            </Box>
+        );
+    }
+
+    if (!billing) {
+        return (
+            <Box textAlign="center" py={3}>
+                <MoneyIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                    No billing calculated yet
+                </Typography>
+                {trip.status === 'COMPLETED' && (
+                    <Button
+                        variant="contained"
+                        startIcon={<RefreshIcon />}
+                        onClick={handleRecalculate}
+                        sx={{ mt: 2 }}
+                    >
+                        Calculate Billing
+                    </Button>
+                )}
+            </Box>
+        );
+    }
+
+    const chargeItems = [
+        { label: 'Distance Charge', value: billing.distanceCharge, icon: RouteIcon },
+        { label: 'Tonnage Charge', value: billing.tonnageCharge, icon: ScaleIcon },
+        { label: 'Daily Rate Charge', value: billing.dailyRateCharge, icon: ScheduleIcon },
+        { label: 'Labour Charge', value: billing.labourCharge, icon: PersonIcon },
+        { label: 'Crane Charge', value: billing.craneCharge, icon: CraneIcon },
+        { label: 'Fixed Surcharge', value: billing.fixedSurcharge, icon: MoneyIcon },
+    ];
+
+    return (
+        <Box>
+            {/* Summary Cards */}
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={6} md={3}>
+                    <StatCard
+                        title="Distance"
+                        value={`${billing.distanceKm} km`}
+                        icon={RouteIcon}
+                        color="primary"
+                    />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                    <StatCard
+                        title="Tonnage"
+                        value={`${billing.tonnage} tons`}
+                        icon={ScaleIcon}
+                        color="secondary"
+                    />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                    <StatCard
+                        title="Days"
+                        value={billing.days}
+                        icon={ScheduleIcon}
+                        color="info"
+                    />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                    <StatCard
+                        title="Total"
+                        value={formatCurrency(billing.total)}
+                        icon={MoneyIcon}
+                        color="success"
+                    />
+                </Grid>
+            </Grid>
+
+            {/* Charges Breakdown */}
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                Charges Breakdown
+            </Typography>
+            <TableContainer component={Paper} sx={{ borderRadius: '12px', mb: 3 }}>
+                <Table size="small">
+                    <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+                        <TableRow>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem' }}>Charge Type</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem' }}>Rate</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem' }}>Quantity</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>Amount</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        <TableRow>
+                            <TableCell>
+                                <Stack direction="row" alignItems="center" spacing={0.5}>
+                                    <RouteIcon sx={{ fontSize: '0.8rem', color: '#4F46E5' }} />
+                                    <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>Distance</Typography>
+                                </Stack>
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem' }}>
+                                R{billing.baseRate}/km
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem' }}>
+                                {billing.distanceKm} km
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                {formatCurrency(billing.distanceCharge)}
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell>
+                                <Stack direction="row" alignItems="center" spacing={0.5}>
+                                    <ScaleIcon sx={{ fontSize: '0.8rem', color: '#EC4899' }} />
+                                    <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>Tonnage</Typography>
+                                </Stack>
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem' }}>
+                                R{billing.rate?.perTon}/ton
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem' }}>
+                                {billing.tonnage} tons
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                {formatCurrency(billing.tonnageCharge)}
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell>
+                                <Stack direction="row" alignItems="center" spacing={0.5}>
+                                    <ScheduleIcon sx={{ fontSize: '0.8rem', color: '#F59E0B' }} />
+                                    <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>Daily Rate</Typography>
+                                </Stack>
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem' }}>
+                                R{billing.rate?.perDay}/day
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem' }}>
+                                {billing.days} days
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                {formatCurrency(billing.dailyRateCharge)}
+                            </TableCell>
+                        </TableRow>
+                        {billing.labourCharge && billing.labourCharge.compareTo(BigDecimal.ZERO) > 0 && (
+                            <TableRow>
+                                <TableCell>
+                                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                                        <PersonIcon sx={{ fontSize: '0.8rem', color: '#10B981' }} />
+                                        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>Labour</Typography>
+                                    </Stack>
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '0.7rem' }}>
+                                    R{billing.rate?.labourHourlyRate}/hr
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '0.7rem' }}>
+                                    {billing.labourHours} hrs
+                                </TableCell>
+                                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                    {formatCurrency(billing.labourCharge)}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {billing.craneCharge && billing.craneCharge.compareTo(BigDecimal.ZERO) > 0 && (
+                            <TableRow>
+                                <TableCell>
+                                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                                        <CraneIcon sx={{ fontSize: '0.8rem', color: '#8B5CF6' }} />
+                                        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>Crane</Typography>
+                                    </Stack>
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '0.7rem' }}>
+                                    R{billing.rate?.craneHourlyRate}/hr
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '0.7rem' }}>
+                                    {billing.craneHours} hrs
+                                </TableCell>
+                                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                    {formatCurrency(billing.craneCharge)}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {billing.fixedSurcharge && billing.fixedSurcharge.compareTo(BigDecimal.ZERO) > 0 && (
+                            <TableRow>
+                                <TableCell>
+                                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                                        <MoneyIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
+                                        <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>Fixed Surcharge</Typography>
+                                    </Stack>
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '0.7rem' }}>-</TableCell>
+                                <TableCell sx={{ fontSize: '0.7rem' }}>-</TableCell>
+                                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                    {formatCurrency(billing.fixedSurcharge)}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                    <TableHead sx={{ bgcolor: '#F3F4F6' }}>
+                        <TableRow>
+                            <TableCell colSpan={3} sx={{ fontWeight: 700, fontSize: '0.75rem' }}>
+                                Subtotal
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>
+                                {formatCurrency(billing.subtotal)}
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell colSpan={3} sx={{ fontWeight: 600, fontSize: '0.7rem', color: '#6B7280' }}>
+                                VAT (15%)
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.7rem', color: '#6B7280' }}>
+                                {formatCurrency(billing.vat)}
+                            </TableCell>
+                        </TableRow>
+                        <TableRow sx={{ bgcolor: '#EEF2FF' }}>
+                            <TableCell colSpan={3} sx={{ fontWeight: 700, fontSize: '0.85rem', color: '#4F46E5' }}>
+                                Total
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#4F46E5' }}>
+                                {formatCurrency(billing.total)}
+                            </TableCell>
+                        </TableRow>
+                    </TableHead>
+                </Table>
+            </TableContainer>
+
+            {/* Footer info */}
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    Calculated: {formatDateTime(billing.calculatedAt)}
+                    {billing.calculatedBy && ` by User #${billing.calculatedBy}`}
+                </Typography>
+                <Button
+                    size="small"
+                    startIcon={<RefreshIcon sx={{ fontSize: '0.8rem' }} />}
+                    onClick={handleRecalculate}
+                    sx={{ fontSize: '0.7rem', textTransform: 'none' }}
+                >
+                    Recalculate
+                </Button>
+            </Stack>
+        </Box>
+    );
 };
 
 // ============================================================
@@ -1623,6 +1911,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                     } 
                   />
                   <Tab label="Documents & Notes" />
+                  <Tab label="Billing" />
                 </Tabs>
               </Box>
 
@@ -1719,6 +2008,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                 {activeTab === 3 && (
                   <DocumentsTab trip={trip} />
                 )}
+                {activeTab === 3 && <BillingTab tripId={tripId} trip={trip} />}
               </Box>
             </Box>
           ) : renderEmpty()}
