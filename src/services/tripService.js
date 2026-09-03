@@ -1037,6 +1037,26 @@ export const tripService = {
       throw handleApiError(error, `Deleting document ${documentId} for trip ${tripId}`);
     }
   },
+
+       getTripBilling: async (tripId) => {
+        const response = await api.get(`/api/billing/trip/${tripId}`);
+        return response.data;
+    },
+
+    recalculateTripBilling: async (tripId) => {
+        const response = await api.post(`/api/billing/trip/${tripId}/recalculate`);
+        return response.data;
+    },
+
+    getLoadBilling: async (loadId) => {
+        const response = await api.get(`/api/billing/load/${loadId}`);
+        return response.data;
+    },
+
+    recalculateLoadBilling: async (loadId) => {
+        const response = await api.post(`/api/billing/load/${loadId}/recalculate`);
+        return response.data;
+    },
 };
 
 // ============================================================
