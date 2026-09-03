@@ -57,7 +57,7 @@ const CustomerForm = lazy(() => import("./pages/customer/CustomerForm"));
 const CustomerDetails = lazy(() => import("./pages/customer/CustomerDetails"));
 
 const FinanceDashboard = lazy(() => import("./pages/finance/FinanceDashboard"));
-const BillingPage = lazy(() => import("./pages/Billing"));
+const BillingPage = lazy(() => import("./pages/Billing"));         
 const AccountsPage = lazy(() => import("./pages/finance/AccountsPage"));
 const ExpensesPage = lazy(() => import("./pages/finance/ExpensePage"));
 const InvoicesPage = lazy(() => import("./pages/finance/InvoicePage"));
@@ -74,7 +74,6 @@ const TripReports = lazy(() => import("./pages/TripReports"));
 const TripAnalytics = lazy(() => import("./pages/TripAnalytics"));
 
 const Logs = lazy(() => import("./pages/Logs"));
-const Billing = lazy(() => import("./pages/Billing"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const StockMovementForm = lazy(() => import("./pages/StockMovementForm"));
 const MovementHistory = lazy(() => import("./pages/MovementHistory"));
