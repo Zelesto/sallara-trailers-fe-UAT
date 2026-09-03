@@ -69,6 +69,7 @@ import {
   PersonAdd as PersonAddIcon,
   LocalShipping as LocalShippingIcon,
   Merge as MergeIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { inventoryMovementService } from '../../services/inventoryMovementService';
