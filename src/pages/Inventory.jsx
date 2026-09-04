@@ -246,9 +246,13 @@ const InventoryItemRow = ({
   onMovement
 }) => {
   const getStatusConfig = (quantity, minLevel) => {
-    if (quantity <= 0) {
+    // Ensure quantity and minLevel are numbers
+    const qty = Number(quantity) || 0;
+    const min = Number(minLevel) || 0;
+    
+    if (qty <= 0) {
       return { color: 'error', icon: <CancelIcon sx={{ fontSize: '0.8rem' }} />, label: 'Out of Stock' };
-    } else if (quantity <= minLevel) {
+    } else if (qty <= min) {
       return { color: 'warning', icon: <WarningIcon sx={{ fontSize: '0.8rem' }} />, label: 'Low Stock' };
     }
     return { color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '0.8rem' }} />, label: 'In Stock' };
@@ -256,6 +260,7 @@ const InventoryItemRow = ({
 
   const statusConfig = getStatusConfig(item.quantity, item.minLevel);
   const location = locations?.find(l => l.id === item.locationId);
+  const locationName = location?.name || 'N/A';
   const isConsumable = item.isConsumable !== false;
   const isDriverIssuable = item.isDriverIssuable !== false;
   const isVehicleIssuable = item.isVehicleIssuable !== false;
@@ -1107,14 +1112,38 @@ const Inventory = () => {
   };
 
   const handleReturnItems = (issue) => {
+    console.log('📦 Issue data:', issue);
+    console.log('📦 Issue items:', issue.items);
     setSelectedIssue(issue);
     const firstItem = issue.items?.[0];
-    setSelectedItem(firstItem);
-    setReturnFormData({
-      quantity: firstItem?.quantityIssued || 1,
-      condition: 'DAMAGED',
-      notes: '',
+
+    if (!firstItem) {
+    setError('No items found in this issue');
+    return;
+  }
+  
+  // CRITICAL: Use itemId (inventory item ID), not the issue item ID
+  const inventoryItemId = firstItem.itemId;
+  
+  // Find the actual inventory item to get its name
+  const inventoryItem = inventoryItems.find(i => i.id === inventoryItemId);
+  
+  console.log('📦 First item in issue:', firstItem);
+  console.log('📦 Inventory item ID to return:', inventoryItemId);
+  console.log('📦 Inventory item:', inventoryItem);
+    
+      setSelectedItem({
+      ...firstItem,
+      id: inventoryItemId,        // Use inventory item ID
+      itemId: inventoryItemId,    // Ensure itemId is set
+      name: inventoryItem?.name || firstItem.itemName || 'Unknown Item'
     });
+    setReturnFormData({
+        itemId: inventoryItemId,    // Store the inventory item ID
+        quantity: firstItem?.quantityIssued || firstItem?.quantity || 1,
+        condition: 'DAMAGED',
+        notes: '',
+      });
     setShowReturnDialog(true);
   };
 
@@ -1210,43 +1239,61 @@ const Inventory = () => {
   };
 
   const handleSubmitReturn = async () => {
-    try {
-      if (returnFormData.quantity <= 0) {
-        setError('Please enter a valid quantity');
-        return;
-      }
-
-      const itemId = selectedItem?.id || selectedIssueItem?.itemId;
-      if (!itemId) {
-        setError('No item selected for return');
-        return;
-      }
-
-      const returnPayload = [{
-        itemId: parseInt(itemId),
-        quantity: parseFloat(returnFormData.quantity),
-        condition: returnFormData.condition,
-        notes: returnFormData.notes,
-      }];
-
-      if (selectedIssue?.issueNumber?.startsWith('DI-')) {
-        await vehicleIssueService.returnDriverItems(selectedIssue.id, returnPayload);
-      } else {
-        await vehicleIssueService.returnItems(selectedIssue.id, returnPayload);
-      }
-
-      showSuccess('Items returned successfully');
-      setShowReturnDialog(false);
-      resetForms();
-      await loadData();
-      if (activeTab === 1) await loadVehicleIssues();
-      if (activeTab === 2) await loadDriverIssues();
-    } catch (err) {
-      console.error('Error returning items:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to return items';
-      setError(errorMessage);
+  try {
+    // Get the item ID from form data or selected item
+    const itemId = returnFormData.itemId || selectedItem?.itemId || selectedItem?.id;
+    
+    console.log('📤 Submitting return for itemId:', itemId);
+    console.log('📤 Selected item:', selectedItem);
+    console.log('📤 Return form data:', returnFormData);
+    
+    if (!itemId) {
+      setError('No item selected for return');
+      return;
     }
-  };
+    
+    if (returnFormData.quantity <= 0) {
+      setError('Please enter a valid quantity');
+      return;
+    }
+    
+    // Verify the item belongs to the issue
+    const validItemIds = selectedIssue?.items?.map(item => item.itemId) || [];
+    console.log('📤 Valid item IDs for this issue:', validItemIds);
+    
+    if (!validItemIds.includes(Number(itemId))) {
+      setError(`Item ${itemId} is not associated with this issue. Valid items: ${validItemIds.join(', ')}`);
+      return;
+    }
+    
+    const returnPayload = [{
+      itemId: Number(itemId),  // Use Number() to ensure it's a number
+      quantity: parseFloat(returnFormData.quantity),
+      condition: returnFormData.condition || 'DAMAGED',
+      notes: returnFormData.notes || '',
+    }];
+    
+    console.log('📤 Return payload:', returnPayload);
+    
+    // Submit the return
+    if (selectedIssue?.issueNumber?.startsWith('DI-')) {
+      await vehicleIssueService.returnDriverItems(selectedIssue.id, returnPayload);
+    } else {
+      await vehicleIssueService.returnItems(selectedIssue.id, returnPayload);
+    }
+    
+    showSuccess('Items returned successfully');
+    setShowReturnDialog(false);
+    resetForms();
+    await loadData();
+    if (activeTab === 1) await loadVehicleIssues();
+    if (activeTab === 2) await loadDriverIssues();
+  } catch (err) {
+    console.error('Error returning items:', err);
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to return items';
+    setError(errorMessage);
+  }
+};
 
   const handleSubmitSwap = async () => {
     try {
@@ -3028,67 +3075,77 @@ const Inventory = () => {
 
       {/* Return Dialog */}
       <Dialog open={showReturnDialog} onClose={() => setShowReturnDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Return Item</Typography>
-        </DialogTitle>
-        <DialogContent sx={{ p: 2.5 }}>
-          {selectedItem && (
-            <Stack spacing={2}>
-              <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
-                Returning: <strong>{selectedItem.name}</strong>
-                {selectedIssue && ` from ${selectedIssue.issueNumber}`}
-              </Alert>
-              <TextField
-                label="Quantity *"
-                type="number"
-                value={returnFormData.quantity}
-                onChange={(e) => setReturnFormData(prev => ({ ...prev, quantity: e.target.value }))}
-                fullWidth
-                size="small"
-                InputProps={{ inputProps: { min: 0.01 } }}
-              />
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
-                <Select
-                  value={returnFormData.condition}
-                  onChange={(e) => setReturnFormData(prev => ({ ...prev, condition: e.target.value }))}
-                  label="Condition"
-                  sx={{ fontSize: '0.8rem' }}
-                >
-                  <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
-                  <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
-                  <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
-                  <MenuItem value="FAULTY" sx={{ fontSize: '0.8rem' }}>Faulty</MenuItem>
-                  <MenuItem value="BROKEN" sx={{ fontSize: '0.8rem' }}>Broken</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                label="Notes"
-                value={returnFormData.notes}
-                onChange={(e) => setReturnFormData(prev => ({ ...prev, notes: e.target.value }))}
-                fullWidth
-                size="small"
-                multiline
-                rows={2}
-              />
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={() => setShowReturnDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleSubmitReturn}
+  <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+    <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>Return Item</Typography>
+  </DialogTitle>
+  <DialogContent sx={{ p: 2.5 }}>
+    {selectedItem && (
+      <Stack spacing={2}>
+        <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+          Returning: <strong>{selectedItem.name || selectedItem.itemName || 'Unknown Item'}</strong>
+          <br />
+          Item ID: {selectedItem.itemId || selectedItem.id}
+          {selectedIssue && ` from ${selectedIssue.issueNumber}`}
+          <br />
+          <small>Quantity Issued: {selectedItem.quantityIssued || selectedItem.quantity || 0}</small>
+        </Alert>
+        <TextField
+          label="Quantity *"
+          type="number"
+          value={returnFormData.quantity}
+          onChange={(e) => setReturnFormData(prev => ({ ...prev, quantity: e.target.value }))}
+          fullWidth
+          size="small"
+          InputProps={{ 
+            inputProps: { 
+              min: 0.01,
+              max: selectedItem.quantityIssued || selectedItem.quantity || 1
+            } 
+          }}
+          helperText={`Max: ${selectedItem.quantityIssued || selectedItem.quantity || 1}`}
+        />
+        <FormControl fullWidth size="small">
+          <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
+          <Select
+            value={returnFormData.condition}
+            onChange={(e) => setReturnFormData(prev => ({ ...prev, condition: e.target.value }))}
+            label="Condition"
             sx={{ fontSize: '0.8rem' }}
-            disabled={returnFormData.quantity <= 0}
           >
-            Return Item
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
+            <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
+            <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
+            <MenuItem value="FAULTY" sx={{ fontSize: '0.8rem' }}>Faulty</MenuItem>
+            <MenuItem value="BROKEN" sx={{ fontSize: '0.8rem' }}>Broken</MenuItem>
+          </Select>
+        </FormControl>
+        <TextField
+          label="Notes"
+          value={returnFormData.notes}
+          onChange={(e) => setReturnFormData(prev => ({ ...prev, notes: e.target.value }))}
+          fullWidth
+          size="small"
+          multiline
+          rows={2}
+        />
+      </Stack>
+    )}
+  </DialogContent>
+  <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+    <Button onClick={() => setShowReturnDialog(false)} size="small" sx={{ fontSize: '0.8rem' }}>
+      Cancel
+    </Button>
+    <Button
+      variant="contained"
+      size="small"
+      onClick={handleSubmitReturn}
+      sx={{ fontSize: '0.8rem' }}
+      disabled={returnFormData.quantity <= 0}
+    >
+      Return Item
+    </Button>
+  </DialogActions>
+</Dialog>
 
       {/* Swap Dialog */}
       <Dialog open={showSwapDialog} onClose={() => setShowSwapDialog(false)} maxWidth="sm" fullWidth>
