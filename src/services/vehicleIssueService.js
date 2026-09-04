@@ -171,21 +171,16 @@ swapDriverItem: async (issueId, swapData) => {
   /**
    * Return items from a vehicle issue
    */
-  returnItems: async (issueId, returnData) => {
-    try {
-      console.log('📤 Returning items from issue:', issueId, returnData);
-      const response = await api.post(`/inventory/vehicle-issues/${issueId}/return`, returnData);
-      console.log('📥 Return response:', response);
-      
-      const result = response.data || response;
-      console.log('📥 Return result:', result);
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error returning items:', error);
-      throw error;
-    }
-  },
+  returnItems: async (issueId, items) => {
+  try {
+    // items should be an array of { itemId, quantity, condition, notes }
+    const response = await api.post(`/inventory/vehicle-issues/${issueId}/return`, items);
+    return response;
+  } catch (error) {
+    console.error('Error returning items:', error);
+    throw error;
+  }
+},
 
   /**
    * Get vehicle issues by vehicle ID
