@@ -86,7 +86,7 @@ import { vehicleService } from '../services/vehicleService';
 import { driverService } from '../services/driverService';
 import MovementHistory from './MovementHistory';
 import { inventoryMovementService } from '../services/inventoryMovementService';
-import StockOnHand from '../components/StockOnHand
+import StockOnHand from '../components/StockOnHand;
 
 // ============================================================
 // STAT CARD - Matching Dashboard
