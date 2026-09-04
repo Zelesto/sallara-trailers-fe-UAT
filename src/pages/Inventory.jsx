@@ -3073,6 +3073,9 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
 
+        console.log('All vehicle issues:', vehicleIssues);
+        console.log('Issue 4 details:', vehicleIssues.find(i => i.id === 4));
+
       {/* Return Dialog */}
       <Dialog open={showReturnDialog} onClose={() => setShowReturnDialog(false)} maxWidth="sm" fullWidth>
   <DialogTitle sx={{ py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider' }}>
