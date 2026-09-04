@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: trailers-frontend
+    env: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+    # ✅ Add this for caching
+    buildFilter:
+      paths:
+        - package.json
+        - package-lock.json
+        - src/**/*
+        - public/**/*
+    # ✅ Cache node_modules between builds
+    cache:
+      paths:
+        - node_modules
+        - .npm
