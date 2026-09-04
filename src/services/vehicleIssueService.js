@@ -197,6 +197,34 @@ swapDriverItem: async (issueId, swapData) => {
     }
   },
 
+  
+  /**
+   * Get SOH by Holder
+   */
+  
+  getStockOnHand: async (filters = {}) => {
+  try {
+    const params = new URLSearchParams();
+    if (filters.holderType) params.append('holderType', filters.holderType);
+    if (filters.holderId) params.append('holderId', filters.holderId);
+    if (filters.itemId) params.append('itemId', filters.itemId);
+    if (filters.category) params.append('category', filters.category);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.showOnlyOutstanding) params.append('showOnlyOutstanding', 'true');
+    
+    const queryString = params.toString();
+    const url = queryString ? `/inventory/stock-on-hand?${queryString}` : '/inventory/stock-on-hand';
+    
+    const response = await api.get(url);
+    return response;
+  } catch (error) {
+    console.error('Error fetching stock on hand:', error);
+    throw error;
+  }
+},
+  
+
   /**
    * Get vehicle issue by ID
    */
