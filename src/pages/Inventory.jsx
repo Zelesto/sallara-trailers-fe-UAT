@@ -2092,6 +2092,11 @@ const Inventory = () => {
           <MovementHistory />
         </TabPanel>
 
+        {/* Tab: SOH */}
+        <TabPanel value={activeTab} index={4}>
+          <StockOnHand />
+        </TabPanel>
+
         {/* ==================== DIALOGS ==================== */}
 
         {/* Add/Edit Item Dialog - UPDATED WITH SKU AND BETTER ALIGNMENT */}
