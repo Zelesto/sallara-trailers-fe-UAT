@@ -86,6 +86,7 @@ import { vehicleService } from '../services/vehicleService';
 import { driverService } from '../services/driverService';
 import MovementHistory from './MovementHistory';
 import { inventoryMovementService } from '../services/inventoryMovementService';
+import StockOnHand from '../../StockOnHand';
 
 // ============================================================
 // STAT CARD - Matching Dashboard
@@ -1592,44 +1593,51 @@ const Inventory = () => {
         )}
 
         {/* Tabs */}
-        <Paper
-          elevation={0}
-          sx={{
-            mb: { xs: 2, sm: 2.5, md: 3 },
-            borderRadius: { xs: '12px', sm: '16px' },
-            border: '1px solid #ECECEC',
-            bgcolor: '#FFFFFF',
-            width: '100%',
-            overflow: 'hidden',
-          }}
-        >
-          <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 36 }}>
-            <Tab 
-              label="Items" 
-              icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />} 
-              iconPosition="start" 
-              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
-            />
-            <Tab 
-              label={`Vehicle Issues (${vehicleIssues.length})`} 
-              icon={<DirectionsCar sx={{ fontSize: '0.9rem' }} />} 
-              iconPosition="start" 
-              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
-            />
-            <Tab 
-              label={`Driver Issues (${driverIssues.length})`} 
-              icon={<Person sx={{ fontSize: '0.9rem' }} />} 
-              iconPosition="start" 
-              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
-            />
-            <Tab 
-              label="Stock Movements" 
-              icon={<SwapHoriz sx={{ fontSize: '0.9rem' }} />} 
-              iconPosition="start" 
-              sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
-            />
-          </Tabs>
-        </Paper>
+        {/* Tabs */}
+<Paper
+  elevation={0}
+  sx={{
+    mb: { xs: 2, sm: 2.5, md: 3 },
+    borderRadius: { xs: '12px', sm: '16px' },
+    border: '1px solid #ECECEC',
+    bgcolor: '#FFFFFF',
+    width: '100%',
+    overflow: 'hidden',
+  }}
+>
+  <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 36 }}>
+    <Tab 
+      label="Items" 
+      icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />} 
+      iconPosition="start" 
+      sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+    />
+    <Tab 
+      label={`Vehicle Issues (${vehicleIssues.length})`} 
+      icon={<DirectionsCar sx={{ fontSize: '0.9rem' }} />} 
+      iconPosition="start" 
+      sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+    />
+    <Tab 
+      label={`Driver Issues (${driverIssues.length})`} 
+      icon={<Person sx={{ fontSize: '0.9rem' }} />} 
+      iconPosition="start" 
+      sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+    />
+    <Tab 
+      label="Stock Movements" 
+      icon={<SwapHoriz sx={{ fontSize: '0.9rem' }} />} 
+      iconPosition="start" 
+      sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+    />
+    <Tab 
+      label="Stock on Hand" 
+      icon={<LocationOn sx={{ fontSize: '0.9rem' }} />} 
+      iconPosition="start" 
+      sx={{ fontSize: '0.75rem', minHeight: 36, textTransform: 'none' }} 
+    />
+  </Tabs>
+</Paper>
 
         {/* Tab: Items */}
         <TabPanel value={activeTab} index={0}>
