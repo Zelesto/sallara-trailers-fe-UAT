@@ -1,6 +1,17 @@
 // src/services/fuelService.js
 import api from './api';
 import dayjs from 'dayjs';
+import { strictNumber, toBackendLocalDateTime } from '../utils/fuelSlipRules';
+
+// "12,5" / "12abc" used to be saved as 12 by parseFloat; now they are rejected (null)
+const toNumberOrNull = (v) => {
+  const n = strictNumber(v);
+  return n === null || Number.isNaN(n) ? null : n;
+};
+const toIdOrNull = (v) => {
+  const n = toNumberOrNull(v);
+  return n !== null && Number.isInteger(n) && n > 0 ? n : null;
+};
 
 /* ============================================================
    UTILITY FUNCTIONS
@@ -67,16 +78,19 @@ const handleApiError = (error, context = '') => {
 /**
  * Build fuel slip payload with common fields
  */
-// src/services/fuelService.js
+// NOTE: `finalized` is deliberately NOT sent. Finalizing happens only through
+// POST /fuel/slips/{id}/finalize (month close). Sending `finalized: data.finalized ?? false`
+// on every create/update meant an ordinary edit could UN-finalize a closed slip.
 const buildFuelSlipPayload = (data) => ({
   slipNumber: sanitizeField(data.slipNumber),
-  transactionDate: data.transactionDate, // ✅ Pass as-is, already formatted
-  vehicleId: data.vehicleId ? parseInt(data.vehicleId, 10) : null,
+  // local date-time without timezone (was toISOString(): UTC, shifted SA slips by -2h)
+  transactionDate: toBackendLocalDateTime(data.transactionDate),
+  vehicleId: toIdOrNull(data.vehicleId),
   vehicleRegistration: sanitizeField(data.vehicleRegistration),
-  driverId: data.driverId ? parseInt(data.driverId, 10) : null,
+  driverId: toIdOrNull(data.driverId),
   driverName: sanitizeField(data.driverName),
-  quantity: data.quantity ? parseFloat(data.quantity) : null,
-  unitPrice: data.unitPrice ? parseFloat(data.unitPrice) : null,
+  quantity: toNumberOrNull(data.quantity),
+  unitPrice: toNumberOrNull(data.unitPrice),
   stationName: sanitizeField(data.stationName),
   location: sanitizeField(data.location),
   pumpNumber: sanitizeField(data.pumpNumber),
@@ -84,11 +98,10 @@ const buildFuelSlipPayload = (data) => ({
   fuelType: sanitizeField(data.fuelType),
   paymentMethod: sanitizeField(data.paymentMethod),
   receiptNumber: sanitizeField(data.receiptNumber),
-  odometerReading: data.odometerReading ? parseFloat(data.odometerReading) : null,
-  tripId: data.tripId ? parseInt(data.tripId, 10) : null,
-  loadId: data.loadId ? parseInt(data.loadId, 10) : null,
-  fuelSourceId: data.fuelSourceId ? parseInt(data.fuelSourceId, 10) : null,
-  finalized: data.finalized ?? false,
+  odometerReading: toNumberOrNull(data.odometerReading),
+  tripId: toIdOrNull(data.tripId),
+  loadId: toIdOrNull(data.loadId),
+  fuelSourceId: toIdOrNull(data.fuelSourceId),
 });
 
 /* ============================================================
@@ -135,7 +148,29 @@ export const fuelService = {
         return data;
       }
       if (data?.content && Array.isArray(data.content)) {
-        return data.content;
+        // Paged response: fetch the remaining pages too (previously only page 1 was shown,
+        // so totals and the month view silently missed slips). Capped at 10,000 rows.
+        const all = [...data.content];
+        const seen = new Set(all.map((s) => s?.id).filter((x) => x != null));
+        const totalPages = Number(data.totalPages) || 1;
+        const pageSize = Number(data.size) || data.content.length || 20;
+        for (let page = 1; page < totalPages && all.length < 10000; page += 1) {
+          const next = new URLSearchParams(params);
+          next.set('page', String(page));
+          next.set('size', String(pageSize));
+          const pageData = unwrap(await api.get(`/fuel/slips?${next.toString()}`));
+          const rows = Array.isArray(pageData) ? pageData : (pageData?.content || []);
+          let added = 0;
+          for (const s of rows) {
+            if (s?.id == null || !seen.has(s.id)) {
+              if (s?.id != null) seen.add(s.id);
+              all.push(s);
+              added += 1;
+            }
+          }
+          if (rows.length === 0 || added === 0) break; // server ignored paging -> stop
+        }
+        return all;
       }
       if (data?.data && Array.isArray(data.data)) {
         return data.data;
@@ -453,6 +488,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000); // free the blob memory
       
       return true;
     } catch (error) {
@@ -480,6 +516,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000); // free the blob memory
       
       return true;
     } catch (error) {
