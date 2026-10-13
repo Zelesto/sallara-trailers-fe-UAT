@@ -6,6 +6,7 @@ import TripNoticeWizard from '../components/TripNoticeWizard';
 import TripForm from './TripForm';
 import TripMetricsForm from './TripMetricsForm';
 import TripDetails from './TripDetails';
+import ExportButton from '../components/ExportButton';
 
 import {
   Box,
@@ -127,7 +128,10 @@ const STATUS_KEYS = {
   CAN_REPORT_INCIDENT: ['IN_PROGRESS', 'ACTIVE'],
   CAN_FINALIZE: ['COMPLETED'],
   CAN_EDIT: ['DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 'ACTIVE', 'PENDING'],
-  CAN_DELETE: ['DRAFT', 'PLANNED', 'ASSIGNED', 'PENDING'],
+  // Agreed rule: only trips that have not progressed may be deleted (backend enforces the same).
+  CAN_DELETE: ['DRAFT', 'PLANNED'],
+  // Everything else that is still open is CANCELLED instead, so history/links are kept.
+  CAN_CANCEL: ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'ACTIVE', 'ON_HOLD'],
   CAN_METRICS: ['IN_PROGRESS', 'ACTIVE', 'COMPLETED', 'FINALIZED'],
 };
 
@@ -338,19 +342,41 @@ const InfoRow = ({ label, value }) => (
 // ============================================================
 const useSimpleNotification = () => {
   const [notification, setNotification] = useState(null);
-  const showNotification = useCallback((message, type = 'info') => {
-    setNotification({ message, type });
-    const timer = setTimeout(() => setNotification(null), 3000);
-    return () => clearTimeout(timer);
+  const timerRef = useRef(null);
+
+  const clearNotification = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setNotification(null);
   }, []);
-  return { notification, showNotification };
+
+  const showNotification = useCallback((message, type = 'info') => {
+    // a new message replaces the old one and gets its own full display time
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setNotification({ message, type });
+    timerRef.current = setTimeout(() => setNotification(null), type === 'error' ? 6000 : 3000);
+  }, []);
+
+  useEffect(() => () => timerRef.current && clearTimeout(timerRef.current), []);
+
+  return { notification, showNotification, clearNotification };
+};
+
+// Builds the /api/trips query params from the screen filters (shared by list + export)
+const buildListParams = ({ search, status, city, customer }) => {
+  const params = {};
+  if (status && status !== 'all' && status !== 'undefined') params.status = status;
+  if (search) params.search = search;
+  if (city) params.city = city;
+  if (customer) params.customer = customer;
+  return params;
 };
 
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
 function TripList() {
-  const { notification, showNotification } = useSimpleNotification();
+  const { notification, showNotification, clearNotification } = useSimpleNotification();
   
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -370,8 +396,12 @@ function TripList() {
   
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Cancel Dialog
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
   
   // End Trip Dialog
   const [endDialogOpen, setEndDialogOpen] = useState(false);
@@ -383,6 +413,7 @@ function TripList() {
   // Metrics cache for performance
   const metricsCache = useRef({});
   const fetchTimerRef = useRef(null);
+  const skipFirstDebounce = useRef(true);
 
   const uniqueCities = useMemo(
     () => [...new Set(trips.map(t => t.originCity).filter(Boolean))],
@@ -412,15 +443,8 @@ function TripList() {
         page: Number(page),
         size: Number(size),
         sort: 'id,desc',
+        ...buildListParams({ search, status, city, customer }),
       };
-      
-      if (status && status !== 'all' && status !== 'undefined') {
-        params.status = status;
-      }
-      
-      if (search) params.search = search;
-      if (city) params.city = city;
-      if (customer) params.customer = customer;
 
       console.log('📤 Fetching trips with params:', params);
 
@@ -480,8 +504,12 @@ function TripList() {
     fetchTrips({ page: 0, status: 'all' });
   }, []);
 
-  // Debounced filter changes
+  // Debounced filter changes (skipped on mount - the initial fetch above already ran)
   useEffect(() => {
+    if (skipFirstDebounce.current) {
+      skipFirstDebounce.current = false;
+      return undefined;
+    }
     if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     fetchTimerRef.current = setTimeout(() => fetchTrips({ page: 0 }), 400);
     return () => clearTimeout(fetchTimerRef.current);
@@ -495,9 +523,14 @@ function TripList() {
     if (!window.confirm(`Start trip #${trip.tripNumber}?`)) return;
     
     const startOdometer = prompt('Enter starting odometer reading (km):');
-    if (!startOdometer) return;
+    if (startOdometer === null || startOdometer.trim() === '') return;
+    const startOdo = parseFloat(startOdometer.replace(',', '.'));
+    if (!Number.isFinite(startOdo) || startOdo < 0) {
+      showNotification('Please enter a valid odometer reading (number of km).', 'error');
+      return;
+    }
 
-    tripService.startTrip(trip.id, { actualStartOdometer: parseFloat(startOdometer) })
+    tripService.startTrip(trip.id, { actualStartOdometer: startOdo })
       .then(() => {
         showNotification('Trip started successfully!', 'success');
         metricsCache.current = {};
@@ -505,7 +538,7 @@ function TripList() {
       })
       .catch(err => {
         console.error('Error starting trip:', err);
-        showNotification(err.message || 'Failed to start trip', 'error');
+        showNotification(err.userMessage || err.message || 'Failed to start trip', 'error');
       });
   };
 
@@ -629,28 +662,29 @@ function TripList() {
       fetchTrips({ page: pagination.page });
     } catch (err) {
       console.error('Error finalizing trip:', err);
-      showNotification('Failed to finalize trip', 'error');
+      showNotification(err.userMessage || err.message || 'Failed to finalize trip', 'error');
     }
   };
 
-  const handleDeleteClick = (id) => {
-    setDeleteId(id);
+  const handleDeleteClick = (trip) => {
+    setDeleteTarget(trip);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteId) return;
+    if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await tripService.deleteTrip(deleteId);
+      await tripService.deleteTrip(deleteTarget.id);
       setDeleteDialogOpen(false);
-      setDeleteId(null);
-      showNotification('Trip deleted successfully', 'success');
+      setDeleteTarget(null);
+      showNotification(`Trip ${deleteTarget.tripNumber || ''} deleted`, 'success');
       metricsCache.current = {};
       fetchTrips({ page: 0 });
     } catch (err) {
       console.error('Error deleting trip:', err);
-      showNotification('Failed to delete trip', 'error');
+      // show the server's reason (e.g. status does not allow delete / no permission)
+      showNotification(err.userMessage || err.message || 'Failed to delete trip', 'error');
     } finally {
       setDeleting(false);
     }
@@ -658,7 +692,24 @@ function TripList() {
 
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
-    setDeleteId(null);
+    setDeleteTarget(null);
+  };
+
+  const handleCancelTripConfirm = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      await tripService.cancelTrip(cancelTarget.id);
+      showNotification(`Trip ${cancelTarget.tripNumber || ''} cancelled`, 'success');
+      setCancelTarget(null);
+      metricsCache.current = {};
+      fetchTrips({ page: pagination.page });
+    } catch (err) {
+      console.error('Error cancelling trip:', err);
+      showNotification(err.userMessage || err.message || 'Failed to cancel trip', 'error');
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const handleClearFilters = () => {
@@ -705,9 +756,59 @@ function TripList() {
       canFinalize: STATUS_KEYS.CAN_FINALIZE.includes(trip.status),
       canEdit: STATUS_KEYS.CAN_EDIT.includes(trip.status),
       canDelete: STATUS_KEYS.CAN_DELETE.includes(trip.status),
+      canCancel: STATUS_KEYS.CAN_CANCEL.includes(trip.status),
       canMetrics: STATUS_KEYS.CAN_METRICS.includes(trip.status),
     };
   };
+
+  // ============================================================
+  // EXPORT (all trips matching the current filters, not just this page)
+  // ============================================================
+  const toNum = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const fmtDate = (d) => (d ? dayjs(d).format('YYYY-MM-DD') : '');
+
+  const exportColumns = [
+    { header: 'Trip #', value: (t) => t.tripNumber, width: 14 },
+    { header: 'Reference', value: (t) => t.referenceNumber, width: 14 },
+    { header: 'Status', value: (t) => STATUS_CONFIG[t.status]?.label || t.status, width: 14 },
+    { header: 'Customer', value: (t) => getTripDisplay(t).customerName, width: 24 },
+    { header: 'Vehicle', value: (t) => getTripDisplay(t).vehicleReg, width: 14 },
+    { header: 'Driver', value: (t) => getTripDisplay(t).driverName, width: 20 },
+    { header: 'Origin City', value: (t) => t.originCity, width: 16 },
+    { header: 'Origin Address', value: (t) => t.originLocation, width: 30 },
+    { header: 'Destination City', value: (t) => t.destinationCity, width: 16 },
+    { header: 'Destination Address', value: (t) => t.destinationLocation, width: 30 },
+    { header: 'Planned Distance (km)', value: (t) => toNum(t.plannedDistanceKm), type: 'number', decimals: 1 },
+    {
+      header: 'Actual Distance (km)',
+      value: (t) => toNum(metricsCache.current[t.id]?.totalDistanceKm ?? t.totalDistanceKm),
+      type: 'number',
+      decimals: 1,
+    },
+    { header: 'Planned Start', value: (t) => fmtDate(t.plannedStartDate), width: 12 },
+    { header: 'Planned End', value: (t) => fmtDate(t.plannedEndDate), width: 12 },
+    { header: 'Start Odometer', value: (t) => toNum(t.actualStartOdometer), type: 'number', decimals: 1 },
+    { header: 'End Odometer', value: (t) => toNum(t.actualEndOdometer), type: 'number', decimals: 1 },
+  ];
+
+  const exportSubtitle = [
+    statusFilter !== 'all' && `Status: ${STATUS_CONFIG[statusFilter]?.label || statusFilter}`,
+    searchText && `Search: "${searchText}"`,
+    cityFilter && `City: ${cityFilter}`,
+    customerFilter && `Customer: ${customerFilter}`,
+    `Exported ${dayjs().format('YYYY-MM-DD HH:mm')}`,
+  ]
+    .filter(Boolean)
+    .join('  •  ');
+
+  const fetchExportRows = () =>
+    tripService.fetchAllTrips(
+      buildListParams({ search: searchText, status: statusFilter, city: cityFilter, customer: customerFilter })
+    );
 
   const getTripCounts = useMemo(() => {
     const counts = { total: trips.length };
@@ -761,7 +862,7 @@ function TripList() {
           <Alert 
             severity={notification.type} 
             sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }}
-            onClose={() => setNotification(null)}
+            onClose={clearNotification}
           >
             {notification.message}
           </Alert>
@@ -834,6 +935,15 @@ function TripList() {
             >
               Refresh
             </Button>
+            <ExportButton
+              title="Trips"
+              columns={exportColumns}
+              fetchRows={fetchExportRows}
+              subtitle={exportSubtitle}
+              disabled={pagination.total === 0}
+              onError={(msg) => showNotification(msg, 'error')}
+              onSuccess={(msg) => showNotification(msg, 'success')}
+            />
             <Button
               variant="contained"
               startIcon={<AddIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
@@ -881,7 +991,7 @@ function TripList() {
               value={getTripCounts.ACTIVE || 0}
               icon={DirectionsCar}
               color="success"
-              subtitle="Currently active"
+              subtitle="On this page"
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
@@ -890,7 +1000,7 @@ function TripList() {
               value={getTripCounts.IN_PROGRESS || 0}
               icon={PendingIcon}
               color="warning"
-              subtitle="Ongoing trips"
+              subtitle="On this page"
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }} sx={{ display: 'flex' }}>
@@ -899,7 +1009,7 @@ function TripList() {
               value={getTripCounts.COMPLETED || 0}
               icon={CheckCircleIcon}
               color="purple"
-              subtitle="Finished trips"
+              subtitle="On this page"
             />
           </Grid>
         </Grid>
@@ -1290,12 +1400,25 @@ function TripList() {
                               </Tooltip>
                             )}
 
+                            {display.canCancel && (
+                              <Tooltip title="Cancel Trip" arrow>
+                                <IconButton 
+                                  size="small" 
+                                  color="warning" 
+                                  onClick={() => setCancelTarget(trip)} 
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <CancelIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+
                             {display.canDelete && (
                               <Tooltip title="Delete Trip" arrow>
                                 <IconButton 
                                   size="small" 
                                   color="error" 
-                                  onClick={() => handleDeleteClick(trip.id)} 
+                                  onClick={() => handleDeleteClick(trip)} 
                                   sx={{ p: { xs: 0.25, sm: 0.5 } }}
                                 >
                                   <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
@@ -1489,7 +1612,9 @@ function TripList() {
           </DialogTitle>
           <DialogContent>
             <DialogContentText sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
-              Are you sure you want to delete this trip? This action cannot be undone.
+              Delete trip <strong>{deleteTarget?.tripNumber}</strong>? This permanently removes the trip and
+              cannot be undone. Only Draft and Planned trips can be deleted - use Cancel for trips that have
+              already progressed.
             </DialogContentText>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
@@ -1509,6 +1634,46 @@ function TripList() {
               sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
             >
               {deleting ? <CircularProgress size={18} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Cancel Trip Dialog */}
+        <Dialog
+          open={Boolean(cancelTarget)}
+          onClose={() => !cancelling && setCancelTarget(null)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+            <CancelIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'warning.main' }} />
+            Cancel Trip
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+              Cancel trip <strong>{cancelTarget?.tripNumber}</strong>
+              {cancelTarget?.status ? ` (currently ${STATUS_CONFIG[cancelTarget.status]?.label || cancelTarget.status})` : ''}?
+              The trip and its history are kept, but it can no longer be started, ended or edited.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button
+              onClick={() => setCancelTarget(null)}
+              size="small"
+              disabled={cancelling}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+            >
+              Keep Trip
+            </Button>
+            <Button
+              onClick={handleCancelTripConfirm}
+              variant="contained"
+              color="warning"
+              disabled={cancelling}
+              size="small"
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+            >
+              {cancelling ? <CircularProgress size={18} /> : 'Cancel Trip'}
             </Button>
           </DialogActions>
         </Dialog>
