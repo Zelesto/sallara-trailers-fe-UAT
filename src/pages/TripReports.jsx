@@ -39,7 +39,7 @@ import {
   Route as RouteIcon,
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
-import ReportViewer from '../components/ReportViewer';
+import ReportDialog from '../components/ReportDialog';
 import ExportButton from '../components/ExportButton';
 import { reportService } from '../services/reportService';
 import { vehicleService } from '../services/vehicleService';
@@ -589,6 +589,7 @@ const TripReports = () => {
       // ✅ Check if we got valid HTML content
       if (!htmlContent || typeof htmlContent !== 'string') {
         setReportViewerError('Failed to generate report: No content received');
+        setError('Failed to generate report: No content received');
         setReportViewerLoading(false);
         return;
       }
@@ -604,6 +605,7 @@ const TripReports = () => {
       } else {
         console.error('❌ Content is not HTML:', htmlContent.substring(0, 200));
         setReportViewerError('Generated content is not valid HTML. Please try again.');
+        setError('Generated content is not valid HTML. Please try again.');
         setReportViewerLoading(false);
       }
 
@@ -722,14 +724,14 @@ const TripReports = () => {
         {/* ============================================================
             REPORT VIEWER
             ============================================================ */}
-        <ReportViewer
+        {/* Full-screen report (was ReportViewer, which showed at the side of the screen) */}
+        <ReportDialog
           open={showReportViewer}
           onClose={handleCloseViewer}
           reportType={reportViewerType}
           title={reportViewerTitle}
-          htmlContent={reportViewerData}
-          loading={reportViewerLoading}
-          error={reportViewerError}
+          html={reportViewerData}
+          warning={showReportViewer ? reportViewerError : null}
         />
         
         {/* ERROR DISPLAY */}
