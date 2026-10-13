@@ -1,4 +1,4 @@
-// src/pages/FuelSlips.jsx - Complete updated version with vehicle type fetching
+// src/pages/FuelSlips.jsx
 import React, { useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
@@ -71,6 +71,16 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { tripService } from '../services/tripService';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
+import ExportButton from '../components/ExportButton';
+import {
+  fuelSlipStatus,
+  fuelCategory,
+  isFuelSlipLocked,
+  periodRange,
+  inPeriod,
+  slipRegistration,
+  buildFuelSlipColumns,
+} from '../utils/fuelSlipRules';
 
 import {
   FUEL_TYPES,
@@ -113,23 +123,12 @@ const formatDate = (date) => {
   });
 };
 
-// Get fuel slip status
-const getFuelSlipStatus = (slip) => {
-  if (slip.verifiedBy) return 'VERIFIED';
-  if (slip.finalized) return 'FINALIZED';
-  return 'PENDING';
-};
+// Status rules live in utils/fuelSlipRules.js
+const getFuelSlipStatus = fuelSlipStatus;
 
-// ============================================================
-// HARDCODED VEHICLE TYPE MAPPING - UPDATE THIS WITH YOUR VEHICLES
-// ============================================================
-const VEHICLE_TYPE_OVERRIDES = {
-  1: 'TRUCK',   // Vehicle ID 1 - Update based on your actual vehicles
-  2: 'VAN',     // Vehicle ID 2
-  3: 'TRUCK',   // LG20LYGP - Truck
-  4: 'VAN',     // Vehicle ID 4
-  5: 'VAN',     // ABC123GP - Van (NISSAN NP200)
-};
+// The hard-coded VEHICLE_TYPE_OVERRIDES (vehicle ID -> TRUCK/VAN) were removed: IDs differ
+// between UAT and live, and the overrides were checked BEFORE the vehicle's real type, so
+// Truck / Van fuel totals were wrong. The real vehicle type is used now (see fuelCategory).
 
 // ============================================================
 // STAT CARD COMPONENT
@@ -354,45 +353,9 @@ const PERIOD_OPTIONS = [
   { value: 'custom', label: 'Custom Range' },
 ];
 
-const getDateRange = (period, customStart, customEnd) => {
-  const now = new Date();
-  const start = new Date(now);
-  const end = new Date(now);
-  
-  switch (period) {
-    case 'today':
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case 'week':
-      start.setDate(now.getDate() - now.getDay());
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case 'month':
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case 'quarter':
-      const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
-      start.setMonth(quarterMonth, 1);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case 'year':
-      start.setMonth(0, 1);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case 'custom':
-      return { start: customStart ? new Date(customStart) : null, end: customEnd ? new Date(customEnd) : null };
-    default:
-      return { start: null, end: null };
-  }
-  
-  return { start, end };
-};
+// Period rules in utils/fuelSlipRules.js: custom end date now includes the whole day,
+// and a one-sided custom range works.
+const getDateRange = periodRange;
 
 // ============================================================
 // MAIN COMPONENT
@@ -459,7 +422,7 @@ function FuelSlips() {
       setSlips(sortedData);
     } catch (err) {
       console.error('Failed to fetch fuel slips:', err);
-      setError(err.message || 'Failed to load fuel slips');
+      setError(err.userMessage || err.message || 'Failed to load fuel slips');
       setSlips([]);
     } finally {
       setLoading(false);
@@ -470,145 +433,51 @@ function FuelSlips() {
     fetchSlips();
   }, [params.id, driverFilter, vehicleFilter]);
 
-  // ✅ FIXED: Fetch vehicle types for slips with vehicleId
+  // Vehicle types: each vehicle fetched ONCE, in parallel (was one request per slip, in sequence).
+  // No guessing - a vehicle whose type cannot be read is shown as "Unknown".
   useEffect(() => {
-    const fetchVehicleTypes = async () => {
-      const slipsWithVehicles = slips.filter(s => s.vehicleId && !vehicleTypes[s.vehicleId]);
-      if (slipsWithVehicles.length === 0) return;
-      
-      setIsFetchingVehicleTypes(true);
-      console.log('🔍 Fetching vehicle types for:', slipsWithVehicles.map(s => s.vehicleId));
-      
-      const typeMap = {};
-      for (const slip of slipsWithVehicles) {
-        try {
-          const vehicle = await vehicleService.getVehicleById(slip.vehicleId);
-          console.log(`🔍 Vehicle ${slip.vehicleId} response:`, vehicle);
-          
-          // Check if vehicle has vehicleType
-          let vehicleType = vehicle?.vehicleType;
-          
-          // If not, check for other possible fields
-          if (!vehicleType) {
-            vehicleType = vehicle?.type || vehicle?.category || vehicle?.vehicle_category;
-          }
-          
-          console.log(`📌 Vehicle ${slip.vehicleId} type:`, vehicleType);
-          
-          if (vehicleType) {
-            typeMap[slip.vehicleId] = vehicleType.toUpperCase();
-          } else {
-            // ✅ FALLBACK: Use hardcoded overrides
-            if (VEHICLE_TYPE_OVERRIDES[slip.vehicleId]) {
-              typeMap[slip.vehicleId] = VEHICLE_TYPE_OVERRIDES[slip.vehicleId];
-              console.log(`📌 Using override for vehicle ${slip.vehicleId}: ${VEHICLE_TYPE_OVERRIDES[slip.vehicleId]}`);
-            } else {
-              // Default based on registration pattern
-              const reg = slip.vehicleRegNumber || '';
-              const regUpper = reg.toUpperCase();
-              if (regUpper.startsWith('T-') || regUpper.includes('TRUCK')) {
-                typeMap[slip.vehicleId] = 'TRUCK';
-              } else if (regUpper.startsWith('V-') || regUpper.includes('VAN')) {
-                typeMap[slip.vehicleId] = 'VAN';
-              } else {
-                typeMap[slip.vehicleId] = 'VAN';
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`Could not fetch vehicle ${slip.vehicleId}:`, err);
-          // ✅ FALLBACK: Use hardcoded overrides
-          if (VEHICLE_TYPE_OVERRIDES[slip.vehicleId]) {
-            typeMap[slip.vehicleId] = VEHICLE_TYPE_OVERRIDES[slip.vehicleId];
-          } else {
-            typeMap[slip.vehicleId] = 'VAN';
-          }
-        }
+    let cancelled = false;
+    const ids = [...new Set(slips.map(s => s.vehicleId).filter(id => id != null && !(id in vehicleTypes)))];
+    if (ids.length === 0) return undefined;
+    setIsFetchingVehicleTypes(true);
+    Promise.all(ids.map(async (vid) => {
+      try {
+        const v = await vehicleService.getVehicleById(vid);
+        return [vid, String(v?.vehicleType || v?.type || v?.category || '').toUpperCase()];
+      } catch (err) {
+        console.warn(`Could not fetch vehicle ${vid}:`, err?.message);
+        return [vid, ''];
       }
-      console.log('📌 Final vehicle types:', typeMap);
-      setVehicleTypes(prev => ({ ...prev, ...typeMap }));
-      setIsFetchingVehicleTypes(false);
-    };
-    
-    if (slips.length > 0) {
-      fetchVehicleTypes();
-    }
-  }, [slips]);
+    })).then((pairs) => {
+      if (cancelled) return;
+      setVehicleTypes(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    }).finally(() => {
+      if (!cancelled) setIsFetchingVehicleTypes(false);
+    });
+    return () => { cancelled = true; };
+  }, [slips]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch trip numbers for slips with tripId
+  // Trip numbers: each trip fetched ONCE, in parallel, single attempt
+  // (getTripById retries 3x on 404, which made the list very slow for deleted trips).
   useEffect(() => {
-    const fetchTripNumbers = async () => {
-      const slipsWithTrips = slips.filter(s => s.tripId && !tripNumbers[s.tripId]);
-      if (slipsWithTrips.length === 0) return;
-      
-      const tripMap = {};
-      for (const slip of slipsWithTrips) {
-        try {
-          const trip = await tripService.getTripById(slip.tripId);
-          tripMap[slip.tripId] = trip.tripNumber;
-        } catch (err) {
-          console.warn(`Could not fetch trip ${slip.tripId}:`, err);
-          tripMap[slip.tripId] = `Trip #${slip.tripId}`;
-        }
+    let cancelled = false;
+    const ids = [...new Set(slips.map(s => s.tripId).filter(id => id != null && !(id in tripNumbers)))];
+    if (ids.length === 0) return undefined;
+    Promise.all(ids.map(async (tid) => {
+      try {
+        const trip = await tripService.getTripById(tid, 1);
+        return [tid, trip?.tripNumber || `Trip #${tid}`];
+      } catch {
+        return [tid, `Trip #${tid}`];
       }
-      setTripNumbers(prev => ({ ...prev, ...tripMap }));
-    };
-    
-    if (slips.length > 0) {
-      fetchTripNumbers();
-    }
-  }, [slips]);
+    })).then((pairs) => {
+      if (!cancelled) setTripNumbers(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => { cancelled = true; };
+  }, [slips]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ FIXED: Determine if fuel is for Trip, Van, or Truck based on vehicle type
-  const getFuelCategory = useCallback((slip) => {
-    // 1️⃣ First priority: If it has a tripId, it's TRIP fuel
-    if (slip.tripId) return 'TRIP';
-    
-    // 2️⃣ Check hardcoded overrides first (quickest)
-    if (slip.vehicleId && VEHICLE_TYPE_OVERRIDES[slip.vehicleId]) {
-      return VEHICLE_TYPE_OVERRIDES[slip.vehicleId];
-    }
-    
-    // 3️⃣ Check if we have a fetched vehicle type
-    if (slip.vehicleId && vehicleTypes[slip.vehicleId]) {
-      const type = vehicleTypes[slip.vehicleId].toUpperCase();
-      if (type === 'TRUCK' || type.includes('TRUCK')) return 'TRUCK';
-      if (type === 'VAN' || type === 'CAR' || type.includes('VAN')) return 'VAN';
-      if (type === 'TRAILER') return 'TRUCK';
-      return 'VAN';
-    }
-    
-    // 4️⃣ Check vehicle type from the slip data directly
-    let vehicleType = '';
-    if (slip.vehicleType) {
-      vehicleType = slip.vehicleType;
-    } else if (slip.vehicle?.type) {
-      vehicleType = slip.vehicle.type;
-    } else if (slip.vehicle?.vehicleType) {
-      vehicleType = slip.vehicle.vehicleType;
-    }
-    
-    const normalizedType = String(vehicleType).toUpperCase();
-    
-    if (normalizedType.includes('TRUCK') || normalizedType === 'TRUCK') {
-      return 'TRUCK';
-    }
-    if (normalizedType.includes('VAN') || normalizedType.includes('CAR') || normalizedType === 'VAN') {
-      return 'VAN';
-    }
-    
-    // 5️⃣ Check registration pattern
-    if (slip.vehicleRegNumber) {
-      const reg = slip.vehicleRegNumber.toUpperCase();
-      if (reg.startsWith('T-') || reg.includes('TRUCK')) return 'TRUCK';
-      if (reg.startsWith('V-') || reg.includes('VAN')) return 'VAN';
-    }
-    
-    // 6️⃣ Default: If no trip and we have a vehicle, assume VAN
-    if (slip.vehicleId || slip.vehicleRegNumber) return 'VAN';
-    
-    return 'UNKNOWN';
-  }, [vehicleTypes]);
+  // Trip -> TRIP, otherwise the vehicle's real type, otherwise UNKNOWN (utils/fuelSlipRules.js)
+  const getFuelCategory = useCallback((slip) => fuelCategory(slip, vehicleTypes), [vehicleTypes]);
 
   // Get unique drivers, vehicles, and statuses for filters
   const { drivers, vehicles, statuses, categories } = useMemo(() => {
@@ -625,9 +494,9 @@ function FuelSlips() {
         uniqueDrivers.push({ id: slip.driverId, name: slip.driverName });
       }
 
-      if (slip.vehicleId && slip.vehicleRegNumber && !vehicleMap.has(slip.vehicleId)) {
-        vehicleMap.set(slip.vehicleId, slip.vehicleRegNumber);
-        uniqueVehicles.push({ id: slip.vehicleId, regNumber: slip.vehicleRegNumber });
+      if (slip.vehicleId && slipRegistration(slip) && !vehicleMap.has(slip.vehicleId)) {
+        vehicleMap.set(slip.vehicleId, slipRegistration(slip));
+        uniqueVehicles.push({ id: slip.vehicleId, regNumber: slipRegistration(slip) });
       }
 
       const status = getFuelSlipStatus(slip);
@@ -650,12 +519,7 @@ function FuelSlips() {
     let result = [...slips];
     
     const dateRange = getDateRange(period, customStartDate, customEndDate);
-    if (dateRange.start && dateRange.end) {
-      result = result.filter(slip => {
-        const date = new Date(slip.transactionDate || slip.createdAt);
-        return date >= dateRange.start && date <= dateRange.end;
-      });
-    }
+    result = result.filter(slip => inPeriod(slip, dateRange));
     
     if (statusFilter !== 'all') {
       result = result.filter(slip => getFuelSlipStatus(slip) === statusFilter);
@@ -669,7 +533,7 @@ function FuelSlips() {
       const search = searchTerm.toLowerCase();
       result = result.filter(slip => 
         (slip.driverName || '').toLowerCase().includes(search) ||
-        (slip.vehicleRegNumber || '').toLowerCase().includes(search) ||
+        slipRegistration(slip).toLowerCase().includes(search) ||
         (slip.stationName || '').toLowerCase().includes(search) ||
         (slip.location || '').toLowerCase().includes(search) ||
         (slip.receiptNumber || '').toLowerCase().includes(search)
@@ -744,6 +608,11 @@ function FuelSlips() {
 
   // Handle delete dialog
   const handleDeleteClick = (id) => {
+    const target = slips.find(sl => sl.id === id);
+    if (target && isFuelSlipLocked(target)) {
+      setError('Verified or finalized fuel slips cannot be deleted.');
+      return;
+    }
     setDeleteId(id);
     setDeleteDialogOpen(true);
   };
@@ -758,7 +627,7 @@ function FuelSlips() {
       await fetchSlips();
     } catch (err) {
       console.error('Failed to delete fuel slip:', err);
-      setError(err.message || 'Failed to delete fuel slip');
+      setError(err.userMessage || err.message || 'Failed to delete fuel slip');
     } finally {
       setDeleting(false);
     }
@@ -786,7 +655,7 @@ function FuelSlips() {
       await fetchSlips();
     } catch (err) {
       console.error('Failed to verify fuel slip:', err);
-      setError(err.message || 'Failed to verify fuel slip');
+      setError(err.userMessage || err.message || 'Failed to verify fuel slip');
     } finally {
       setVerifying(false);
     }
@@ -869,6 +738,14 @@ function FuelSlips() {
           >
             {isMobile ? '' : 'Refresh'}
           </Button>
+          <ExportButton
+            title="Fuel slips"
+            subtitle={`${filteredSlips.length} slips • Period: ${PERIOD_OPTIONS.find(o => o.value === period)?.label || period}${period === 'custom' ? ` (${customStartDate || '…'} to ${customEndDate || '…'})` : ''}${searchTerm ? ` • Search: "${searchTerm}"` : ''}`}
+            columns={buildFuelSlipColumns({ tripNumbers, vehicleTypes })}
+            fetchRows={async () => filteredSlips}
+            disabled={filteredSlips.length === 0}
+            onError={(msg) => setError(msg)}
+          />
           <Button
             variant="contained"
             startIcon={<AddIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
@@ -1302,7 +1179,7 @@ function FuelSlips() {
                       <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
                         <Box>
                           <Typography variant="body2" fontWeight="500" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-                            {slip.vehicleRegNumber || '-'}
+                            {slipRegistration(slip) || '-'}
                           </Typography>
                           {slip.tripId && (
                             <Chip
@@ -1349,16 +1226,18 @@ function FuelSlips() {
                               <Visibility sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditSlip(slip.id)}
-                              color="info"
-                              sx={{ p: { xs: 0.25, sm: 0.5 } }}
-                            >
-                              <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
-                            </IconButton>
-                          </Tooltip>
+                          {!isVerified && (
+                            <Tooltip title="Edit">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEditSlip(slip.id)}
+                                color="info"
+                                sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                              >
+                                <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           {status !== 'VERIFIED' && status !== 'FINALIZED' && (
                             <Tooltip title="Verify">
                               <IconButton
@@ -1371,16 +1250,18 @@ function FuelSlips() {
                               </IconButton>
                             </Tooltip>
                           )}
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteClick(slip.id)}
-                              color="error"
-                              sx={{ p: { xs: 0.25, sm: 0.5 } }}
-                            >
-                              <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
-                            </IconButton>
-                          </Tooltip>
+                          {!isVerified && (
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteClick(slip.id)}
+                                color="error"
+                                sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                              >
+                                <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Stack>
                       </TableCell>
                     </TableRow>
