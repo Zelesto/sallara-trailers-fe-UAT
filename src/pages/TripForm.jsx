@@ -63,6 +63,7 @@ import {
 } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
+import api from '../services/api';
 import { tripService } from '../services/tripService';
 import { driverService } from '../services/driverService';
 import { vehicleService } from '../services/vehicleService';
@@ -103,6 +104,35 @@ const filterAvailableDrivers = (drivers) =>
     ['ACTIVE', 'AVAILABLE'].includes(d.status?.toUpperCase()) &&
     d.licenseValid !== false
   );
+
+/**
+ * When editing, the vehicle/driver already on the trip is usually busy (e.g. IN_TRIP),
+ * so the "available" filters remove it and the dropdown shows blank. Keep it in the list.
+ */
+const keepAssigned = (filtered, all, assignedId) => {
+  if (assignedId === null || assignedId === undefined || assignedId === '') return filtered;
+  if (filtered.some(x => String(x.id) === String(assignedId))) return filtered;
+  const current = (all || []).find(x => String(x.id) === String(assignedId));
+  return current ? [current, ...filtered] : filtered;
+};
+
+const personName = (p) =>
+  p?.name ||
+  p?.fullName ||
+  [p?.firstName, p?.lastName].filter(Boolean).join(' ') ||
+  p?.email ||
+  `User #${p?.id}`;
+
+const NUMERIC_FIELDS = {
+  cargoWeight: 'Weight',
+  cargoValue: 'Value',
+  palletCount: 'Pallet count',
+  plannedDistanceKm: 'Planned distance',
+  plannedDurationHours: 'Planned duration',
+  estimatedDuration: 'Estimated duration',
+  estimatedTollCost: 'Toll cost',
+  estimatedOtherExpenses: 'Other expenses',
+};
 
 const buildAddress = (address) => {
   const parts = [address.street, address.city, address.zipCode, address.province]
@@ -644,18 +674,30 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     };
   });
 
-  // Update form defaults when enums load
+  // Guards so defaults / edit data are applied ONCE per opening. Previously these effects
+  // depended on option arrays that can be re-created every render, which could overwrite
+  // what the user had just selected or typed.
+  const defaultsAppliedRef = useRef(false);
+  const populatedForRef = useRef(null);
+  const originalStatusRef = useRef(null);
+  const submittingRef = useRef(false);
+
+  // Apply DB enum defaults when enums load (create mode) - only fills EMPTY fields
   useEffect(() => {
-    if (isEnumReady && !initialData && mode === 'create') {
-      setForm(prev => ({
-        ...prev,
-        tripType: getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT') || prev.tripType,
-        status: getDefaultEnumCode(statusOptions, 'PLANNED') || prev.status,
-        approvalStatus: getDefaultEnumCode(finalApprovalOptions, 'PENDING') || prev.approvalStatus,
-        priority: getDefaultEnumCode(finalPriorityOptions, 'NORMAL') || prev.priority,
-      }));
+    if (!open) {
+      defaultsAppliedRef.current = false;
+      return;
     }
-  }, [isEnumReady, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions, initialData, mode]);
+    if (defaultsAppliedRef.current || !isEnumReady || initialData || mode !== 'create') return;
+    defaultsAppliedRef.current = true;
+    setForm(prev => ({
+      ...prev,
+      tripType: prev.tripType || getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
+      status: prev.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
+      approvalStatus: prev.approvalStatus || getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
+      priority: prev.priority || getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
+    }));
+  }, [open, isEnumReady, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions, initialData, mode]);
 
   /* ============================================================
      DATA LOADING
@@ -673,18 +715,24 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         depotService.getAllDepots().catch(() => [])
       ]);
 
-      setVehicles(filterActiveVehicles(vRes));
-      setDrivers(filterAvailableDrivers(dRes));
+      const allVehicles = Array.isArray(vRes) ? vRes : (vRes?.content || []);
+      const allDrivers = Array.isArray(dRes) ? dRes : (dRes?.content || []);
+      const assignedVehicleId = initialData?.vehicleId ?? initialData?.vehicle?.id;
+      const assignedDriverId = initialData?.driverId ?? initialData?.driver?.id;
+
+      setVehicles(keepAssigned(filterActiveVehicles(allVehicles), allVehicles, assignedVehicleId));
+      setDrivers(keepAssigned(filterAvailableDrivers(allDrivers), allDrivers, assignedDriverId));
       setCustomers(Array.isArray(cRes) ? cRes : (cRes?.content || []));
       setDepots(Array.isArray(depotRes) ? depotRes : (depotRes?.content || []));
 
+      // Supervisors: use the authenticated API client. The previous raw fetch('/api/users')
+      // had no auth token and went to the FRONTEND host on Render, so the list was always empty.
       try {
-        const usersResponse = await fetch('/api/users?roles=MANAGER,SUPER_ADMIN');
-        if (usersResponse.ok) {
-          const usersData = await usersResponse.json();
-          setSupervisors(Array.isArray(usersData) ? usersData : (usersData.content || usersData.data || []));
-        }
-      } catch {
+        const usersResponse = await api.get('/users', { params: { roles: 'MANAGER,SUPER_ADMIN' } });
+        const usersData = usersResponse?.data !== undefined ? usersResponse.data : usersResponse;
+        setSupervisors(Array.isArray(usersData) ? usersData : (usersData?.content || usersData?.data || []));
+      } catch (supErr) {
+        console.warn('Could not load supervisors:', supErr?.message);
         setSupervisors([]);
       }
     } catch (err) {
@@ -693,7 +741,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [initialData]);
 
   /* ============================================================
      DISTANCE CALCULATION
@@ -793,9 +841,16 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     refreshEnums();
   }, [open, loadData, refreshEnums]);
 
-  // Populate form with initial data when editing
+  // Populate form with initial data when editing - ONCE per opening, so the user's
+  // edits are never overwritten by a re-render.
   useEffect(() => {
-    if (initialData && open) {
+    if (!open) {
+      populatedForRef.current = null;
+      return;
+    }
+    if (initialData && open && populatedForRef.current !== initialData.id) {
+      populatedForRef.current = initialData.id;
+      originalStatusRef.current = initialData.status || null;
       console.log('🔍 Populating form with initial data:', initialData);
       
       setForm(prev => ({
@@ -805,10 +860,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         status: initialData.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
         approvalStatus: initialData.approvalStatus || getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
         priority: initialData.priority || getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
-        vehicleId: initialData.vehicleId || '',
-        driverId: initialData.driverId || '',
-        supervisorId: initialData.supervisorId || '',
-        customerId: initialData.customerId || '',
+        // the list API may return nested objects instead of flat ids
+        vehicleId: initialData.vehicleId ?? initialData.vehicle?.id ?? '',
+        driverId: initialData.driverId ?? initialData.driver?.id ?? '',
+        supervisorId: initialData.supervisorId ?? initialData.supervisor?.id ?? '',
+        customerId: initialData.customerId ?? initialData.customer?.id ?? '',
         referenceNumber: initialData.referenceNumber || '',
         plannedStartDate: initialData.plannedStartDate || getDefaultPlannedDates().plannedStartDate,
         plannedEndDate: initialData.plannedEndDate || getDefaultPlannedDates().plannedEndDate,
@@ -820,7 +876,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       if (initialData.toDepotKm) setToDepotKm(initialData.toDepotKm);
       if (initialData.isFromDepot !== undefined) setIsFromDepot(initialData.isFromDepot);
 
-      if (initialData.originLocation) {
+      // populate even if only the city (no full address string) was stored
+      if (initialData.originLocation || initialData.originCity) {
         setOrigin({
           street: initialData.originStreetAddress || '',
           city: initialData.originCity || '',
@@ -830,7 +887,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           longitude: initialData.originLongitude || null,
         });
       }
-      if (initialData.destinationLocation) {
+      if (initialData.destinationLocation || initialData.destinationCity) {
         setDestination({
           street: initialData.destinationStreetAddress || '',
           city: initialData.destinationCity || '',
@@ -878,12 +935,16 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     if (!form.driverId) errors.driverId = 'Please select a driver';
     if (!form.commodityType) errors.commodityType = 'Please select commodity type';
 
-    if (form.cargoWeight && isNaN(parseFloat(form.cargoWeight))) {
-      errors.cargoWeight = 'Weight must be a number';
-    }
-    if (form.cargoValue && isNaN(parseFloat(form.cargoValue))) {
-      errors.cargoValue = 'Value must be a number';
-    }
+    // Numbers: must be numeric and not negative (was: parseFloat("12abc") passed, negatives allowed)
+    Object.entries(NUMERIC_FIELDS).forEach(([field, label]) => {
+      const raw = form[field];
+      if (raw === '' || raw === null || raw === undefined) return;
+      // strict: "12,5" is rejected (parseFloat would silently save 12) - use a dot for decimals
+      const n = Number(String(raw).trim());
+      if (!Number.isFinite(n)) errors[field] = `${label} must be a number (use a dot for decimals, e.g. 12.5)`;
+      else if (n < 0) errors[field] = `${label} cannot be negative`;
+      else if (field === 'palletCount' && !Number.isInteger(n)) errors[field] = 'Pallet count must be a whole number';
+    });
 
     return errors;
   }, [origin, destination, form]);
@@ -951,8 +1012,16 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           size: 100 
         });
         
-        if (searchResult && searchResult.content && searchResult.content.length > 0) {
-          existingLoad = searchResult.content[0];
+        // Only link to a load whose reference matches EXACTLY and that belongs to the same
+        // customer (search may be a partial match - "123" also finds "1234").
+        const wanted = String(referenceNumber).trim().toUpperCase();
+        const tripCustomerId = tripResult.customerId ?? form.customerId ?? null;
+        const candidates = (searchResult?.content || []).filter(l =>
+          String(l.referenceNumber || '').trim().toUpperCase() === wanted &&
+          (!tripCustomerId || !l.customerId || String(l.customerId) === String(tripCustomerId))
+        );
+        if (candidates.length > 0) {
+          existingLoad = candidates[0];
           console.log(`✅ Found existing load: ${existingLoad.loadNumber} (ID: ${existingLoad.id})`);
         }
       } catch (searchError) {
@@ -1021,7 +1090,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
    ============================================================ */
 
   const handleSubmit = useCallback(async () => {
-    if (submitting) return;
+    // ref guard: a fast double-click used to create two trips before `submitting` re-rendered
+    if (submitting || submittingRef.current) return;
 
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
@@ -1030,6 +1100,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
     setSuccessMessage(null);
@@ -1107,6 +1178,17 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
       let result;
       if (mode === 'edit' && initialData?.id) {
+        // Lost-update guard: if the trip's status changed on the server while this form was
+        // open (e.g. the driver started it), saving would silently put the old status back.
+        const latest = await tripService.getTripById(initialData.id);
+        const openedWith = originalStatusRef.current;
+        if (latest?.status && openedWith && latest.status !== openedWith) {
+          setError(
+            `This trip was changed to ${latest.status} while you were editing (it was ${openedWith}). ` +
+            'Close the form and open it again to edit the latest version.'
+          );
+          return;
+        }
         result = await tripService.updateTrip(initialData.id, payload);
         console.log('✅ Trip updated successfully:', result);
         setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
@@ -1120,7 +1202,11 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         if (loadResult) {
           setSuccessMessage(`Trip ${result.tripNumber} created successfully and added to Load ${loadResult.loadNumber}!`);
         } else {
-          setSuccessMessage(`Trip ${result.tripNumber} created successfully!`);
+          // the trip IS saved; make the missing load visible instead of hiding it
+          setSuccessMessage(
+            `Trip ${result.tripNumber} created successfully, but it could not be linked to a load. ` +
+            'Please link it from the Loads screen.'
+          );
         }
       }
 
@@ -1148,7 +1234,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     } catch (err) {
       console.error('❌ Trip error:', err);
       
-      if (err.response?.status === 404 && err.response?.data?.detail?.includes('Trip not found')) {
+      // Create-only: in EDIT mode a 404 means the trip no longer exists and must not show "success"
+      if (mode !== 'edit' && err.response?.status === 404 && err.response?.data?.detail?.includes('Trip not found')) {
         console.warn('⚠️ Trip was created but not found on refresh - race condition');
         setSuccessMessage('Trip created successfully!');
         setIsSuccess(true);
@@ -1165,6 +1252,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         setTimeout(() => {
           if (onClose) onClose();
         }, 1500);
+        submittingRef.current = false;
         setSubmitting(false);
         return;
       }
@@ -1172,11 +1260,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
 
       if (err.response?.status === 409) {
-        errorMessage = 'Duplicate trip detected.';
+        errorMessage = err.response.data?.message || 'Duplicate trip detected.';
       } else if (err.response?.status === 400) {
-        errorMessage = err.response.data?.message || 'Invalid data. Please check all fields.';
+        errorMessage = err.userMessage || err.response.data?.message || 'Invalid data. Please check all fields.';
       } else if (err.response?.status === 429) {
-        errorMessage = 'Rate limit exceeded. Trip saved, coordinates will update later.';
+        // We cannot know whether the trip was saved - do not claim it was.
+        errorMessage = 'The server is busy (rate limit). Check the trip list before trying again - ' +
+          'the trip may already have been saved.';
+      } else if (err.userMessage) {
+        errorMessage = err.userMessage;
       } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.message) {
@@ -1185,6 +1277,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
       setError(errorMessage);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }, [form, origin, destination, fromDepotKm, toDepotKm, departureType, departureLocation, isFromDepot, validateForm, onSuccess, onClose, fetchTrips, submitting, mode, initialData]);
@@ -1246,12 +1339,15 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   );
 
   // ✅ If enums are not ready, show loading
+  // (shown inside the dialog - previously it rendered on the page behind it)
   if (!isEnumReady) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Loading form data...</Typography>
-      </Box>
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+          <CircularProgress />
+          <Typography sx={{ ml: 2 }}>Loading form data...</Typography>
+        </Box>
+      </Dialog>
     );
   }
 
@@ -1638,6 +1734,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Est. Duration (hours)"
                         type="number"
                         value={form.estimatedDuration}
+                        error={!!formErrors.estimatedDuration}
+                        helperText={formErrors.estimatedDuration || undefined}
                         onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
                         size="small"
                         InputProps={{ 
@@ -1655,6 +1753,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Planned Distance (km)"
                         type="number"
                         value={form.plannedDistanceKm}
+                        error={!!formErrors.plannedDistanceKm}
+                        helperText={formErrors.plannedDistanceKm || undefined}
                         onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
                         size="small"
                         InputProps={{ 
@@ -1672,6 +1772,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Planned Duration (hours)"
                         type="number"
                         value={form.plannedDurationHours}
+                        error={!!formErrors.plannedDurationHours}
+                        helperText={formErrors.plannedDurationHours || undefined}
                         onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
                         size="small"
                         InputProps={{ 
@@ -1783,7 +1885,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           </MenuItem>
                           {(supervisors || []).map(s => (
                             <MenuItem key={s.id} value={s.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {s.name}
+                              {personName(s)}
                             </MenuItem>
                           ))}
                         </Select>
@@ -1863,6 +1965,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Weight (kg)"
                         type="number"
                         value={form.cargoWeight}
+                        error={!!formErrors.cargoWeight}
+                        helperText={formErrors.cargoWeight || undefined}
                         onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
                         size="small"
                         InputProps={{
@@ -1881,6 +1985,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Value (ZAR)"
                         type="number"
                         value={form.cargoValue}
+                        error={!!formErrors.cargoValue}
+                        helperText={formErrors.cargoValue || undefined}
                         onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
                         size="small"
                         InputProps={{
@@ -1898,6 +2004,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Pallet Count"
                         type="number"
                         value={form.palletCount}
+                        error={!!formErrors.palletCount}
+                        helperText={formErrors.palletCount || undefined}
                         onChange={(e) => handleFieldChange('palletCount', e.target.value)}
                         size="small"
                         InputProps={{ 
@@ -1944,6 +2052,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Est. Toll Cost (ZAR)"
                         type="number"
                         value={form.estimatedTollCost}
+                        error={!!formErrors.estimatedTollCost}
+                        helperText={formErrors.estimatedTollCost || undefined}
                         onChange={(e) => handleFieldChange('estimatedTollCost', e.target.value)}
                         size="small"
                         InputProps={{
@@ -1961,6 +2071,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         label="Est. Other Expenses (ZAR)"
                         type="number"
                         value={form.estimatedOtherExpenses}
+                        error={!!formErrors.estimatedOtherExpenses}
+                        helperText={formErrors.estimatedOtherExpenses || undefined}
                         onChange={(e) => handleFieldChange('estimatedOtherExpenses', e.target.value)}
                         size="small"
                         InputProps={{
