@@ -72,6 +72,25 @@ const STATUS_CONFIG = Object.fromEntries(
 // UTILITY FUNCTIONS (matching Dashboard)
 // ============================================================
 
+// Trips that can no longer be changed from this screen
+const LOCKED_STATUSES = ['FINALIZED', 'CANCELLED'];
+
+// Backend expects local date-time without timezone (same format as tripService.formatDateForBackend).
+// toISOString() sent UTC with a trailing "Z", which shifts South African times by 2 hours.
+const toBackendDateTime = (d) => (d ? dayjs(d).format('YYYY-MM-DDTHH:mm:ss') : null);
+
+// The list API uses totalDistanceKm; older responses use totalDistance / distanceTraveled.
+const getTripDistance = (trip) => {
+  if (!trip) return 0;
+  const direct = trip.totalDistanceKm ?? trip.totalDistance ?? trip.distanceTraveled ?? trip.actualDistanceKm;
+  const n = Number(direct);
+  if (Number.isFinite(n) && n > 0) return n;
+  const start = Number(trip.actualStartOdometer);
+  const end = Number(trip.actualEndOdometer);
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start) return end - start;
+  return 0;
+};
+
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -465,7 +484,7 @@ const BillingTab = ({ tripId, trip }) => {
         <Box>
             {/* Summary Cards */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={6} md={3}>
+                <Grid size={{ xs: 6, md: 3 }}>
                     <StatCard
                         title="Distance"
                         value={`${billing.distanceKm} km`}
@@ -473,7 +492,7 @@ const BillingTab = ({ tripId, trip }) => {
                         color="primary"
                     />
                 </Grid>
-                <Grid item xs={6} md={3}>
+                <Grid size={{ xs: 6, md: 3 }}>
                     <StatCard
                         title="Tonnage"
                         value={`${billing.tonnage} tons`}
@@ -481,7 +500,7 @@ const BillingTab = ({ tripId, trip }) => {
                         color="secondary"
                     />
                 </Grid>
-                <Grid item xs={6} md={3}>
+                <Grid size={{ xs: 6, md: 3 }}>
                     <StatCard
                         title="Days"
                         value={billing.days}
@@ -489,7 +508,7 @@ const BillingTab = ({ tripId, trip }) => {
                         color="info"
                     />
                 </Grid>
-                <Grid item xs={6} md={3}>
+                <Grid size={{ xs: 6, md: 3 }}>
                     <StatCard
                         title="Total"
                         value={formatCurrency(billing.total)}
@@ -796,7 +815,7 @@ const IncidentsTab = ({ tripId, trip }) => {
 
       {/* Stats Row - matching Dashboard */}
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
-        <Grid item xs={3}>
+        <Grid size={{ xs: 3 }}>
           <StatCard
             title="Total"
             value={stats.total}
@@ -804,7 +823,7 @@ const IncidentsTab = ({ tripId, trip }) => {
             color="secondary"
           />
         </Grid>
-        <Grid item xs={3}>
+        <Grid size={{ xs: 3 }}>
           <StatCard
             title="Open"
             value={stats.open}
@@ -812,7 +831,7 @@ const IncidentsTab = ({ tripId, trip }) => {
             color="error"
           />
         </Grid>
-        <Grid item xs={3}>
+        <Grid size={{ xs: 3 }}>
           <StatCard
             title="Critical"
             value={stats.critical}
@@ -820,7 +839,7 @@ const IncidentsTab = ({ tripId, trip }) => {
             color="error"
           />
         </Grid>
-        <Grid item xs={3}>
+        <Grid size={{ xs: 3 }}>
           <StatCard
             title="Resolved"
             value={stats.resolved}
@@ -1112,7 +1131,7 @@ const TripInformationCard = ({ trip }) => (
     />
     <CardContent sx={{ p: 2, pt: 1 }}>
       <Grid container spacing={1.5}>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <InfoItem 
             label="Customer" 
             value={trip.customerName || 'No Customer Assigned'} 
@@ -1126,7 +1145,7 @@ const TripInformationCard = ({ trip }) => (
           )}
         </Grid>
 
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <InfoItem 
             label="Origin" 
             value={trip.originLocation || '-'} 
@@ -1140,7 +1159,7 @@ const TripInformationCard = ({ trip }) => (
           )}
         </Grid>
         
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <InfoItem 
             label="Destination" 
             value={trip.destinationLocation || '-'} 
@@ -1154,7 +1173,7 @@ const TripInformationCard = ({ trip }) => (
           )}
         </Grid>
         
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <InfoItem 
             label="Driver" 
             value={trip.driverName || 'Not Assigned'} 
@@ -1168,7 +1187,7 @@ const TripInformationCard = ({ trip }) => (
           )}
         </Grid>
         
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <InfoItem 
             label="Vehicle" 
             value={trip.vehicleRegistration || 'Not Assigned'} 
@@ -1182,7 +1201,7 @@ const TripInformationCard = ({ trip }) => (
           )}
         </Grid>
         
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <InfoItem 
             label="Planned Start" 
             value={formatDateTime(trip.plannedStartDate)} 
@@ -1191,7 +1210,7 @@ const TripInformationCard = ({ trip }) => (
           />
         </Grid>
         
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <InfoItem 
             label="Planned End" 
             value={formatDateTime(trip.plannedEndDate)} 
@@ -1200,11 +1219,11 @@ const TripInformationCard = ({ trip }) => (
           />
         </Grid>
 
-        {trip.totalDistance && (
-          <Grid item xs={12} sm={6}>
+        {getTripDistance(trip) > 0 && (
+          <Grid size={{ xs: 12, sm: 6 }}>
             <InfoItem 
               label="Total Distance" 
-              value={`${formatNumber(trip.totalDistance)} km`} 
+              value={`${formatNumber(getTripDistance(trip), 1)} km`} 
               icon={RouteIcon} 
               color="purple"
             />
@@ -1230,7 +1249,8 @@ const UpdateTripCard = ({
   actualEndDate,
   setActualEndDate,
   actualEndTime,
-  setActualEndTime 
+  setActualEndTime,
+  locked = false,
 }) => (
   <Card
     sx={{
@@ -1248,9 +1268,14 @@ const UpdateTripCard = ({
       sx={{ py: 1, px: 2, bgcolor: '#F9FAFB' }}
     />
     <CardContent sx={{ p: 2, pt: 1 }}>
+      {locked && (
+        <Alert severity="info" sx={{ mb: 1.5, borderRadius: '10px', fontSize: '0.75rem' }}>
+          This trip is {trip?.status === 'FINALIZED' ? 'finalized' : 'cancelled'} and can no longer be changed.
+        </Alert>
+      )}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth size="small">
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FormControl fullWidth size="small" disabled={locked}>
             <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Change Status</InputLabel>
             <Select
               value={newStatus}
@@ -1258,7 +1283,9 @@ const UpdateTripCard = ({
               onChange={(e) => setNewStatus(e.target.value)}
               sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
             >
-              {TRIP_STATUS_OPTIONS.map(status => (
+              {/* FINALIZED must go through the Finalize action (runs finalisation), so it is
+                  only listed when it is already the current status */}
+              {TRIP_STATUS_OPTIONS.filter(s => s.value !== 'FINALIZED' || s.value === trip?.status).map(status => (
                 <MenuItem key={status.value} value={status.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                   <Box display="flex" alignItems="center" gap={1}>
                     <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: status.color || '#6B7280' }} />
@@ -1270,18 +1297,19 @@ const UpdateTripCard = ({
           </FormControl>
         </Grid>
         
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }} gutterBottom>
             Actual Times
           </Typography>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <DatePicker
             label="Actual Start Date"
             value={actualStartDate}
             onChange={setActualStartDate}
+            disabled={locked}
             slotProps={{ 
               textField: { 
                 fullWidth: true, 
@@ -1298,6 +1326,7 @@ const UpdateTripCard = ({
               label="Actual Start Time"
               value={actualStartTime}
               onChange={setActualStartTime}
+              disabled={locked}
               slotProps={{ 
                 textField: { 
                   fullWidth: true, 
@@ -1313,11 +1342,12 @@ const UpdateTripCard = ({
           </Box>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <DatePicker
             label="Actual End Date"
             value={actualEndDate}
             onChange={setActualEndDate}
+            disabled={locked}
             slotProps={{ 
               textField: { 
                 fullWidth: true, 
@@ -1334,6 +1364,7 @@ const UpdateTripCard = ({
               label="Actual End Time"
               value={actualEndTime}
               onChange={setActualEndTime}
+              disabled={locked}
               slotProps={{ 
                 textField: { 
                   fullWidth: true, 
@@ -1604,12 +1635,19 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
     let minPrice = Infinity;
 
     fuelData.fuelEntries.forEach(entry => {
-      const liters = entry.liters || 0;
-      const pricePerLiter = entry.pricePerLiter || 0;
+      const liters = Number(entry.liters) || 0;
+      const pricePerLiter = Number(entry.pricePerLiter) || 0;
+      // Use the slip's actual total when present (was always litres x price, which gave
+      // R 0.00 when the price per litre was not captured)
+      const amount = Number(entry.totalAmount);
       totalLiters += liters;
-      totalCost += liters * pricePerLiter;
-      maxPrice = Math.max(maxPrice, pricePerLiter);
-      minPrice = Math.min(minPrice, pricePerLiter);
+      totalCost += Number.isFinite(amount) && entry.totalAmount !== null && entry.totalAmount !== undefined
+        ? amount
+        : liters * pricePerLiter;
+      if (pricePerLiter > 0) {
+        maxPrice = Math.max(maxPrice, pricePerLiter);
+        minPrice = Math.min(minPrice, pricePerLiter);
+      }
     });
 
     return {
@@ -1625,7 +1663,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
   const tripEfficiency = useMemo(() => {
     if (!trip || !fuelStats.totalLiters || fuelStats.totalLiters === 0) return null;
     
-    const distance = trip.totalDistance || trip.distanceTraveled || 0;
+    const distance = getTripDistance(trip);
     if (distance === 0) return null;
     
     return {
@@ -1695,8 +1733,10 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
      HANDLERS
    ============================================================ */
 
+  const isLocked = LOCKED_STATUSES.includes(trip?.status);
+
   const handleUpdateTrip = async () => {
-    if (!trip || !tripId) return;
+    if (!trip || !tripId || isLocked) return;
     
     setUpdating(true);
     setError(null);
@@ -1722,19 +1762,39 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
         actualEndDateTime = dayjs(actualEndDate).endOf('day');
       }
 
-      const payload = {
-        ...trip,
-        status: newStatus || trip.status,
-        actualStartDate: actualStartDateTime ? actualStartDateTime.toISOString() : null,
-        actualEndDate: actualEndDateTime ? actualEndDateTime.toISOString() : null,
-      };
-      
-      await tripService.updateTrip(tripId, payload);
+      if (actualStartDateTime && actualEndDateTime && actualEndDateTime.isBefore(actualStartDateTime)) {
+        setError('Actual end cannot be before actual start.');
+        return;
+      }
+
+      const newStart = toBackendDateTime(actualStartDateTime);
+      const newEnd = toBackendDateTime(actualEndDateTime);
+      const timesChanged =
+        newStart !== toBackendDateTime(trip.actualStartDate) ||
+        newEnd !== toBackendDateTime(trip.actualEndDate);
+      const statusChanged = Boolean(newStatus) && newStatus !== trip.status;
+
+      // 1) Actual times: full update, keeping the CURRENT status (status is changed in step 2).
+      if (timesChanged) {
+        await tripService.updateTrip(tripId, {
+          ...trip,
+          status: trip.status,
+          actualStartDate: newStart,
+          actualEndDate: newEnd,
+        });
+      }
+
+      // 2) Status: through the dedicated endpoint, which validates the value and enforces the
+      //    cancellation rules (previously the status was overwritten via the general update).
+      if (statusChanged) {
+        await tripService.updateTripStatus(tripId, newStatus);
+      }
+
       if (onUpdate) onUpdate();
       await fetchTripData();
     } catch (err) {
       console.error('Update error:', err);
-      setError(err.message || 'Failed to update trip');
+      setError(err.userMessage || err.message || 'Failed to update trip');
     } finally {
       setUpdating(false);
     }
@@ -1919,7 +1979,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
               <Box sx={{ p: 2 }}>
                 {activeTab === 0 && (
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
+                    <Grid size={{ xs: 12, md: 8 }}>
                       <TripInformationCard trip={trip} />
                       <UpdateTripCard 
                         trip={trip}
@@ -1933,9 +1993,10 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                         setActualEndDate={setActualEndDate}
                         actualEndTime={actualEndTime}
                         setActualEndTime={setActualEndTime}
+                        locked={isLocked}
                       />
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <QuickStatsCard trip={trip} tripEfficiency={tripEfficiency} />
                       <CargoDetailsCard trip={trip} />
                     </Grid>
@@ -1952,7 +2013,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
 
                     {/* Fuel Summary Cards - matching Dashboard style */}
                     <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <FuelStatCard
                           icon={FuelIcon}
                           title="Total Fuel"
@@ -1960,7 +2021,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                           color="primary"
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <FuelStatCard
                           icon={MoneyIcon}
                           title="Total Cost"
@@ -1968,7 +2029,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                           color="success"
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <FuelStatCard
                           icon={TrendingUpIcon}
                           title="Avg. Price/L"
@@ -1979,7 +2040,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
                             : undefined}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <FuelStatCard
                           icon={ReceiptIcon}
                           title="Total Entries"
@@ -2056,7 +2117,7 @@ const TripDetails = ({ open = false, tripId, onClose, onUpdate }) => {
             Close
           </Button>
           
-          {activeTab === 0 && hasChanges && (
+          {activeTab === 0 && hasChanges && !isLocked && (
             <Button
               variant="contained"
               startIcon={updating ? <CircularProgress size={14} color="inherit" /> : <SaveIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
