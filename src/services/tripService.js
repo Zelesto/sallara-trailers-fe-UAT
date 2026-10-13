@@ -708,17 +708,77 @@ export const tripService = {
 
   /**
    * Update trip status
+   * Backend: PATCH /api/trips/{id}/status?status=XXX
+   * (was POST with a JSON body, which the backend does not accept -> 405).
+   * NOTE: the backend has no notes parameter on this endpoint, so `notes` is not sent.
    */
   updateTripStatus: async (tripId, status, notes = '') => {
     try {
-      const response = await api.post(`/trips/${tripId}/status`, {
-        status,
-        notes,
-        changedAt: new Date().toISOString(),
+      if (notes) {
+        console.warn('updateTripStatus: notes are not supported by the backend and were not saved');
+      }
+      const response = await api.patch(`/trips/${tripId}/status`, null, {
+        params: { status: String(status).toUpperCase() },
       });
       return unwrap(response);
     } catch (error) {
       throw handleApiError(error, `Updating status for trip ${tripId}`);
+    }
+  },
+
+  /**
+   * Cancel a trip (keeps the record and its history; use instead of delete
+   * once a trip has progressed beyond DRAFT / PLANNED).
+   */
+  cancelTrip: async (tripId) => {
+    return tripService.updateTripStatus(tripId, 'CANCELLED');
+  },
+
+  /**
+   * Fetch ALL trips matching the given list filters (for export), page by page.
+   * Rejects if more than `maxRows` match, so a huge export cannot freeze the browser.
+   */
+  fetchAllTrips: async (filters = {}, { pageSize = 500, maxRows = 10000, onProgress } = {}) => {
+    try {
+      const all = [];
+      const seen = new Set();
+      let page = 0;
+      let totalPages = 1;
+      let totalElements = 0;
+
+      do {
+        const response = await api.get('/trips', {
+          params: { ...filters, page, size: pageSize, sort: filters.sort || 'id,desc' },
+        });
+        const data = handlePaginatedResponse(unwrap(response));
+        totalPages = data.totalPages || 1;
+        totalElements = data.totalElements || data.content.length;
+
+        if (page === 0 && totalElements > maxRows) {
+          const err = new Error(
+            `${totalElements.toLocaleString()} trips match these filters. ` +
+            `Exports are limited to ${maxRows.toLocaleString()} rows - please narrow the filters.`
+          );
+          err.userMessage = err.message;
+          throw err;
+        }
+
+        for (const trip of data.content) {
+          // de-duplicate in case rows shift between pages while exporting
+          if (trip?.id == null || !seen.has(trip.id)) {
+            if (trip?.id != null) seen.add(trip.id);
+            all.push(trip);
+          }
+        }
+        if (onProgress) onProgress(all.length, totalElements);
+        if (data.content.length === 0) break;
+        page += 1;
+      } while (page < totalPages);
+
+      return all;
+    } catch (error) {
+      if (error.userMessage) throw error;
+      throw handleApiError(error, 'Fetching trips for export');
     }
   },
 
@@ -1103,6 +1163,8 @@ export const {
   getTripByTripNumber,
   getTripStatusHistory,
   updateTripStatus,
+  cancelTrip,
+  fetchAllTrips,
   uploadTripDocument,
   getTripDocuments,
   deleteTripDocument,
