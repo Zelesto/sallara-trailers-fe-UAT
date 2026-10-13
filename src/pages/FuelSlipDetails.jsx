@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { fuelService } from '../services/fuelService';
 import { tripService } from '../services/tripService';
+import { isFuelSlipLocked, fuelSlipStatus, slipRegistration } from '../utils/fuelSlipRules';
 
 import {
   FUEL_TYPES,
@@ -117,6 +118,8 @@ const FuelSlipDetails = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [tripDetails, setTripDetails] = useState(null);
+  // Errors from actions (delete) are shown as a banner; previously they replaced the whole page
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
     if (id) {
@@ -154,17 +157,22 @@ const FuelSlipDetails = () => {
   };
 
   const handleDelete = async () => {
+    if (isFuelSlipLocked(slip)) return;
     setDeleting(true);
+    setActionError(null);
     try {
       await fuelService.deleteFuelSlip(id);
       setDeleteDialogOpen(false);
       navigate('/fuel/slips');
     } catch (err) {
       console.error('Failed to delete fuel slip:', err);
-      setError(err.message || 'Failed to delete fuel slip');
+      setDeleteDialogOpen(false);
+      setActionError(err.userMessage || err.message || 'Failed to delete fuel slip');
       setDeleting(false);
     }
   };
+
+  const locked = isFuelSlipLocked(slip);
 
   const handlePrint = () => {
     window.print();
@@ -284,34 +292,49 @@ const FuelSlipDetails = () => {
               <PrintIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Edit">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={handleEdit}
-              sx={{ p: 0.5 }}
-            >
-              <EditIcon sx={{ fontSize: '0.9rem' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => setDeleteDialogOpen(true)}
-              sx={{ p: 0.5 }}
-            >
-              <DeleteIcon sx={{ fontSize: '0.9rem' }} />
-            </IconButton>
-          </Tooltip>
+          {!locked && (
+            <Tooltip title="Edit">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={handleEdit}
+                sx={{ p: 0.5 }}
+              >
+                <EditIcon sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {!locked && (
+            <Tooltip title="Delete">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => setDeleteDialogOpen(true)}
+                sx={{ p: 0.5 }}
+              >
+                <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       </Box>
+
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      )}
+      {locked && (
+        <Alert severity="info" sx={{ mb: 2, fontSize: '0.8rem' }}>
+          This slip is {fuelSlipStatus(slip).toLowerCase()} (part of the fuel month close) and can no longer be edited or deleted.
+        </Alert>
+      )}
 
       {/* Summary Card - Compact */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={8}>
+            <Grid size={{ xs: 12, md: 8 }}>
               <Stack spacing={1}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <LocalGasStation sx={{ fontSize: '1.2rem', color: 'primary.main' }} />
@@ -341,7 +364,7 @@ const FuelSlipDetails = () => {
                 </Stack>
               </Stack>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Stack alignItems={{ xs: 'flex-start', md: 'flex-end' }} spacing={0.5}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                   Slip #: {slip.slipNumber || 'N/A'}
@@ -376,7 +399,7 @@ const FuelSlipDetails = () => {
 
       {/* Details Grid - Compact */}
       <Grid container spacing={1.5}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Stack spacing={1.5}>
             <InfoItem
               label="Driver"
@@ -386,7 +409,7 @@ const FuelSlipDetails = () => {
             />
             <InfoItem
               label="Vehicle"
-              value={`${slip.vehicleRegNumber || 'N/A'} (ID: ${slip.vehicleId || 'N/A'})`}
+              value={`${slipRegistration(slip) || 'N/A'} (ID: ${slip.vehicleId || 'N/A'})`}
               icon={DirectionsCar}
               color="info"
             />
@@ -399,7 +422,7 @@ const FuelSlipDetails = () => {
           </Stack>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Stack spacing={1.5}>
             <InfoItem
               label="Fuel Station"
@@ -423,14 +446,14 @@ const FuelSlipDetails = () => {
         </Grid>
 
         {/* Fuel Details */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
             Fuel Details
           </Typography>
           <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
             <Grid container spacing={1.5}>
-              <Grid item xs={6} md={3}>
+              <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                   Fuel Type
                 </Typography>
@@ -438,7 +461,7 @@ const FuelSlipDetails = () => {
                   {getDisplayName(FUEL_TYPES, slip.fuelType) || slip.fuelType || 'N/A'}
                 </Typography>
               </Grid>
-              <Grid item xs={6} md={3}>
+              <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                   Payment Method
                 </Typography>
@@ -446,7 +469,7 @@ const FuelSlipDetails = () => {
                   {getDisplayName(PAYMENT_METHODS, slip.paymentMethod) || slip.paymentMethod || 'N/A'}
                 </Typography>
               </Grid>
-              <Grid item xs={6} md={3}>
+              <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                   Odometer Reading
                 </Typography>
@@ -454,7 +477,7 @@ const FuelSlipDetails = () => {
                   {slip.odometerReading ? formatNumber(slip.odometerReading) : 'N/A'}
                 </Typography>
               </Grid>
-              <Grid item xs={6} md={3}>
+              <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                   Pump Number
                 </Typography>
@@ -468,7 +491,7 @@ const FuelSlipDetails = () => {
 
         {/* Notes Section */}
         {slip.notes && (
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Divider sx={{ my: 1.5 }} />
             <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
               Notes
@@ -482,7 +505,7 @@ const FuelSlipDetails = () => {
         )}
 
         {/* Audit Trail */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
             Audit Trail
@@ -534,25 +557,29 @@ const FuelSlipDetails = () => {
           Back to Fuel Slips
         </Button>
         <Stack direction="row" spacing={0.75}>
-          <Button
-            variant="contained"
-            startIcon={<EditIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={handleEdit}
-            size="small"
-            sx={{ fontSize: '0.8rem' }}
-          >
-            Edit Slip
-          </Button>
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon sx={{ fontSize: '0.9rem' }} />}
-            onClick={() => setDeleteDialogOpen(true)}
-            size="small"
-            sx={{ fontSize: '0.8rem' }}
-          >
-            Delete
-          </Button>
+          {!locked && (
+            <Button
+              variant="contained"
+              startIcon={<EditIcon sx={{ fontSize: '0.9rem' }} />}
+              onClick={handleEdit}
+              size="small"
+              sx={{ fontSize: '0.8rem' }}
+            >
+              Edit Slip
+            </Button>
+          )}
+          {!locked && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon sx={{ fontSize: '0.9rem' }} />}
+              onClick={() => setDeleteDialogOpen(true)}
+              size="small"
+              sx={{ fontSize: '0.8rem' }}
+            >
+              Delete
+            </Button>
+          )}
         </Stack>
       </Box>
     </Box>
