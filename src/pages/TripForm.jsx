@@ -1,2219 +1,835 @@
-// src/pages/TripForm.jsx
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import dayjs from 'dayjs';
+// src/pages/TripMetricsForm.jsx
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   TextField,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
   Button,
-  Grid,
-  Card,
-  CardContent,
+  Box,
   Typography,
   CircularProgress,
   Alert,
-  Box,
-  FormHelperText,
-  Stack,
-  Chip,
+  Tabs,
+  Tab,
   Divider,
-  Autocomplete,
-  IconButton,
-  InputAdornment,
-  FormControlLabel,
-  Checkbox,
-  useTheme,
-  useMediaQuery,
+  Stack,
   Paper,
-  Switch,
-} from '@mui/material';
-
+  Grid,
+  IconButton,
+  Chip
+} from "@mui/material";
 import {
+  Calculate,
   Save,
   Close,
-  Assignment as AssignmentIcon,
-  Schedule as ScheduleIcon,
+  Edit,
+  AutoGraph,
   DirectionsCar,
-  Description,
-  LocationOn,
-  SwapHoriz,
-  Scale,
+  AccessTime,
+  LocalGasStation,
   AttachMoney,
-  Comment,
-  Toll,
-  Receipt,
-  Business as BusinessIcon,
-  Warehouse as WarehouseIcon,
-  Route as RouteIcon,
-  LocalShipping,
-  Add as AddIcon,
-  Inventory,
-  Category,
-} from '@mui/icons-material';
+  Warning,
+  LocationOn,
+  LocationCity
+} from "@mui/icons-material";
+import { tripService } from "../services/tripService";
 
 import {
-  LocalizationProvider,
-  DateTimePicker,
-} from '@mui/x-date-pickers';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+  VEHICLE_TYPES,
+  getDisplayName,
+} from '../constants';
 
-import api from '../services/api';
-import { tripService } from '../services/tripService';
-import { driverService } from '../services/driverService';
-import { vehicleService } from '../services/vehicleService';
-import { routingService } from '../services/routingService';
-import { customerService } from '../services/customerService';
-import { depotService } from '../services/depotService';
-import { loadService } from '../services/loadService';
-import { useEnums } from '../contexts/EnumContext';
-
-// ✅ Import from tripConstants instead of hardcoding
-import {
-  PROVINCE_OPTIONS,
-  COMMODITY_OPTIONS,
-  DEPARTURE_OPTIONS,
-  TRIP_TYPE_OPTIONS as STATIC_TRIP_TYPE_OPTIONS,
-  PRIORITY_OPTIONS as STATIC_PRIORITY_OPTIONS,
-  APPROVAL_STATUS_OPTIONS as STATIC_APPROVAL_OPTIONS,
-} from '../constants/tripConstants';
-
-/* ============================================================
-   HELPER FUNCTIONS
-   ============================================================ */
-
-const formatDateForAPI = (date) => {
-  if (!date) return null;
-  if (dayjs.isDayjs(date)) return date.format('YYYY-MM-DDTHH:mm:ss');
-  return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
-};
-
-const filterActiveVehicles = (vehicles) =>
-  (vehicles || []).filter(v =>
-    ['ACTIVE', 'OPERATIONAL', 'AVAILABLE'].includes(v.status?.toUpperCase()) ||
-    v.available === true
-  );
-
-const filterAvailableDrivers = (drivers) =>
-  (drivers || []).filter(d =>
-    ['ACTIVE', 'AVAILABLE'].includes(d.status?.toUpperCase()) &&
-    d.licenseValid !== false
-  );
-
-/**
- * When editing, the vehicle/driver already on the trip is usually busy (e.g. IN_TRIP),
- * so the "available" filters remove it and the dropdown shows blank. Keep it in the list.
- */
-const keepAssigned = (filtered, all, assignedId) => {
-  if (assignedId === null || assignedId === undefined || assignedId === '') return filtered;
-  if (filtered.some(x => String(x.id) === String(assignedId))) return filtered;
-  const current = (all || []).find(x => String(x.id) === String(assignedId));
-  return current ? [current, ...filtered] : filtered;
-};
-
-const personName = (p) =>
-  p?.name ||
-  p?.fullName ||
-  [p?.firstName, p?.lastName].filter(Boolean).join(' ') ||
-  p?.email ||
-  `User #${p?.id}`;
-
-const NUMERIC_FIELDS = {
-  cargoWeight: 'Weight',
-  cargoValue: 'Value',
-  palletCount: 'Pallet count',
-  plannedDistanceKm: 'Planned distance',
-  plannedDurationHours: 'Planned duration',
-  estimatedDuration: 'Estimated duration',
-  estimatedTollCost: 'Toll cost',
-  estimatedOtherExpenses: 'Other expenses',
-};
-
-const buildAddress = (address) => {
-  const parts = [address.street, address.city, address.zipCode, address.province]
-    .filter(Boolean);
-  return parts.join(', ');
-};
-
-const getDefaultFormState = () => ({
-  tripType: '',
-  status: '',
-  approvalStatus: '',
-  priority: '',
-  commodityType: '',
-  cargoDescription: '',
-  cargoWeight: '',
-  cargoValue: '',
-  palletCount: '',
-  containerNumber: '',
-  plannedStartDate: null,
-  plannedEndDate: null,
-  estimatedDuration: '',
-  plannedDistanceKm: '',
-  plannedDurationHours: '',
-  vehicleId: '',
-  driverId: '',
-  supervisorId: '',
-  customerId: '',
-  loadId: '',
-  notes: '',
-  specialInstructions: '',
-  driverNotes: '',
-  referenceNumber: '',
-  purchaseOrderNumber: '',
-  estimatedTollCost: '',
-  estimatedOtherExpenses: '',
-  cancellationReason: '',
-  departureLocation: '',
-});
-
-const getDefaultAddress = () => ({
-  street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
-});
-
-// Get default planned dates (today and 8 hours later)
-const getDefaultPlannedDates = () => {
-  const now = new Date();
-  const startDate = new Date(now);
-  startDate.setMinutes(0, 0, 0);
+// Helper functions
+const inferVehicleType = (vehicle) => {
+  if (!vehicle) return "TRUCK";
   
-  const endDate = new Date(startDate);
-  endDate.setHours(endDate.getHours() + 8);
+  const vehicleString = typeof vehicle === 'string' 
+    ? vehicle 
+    : `${vehicle.make || ""} ${vehicle.model || ""}`.toUpperCase();
   
-  return {
-    plannedStartDate: startDate.toISOString(),
-    plannedEndDate: endDate.toISOString()
-  };
+  if (vehicleString.includes("TRAILER") || vehicleString.includes("SEMI")) return "TRAILER";
+  if (vehicleString.includes("VAN") || vehicleString.includes("BAKKIE")) return "VAN";
+  if (vehicleString.includes("CAR") || vehicleString.includes("SEDAN") || vehicleString.includes("HATCH"))
+    return "CAR";
+  return "TRUCK";
 };
 
-// Helper to get default enum code from options
-const getDefaultEnumCode = (options, defaultCode = null) => {
-  if (!options || options.length === 0) return defaultCode || '';
-  if (defaultCode && options.some(opt => opt.value === defaultCode)) {
-    return defaultCode;
-  }
-  const defaultOpt = options.find(opt => opt.isDefault);
-  return defaultOpt?.value || (options.length > 0 ? options[0].value : '');
+const formatDuration = (hours = 0) => {
+  if (!hours || isNaN(hours) || hours === 0) return "0h";
+  const totalMinutes = Math.round(parseFloat(hours) * 60);
+  const days = Math.floor(totalMinutes / 1440);
+  const hoursRemaining = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hoursRemaining > 0) parts.push(`${hoursRemaining}h`);
+  if (minutes > 0 && days === 0) parts.push(`${minutes}m`);
+  
+  return parts.join(" ") || "0h";
 };
 
-// ✅ Helper to convert static options to select format
-const toSelectOptions = (options) => {
-  if (!options) return [];
-  if (Array.isArray(options) && typeof options[0] === 'string') {
-    return options.map(value => ({ value, label: value }));
-  }
-  if (Array.isArray(options) && typeof options[0] === 'object' && options[0].value) {
-    return options;
-  }
-  return Object.keys(options).map(key => ({
-    value: key,
-    label: options[key].label || key,
-  }));
+// Manual-entry fields: label, required, whole number only
+const METRIC_FIELDS = {
+  totalDistance: { label: 'Distance', required: true },
+  estimatedDuration: { label: 'Duration', required: true },
+  fuelConsumption: { label: 'Fuel' },
+  estimatedCost: { label: 'Cost' },
+  delays: { label: 'Delays' },
+  incidents: { label: 'Incidents', integer: true },
 };
 
-// ✅ Convert static options to select format
-const staticTripTypeOptions = toSelectOptions(STATIC_TRIP_TYPE_OPTIONS);
-const staticPriorityOptions = toSelectOptions(STATIC_PRIORITY_OPTIONS);
-const staticApprovalOptions = toSelectOptions(STATIC_APPROVAL_OPTIONS);
-const staticDepartureOptions = toSelectOptions(DEPARTURE_OPTIONS);
-
-/* ============================================================
-   COMPONENT: AddressSection
-   ============================================================ */
-
-function AddressSection({ label, address, onChange, errors = {}, disabled = false }) {
-  const [citySuggestions, setCitySuggestions] = useState([]);
-  const [loadingCity, setLoadingCity] = useState(false);
-  const debounceTimer = useRef(null);
-
-  useEffect(() => () => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-  }, []);
-
-  const fetchCitySuggestions = async (query) => {
-    if (!query || query.length < 2) {
-      setCitySuggestions([]);
+/** Returns { field: message } for invalid manual entries. Exported for testing. */
+export const validateMetrics = (formData) => {
+  const errors = {};
+  Object.entries(METRIC_FIELDS).forEach(([field, cfg]) => {
+    const raw = formData[field];
+    const empty = raw === '' || raw === null || raw === undefined;
+    if (empty) {
+      if (cfg.required) errors[field] = `${cfg.label} is required`;
       return;
     }
-    setLoadingCity(true);
-    try {
-      const suggestions = await routingService.suggestCities(query);
-      setCitySuggestions(suggestions || []);
-    } catch {
-      setCitySuggestions([]);
-    } finally {
-      setLoadingCity(false);
-    }
-  };
+    const n = Number(String(raw).trim());
+    if (!Number.isFinite(n)) errors[field] = `${cfg.label} must be a number (use a dot for decimals)`;
+    else if (n < 0) errors[field] = `${cfg.label} cannot be negative`;
+    else if (cfg.required && n === 0) errors[field] = `${cfg.label} must be greater than 0`;
+    else if (cfg.integer && !Number.isInteger(n)) errors[field] = `${cfg.label} must be a whole number`;
+  });
+  return errors;
+};
 
-  const handleCityInputChange = (_, value) => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => fetchCitySuggestions(value), 300);
-  };
+// Compact Metric Card Component
+const MetricCard = ({ icon: Icon, label, value, subtext, color = "primary" }) => (
+  <Box sx={{ textAlign: 'center', p: 0.5 }}>
+    <Icon sx={{ fontSize: '1.2rem', color: `${color}.main`, mb: 0.25 }} />
+    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
+      {label}
+    </Typography>
+    <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.85rem' }}>
+      {value}
+    </Typography>
+    {subtext && (
+      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
+        {subtext}
+      </Typography>
+    )}
+  </Box>
+);
 
-  const handleCitySelect = (_, value) => {
-    if (!value) return;
-    onChange({
-      ...address,
-      city: typeof value === 'string' ? value : value.city,
-      province: value.province || address.province,
-      zipCode: value.zipCode || address.zipCode
-    });
-  };
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: { xs: 1.5, sm: 2, md: 2.5 },
-        borderRadius: { xs: '12px', sm: '16px' },
-        border: '1px solid #ECECEC',
-        bgcolor: '#FFFFFF',
-        width: '100%',
-        mb: 1.5,
-      }}
-    >
-      <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-        <LocationOn sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-        <Typography 
-          variant="subtitle2" 
-          sx={{ 
-            fontWeight: 600, 
-            fontSize: { xs: '0.7rem', sm: '0.8rem' },
-            color: '#111827',
-          }}
-        >
-          {label}
-        </Typography>
-        {address.latitude && address.longitude && (
-          <Chip 
-            size="small" 
-            label="📍 Geocoded" 
-            color="success" 
-            variant="outlined"
-            sx={{ height: { xs: 16, sm: 20 }, fontSize: { xs: '0.45rem', sm: '0.6rem' } }}
-          />
-        )}
-      </Stack>
-
-      <Grid container spacing={{ xs: 1, sm: 1.5 }}>
-        <Grid size={{ xs: 12 }}>
-          <TextField
-            fullWidth
-            label="Street Address"
-            value={address.street || ''}
-            onChange={(e) => onChange({ ...address, street: e.target.value })}
-            size="small"
-            placeholder="e.g., 16275 Imbuzana Street"
-            disabled={disabled}
-            sx={{ 
-              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-            }}
-          />
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Autocomplete
-            freeSolo
-            options={citySuggestions}
-            getOptionLabel={(o) => (typeof o === 'string' ? o : o.city)}
-            loading={loadingCity}
-            value={address.city || ''}
-            onInputChange={handleCityInputChange}
-            onChange={handleCitySelect}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="City / Town *"
-                size="small"
-                required
-                error={!!errors.city}
-                helperText={errors.city || 'Start typing for suggestions'}
-                disabled={disabled}
-                sx={{ 
-                  '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                  '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                }}
-              />
-            )}
-            renderOption={(props, option) => (
-              <li {...props}>
-                <Box>
-                  <Typography sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                    {option.city}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
-                    {option.province}
-                    {option.zipCode && ` • ${option.zipCode}`}
-                  </Typography>
-                </Box>
-              </li>
-            )}
-          />
-        </Grid>
-
-        <Grid size={{ xs: 6, md: 3 }}>
-          <TextField
-            fullWidth
-            label="Postal Code"
-            value={address.zipCode || ''}
-            onChange={(e) => onChange({ ...address, zipCode: e.target.value })}
-            size="small"
-            placeholder="e.g., 1475"
-            inputProps={{ maxLength: 4 }}
-            disabled={disabled}
-            sx={{ 
-              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-            }}
-          />
-        </Grid>
-
-        <Grid size={{ xs: 6, md: 3 }}>
-          <FormControl fullWidth size="small" error={!!errors.province}>
-            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-              Province
-            </InputLabel>
-            <Select
-              value={address.province || ''}
-              label="Province"
-              onChange={(e) => onChange({ ...address, province: e.target.value })}
-              disabled={disabled}
-              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
-            >
-              <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                Select province
-              </MenuItem>
-              {PROVINCE_OPTIONS.map(p => (
-                <MenuItem key={p} value={p} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                  {p}
-                </MenuItem>
-              ))}
-            </Select>
-            {errors.province && (
-              <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
-                {errors.province}
-              </FormHelperText>
-            )}
-          </FormControl>
-        </Grid>
-
-        <Grid size={{ xs: 12 }}>
-          <Divider sx={{ my: 0.75 }} />
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
-            Coordinates (optional)
-          </Typography>
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={1.5} 
-            sx={{ mt: 0.75 }}
-          >
-            <TextField
-              fullWidth
-              label="Latitude"
-              type="number"
-              value={address.latitude || ''}
-              onChange={(e) => onChange({ ...address, latitude: parseFloat(e.target.value) || null })}
-              size="small"
-              placeholder="e.g., -26.3378"
-              InputProps={{ inputProps: { step: 'any' } }}
-              sx={{ 
-                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Longitude"
-              type="number"
-              value={address.longitude || ''}
-              onChange={(e) => onChange({ ...address, longitude: parseFloat(e.target.value) || null })}
-              size="small"
-              placeholder="e.g., 28.2023"
-              InputProps={{ inputProps: { step: 'any' } }}
-              sx={{ 
-                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-              }}
-            />
-          </Stack>
-        </Grid>
-      </Grid>
-    </Paper>
-  );
-}
-
-/* ============================================================
-   COMPONENT: DepotSection
-   ============================================================ */
-
-function DepotSection({ 
-  depots, 
-  selectedDepot, 
-  onDepotSelect, 
-  departureType, 
-  onDepartureTypeChange, 
-  departureLocation,
-  onLocationChange,
-  departureOptions 
-}) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: { xs: 1.5, sm: 2, md: 2.5 },
-        borderRadius: { xs: '12px', sm: '16px' },
-        border: '1px solid #ECECEC',
-        bgcolor: '#FFFFFF',
-        width: '100%',
-        mb: 1.5,
-      }}
-    >
-      <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-        <WarehouseIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-        <Typography 
-          variant="subtitle2" 
-          sx={{ 
-            fontWeight: 600, 
-            fontSize: { xs: '0.7rem', sm: '0.8rem' },
-            color: '#111827',
-          }}
-        >
-          Depot & Departure
-        </Typography>
-      </Stack>
-
-      <Grid container spacing={1.5}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-              Departed From
-            </InputLabel>
-            <Select
-              value={departureType}
-              label="Departed From"
-              onChange={(e) => onDepartureTypeChange(e.target.value)}
-              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
-            >
-              {(departureOptions || []).map(option => (
-                <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
-
-        {departureType === 'DEPOT' && (
-          <>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                  Select Depot
-                </InputLabel>
-                <Select
-                  value={selectedDepot?.id || ''}
-                  label="Select Depot"
-                  onChange={(e) => {
-                    const depot = depots.find(d => d.id === e.target.value);
-                    onDepotSelect(depot);
-                  }}
-                  sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
-                >
-                  <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                    <em>Select depot</em>
-                  </MenuItem>
-                  {(depots || []).map(depot => (
-                    <MenuItem key={depot.id} value={depot.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                      {depot.name} ({depot.depotCode})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {selectedDepot && (
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Depot Address"
-                  value={selectedDepot.fullAddress || ''}
-                  size="small"
-                  disabled
-                  sx={{ 
-                    '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                    '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } }
-                  }}
-                />
-              </Grid>
-            )}
-          </>
-        )}
-
-        {departureType === 'FREEHAND' && (
-          <Grid size={{ xs: 12, md: 8 }}>
-            <TextField
-              fullWidth
-              label="Departure Location (Freehand)"
-              value={departureLocation || ''}
-              onChange={(e) => onLocationChange(e.target.value)}
-              size="small"
-              placeholder="Enter custom departure location..."
-              sx={{ 
-                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-              }}
-            />
-          </Grid>
-        )}
-
-        {departureType === 'LAST_DROP' && (
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Alert severity="info" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-              Vehicle departs from the last drop-off location of the previous trip.
-              Distance will be calculated based on the previous trip's destination.
-            </Alert>
-          </Grid>
-        )}
-      </Grid>
-    </Paper>
-  );
-}
-
-/* ============================================================
-   MAIN COMPONENT: TripForm
-   ============================================================ */
-
-function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  
-  // Get enums from context
-  const {
-    enums,
-    loading: enumsLoading,
-    getTripStatusOptions,
-    getTripTypeOptions,
-    getApprovalStatusOptions,
-    getPriorityOptions,
-    getDepartureTypeOptions,
-    getDepartedFromOptions,
-    getDriverOptions,
-    getVehicleOptions,
-    getSupervisorOptions,
-    refreshEnums,
-    isReady,
-  } = useEnums();
-
-  // Loading States
+const TripMetricsForm = ({
+  open,
+  onClose,
+  onSuccess,
+  tripId,
+  initialMetrics = {},
+  originLocation = "",
+  destinationLocation = "",
+  vehicleInfo,
+  tripData = {},
+}) => {
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [calculatingDistance, setCalculatingDistance] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+  const [vehicleType, setVehicleType] = useState("TRUCK");
+  const [calculatedMetrics, setCalculatedMetrics] = useState(null);
+  const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState(1);
+  const [hasExistingMetrics, setHasExistingMetrics] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  const initializedRef = useRef(null);
+  const userEditedRef = useRef(false);   // stops the async load from overwriting typed values
+  const timersRef = useRef([]);          // cleared on unmount
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  // Data States
-  const [vehicles, setVehicles] = useState([]);
-  const [drivers, setDrivers] = useState([]);
-  const [supervisors, setSupervisors] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [depots, setDepots] = useState([]);
+  useEffect(() => () => timersRef.current.forEach(clearTimeout), []);
+  const later = (fn, ms) => {
+    const t = setTimeout(fn, ms);
+    timersRef.current.push(t);
+  };
 
-  // Address States
-  const [origin, setOrigin] = useState(getDefaultAddress);
-  const [destination, setDestination] = useState(getDefaultAddress);
-
-  // Depot Tracking States
-  const [departureType, setDepartureType] = useState('DEPOT');
-  const [selectedDepot, setSelectedDepot] = useState(null);
-  const [departureLocation, setDepartureLocation] = useState('');
-  const [fromDepotKm, setFromDepotKm] = useState('');
-  const [toDepotKm, setToDepotKm] = useState('');
-  const [isFromDepot, setIsFromDepot] = useState(false);
-
-  // ✅ SAFELY get options - always return arrays
-  const tripTypeOptions = getTripTypeOptions() || [];
-  const statusOptions = getTripStatusOptions() || [];
-  const approvalOptions = getApprovalStatusOptions() || [];
-  const priorityOptions = getPriorityOptions() || [];
-  const departureOptions = getDepartureTypeOptions() || [];
-  const departedFromOptions = getDepartedFromOptions() || [];
-  const driverOptions = getDriverOptions() || [];
-  const vehicleOptions = getVehicleOptions() || [];
-  const supervisorOptions = getSupervisorOptions() || [];
-
-  // ✅ Fallback to static options if DB enums are not available
-  const finalTripTypeOptions = tripTypeOptions.length > 0 ? tripTypeOptions : staticTripTypeOptions;
-  const finalPriorityOptions = priorityOptions.length > 0 ? priorityOptions : staticPriorityOptions;
-  const finalApprovalOptions = approvalOptions.length > 0 ? approvalOptions : staticApprovalOptions;
-  const finalDepartureOptions = departureOptions.length > 0 ? departureOptions : staticDepartureOptions;
-
-  // ✅ Check if enums are ready before rendering
-  const isEnumReady = isReady && !enumsLoading;
-
-  // Form State - initialize with defaults from DB
-  const [form, setForm] = useState(() => {
-    const defaults = getDefaultPlannedDates();
-    return {
-      ...getDefaultFormState(),
-      tripType: getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
-      status: getDefaultEnumCode(statusOptions, 'PLANNED'),
-      approvalStatus: getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
-      priority: getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
-      plannedStartDate: defaults.plannedStartDate,
-      plannedEndDate: defaults.plannedEndDate,
-    };
+  const [formData, setFormData] = useState({
+    originLocation: "",
+    destinationLocation: "",
+    totalDistance: "",
+    estimatedDuration: "",
+    fuelConsumption: "",
+    estimatedCost: "",
+    delays: "",
+    incidents: "",
   });
 
-  // Guards so defaults / edit data are applied ONCE per opening. Previously these effects
-  // depended on option arrays that can be re-created every render, which could overwrite
-  // what the user had just selected or typed.
-  const defaultsAppliedRef = useRef(false);
-  const populatedForRef = useRef(null);
-  const originalStatusRef = useRef(null);
-  const submittingRef = useRef(false);
-
-  // Apply DB enum defaults when enums load (create mode) - only fills EMPTY fields
-  useEffect(() => {
-    if (!open) {
-      defaultsAppliedRef.current = false;
-      return;
-    }
-    if (defaultsAppliedRef.current || !isEnumReady || initialData || mode !== 'create') return;
-    defaultsAppliedRef.current = true;
-    setForm(prev => ({
-      ...prev,
-      tripType: prev.tripType || getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
-      status: prev.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
-      approvalStatus: prev.approvalStatus || getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
-      priority: prev.priority || getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
-    }));
-  }, [open, isEnumReady, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions, initialData, mode]);
-
-  /* ============================================================
-     DATA LOADING
-   ============================================================ */
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
+  // Load existing metrics from service
+  const loadExistingMetrics = useCallback(async (currentTripId) => {
+    if (!currentTripId) return;
+    
     try {
-      const [vRes, dRes, cRes, depotRes] = await Promise.all([
-        vehicleService.getAllVehicles().catch(() => []),
-        driverService.getAllDrivers().catch(() => []),
-        customerService.getActiveCustomers().catch(() => []),
-        depotService.getAllDepots().catch(() => [])
-      ]);
-
-      const allVehicles = Array.isArray(vRes) ? vRes : (vRes?.content || []);
-      const allDrivers = Array.isArray(dRes) ? dRes : (dRes?.content || []);
-      const assignedVehicleId = initialData?.vehicleId ?? initialData?.vehicle?.id;
-      const assignedDriverId = initialData?.driverId ?? initialData?.driver?.id;
-
-      setVehicles(keepAssigned(filterActiveVehicles(allVehicles), allVehicles, assignedVehicleId));
-      setDrivers(keepAssigned(filterAvailableDrivers(allDrivers), allDrivers, assignedDriverId));
-      setCustomers(Array.isArray(cRes) ? cRes : (cRes?.content || []));
-      setDepots(Array.isArray(depotRes) ? depotRes : (depotRes?.content || []));
-
-      // Supervisors: use the authenticated API client. The previous raw fetch('/api/users')
-      // had no auth token and went to the FRONTEND host on Render, so the list was always empty.
-      try {
-        const usersResponse = await api.get('/users', { params: { roles: 'MANAGER,SUPER_ADMIN' } });
-        const usersData = usersResponse?.data !== undefined ? usersResponse.data : usersResponse;
-        setSupervisors(Array.isArray(usersData) ? usersData : (usersData?.content || usersData?.data || []));
-      } catch (supErr) {
-        console.warn('Could not load supervisors:', supErr?.message);
-        setSupervisors([]);
+      setLoading(true);
+      const data = await tripService.getTripMetrics(currentTripId);
+      
+      if (data && (data.totalDistanceKm || data.totalDurationHours || data.fuelUsedLiters)) {
+        setHasExistingMetrics(true);
+        // If the user already started typing, keep their values (show the "Existing" chip only)
+        if (userEditedRef.current) return;
+        setFormData(prev => ({
+          ...prev,
+          originLocation: data.originLocation || prev.originLocation,
+          destinationLocation: data.destinationLocation || prev.destinationLocation,
+          totalDistance: data.totalDistanceKm?.toString() || prev.totalDistance,
+          estimatedDuration: data.totalDurationHours?.toString() || prev.estimatedDuration,
+          fuelConsumption: data.fuelUsedLiters?.toString() || prev.fuelConsumption,
+          estimatedCost: data.costAmount?.toString() || prev.estimatedCost,
+          delays: data.idleTimeHours?.toString() || prev.delays,
+          incidents: data.incidentCount?.toString() || prev.incidents,
+        }));
+        
+        if (data.totalDistanceKm && data.totalDurationHours) {
+          setCalculatedMetrics({
+            totalDistanceKm: data.totalDistanceKm,
+            totalDurationHours: data.totalDurationHours,
+            fuelUsedLiters: data.fuelUsedLiters,
+            costAmount: data.costAmount,
+          });
+        }
       }
     } catch (err) {
-      console.error('Failed to load data:', err);
-      setError('Failed to load vehicles, drivers, or customers');
+      console.log("No existing metrics for trip:", currentTripId);
+      setHasExistingMetrics(false);
     } finally {
       setLoading(false);
     }
-  }, [initialData]);
+  }, []);
 
-  /* ============================================================
-     DISTANCE CALCULATION
-   ============================================================ */
-
-  const calculateDistanceFromDepot = useCallback(async () => {
-    if (!selectedDepot || !origin.city) {
-      setFromDepotKm('');
-      return;
-    }
-
-    if (selectedDepot.latitude && selectedDepot.longitude) {
-      const originAddress = buildAddress(origin);
-      try {
-        setCalculatingDistance(true);
-        const result = await routingService.calculateDistance(
-          `${selectedDepot.latitude},${selectedDepot.longitude}`,
-          originAddress
-        );
-        if (result?.distance) {
-          setFromDepotKm(result.distance.toFixed(1));
-        }
-      } catch (error) {
-        console.error('Failed to calculate depot distance:', error);
-        setFromDepotKm('');
-      } finally {
-        setCalculatingDistance(false);
-      }
-    }
-  }, [selectedDepot, origin]);
-
-  const calculateDistanceToDepot = useCallback(async () => {
-    if (!selectedDepot || !destination.city) {
-      setToDepotKm('');
-      return;
-    }
-
-    if (selectedDepot.latitude && selectedDepot.longitude) {
-      const destAddress = buildAddress(destination);
-      try {
-        setCalculatingDistance(true);
-        const result = await routingService.calculateDistance(
-          destAddress,
-          `${selectedDepot.latitude},${selectedDepot.longitude}`
-        );
-        if (result?.distance) {
-          setToDepotKm(result.distance.toFixed(1));
-        }
-      } catch (error) {
-        console.error('Failed to calculate depot distance:', error);
-        setToDepotKm('');
-      } finally {
-        setCalculatingDistance(false);
-      }
-    }
-  }, [selectedDepot, destination]);
-
-  // Recalculate distances when origin/destination changes
-  useEffect(() => {
-    if (departureType === 'DEPOT' && selectedDepot) {
-      calculateDistanceFromDepot();
-      calculateDistanceToDepot();
-    }
-  }, [origin, destination, selectedDepot, departureType, calculateDistanceFromDepot, calculateDistanceToDepot]);
-
-  /* ============================================================
-     FORM RESET & POPULATION
-   ============================================================ */
-
-  // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
-      const timer = setTimeout(() => {
-        setOrigin(getDefaultAddress);
-        setDestination(getDefaultAddress);
-        setDepartureType('DEPOT');
-        setSelectedDepot(null);
-        setDepartureLocation('');
-        setFromDepotKm('');
-        setToDepotKm('');
-        setIsFromDepot(false);
-        setForm(getDefaultFormState);
-        setFormErrors({});
-        setError(null);
-        setSuccessMessage(null);
-        setIsSuccess(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
-
-  // Load data on open
-  useEffect(() => {
-    if (!open) return;
-    loadData();
-    // Refresh enums to get latest from DB
-    refreshEnums();
-  }, [open, loadData, refreshEnums]);
-
-  // Populate form with initial data when editing - ONCE per opening, so the user's
-  // edits are never overwritten by a re-render.
-  useEffect(() => {
-    if (!open) {
-      populatedForRef.current = null;
+      initializedRef.current = null;
       return;
     }
-    if (initialData && open && populatedForRef.current !== initialData.id) {
-      populatedForRef.current = initialData.id;
-      originalStatusRef.current = initialData.status || null;
-      console.log('🔍 Populating form with initial data:', initialData);
-      
-      setForm(prev => ({
-        ...prev,
-        ...initialData,
-        tripType: initialData.tripType || getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
-        status: initialData.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
-        approvalStatus: initialData.approvalStatus || getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
-        priority: initialData.priority || getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
-        // the list API may return nested objects instead of flat ids
-        vehicleId: initialData.vehicleId ?? initialData.vehicle?.id ?? '',
-        driverId: initialData.driverId ?? initialData.driver?.id ?? '',
-        supervisorId: initialData.supervisorId ?? initialData.supervisor?.id ?? '',
-        customerId: initialData.customerId ?? initialData.customer?.id ?? '',
-        referenceNumber: initialData.referenceNumber || '',
-        plannedStartDate: initialData.plannedStartDate || getDefaultPlannedDates().plannedStartDate,
-        plannedEndDate: initialData.plannedEndDate || getDefaultPlannedDates().plannedEndDate,
-      }));
 
-      if (initialData.departedFrom) setDepartureType(initialData.departedFrom);
-      if (initialData.departureLocation) setDepartureLocation(initialData.departureLocation);
-      if (initialData.fromDepotKm) setFromDepotKm(initialData.fromDepotKm);
-      if (initialData.toDepotKm) setToDepotKm(initialData.toDepotKm);
-      if (initialData.isFromDepot !== undefined) setIsFromDepot(initialData.isFromDepot);
+    if (initializedRef.current === tripId) return;
+    initializedRef.current = tripId;
 
-      // populate even if only the city (no full address string) was stored
-      if (initialData.originLocation || initialData.originCity) {
-        setOrigin({
-          street: initialData.originStreetAddress || '',
-          city: initialData.originCity || '',
-          zipCode: initialData.originZipCode || '',
-          province: initialData.originProvince || '',
-          latitude: initialData.originLatitude || null,
-          longitude: initialData.originLongitude || null,
-        });
-      }
-      if (initialData.destinationLocation || initialData.destinationCity) {
-        setDestination({
-          street: initialData.destinationStreetAddress || '',
-          city: initialData.destinationCity || '',
-          zipCode: initialData.destinationZipCode || '',
-          province: initialData.destinationProvince || '',
-          latitude: initialData.destinationLatitude || null,
-          longitude: initialData.destinationLongitude || null,
-        });
-      }
-    }
-  }, [initialData, open, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions]);
+    console.log("Initializing TripMetricsForm for trip:", tripId);
 
-  // Set default planned dates for new trip
-  useEffect(() => {
-    if (open && mode === 'create' && !initialData) {
-      const defaults = getDefaultPlannedDates();
-      setForm(prev => ({
-        ...prev,
-        plannedStartDate: defaults.plannedStartDate,
-        plannedEndDate: defaults.plannedEndDate,
-      }));
-    }
-  }, [open, mode, initialData]);
-
-  /* ============================================================
-     FORM VALIDATION
-   ============================================================ */
-
-  const validateForm = useCallback(() => {
-    const errors = {};
-
-    if (!origin.city) errors.originCity = 'Origin city is required';
-    if (!origin.province) errors.originProvince = 'Origin province is required';
-    if (!destination.city) errors.destinationCity = 'Destination city is required';
-    if (!destination.province) errors.destinationProvince = 'Destination province is required';
-
-    if (!form.plannedStartDate) errors.plannedStartDate = 'Planned start date is required';
-    if (form.plannedEndDate && form.plannedStartDate) {
-      if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
-        errors.plannedEndDate = 'End date must be after start date';
-      }
-    }
-
-    if (!form.vehicleId) errors.vehicleId = 'Please select a vehicle';
-    if (!form.driverId) errors.driverId = 'Please select a driver';
-    if (!form.commodityType) errors.commodityType = 'Please select commodity type';
-
-    // Numbers: must be numeric and not negative (was: parseFloat("12abc") passed, negatives allowed)
-    Object.entries(NUMERIC_FIELDS).forEach(([field, label]) => {
-      const raw = form[field];
-      if (raw === '' || raw === null || raw === undefined) return;
-      // strict: "12,5" is rejected (parseFloat would silently save 12) - use a dot for decimals
-      const n = Number(String(raw).trim());
-      if (!Number.isFinite(n)) errors[field] = `${label} must be a number (use a dot for decimals, e.g. 12.5)`;
-      else if (n < 0) errors[field] = `${label} cannot be negative`;
-      else if (field === 'palletCount' && !Number.isInteger(n)) errors[field] = 'Pallet count must be a whole number';
+    const inferredType = inferVehicleType(vehicleInfo || tripData.vehicle);
+    setVehicleType(inferredType);
+    setError("");
+    setFieldErrors({});
+    userEditedRef.current = false;
+    setCalculatedMetrics(null);
+    setHasExistingMetrics(false);
+    setSaveSuccess(false);
+    setActiveTab(1);
+    
+    const origin = originLocation || 
+                   tripData.originLocation || 
+                   tripData.origin || 
+                   initialMetrics.originLocation || 
+                   "";
+    
+    const destination = destinationLocation || 
+                        tripData.destinationLocation || 
+                        tripData.destination || 
+                        initialMetrics.destinationLocation || 
+                        "";
+    
+    setFormData({
+      originLocation: origin,
+      destinationLocation: destination,
+      totalDistance: initialMetrics.totalDistanceKm?.toString() || 
+                     initialMetrics.totalDistance?.toString() || 
+                     tripData.totalDistanceKm?.toString() || 
+                     tripData.totalDistance?.toString() || 
+                     "",
+      estimatedDuration: initialMetrics.totalDurationHours?.toString() || 
+                         initialMetrics.estimatedDuration?.toString() || 
+                         tripData.totalDurationHours?.toString() || 
+                         tripData.estimatedDuration?.toString() || 
+                         "",
+      fuelConsumption: initialMetrics.fuelUsedLiters?.toString() || 
+                       initialMetrics.fuelConsumption?.toString() || 
+                       tripData.fuelUsedLiters?.toString() || 
+                       tripData.fuelConsumption?.toString() || 
+                       "",
+      estimatedCost: initialMetrics.costAmount?.toString() || 
+                     initialMetrics.estimatedCost?.toString() || 
+                     tripData.costAmount?.toString() || 
+                     tripData.estimatedCost?.toString() || 
+                     "",
+      delays: initialMetrics.idleTimeHours?.toString() || tripData.delays?.toString() || "",
+      incidents: initialMetrics.incidentCount?.toString() || tripData.incidents?.toString() || "",
     });
-
-    return errors;
-  }, [origin, destination, form]);
-
-  /* ============================================================
-     EVENT HANDLERS
-   ============================================================ */
-
-  const handleFieldChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (formErrors[field]) {
-      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    
+    if (tripId) {
+      loadExistingMetrics(tripId);
     }
+  }, [open, tripId, initialMetrics, originLocation, destinationLocation, vehicleInfo, tripData, loadExistingMetrics]);
+
+  const handleInputChange = (field) => (event) => {
+    const value = event.target.value;
+    userEditedRef.current = true;
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    if (fieldErrors[field]) setFieldErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
-  const handleDateTimeChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (formErrors[field]) {
-      setFormErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const handleSwapLocations = () => {
-    const temp = origin;
-    setOrigin(destination);
-    setDestination(temp);
-  };
-
-  const handleDepartureTypeChange = (value) => {
-    setDepartureType(value);
-    if (value !== 'DEPOT') {
-      setSelectedDepot(null);
-      setFromDepotKm('');
-      setToDepotKm('');
-    }
-  };
-
-  const handleDepotSelect = (depot) => {
-    setSelectedDepot(depot);
-    if (depot) {
-      setFromDepotKm('');
-      setToDepotKm('');
-    }
-  };
-
-  /* ============================================================
-     LOAD CREATION/LINKING FUNCTION
-   ============================================================ */
-
-  const findOrCreateLoad = async (tripResult) => {
+  const calculateMetrics = async () => {
     try {
-      const referenceNumber = tripResult.referenceNumber || form.referenceNumber;
-      
-      if (!referenceNumber) {
-        console.log('📦 No reference number provided. Creating new load...');
-        return await createNewLoad(tripResult);
-      }
+      setCalculating(true);
+      setError("");
 
-      console.log(`🔍 Checking for existing load with reference: ${referenceNumber}`);
-      
-      let existingLoad = null;
-      try {
-        const searchResult = await loadService.searchLoads({ 
-          referenceNumber: referenceNumber,
-          size: 100 
-        });
-        
-        // Only link to a load whose reference matches EXACTLY and that belongs to the same
-        // customer (search may be a partial match - "123" also finds "1234").
-        const wanted = String(referenceNumber).trim().toUpperCase();
-        const tripCustomerId = tripResult.customerId ?? form.customerId ?? null;
-        const candidates = (searchResult?.content || []).filter(l =>
-          String(l.referenceNumber || '').trim().toUpperCase() === wanted &&
-          (!tripCustomerId || !l.customerId || String(l.customerId) === String(tripCustomerId))
-        );
-        if (candidates.length > 0) {
-          existingLoad = candidates[0];
-          console.log(`✅ Found existing load: ${existingLoad.loadNumber} (ID: ${existingLoad.id})`);
-        }
-      } catch (searchError) {
-        console.warn('⚠️ Error searching for load:', searchError);
-      }
+      const origin = formData.originLocation?.trim();
+      const destination = formData.destinationLocation?.trim();
 
-      if (existingLoad) {
-        console.log(`📦 Adding trip to existing load: ${existingLoad.loadNumber}`);
-        try {
-          const updatedLoad = await loadService.addTripToLoad(existingLoad.id, tripResult.id);
-          console.log(`✅ Trip added to load ${updatedLoad.loadNumber}`);
-          return updatedLoad;
-        } catch (addError) {
-          console.warn('⚠️ Could not add trip to existing load, creating new load:', addError);
-          return await createNewLoad(tripResult);
-        }
-      }
-
-      console.log('📦 No existing load found. Creating new load...');
-      return await createNewLoad(tripResult);
-
-    } catch (error) {
-      console.error('❌ Error in load creation/linking:', error);
-      return null;
-    }
-  };
-
-  const createNewLoad = async (tripResult) => {
-    try {
-      const loadData = {
-        referenceNumber: form.referenceNumber || tripResult.referenceNumber || null,
-        description: form.cargoDescription || form.description || `Load for trip ${tripResult.tripNumber}`,
-        customerId: tripResult.customerId || form.customerId || null,
-        weightKg: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-        volumeCubicM: null,
-        palletCount: form.palletCount ? parseInt(form.palletCount) : null,
-        containerNumber: form.containerNumber || null,
-        loadingDate: form.plannedStartDate || null,
-        unloadingDate: form.plannedEndDate || null,
-        status: 'PENDING',
-        priority: form.priority || 'NORMAL',
-        commodityType: form.commodityType || null,
-        originLocation: buildAddress(origin) || null,
-        destinationLocation: buildAddress(destination) || null,
-        tripIds: [tripResult.id],
-      };
-
-      Object.keys(loadData).forEach(key => {
-        if (loadData[key] === null || loadData[key] === undefined || loadData[key] === '') {
-          delete loadData[key];
-        }
-      });
-
-      console.log('📦 Creating new load with data:', loadData);
-      const newLoad = await loadService.createLoad(loadData);
-      console.log(`✅ New load created: ${newLoad.loadNumber} (ID: ${newLoad.id})`);
-      return newLoad;
-    } catch (error) {
-      console.error('❌ Failed to create load:', error);
-      return null;
-    }
-  };
-
-  /* ============================================================
-     FORM SUBMISSION
-   ============================================================ */
-
-  const handleSubmit = useCallback(async () => {
-    // ref guard: a fast double-click used to create two trips before `submitting` re-rendered
-    if (submitting || submittingRef.current) return;
-
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      setError('Please fix the validation errors before submitting.');
-      return;
-    }
-
-    submittingRef.current = true;
-    setSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
-    setIsSuccess(false);
-
-    try {
-      const originAddress = buildAddress(origin);
-      const destAddress = buildAddress(destination);
-
-      const payload = {
-        tripType: form.tripType,
-        status: form.status,
-        approvalStatus: form.approvalStatus,
-        priority: form.priority,
-
-        plannedStartDate: formatDateForAPI(form.plannedStartDate),
-        plannedEndDate: formatDateForAPI(form.plannedEndDate),
-        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
-        plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
-        plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
-
-        tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
-        otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
-
-        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
-        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
-        supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
-        customerId: form.customerId ? parseInt(form.customerId, 10) : null,
-
-        commodityType: form.commodityType || null,
-        cargoDescription: form.cargoDescription || null,
-        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
-        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
-        palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
-        containerNumber: form.containerNumber || null,
-
-        originStreetAddress: origin.street || null,
-        originCity: origin.city,
-        originZipCode: origin.zipCode || null,
-        originProvince: origin.province || null,
-        originLatitude: origin.latitude || null,
-        originLongitude: origin.longitude || null,
-        originLocation: originAddress || null,
-
-        destinationStreetAddress: destination.street || null,
-        destinationCity: destination.city,
-        destinationZipCode: destination.zipCode || null,
-        destinationProvince: destination.province || null,
-        destinationLatitude: destination.latitude || null,
-        destinationLongitude: destination.longitude || null,
-        destinationLocation: destAddress || null,
-
-        fromDepotKm: fromDepotKm ? parseFloat(fromDepotKm) : null,
-        toDepotKm: toDepotKm ? parseFloat(toDepotKm) : null,
-        departedFrom: departureType,
-        departureLocation: departureType === 'FREEHAND' ? departureLocation : null,
-        isFromDepot: isFromDepot,
-
-        notes: form.notes || null,
-        specialInstructions: form.specialInstructions || null,
-        driverNotes: form.driverNotes || null,
-        referenceNumber: form.referenceNumber || null,
-        purchaseOrderNumber: form.purchaseOrderNumber || null,
-        cancellationReason: form.cancellationReason || null
-      };
-
-      // Remove empty values
-      Object.keys(payload).forEach(key => {
-        if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
-          delete payload[key];
-        }
-      });
-
-      console.log(`📤 ${mode === 'edit' ? 'Updating' : 'Creating'} trip:`, payload);
-
-      let result;
-      if (mode === 'edit' && initialData?.id) {
-        // Lost-update guard: if the trip's status changed on the server while this form was
-        // open (e.g. the driver started it), saving would silently put the old status back.
-        const latest = await tripService.getTripById(initialData.id);
-        const openedWith = originalStatusRef.current;
-        if (latest?.status && openedWith && latest.status !== openedWith) {
-          setError(
-            `This trip was changed to ${latest.status} while you were editing (it was ${openedWith}). ` +
-            'Close the form and open it again to edit the latest version.'
-          );
-          return;
-        }
-        result = await tripService.updateTrip(initialData.id, payload);
-        console.log('✅ Trip updated successfully:', result);
-        setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
-      } else {
-        console.log('📤 Creating new trip...');
-        result = await tripService.createTrip(payload);
-        console.log('✅ Trip created successfully:', result);
-        
-        console.log('📦 Finding or creating load for trip...');
-        const loadResult = await findOrCreateLoad(result);
-        if (loadResult) {
-          setSuccessMessage(`Trip ${result.tripNumber} created successfully and added to Load ${loadResult.loadNumber}!`);
-        } else {
-          // the trip IS saved; make the missing load visible instead of hiding it
-          setSuccessMessage(
-            `Trip ${result.tripNumber} created successfully, but it could not be linked to a load. ` +
-            'Please link it from the Loads screen.'
-          );
-        }
-      }
-
-      setIsSuccess(true);
-
-      if (onSuccess) {
-        onSuccess(result);
-      }
-
-      if (fetchTrips) {
-        console.log('🔄 Refreshing trip list...');
-        try {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          await fetchTrips();
-          console.log('✅ Trip list refreshed successfully');
-        } catch (refreshError) {
-          console.error('⚠️ Error refreshing trip list:', refreshError);
-        }
-      }
-
-      setTimeout(() => {
-        if (onClose) onClose();
-      }, 1500);
-
-    } catch (err) {
-      console.error('❌ Trip error:', err);
-      
-      // Create-only: in EDIT mode a 404 means the trip no longer exists and must not show "success"
-      if (mode !== 'edit' && err.response?.status === 404 && err.response?.data?.detail?.includes('Trip not found')) {
-        console.warn('⚠️ Trip was created but not found on refresh - race condition');
-        setSuccessMessage('Trip created successfully!');
-        setIsSuccess(true);
-        
-        if (fetchTrips) {
-          try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await fetchTrips();
-          } catch (refreshError) {
-            console.error('⚠️ Error refreshing trip list after race condition:', refreshError);
-          }
-        }
-        
-        setTimeout(() => {
-          if (onClose) onClose();
-        }, 1500);
-        submittingRef.current = false;
-        setSubmitting(false);
+      if (!origin || !destination) {
+        setError("Please enter both origin and destination locations.");
+        setCalculating(false);
         return;
       }
 
-      let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
-
-      if (err.response?.status === 409) {
-        errorMessage = err.response.data?.message || 'Duplicate trip detected.';
-      } else if (err.response?.status === 400) {
-        errorMessage = err.userMessage || err.response.data?.message || 'Invalid data. Please check all fields.';
-      } else if (err.response?.status === 429) {
-        // We cannot know whether the trip was saved - do not claim it was.
-        errorMessage = 'The server is busy (rate limit). Check the trip list before trying again - ' +
-          'the trip may already have been saved.';
-      } else if (err.userMessage) {
-        errorMessage = err.userMessage;
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message) {
-        errorMessage = err.message;
+      if (!tripId) {
+        setError("Trip must be saved before calculating metrics.");
+        setCalculating(false);
+        return;
       }
 
+      console.log("Calculating metrics for:", {
+        tripId: tripId,
+        origin,
+        destination,
+        vehicleType
+      });
+
+      const result = await tripService.previewTripMetrics(
+        origin,
+        destination,
+        vehicleType
+      );
+
+      if (!result) {
+        setError("No data returned from calculation service.");
+        return;
+      }
+
+      console.log("Calculation result:", result);
+
+      const newFormData = {
+        ...formData,
+        totalDistance: result.totalDistanceKm?.toString() || result.totalDistance?.toString() || "",
+        estimatedDuration: result.totalDurationHours?.toString() || result.estimatedDuration?.toString() || "",
+        fuelConsumption: result.fuelUsedLiters?.toString() || result.fuelConsumption?.toString() || "",
+        estimatedCost: result.costAmount?.toString() || result.estimatedCost?.toString() || "",
+      };
+      
+      setFormData(newFormData);
+      userEditedRef.current = true;
+
+      setCalculatedMetrics({
+        totalDistanceKm: result.totalDistanceKm || result.totalDistance,
+        totalDurationHours: result.totalDurationHours || result.estimatedDuration,
+        fuelUsedLiters: result.fuelUsedLiters || result.fuelConsumption,
+        costAmount: result.costAmount || result.estimatedCost,
+        provider: result.provider,
+        confidenceScore: result.confidenceScore,
+        warning: result.warning
+      });
+      
+      if (result.warning) {
+        setError(`⚠️ Note: ${result.warning}`);
+        later(() => setError(""), 5000);
+      }
+      
+      setActiveTab(1);
+      
+    } catch (err) {
+      console.error("Auto calculation failed:", err);
+      
+      let errorMessage = "Auto calculation failed. ";
+      
+      if (err.response?.status === 500) {
+        errorMessage += "Server error. Please enter metrics manually.";
+      } else if (err.response?.status === 404) {
+        errorMessage += "Route not found. Please check your addresses.";
+      } else if (err.response?.status === 400) {
+        errorMessage += "Invalid request. Please check your input.";
+      } else {
+        errorMessage += err.userMessage || err.message || "Please enter metrics manually.";
+      }
+      
+      setError(errorMessage);
+      setActiveTab(1);
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  const saveMetrics = async () => {
+    if (!tripId) {
+      setError("Cannot save metrics: Trip ID is missing.");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError("");
+      setSaveSuccess(false);
+
+      // All fields validated (was: only distance/duration; negatives and "12abc" were saved)
+      const errors = validateMetrics(formData);
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
+        setError("Please fix the highlighted fields.");
+        setLoading(false);
+        return;
+      }
+
+      const n = (v) => (v === '' || v === null || v === undefined ? 0 : Number(String(v).trim()));
+      const payload = {
+        totalDistanceKm: n(formData.totalDistance),
+        totalDurationHours: n(formData.estimatedDuration),
+        fuelUsedLiters: n(formData.fuelConsumption),
+        costAmount: n(formData.estimatedCost),
+        idleTimeHours: n(formData.delays),
+        incidentCount: n(formData.incidents),
+      };
+
+      console.log("Saving metrics payload:", payload);
+      
+      await tripService.saveTripMetrics(tripId, payload);
+
+      setSaveSuccess(true);
+      
+      // ✅ Call onSuccess after successful save
+      // (no reload here - the form is closing and the parent refreshes the list)
+      later(() => {
+        if (onSuccess) {
+          onSuccess();
+        }
+        if (onClose) {
+          onClose();
+        }
+      }, 1500);
+      
+    } catch (err) {
+      console.error("Failed to save metrics:", err);
+      
+      let errorMessage = "Failed to save metrics. ";
+      if (err.response?.status === 404) {
+        errorMessage += "Trip not found.";
+      } else if (err.response?.status === 400) {
+        errorMessage += err.userMessage || "Invalid data format.";
+      } else {
+        errorMessage += err.userMessage || err.message || "Please try again.";
+      }
+      
       setError(errorMessage);
     } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
+      setLoading(false);
     }
-  }, [form, origin, destination, fromDepotKm, toDepotKm, departureType, departureLocation, isFromDepot, validateForm, onSuccess, onClose, fetchTrips, submitting, mode, initialData]);
+  };
 
-  /* ============================================================
-     RENDER HELPERS
-   ============================================================ */
+  const applyCalculatedMetrics = () => {
+    if (calculatedMetrics) {
+      setFormData(prev => ({
+        ...prev,
+        totalDistance: calculatedMetrics.totalDistanceKm?.toString() || "",
+        estimatedDuration: calculatedMetrics.totalDurationHours?.toString() || "",
+        fuelConsumption: calculatedMetrics.fuelUsedLiters?.toString() || "",
+        estimatedCost: calculatedMetrics.costAmount?.toString() || "",
+      }));
+      userEditedRef.current = true;
+      setFieldErrors({});
+      setActiveTab(1);
+      setError("");
+    }
+  };
 
-  const renderLoading = () => (
-    <Box display="flex" justifyContent="center" p={3}>
-      <CircularProgress size={30} />
-    </Box>
-  );
-
-  const renderError = () => error && (
-    <Alert 
-      severity="error" 
-      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
-      onClose={() => setError(null)}
-    >
-      {error}
-    </Alert>
-  );
-
-  const renderSuccess = () => successMessage && (
-    <Alert 
-      severity="success" 
-      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
-      onClose={() => setSuccessMessage(null)}
-    >
-      {successMessage}
-    </Alert>
-  );
-
-  // Helper to render select with dynamic options
-  const renderSelectField = (field, label, options, required = false, helperText = null) => (
-    <FormControl fullWidth size="small" required={required} error={!!formErrors[field]}>
-      <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-        {label}
-      </InputLabel>
-      <Select
-        value={form[field] || ''}
-        label={label}
-        onChange={(e) => handleFieldChange(field, e.target.value)}
-        sx={{ 
-          fontSize: { xs: '0.7rem', sm: '0.75rem' },
-          borderRadius: '8px',
-        }}
-      >
-        {(options || []).map(option => (
-          <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </Select>
-      {formErrors[field] && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors[field]}</FormHelperText>}
-      {helperText && !formErrors[field] && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{helperText}</FormHelperText>}
-    </FormControl>
-  );
-
-  // ✅ If enums are not ready, show loading
-  // (shown inside the dialog - previously it rendered on the page behind it)
-  if (!isEnumReady) {
-    return (
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-          <CircularProgress />
-          <Typography sx={{ ml: 2 }}>Loading form data...</Typography>
-        </Box>
-      </Dialog>
-    );
-  }
-
-  /* ============================================================
-     MAIN RENDER
-   ============================================================ */
+  if (!open) return null;
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Dialog 
-        open={open} 
-        onClose={onClose} 
-        maxWidth="lg" 
-        fullWidth
-        PaperProps={{ 
-          sx: { 
-            maxHeight: '90vh',
-            width: '100%',
-            m: isMobile ? 1 : 2,
-            borderRadius: isMobile ? '12px' : '16px',
-            bgcolor: '#F7F7FC',
-          } 
-        }}
-      >
-        <DialogTitle sx={{ 
-          borderBottom: 1, 
-          borderColor: 'divider',
-          bgcolor: '#FFFFFF',
-          py: isMobile ? 1 : 1.5, 
-          px: isMobile ? 1.5 : 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 1,
-          borderRadius: isMobile ? '12px 12px 0 0' : '16px 16px 0 0',
-        }}>
-          <Typography 
-            variant="h6" 
+    <Dialog 
+      open={open} 
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: { borderRadius: 1.5 }
+      }}
+    >
+      <DialogTitle sx={{ py: 1.5, px: 2.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: 1, borderColor: 'divider' }}>
+        <AutoGraph color="primary" sx={{ fontSize: '1.2rem' }} />
+        <Typography variant="h6" sx={{ flexGrow: 1, fontSize: '1rem', fontWeight: 600 }}>
+          Trip Metrics {tripId && `#${tripId}`}
+        </Typography>
+        {hasExistingMetrics && (
+          <Chip
+            label="Existing"
+            size="small"
+            color="info"
+            sx={{ height: 20, fontSize: '0.6rem' }}
+          />
+        )}
+        {saveSuccess && (
+          <Chip
+            label="Saved!"
+            size="small"
+            color="success"
+            sx={{ height: 20, fontSize: '0.6rem' }}
+          />
+        )}
+        <IconButton onClick={onClose} size="small" sx={{ p: 0.5 }}>
+          <Close sx={{ fontSize: '1rem' }} />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ p: 2.5 }}>
+        {error && (
+          <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }} onClose={() => setError("")}>
+            {error}
+          </Alert>
+        )}
+
+        {(formData.originLocation || formData.destinationLocation) && (
+          <Paper 
+            elevation={0} 
             sx={{ 
-              fontSize: { xs: '0.9rem', sm: '1rem' }, 
-              fontWeight: 700,
-              color: '#111827',
+              p: 1.5, 
+              mb: 2, 
+              bgcolor: 'primary.light', 
+              color: 'primary.contrastText',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              borderRadius: 1
             }}
           >
-            {mode === 'create' ? 'Create New Trip' : 'Edit Trip'}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
-              startIcon={<Close />} 
-              onClick={onClose} 
-              disabled={submitting}
-              size="small"
-              sx={{ 
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                borderRadius: '10px',
+            <LocationOn sx={{ fontSize: '1rem' }} />
+            <Box>
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block' }}>
+                From: {formData.originLocation || "Not specified"}
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block' }}>
+                To: {formData.destinationLocation || "Not specified"}
+              </Typography>
+            </Box>
+          </Paper>
+        )}
+
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+          <Tabs 
+            value={activeTab} 
+            onChange={(e, newValue) => setActiveTab(newValue)}
+            variant="fullWidth"
+            sx={{
+              '& .MuiTab-root': {
+                fontSize: '0.75rem',
+                minHeight: 36,
                 textTransform: 'none',
-              }}
-            >
-              {isMobile ? '' : 'Cancel'}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
-              disabled={submitting || loading || enumsLoading || isSuccess}
-              size="small"
-              sx={{ 
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                borderRadius: '10px',
-                textTransform: 'none',
-                px: { xs: 1.5, sm: 2 },
-              }}
-            >
-              {submitting ? 'Saving...' : isSuccess ? '✓ Saved' : (isMobile ? 'Save' : (mode === 'create' ? 'Create Trip' : 'Update Trip'))}
-            </Button>
-          </Box>
-        </DialogTitle>
+              }
+            }}
+          >
+            <Tab 
+              icon={<Calculate sx={{ fontSize: '0.9rem' }} />} 
+              label="Auto Calculator" 
+              iconPosition="start"
+            />
+            <Tab 
+              icon={<Edit sx={{ fontSize: '0.9rem' }} />} 
+              label="Manual Entry" 
+              iconPosition="start"
+            />
+          </Tabs>
+        </Box>
 
-        <DialogContent 
-          dividers 
-          sx={{ 
-            overflowY: 'auto', 
-            p: { xs: 1.5, sm: 2, md: 2.5 },
-            bgcolor: '#F7F7FC',
-            '&::-webkit-scrollbar': {
-              width: '6px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: '#b0b0b0',
-              borderRadius: '3px',
-            },
-          }}
-        >
-          {loading || enumsLoading ? renderLoading() : (
-            <>
-              {renderError()}
-              {renderSuccess()}
+        {activeTab === 0 && (
+          <Stack spacing={2}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+              Automatically calculate trip metrics based on locations and vehicle type
+            </Typography>
 
-              <Stack spacing={{ xs: 1.5, sm: 2 }}>
-                {/* Trip Type & Priority */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Origin Location"
+                  value={formData.originLocation}
+                  onChange={handleInputChange('originLocation')}
+                  placeholder="Enter origin city or address"
+                  size="small"
+                  required
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{
+                    startAdornment: <LocationCity sx={{ mr: 0.5, fontSize: '0.9rem', color: 'action.active' }} />,
                   }}
-                >
-                  <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      {renderSelectField('tripType', 'Trip Type', finalTripTypeOptions)}
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      {renderSelectField('priority', 'Priority', finalPriorityOptions)}
-                    </Grid>
-                  </Grid>
-                </Paper>
-
-                {/* Customer Selection */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-                    <BusinessIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Customer
-                    </Typography>
-                  </Stack>
-                  <FormControl fullWidth size="small">
-                    <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                      Select Customer
-                    </InputLabel>
-                    <Select
-                      value={form.customerId}
-                      label="Select Customer"
-                      onChange={(e) => handleFieldChange('customerId', e.target.value)}
-                      sx={{ 
-                        fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                        borderRadius: '8px',
-                      }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                        No Customer
-                      </MenuItem>
-                      {(customers || []).map(customer => (
-                        <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                          {customer.name} ({customer.customerCode})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Paper>
-
-                {/* Origin & Destination */}
-                <AddressSection
-                  label="Origin"
-                  address={origin}
-                  onChange={setOrigin}
-                  errors={{ city: formErrors.originCity, province: formErrors.originProvince }}
                 />
-
-                <Box display="flex" justifyContent="center" my={-1} position="relative" zIndex={1}>
-                  <IconButton 
-                    onClick={handleSwapLocations} 
-                    sx={{ 
-                      bgcolor: '#FFFFFF', 
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                      width: { xs: 32, sm: 36 },
-                      height: { xs: 32, sm: 36 },
-                      border: '1px solid #ECECEC',
-                      '&:hover': {
-                        bgcolor: '#F7F7FC',
-                        transform: 'scale(1.05)',
-                      },
-                      '& .MuiSvgIcon-root': { 
-                        fontSize: { xs: '0.9rem', sm: '1rem' } 
-                      }
-                    }}
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Destination Location"
+                  value={formData.destinationLocation}
+                  onChange={handleInputChange('destinationLocation')}
+                  placeholder="Enter destination city or address"
+                  size="small"
+                  required
+                  sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                  InputProps={{
+                    startAdornment: <LocationCity sx={{ mr: 0.5, fontSize: '0.9rem', color: 'action.active' }} />,
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle Type</InputLabel>
+                  <Select
+                    value={vehicleType}
+                    onChange={(e) => setVehicleType(e.target.value)}
+                    label="Vehicle Type"
+                    sx={{ fontSize: '0.75rem' }}
                   >
-                    <SwapHoriz />
-                  </IconButton>
-                </Box>
-
-                <AddressSection
-                  label="Destination"
-                  address={destination}
-                  onChange={setDestination}
-                  errors={{ city: formErrors.destinationCity, province: formErrors.destinationProvince }}
-                />
-
-                {/* Depot & Departure */}
-                <DepotSection
-                  depots={depots}
-                  selectedDepot={selectedDepot}
-                  onDepotSelect={handleDepotSelect}
-                  departureType={departureType}
-                  onDepartureTypeChange={handleDepartureTypeChange}
-                  departureLocation={departureLocation}
-                  onLocationChange={setDepartureLocation}
-                  departureOptions={finalDepartureOptions}
-                />
-
-                {/* Depot Distance Fields */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
+                    <MenuItem value="TRUCK" sx={{ fontSize: '0.75rem' }}>Truck (35 L/100km)</MenuItem>
+                    <MenuItem value="TRAILER" sx={{ fontSize: '0.75rem' }}>Trailer (40 L/100km)</MenuItem>
+                    <MenuItem value="VAN" sx={{ fontSize: '0.75rem' }}>Van (12 L/100km)</MenuItem>
+                    <MenuItem value="CAR" sx={{ fontSize: '0.75rem' }}>Car (8 L/100km)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={calculateMetrics}
+                  disabled={calculating || !formData.originLocation || !formData.destinationLocation}
+                  startIcon={calculating ? <CircularProgress size={16} /> : <Calculate sx={{ fontSize: '0.9rem' }} />}
+                  sx={{ height: '40px', fontSize: '0.75rem' }}
                 >
-                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
-                    <RouteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Depot Distances
-                    </Typography>
-                    {calculatingDistance && <CircularProgress size={16} />}
-                  </Stack>
+                  {calculating ? "Calculating..." : "Calculate Metrics"}
+                </Button>
+              </Grid>
+            </Grid>
 
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="From Depot (km)"
-                        type="number"
-                        value={fromDepotKm}
-                        onChange={(e) => setFromDepotKm(e.target.value)}
-                        size="small"
-                        disabled={departureType === 'DEPOT'}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-                              km
-                            </InputAdornment>
-                          )
-                        }}
-                        helperText={departureType === 'DEPOT' && selectedDepot 
-                          ? 'Auto-calculated from depot to pickup' 
-                          : 'Manual entry'}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="To Depot (km)"
-                        type="number"
-                        value={toDepotKm}
-                        onChange={(e) => setToDepotKm(e.target.value)}
-                        size="small"
-                        disabled={departureType === 'DEPOT'}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-                              km
-                            </InputAdornment>
-                          )
-                        }}
-                        helperText={departureType === 'DEPOT' && selectedDepot 
-                          ? 'Auto-calculated from drop-off to depot' 
-                          : 'Manual entry'}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={isFromDepot}
-                            onChange={(e) => setIsFromDepot(e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label={
-                          <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
-                            Vehicle left from depot to pickup point
-                          </Typography>
-                        }
-                      />
-                    </Grid>
+            {calculatedMetrics && (
+              <Paper elevation={0} sx={{ p: 1.5, bgcolor: 'success.light', color: 'success.contrastText', borderRadius: 1 }}>
+                <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 600, display: 'block', mb: 1 }}>
+                  ✅ Calculated Results {calculatedMetrics.provider && `via ${calculatedMetrics.provider}`}
+                </Typography>
+                {calculatedMetrics.warning && (
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', display: 'block', mb: 1 }}>
+                    ⚠️ {calculatedMetrics.warning}
+                  </Typography>
+                )}
+                <Grid container spacing={1}>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <MetricCard
+                      icon={DirectionsCar}
+                      label="Distance"
+                      value={`${calculatedMetrics.totalDistanceKm || 0} km`}
+                      color="primary"
+                    />
                   </Grid>
-                </Paper>
-
-                {/* Schedule */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <MetricCard
+                      icon={AccessTime}
+                      label="Duration"
+                      value={formatDuration(calculatedMetrics.totalDurationHours || 0)}
+                      color="secondary"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <MetricCard
+                      icon={LocalGasStation}
+                      label="Fuel"
+                      value={`${calculatedMetrics.fuelUsedLiters || 0} L`}
+                      color="warning"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <MetricCard
+                      icon={AttachMoney}
+                      label="Cost"
+                      value={`R ${calculatedMetrics.costAmount || 0}`}
+                      color="success"
+                    />
+                  </Grid>
+                </Grid>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={applyCalculatedMetrics}
+                  sx={{ mt: 1.5, fontSize: '0.7rem' }}
                 >
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <ScheduleIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Schedule
-                    </Typography>
-                  </Stack>
+                  Use These Values
+                </Button>
+              </Paper>
+            )}
+          </Stack>
+        )}
 
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <DateTimePicker
-                        label="Planned Start Date & Time *"
-                        value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
-                        onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            required: true,
-                            error: !!formErrors.plannedStartDate,
-                            helperText: formErrors.plannedStartDate,
-                            sx: { 
-                              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                            }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <DateTimePicker
-                        label="Planned End Date & Time"
-                        value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
-                        onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            error: !!formErrors.plannedEndDate,
-                            helperText: formErrors.plannedEndDate,
-                            sx: { 
-                              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                            }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        label="Est. Duration (hours)"
-                        type="number"
-                        value={form.estimatedDuration}
-                        error={!!formErrors.estimatedDuration}
-                        helperText={formErrors.estimatedDuration || undefined}
-                        onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>hrs</InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        label="Planned Distance (km)"
-                        type="number"
-                        value={form.plannedDistanceKm}
-                        error={!!formErrors.plannedDistanceKm}
-                        helperText={formErrors.plannedDistanceKm || undefined}
-                        onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>km</InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        label="Planned Duration (hours)"
-                        type="number"
-                        value={form.plannedDurationHours}
-                        error={!!formErrors.plannedDurationHours}
-                        helperText={formErrors.plannedDurationHours || undefined}
-                        onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>hrs</InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Paper>
+        {activeTab === 1 && (
+          <Box component="form" noValidate>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                Enter or edit trip metrics manually
+              </Typography>
 
-                {/* Assignment */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Total Distance (km)"
+                    type="number"
+                    value={formData.totalDistance}
+                    error={!!fieldErrors.totalDistance}
+                    helperText={fieldErrors.totalDistance || undefined}
+                    onChange={handleInputChange('totalDistance')}
+                    placeholder="Enter distance"
+                    size="small"
+                    required
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    inputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Estimated Duration (hours)"
+                    type="number"
+                    value={formData.estimatedDuration}
+                    error={!!fieldErrors.estimatedDuration}
+                    onChange={handleInputChange('estimatedDuration')}
+                    placeholder="Enter duration"
+                    size="small"
+                    required
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    inputProps={{ min: 0, step: 0.1 }}
+                    helperText={fieldErrors.estimatedDuration || (formData.estimatedDuration ? formatDuration(formData.estimatedDuration) : "")}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Fuel Consumption (liters)"
+                    type="number"
+                    value={formData.fuelConsumption}
+                    error={!!fieldErrors.fuelConsumption}
+                    helperText={fieldErrors.fuelConsumption || undefined}
+                    onChange={handleInputChange('fuelConsumption')}
+                    placeholder="Enter fuel"
+                    size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    inputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Estimated Cost (ZAR)"
+                    type="number"
+                    value={formData.estimatedCost}
+                    error={!!fieldErrors.estimatedCost}
+                    helperText={fieldErrors.estimatedCost || undefined}
+                    onChange={handleInputChange('estimatedCost')}
+                    placeholder="Enter cost"
+                    size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    inputProps={{ min: 0, step: 0.01 }}
+                    InputProps={{
+                      startAdornment: <Typography sx={{ mr: 0.5, fontSize: '0.75rem' }}>R</Typography>,
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Delays (hours)"
+                    type="number"
+                    value={formData.delays}
+                    error={!!fieldErrors.delays}
+                    helperText={fieldErrors.delays || undefined}
+                    onChange={handleInputChange('delays')}
+                    placeholder="Enter delays"
+                    size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    inputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Incidents Count"
+                    type="number"
+                    value={formData.incidents}
+                    error={!!fieldErrors.incidents}
+                    helperText={fieldErrors.incidents || undefined}
+                    onChange={handleInputChange('incidents')}
+                    placeholder="Enter incidents"
+                    size="small"
+                    sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+                    inputProps={{ min: 0, step: 1 }}
+                  />
+                </Grid>
+              </Grid>
+
+              {(parseFloat(formData.delays) > 0 || parseInt(formData.incidents) > 0) && (
+                <Alert 
+                  severity="warning" 
+                  icon={<Warning sx={{ fontSize: '0.9rem' }} />}
+                  sx={{ fontSize: '0.75rem' }}
                 >
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <DirectionsCar sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Assignment
-                    </Typography>
-                  </Stack>
+                  {parseFloat(formData.delays) > 0 && `Delays: ${formData.delays} hours. `}
+                  {parseInt(formData.incidents) > 0 && `Incidents: ${formData.incidents}. `}
+                  This may affect trip performance metrics.
+                </Alert>
+              )}
+            </Stack>
+          </Box>
+        )}
+      </DialogContent>
 
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Vehicle *
-                        </InputLabel>
-                        <Select
-                          value={form.vehicleId}
-                          label="Vehicle *"
-                          onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                            <em>Select vehicle</em>
-                          </MenuItem>
-                          {(vehicles || []).map(v => (
-                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {v.registrationNumber} - {v.make} {v.model}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {formErrors.vehicleId && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors.vehicleId}</FormHelperText>}
-                      </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Driver *
-                        </InputLabel>
-                        <Select
-                          value={form.driverId}
-                          label="Driver *"
-                          onChange={(e) => handleFieldChange('driverId', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                            <em>Select driver</em>
-                          </MenuItem>
-                          {(drivers || []).map(d => (
-                            <MenuItem key={d.id} value={d.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {d.firstName} {d.lastName} - {d.licenseNumber}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {formErrors.driverId && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors.driverId}</FormHelperText>}
-                      </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Supervisor
-                        </InputLabel>
-                        <Select
-                          value={form.supervisorId}
-                          label="Supervisor"
-                          onChange={(e) => handleFieldChange('supervisorId', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                            <em>Select supervisor</em>
-                          </MenuItem>
-                          {(supervisors || []).map(s => (
-                            <MenuItem key={s.id} value={s.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {personName(s)}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Paper>
-
-                {/* Commodity & Cargo */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
-                >
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <Description sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Commodity & Cargo
-                    </Typography>
-                  </Stack>
-
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth size="small" required error={!!formErrors.commodityType}>
-                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          Commodity Type *
-                        </InputLabel>
-                        <Select
-                          value={form.commodityType}
-                          label="Commodity Type *"
-                          onChange={(e) => handleFieldChange('commodityType', e.target.value)}
-                          sx={{ 
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            borderRadius: '8px',
-                          }}
-                        >
-                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                            <em>Select commodity</em>
-                          </MenuItem>
-                          {COMMODITY_OPTIONS.map(c => (
-                            <MenuItem key={c} value={c} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {c}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {formErrors.commodityType && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors.commodityType}</FormHelperText>}
-                      </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="Cargo Description"
-                        value={form.cargoDescription}
-                        onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
-                        size="small"
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        label="Weight (kg)"
-                        type="number"
-                        value={form.cargoWeight}
-                        error={!!formErrors.cargoWeight}
-                        helperText={formErrors.cargoWeight || undefined}
-                        onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>,
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>kg</InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        label="Value (ZAR)"
-                        type="number"
-                        value={form.cargoValue}
-                        error={!!formErrors.cargoValue}
-                        helperText={formErrors.cargoValue || undefined}
-                        onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        label="Pallet Count"
-                        type="number"
-                        value={form.palletCount}
-                        error={!!formErrors.palletCount}
-                        helperText={formErrors.palletCount || undefined}
-                        onChange={(e) => handleFieldChange('palletCount', e.target.value)}
-                        size="small"
-                        InputProps={{ 
-                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>pallets</InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Paper>
-
-                {/* Financial Estimates */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
-                >
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <Receipt sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Financial Estimates
-                    </Typography>
-                  </Stack>
-
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="Est. Toll Cost (ZAR)"
-                        type="number"
-                        value={form.estimatedTollCost}
-                        error={!!formErrors.estimatedTollCost}
-                        helperText={formErrors.estimatedTollCost || undefined}
-                        onChange={(e) => handleFieldChange('estimatedTollCost', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><Toll sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="Est. Other Expenses (ZAR)"
-                        type="number"
-                        value={form.estimatedOtherExpenses}
-                        error={!!formErrors.estimatedOtherExpenses}
-                        helperText={formErrors.estimatedOtherExpenses || undefined}
-                        onChange={(e) => handleFieldChange('estimatedOtherExpenses', e.target.value)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
-                        }}
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Paper>
-
-                {/* Notes */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
-                >
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <Comment sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Notes
-                    </Typography>
-                  </Stack>
-
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="Reference Number"
-                        value={form.referenceNumber}
-                        onChange={(e) => handleFieldChange('referenceNumber', e.target.value)}
-                        size="small"
-                        helperText="Used to link trips to the same load"
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="Purchase Order Number"
-                        value={form.purchaseOrderNumber}
-                        onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
-                        size="small"
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Special Instructions"
-                        value={form.specialInstructions}
-                        onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
-                        size="small"
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Driver Notes"
-                        value={form.driverNotes}
-                        onChange={(e) => handleFieldChange('driverNotes', e.target.value)}
-                        size="small"
-                        sx={{ 
-                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Paper>
-
-                {/* Status & Approval */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2.5 },
-                    borderRadius: { xs: '12px', sm: '16px' },
-                    border: '1px solid #ECECEC',
-                    bgcolor: '#FFFFFF',
-                    width: '100%',
-                  }}
-                >
-                  <Stack direction="row" spacing={0.75} mb={1.5}>
-                    <AssignmentIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                        color: '#111827',
-                      }}
-                    >
-                      Status & Approval
-                    </Typography>
-                  </Stack>
-
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      {renderSelectField('status', 'Trip Status', statusOptions)}
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      {renderSelectField('approvalStatus', 'Approval Status', finalApprovalOptions)}
-                    </Grid>
-                  </Grid>
-                </Paper>
-              </Stack>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </LocalizationProvider>
+      <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+        <Button 
+          onClick={onClose} 
+          color="inherit"
+          size="small"
+          sx={{ fontSize: '0.8rem' }}
+        >
+          Cancel
+        </Button>
+        
+        {activeTab === 1 && (
+          <Button
+            variant="contained"
+            onClick={saveMetrics}
+            disabled={loading || saveSuccess || !formData.totalDistance || !formData.estimatedDuration}
+            startIcon={loading ? <CircularProgress size={16} /> : <Save sx={{ fontSize: '0.9rem' }} />}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
+          >
+            {loading ? "Saving..." : "Save Metrics"}
+          </Button>
+        )}
+        
+        {activeTab === 0 && calculatedMetrics && (
+          <Button
+            variant="outlined"
+            onClick={() => setActiveTab(1)}
+            startIcon={<Edit sx={{ fontSize: '0.9rem' }} />}
+            size="small"
+            sx={{ fontSize: '0.8rem' }}
+          >
+            Edit & Save
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
   );
-}
+};
 
-export default TripForm;
+export default TripMetricsForm;
