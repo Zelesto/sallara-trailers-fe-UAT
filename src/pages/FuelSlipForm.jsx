@@ -28,7 +28,6 @@ import {
   Chip,
   Divider,
   Stack,
-  Checkbox,
   Avatar,
 } from '@mui/material';
 import {
@@ -55,6 +54,23 @@ import { fuelService } from '../services/fuelService';
 import { vehicleService } from '../services/vehicleService';
 import { driverService } from '../services/driverService';
 import { tripService } from '../services/tripService';
+import {
+  generateSlipNumber,
+  extractRegistrationNumber,
+  nowLocalInput,
+  toLocalDateTimeInput,
+  sameKey,
+  personName,
+  fuelTotal,
+  validateFuelStep,
+  validateFuelSlip,
+  isFuelSlipLocked,
+  fuelSlipStatus,
+  slipRegistration,
+} from '../utils/fuelSlipRules';
+
+// Trips a fuel slip may be linked to (finalized / cancelled trips are closed)
+const OPEN_TRIP_STATUSES = 'DRAFT,PLANNED,ASSIGNED,IN_PROGRESS,ON_HOLD,COMPLETED';
 
 import {
   FUEL_TYPES,
@@ -73,20 +89,9 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2 }).format(num);
 };
 
-const generateSlipNumber = () => {
-  const now = new Date();
-  return `FS-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-};
-
-const extractRegistrationNumber = (input) => {
-  if (!input) return '';
-  if (/^[A-Z0-9]{3,10}$/i.test(input.trim())) {
-    return input.trim().toUpperCase();
-  }
-  const match = input.match(/^([A-Z0-9]{3,10})/i);
-  if (match) return match[1].toUpperCase();
-  return input.split(' ')[0].toUpperCase();
-};
+// generateSlipNumber / extractRegistrationNumber now live in utils/fuelSlipRules.js (tested):
+//  - slip numbers include the time (old 3-random-digits-per-day numbers collided)
+//  - "ABC 123 GP" is no longer cut down to "ABC"
 
 // Compact Info Item Component
 const InfoItem = ({ label, value }) => (
@@ -178,7 +183,7 @@ const isCreate = !isEdit;
   // Form state
   const [formData, setFormData] = useState({
     slipNumber: '',
-    transactionDate: new Date().toISOString().slice(0, 16),
+    transactionDate: nowLocalInput(), // was UTC (2 hours behind in South Africa)
     vehicleId: '',
     driverId: '',
     tripId: '',
@@ -205,6 +210,9 @@ const isCreate = !isEdit;
   const [locationError, setLocationError] = useState('');
   const [vehicleInputValue, setVehicleInputValue] = useState('');
   const [driverInputValue, setDriverInputValue] = useState('');
+  // Verified / finalized slips are part of the fuel month close - read-only here
+  const [lockedStatus, setLockedStatus] = useState(null);
+  const [saved, setSaved] = useState(false); // keeps Submit disabled after success (no duplicates)
 
   const getSelectedTrip = () => {
     if (!formData.tripId) return null;
@@ -250,21 +258,9 @@ useEffect(() => {
     const data = await fuelService.getFuelSlipById(id);
     console.log('✅ Fuel slip loaded for edit:', data);
 
-    // ✅ FIX: Format the date for datetime-local input
-    let formattedDate = '';
-    if (data.transactionDate) {
-      const dateObj = new Date(data.transactionDate);
-      if (!isNaN(dateObj.getTime())) {
-        // Format as YYYY-MM-DDTHH:mm (local time)
-        const year = dateObj.getFullYear();
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const hours = String(dateObj.getHours()).padStart(2, '0');
-        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-        formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
-        console.log('📅 Formatted date for input:', formattedDate);
-      }
-    }
+    // Local date-time for the datetime-local input
+    const formattedDate = toLocalDateTimeInput(data.transactionDate);
+    setLockedStatus(isFuelSlipLocked(data) ? fuelSlipStatus(data) : null);
 
     // Determine entry mode
     if (data.tripId) {
@@ -290,7 +286,7 @@ useEffect(() => {
       vehicleId: data.vehicleId || '',
       driverId: data.driverId || '',
       tripId: data.tripId || '',
-      vehicleManual: data.vehicleRegNumber || data.vehicleRegistration || '',
+      vehicleManual: slipRegistration(data),
       driverManual: data.driverName || '',
       fuelType: data.fuelType || 'Diesel (50ppm)',
       quantity: data.quantity || '',
@@ -307,7 +303,7 @@ useEffect(() => {
     });
 
     // Set input values for display
-    setVehicleInputValue(data.vehicleRegNumber || data.vehicleRegistration || '');
+    setVehicleInputValue(slipRegistration(data));
     setDriverInputValue(data.driverName || '');
 
   } catch (err) {
@@ -329,49 +325,14 @@ useEffect(() => {
       driverService.getAllDrivers().catch(() => [])
     ]);
 
-    // ✅ FETCH ALL TRIPS (not just 10)
+    // Only OPEN trips (server-side status filter, 500 per page). Previously every trip ever
+    // was downloaded 100 at a time, and a failed page was skipped silently.
     let tripsData = [];
     try {
-      // Fetch first page with larger size
-      const response = await tripService.getAllTrips({
-        page: 0,
-        size: 100,  // Increased to get more trips
-        sortBy: 'id',
-        sortOrder: 'DESC'
-      });
-      
-      console.log('📦 getAllTrips response:', response);
-      
-      // Handle paginated response
-      if (response && response.content && Array.isArray(response.content)) {
-        tripsData = response.content;
-        
-        // If there are more pages, fetch them too
-        if (response.totalPages && response.totalPages > 1) {
-          const allPages = [response.content];
-          for (let page = 1; page < response.totalPages; page++) {
-            try {
-              const pageResponse = await tripService.getAllTrips({
-                page: page,
-                size: 100,
-                sortBy: 'id',
-                sortOrder: 'DESC'
-              });
-              if (pageResponse && pageResponse.content) {
-                allPages.push(pageResponse.content);
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch page ${page}:`, err);
-            }
-          }
-          tripsData = allPages.flat();
-        }
-      } else if (Array.isArray(response)) {
-        tripsData = response;
-      }
-      
+      tripsData = await tripService.fetchAllTrips({ status: OPEN_TRIP_STATUSES });
     } catch (error) {
       console.error('❌ Error fetching trips:', error);
+      setError(error.userMessage || 'Could not load trips. You can still capture the slip manually.');
       tripsData = [];
     }
 
@@ -481,12 +442,10 @@ useEffect(() => {
         console.log('Trip has vehicleRegistration:', selectedTrip.vehicleRegistration);
         newFormData.vehicleManual = selectedTrip.vehicleRegistration;
 
-        const matchingVehicle = vehicles.find(v => {
-          const regNum = v.registrationNumber || v.regNumber || v.plateNumber;
-          if (!regNum) return false;
-          return regNum.toLowerCase().includes(selectedTrip.vehicleRegistration.toLowerCase()) ||
-                 selectedTrip.vehicleRegistration.toLowerCase().includes(regNum.toLowerCase());
-        });
+        // exact match only - includes() linked "ABC1" to "ABC123GP" (fuel on the wrong vehicle)
+        const matchingVehicle = vehicles.find(v =>
+          sameKey(v.registrationNumber || v.regNumber || v.plateNumber, selectedTrip.vehicleRegistration)
+        );
 
         if (matchingVehicle) {
           newFormData.vehicleId = matchingVehicle.id;
@@ -515,16 +474,13 @@ useEffect(() => {
         console.log('Trip has driverName:', selectedTrip.driverName);
         newFormData.driverManual = selectedTrip.driverName;
 
-        const matchingDriver = drivers.find(d => {
-          const driverName = d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim();
-          if (!driverName) return false;
-          return driverName.toLowerCase().includes(selectedTrip.driverName.toLowerCase()) ||
-                 selectedTrip.driverName.toLowerCase().includes(driverName.toLowerCase());
-        });
+        // exact match only - and only if exactly ONE driver has that name
+        const nameMatches = drivers.filter(d => sameKey(personName(d), selectedTrip.driverName));
+        const matchingDriver = nameMatches.length === 1 ? nameMatches[0] : null;
 
         if (matchingDriver) {
           newFormData.driverId = matchingDriver.id;
-          newDriverValue = matchingDriver.fullName || `${matchingDriver.firstName || ''} ${matchingDriver.lastName || ''}`.trim();
+          newDriverValue = personName(matchingDriver);
         } else {
           newDriverValue = selectedTrip.driverName;
         }
@@ -548,9 +504,8 @@ useEffect(() => {
 
   // Calculate total
   const calculateTotal = () => {
-    const qty = parseFloat(formData.quantity) || 0;
-    const price = parseFloat(formData.unitPrice) || 0;
-    const total = qty * price;
+    // strict numbers, rounded to cents ("12,5" gives 0 here and is rejected by validation)
+    const total = fuelTotal(formData.quantity, formData.unitPrice);
     setCalculatedTotal(total);
     setFormData(prev => ({ ...prev, totalAmount: total.toFixed(2) }));
   };
@@ -652,44 +607,8 @@ useEffect(() => {
   };
 
   // Validation
-  const validateStep = (step) => {
-    const errors = [];
-
-    switch (step) {
-      case 0:
-        if (!formData.vehicleManual && !formData.vehicleId) {
-          errors.push('Vehicle registration is required');
-        }
-        if (!formData.driverManual && !formData.driverId) {
-          errors.push('Driver name is required');
-        }
-        if (!formData.transactionDate) {
-          errors.push('Date is required');
-        }
-        break;
-      case 1:
-        if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
-          errors.push('Valid quantity is required');
-        }
-        if (!formData.unitPrice || parseFloat(formData.unitPrice) <= 0) {
-          errors.push('Valid unit price is required');
-        }
-        if (!formData.odometerReading) {
-          errors.push('Odometer reading is required');
-        }
-        break;
-      case 2:
-        if (!formData.stationName) {
-          errors.push('Station name is required');
-        }
-        if (!formData.location) {
-          errors.push('Location is required');
-        }
-        break;
-    }
-
-    return errors;
-  };
+  // Rules in utils/fuelSlipRules.js (tested): strict numbers, odometer >= 0, no future dates
+  const validateStep = (step) => validateFuelStep(step, formData);
 
   // Step navigation
   const handleNext = () => {
@@ -709,33 +628,42 @@ useEffect(() => {
 
   // Submission
   const handleSubmit = async () => {
+  if (loading || saved) return; // no double submit
+  if (lockedStatus) {
+    setError(`This slip is ${lockedStatus.toLowerCase()} and can no longer be changed.`);
+    return;
+  }
   try {
     setLoading(true);
     setError('');
     setSuccess('');
 
-    // ✅ Validate required fields
-    const vehicleRegistration = extractRegistrationNumber(formData.vehicleManual);
+    // Re-validate EVERY step (a value changed after going back is checked again)
+    const allErrors = validateFuelSlip(formData);
+    if (allErrors.length) {
+      setError(allErrors.join(' • '));
+      setLoading(false);
+      return;
+    }
+
+    // Registration: from the selected vehicle if there is one, otherwise what was typed
+    const selectedVehicle = formData.vehicleId
+      ? vehicles.find(v => String(v.id) === String(formData.vehicleId))
+      : null;
+    const vehicleRegistration = extractRegistrationNumber(
+      selectedVehicle?.registrationNumber || selectedVehicle?.regNumber || formData.vehicleManual
+    );
     if (!vehicleRegistration) {
       setError('Please enter a valid vehicle registration number');
       setLoading(false);
       return;
     }
 
-    // ✅ Format the date for the backend
-    let formattedDate = null;
-    if (formData.transactionDate) {
-      const dateObj = new Date(formData.transactionDate);
-      if (!isNaN(dateObj.getTime())) {
-        formattedDate = dateObj.toISOString();
-        console.log('📅 Formatted date for submission:', formattedDate);
-      }
-    }
-
-    // ✅ Build payload with all fields
+    // ✅ Build payload. transactionDate is sent as LOCAL time by fuelService
+    //    (previously toISOString() = UTC, which moved every slip 2 hours earlier per save).
     const payload = {
       slipNumber: formData.slipNumber,
-      transactionDate: formattedDate, // ✅ Now formattedDate is defined
+      transactionDate: formData.transactionDate,
       vehicleRegistration: vehicleRegistration,
       driverName: formData.driverManual || 'Unknown Driver',
       fuelType: formData.fuelType,
@@ -751,7 +679,7 @@ useEffect(() => {
       notes: formData.notes || null,
       vehicleId: formData.vehicleId || null,
       driverId: formData.driverId || null,
-      finalized: formData.finalized || false
+      // `finalized` is no longer sent - only the month close / Finalize action sets it
     };
 
     console.log('📤 Submitting fuel slip payload:', payload);
@@ -768,6 +696,7 @@ useEffect(() => {
     }
 
     console.log('✅ Fuel slip saved:', response);
+    setSaved(true);
     
     // ✅ Wait a moment before navigating
     setTimeout(() => {
@@ -776,7 +705,7 @@ useEffect(() => {
 
   } catch (err) {
     console.error('❌ Error saving fuel slip:', err);
-    setError(err.message || 'Failed to save fuel slip');
+    setError(err.userMessage || err.message || 'Failed to save fuel slip');
   } finally {
     setLoading(false);
   }
@@ -862,7 +791,7 @@ useEffect(() => {
 )}
 
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   label="Slip Number"
@@ -911,7 +840,7 @@ useEffect(() => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Autocomplete
                   freeSolo
                   options={vehicles}
@@ -986,7 +915,7 @@ useEffect(() => {
             ))}
 
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Fuel Type</InputLabel>
                   <Select
@@ -1059,7 +988,7 @@ useEffect(() => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   label="Odometer Reading (km)"
@@ -1139,7 +1068,7 @@ useEffect(() => {
             ))}
 
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Autocomplete
                   freeSolo
                   options={COMMON_STATIONS}
@@ -1203,7 +1132,7 @@ useEffect(() => {
                 )}
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Payment Method</InputLabel>
                   <Select
@@ -1218,21 +1147,8 @@ useEffect(() => {
                     ))}
                   </Select>
                 </FormControl>
-                {isEdit && (
-                  <Box sx={{ mt: 2 }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={formData.finalized}
-                          onChange={(e) => setFormData(prev => ({ ...prev, finalized: e.target.checked }))}
-                          size="small"
-                        />
-                      }
-                      label="Finalized"
-                      sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }}
-                    />
-                  </Box>
-                )}
+                {/* The "Finalized" checkbox was removed: ticking/unticking it here bypassed the
+                    fuel month close. Finalizing is done from the month-close process only. */}
               </Grid>
             </Grid>
           </Box>
@@ -1252,7 +1168,7 @@ useEffect(() => {
               </Typography>
             
               <Grid container spacing={1.5}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <InfoItem label="Slip Number" value={formData.slipNumber} />
                   <InfoItem label="Date" value={new Date(formData.transactionDate).toLocaleString()} />
                   <InfoItem label="Entry Mode" value={entryMode === 'trip' ? 'Trip-based' : 'Manual'} />
@@ -1267,7 +1183,7 @@ useEffect(() => {
                   <InfoItem label="Driver" value={formData.driverManual} />
                 </Grid>
             
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <InfoItem label="Fuel Type" value={formData.fuelType} />
                   <InfoItem label="Quantity" value={`${formData.quantity} L`} />
                   <InfoItem label="Unit Price" value={formatCurrency(formData.unitPrice)} />
@@ -1323,9 +1239,16 @@ useEffect(() => {
           </Button>
         </Box>
 
+        {lockedStatus && (
+          <Alert severity="info" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }}>
+            This fuel slip is {lockedStatus.toLowerCase()} and is part of the fuel month close, so it can
+            no longer be changed. Ask an administrator to reverse the month close if a correction is needed.
+          </Alert>
+        )}
+
         {/* Stats Cards */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard
               title="Total Fuel"
               value={formData.quantity || '0'}
@@ -1334,7 +1257,7 @@ useEffect(() => {
               color="#4F46E5"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard
               title="Unit Price"
               value={formData.unitPrice ? `R ${formData.unitPrice}` : 'N/A'}
@@ -1343,7 +1266,7 @@ useEffect(() => {
               color="#F59E0B"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard
               title="Total Amount"
               value={formatCurrency(formData.totalAmount || calculatedTotal)}
@@ -1352,7 +1275,7 @@ useEffect(() => {
               color="#22C55E"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard
               title="Odometer"
               value={formData.odometerReading || 'N/A'}
@@ -1457,7 +1380,7 @@ useEffect(() => {
                     variant="contained"
                     color="primary"
                     onClick={handleSubmit}
-                    disabled={loading}
+                    disabled={loading || saved || Boolean(lockedStatus)}
                     size="small"
                     sx={{ 
                       fontSize: '0.8rem',
