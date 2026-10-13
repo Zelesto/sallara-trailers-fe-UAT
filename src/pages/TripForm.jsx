@@ -1,901 +1,2219 @@
-// src/pages/TripReports.jsx
-import React, { useState, useEffect } from 'react';
+// src/pages/TripForm.jsx
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import dayjs from 'dayjs';
 import {
-  Box,
-  Typography,
-  Paper,
-  Grid,
-  Card,
-  CardContent,
-  CardActionArea,
-  Button,
-  IconButton,
-  Tooltip,
-  TextField,
-  InputAdornment,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  Stack,
-  Chip,
-  CircularProgress,
-  Alert,
-  Divider,
-  FormControl,
-  InputLabel,
+  TextField,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Button,
+  Grid,
+  Card,
+  CardContent,
+  Typography,
+  CircularProgress,
+  Alert,
+  Box,
+  FormHelperText,
+  Stack,
+  Chip,
+  Divider,
+  Autocomplete,
+  IconButton,
+  InputAdornment,
+  FormControlLabel,
+  Checkbox,
+  useTheme,
+  useMediaQuery,
+  Paper,
+  Switch,
 } from '@mui/material';
+
 import {
-  LocalShipping as LoadIcon,
-  LocalGasStation as FuelIcon,
-  People as DriverIcon,
-  DirectionsCar as VehicleIcon,
-  Assessment as ReportIcon,
-  Print as PrintIcon,
-  Search as SearchIcon,
-  Clear as ClearIcon,
+  Save,
+  Close,
+  Assignment as AssignmentIcon,
+  Schedule as ScheduleIcon,
+  DirectionsCar,
+  Description,
+  LocationOn,
+  SwapHoriz,
+  Scale,
+  AttachMoney,
+  Comment,
+  Toll,
+  Receipt,
+  Business as BusinessIcon,
+  Warehouse as WarehouseIcon,
   Route as RouteIcon,
-  PictureAsPdf as PdfIcon,
+  LocalShipping,
+  Add as AddIcon,
+  Inventory,
+  Category,
 } from '@mui/icons-material';
-import ReportViewer from '../components/ReportViewer';
-import ExportButton from '../components/ExportButton';
-import { reportService } from '../services/reportService';
-import { vehicleService } from '../services/vehicleService';
-import { driverService } from '../services/driverService';
-import { tripService } from '../services/tripService';
+
 import {
-  TRIP_REPORT_COLUMNS,
-  buildTripReportHtml,
-  filterTripsByDate,
-  summarizeTrips,
-  validateDateRange,
-} from '../utils/tripReporting';
+  LocalizationProvider,
+  DateTimePicker,
+} from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
-// Statuses the backend accepts (TripController.VALID_STATUSES). 'ACTIVE' is not one of them -
-// filtering by it always returned nothing.
-const REPORT_STATUS_OPTIONS = [
-  'DRAFT', 'PLANNED', 'ASSIGNED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'FINALIZED', 'CANCELLED',
-].map((s) => ({ id: s, label: s.replace(/_/g, ' ') }));
+import api from '../services/api';
+import { tripService } from '../services/tripService';
+import { driverService } from '../services/driverService';
+import { vehicleService } from '../services/vehicleService';
+import { routingService } from '../services/routingService';
+import { customerService } from '../services/customerService';
+import { depotService } from '../services/depotService';
+import { loadService } from '../services/loadService';
+import { useEnums } from '../contexts/EnumContext';
 
-const asArray = (res) => (Array.isArray(res) ? res : (res?.content || res?.data || []));
+// ✅ Import from tripConstants instead of hardcoding
+import {
+  PROVINCE_OPTIONS,
+  COMMODITY_OPTIONS,
+  DEPARTURE_OPTIONS,
+  TRIP_TYPE_OPTIONS as STATIC_TRIP_TYPE_OPTIONS,
+  PRIORITY_OPTIONS as STATIC_PRIORITY_OPTIONS,
+  APPROVAL_STATUS_OPTIONS as STATIC_APPROVAL_OPTIONS,
+} from '../constants/tripConstants';
 
-const personLabel = (d) =>
-  d?.name || [d?.firstName, d?.lastName].filter(Boolean).join(' ') || d?.fullName || `Driver #${d?.id}`;
+/* ============================================================
+   HELPER FUNCTIONS
+   ============================================================ */
 
-// ============================================================
-// REPORT TYPES CONFIGURATION
-// ============================================================
+const formatDateForAPI = (date) => {
+  if (!date) return null;
+  if (dayjs.isDayjs(date)) return date.format('YYYY-MM-DDTHH:mm:ss');
+  return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
+};
 
-const REPORT_TYPES = [
-  {
-    id: 'trip',
-    name: 'Trip Report',
-    icon: RouteIcon,
-    color: '#4F46E5',
-    bgColor: '#EEF2FF',
-    description: 'Full trip details including driver, vehicle, fuel, and route information',
-    fields: [
-      { 
-        id: 'tripNumber', 
-        label: 'Trip Number', 
-        type: 'text', 
-        placeholder: 'Enter trip number (e.g., TRP-2026-001)',
-        required: true,
-      }
-    ],
-  },
-  {
-    id: 'load',
-    name: 'Load Report',
-    icon: LoadIcon,
-    color: '#059669',
-    bgColor: '#D1FAE5',
-    description: 'Complete load details including all trips, cargo, and distance calculations',
-    fields: [
-      { 
-        id: 'loadNumber', 
-        label: 'Load Number', 
-        type: 'text', 
-        placeholder: 'Enter load number (e.g., LOAD-2026-001)',
-        required: true,
-      }
-    ],
-  },
-  {
-    id: 'fuel',
-    name: 'Fuel Report',
-    icon: FuelIcon,
-    color: '#D97706',
-    bgColor: '#FEF3C7',
-    description: 'Fuel consumption, efficiency, and cost analysis by vehicle or date range',
-    fields: [
-      { 
-        id: 'vehicleId', 
-        label: 'Vehicle', 
-        type: 'select',
-        placeholder: 'Select vehicle',
-        required: false,
-      },
-      { 
-        id: 'dateRange', 
-        label: 'Date Range', 
-        type: 'daterange',
-        required: false,
-      },
-    ],
-  },
-  {
-    id: 'driver',
-    name: 'Driver Report',
-    icon: DriverIcon,
-    color: '#7C3AED',
-    bgColor: '#EDE9FE',
-    description: 'Driver performance, trip history, and efficiency metrics',
-    fields: [
-      { 
-        id: 'driverId', 
-        label: 'Driver', 
-        type: 'select',
-        placeholder: 'Select driver',
-        required: true,
-      },
-      { 
-        id: 'dateRange', 
-        label: 'Date Range', 
-        type: 'daterange',
-        required: false,
-      },
-    ],
-  },
-  {
-    id: 'vehicle',
-    name: 'Vehicle Report',
-    icon: VehicleIcon,
-    color: '#DC2626',
-    bgColor: '#FEE2E2',
-    description: 'Vehicle performance, maintenance, and trip history',
-    fields: [
-      { 
-        id: 'vehicleId', 
-        label: 'Vehicle', 
-        type: 'select',
-        placeholder: 'Select vehicle',
-        required: true,
-      },
-      { 
-        id: 'dateRange', 
-        label: 'Date Range', 
-        type: 'daterange',
-        required: false,
-      },
-    ],
-  },
-  {
-    id: 'custom',
-    name: 'Custom Report',
-    icon: ReportIcon,
-    color: '#6B7280',
-    bgColor: '#F3F4F6',
-    description: 'Build a custom report with your own filters and parameters',
-    fields: [
-      { 
-        id: 'dateRange', 
-        label: 'Date Range', 
-        type: 'daterange',
-        required: false,
-      },
-      { 
-        id: 'status', 
-        label: 'Status', 
-        type: 'select',
-        placeholder: 'Filter by status',
-        required: false,
-      },
-      { 
-        id: 'search', 
-        label: 'Search', 
-        type: 'text',
-        placeholder: 'Search trips...',
-        required: false,
-      },
-    ],
-  },
-];
+const filterActiveVehicles = (vehicles) =>
+  (vehicles || []).filter(v =>
+    ['ACTIVE', 'OPERATIONAL', 'AVAILABLE'].includes(v.status?.toUpperCase()) ||
+    v.available === true
+  );
 
-// ============================================================
-// REPORT CARD COMPONENT
-// ============================================================
-const ReportCard = ({ report, onSelect, isSelected }) => {
-  const Icon = report.icon;
+const filterAvailableDrivers = (drivers) =>
+  (drivers || []).filter(d =>
+    ['ACTIVE', 'AVAILABLE'].includes(d.status?.toUpperCase()) &&
+    d.licenseValid !== false
+  );
+
+/**
+ * When editing, the vehicle/driver already on the trip is usually busy (e.g. IN_TRIP),
+ * so the "available" filters remove it and the dropdown shows blank. Keep it in the list.
+ */
+const keepAssigned = (filtered, all, assignedId) => {
+  if (assignedId === null || assignedId === undefined || assignedId === '') return filtered;
+  if (filtered.some(x => String(x.id) === String(assignedId))) return filtered;
+  const current = (all || []).find(x => String(x.id) === String(assignedId));
+  return current ? [current, ...filtered] : filtered;
+};
+
+const personName = (p) =>
+  p?.name ||
+  p?.fullName ||
+  [p?.firstName, p?.lastName].filter(Boolean).join(' ') ||
+  p?.email ||
+  `User #${p?.id}`;
+
+const NUMERIC_FIELDS = {
+  cargoWeight: 'Weight',
+  cargoValue: 'Value',
+  palletCount: 'Pallet count',
+  plannedDistanceKm: 'Planned distance',
+  plannedDurationHours: 'Planned duration',
+  estimatedDuration: 'Estimated duration',
+  estimatedTollCost: 'Toll cost',
+  estimatedOtherExpenses: 'Other expenses',
+};
+
+const buildAddress = (address) => {
+  const parts = [address.street, address.city, address.zipCode, address.province]
+    .filter(Boolean);
+  return parts.join(', ');
+};
+
+const getDefaultFormState = () => ({
+  tripType: '',
+  status: '',
+  approvalStatus: '',
+  priority: '',
+  commodityType: '',
+  cargoDescription: '',
+  cargoWeight: '',
+  cargoValue: '',
+  palletCount: '',
+  containerNumber: '',
+  plannedStartDate: null,
+  plannedEndDate: null,
+  estimatedDuration: '',
+  plannedDistanceKm: '',
+  plannedDurationHours: '',
+  vehicleId: '',
+  driverId: '',
+  supervisorId: '',
+  customerId: '',
+  loadId: '',
+  notes: '',
+  specialInstructions: '',
+  driverNotes: '',
+  referenceNumber: '',
+  purchaseOrderNumber: '',
+  estimatedTollCost: '',
+  estimatedOtherExpenses: '',
+  cancellationReason: '',
+  departureLocation: '',
+});
+
+const getDefaultAddress = () => ({
+  street: '', city: '', zipCode: '', province: '', latitude: null, longitude: null
+});
+
+// Get default planned dates (today and 8 hours later)
+const getDefaultPlannedDates = () => {
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setMinutes(0, 0, 0);
+  
+  const endDate = new Date(startDate);
+  endDate.setHours(endDate.getHours() + 8);
+  
+  return {
+    plannedStartDate: startDate.toISOString(),
+    plannedEndDate: endDate.toISOString()
+  };
+};
+
+// Helper to get default enum code from options
+const getDefaultEnumCode = (options, defaultCode = null) => {
+  if (!options || options.length === 0) return defaultCode || '';
+  if (defaultCode && options.some(opt => opt.value === defaultCode)) {
+    return defaultCode;
+  }
+  const defaultOpt = options.find(opt => opt.isDefault);
+  return defaultOpt?.value || (options.length > 0 ? options[0].value : '');
+};
+
+// ✅ Helper to convert static options to select format
+const toSelectOptions = (options) => {
+  if (!options) return [];
+  if (Array.isArray(options) && typeof options[0] === 'string') {
+    return options.map(value => ({ value, label: value }));
+  }
+  if (Array.isArray(options) && typeof options[0] === 'object' && options[0].value) {
+    return options;
+  }
+  return Object.keys(options).map(key => ({
+    value: key,
+    label: options[key].label || key,
+  }));
+};
+
+// ✅ Convert static options to select format
+const staticTripTypeOptions = toSelectOptions(STATIC_TRIP_TYPE_OPTIONS);
+const staticPriorityOptions = toSelectOptions(STATIC_PRIORITY_OPTIONS);
+const staticApprovalOptions = toSelectOptions(STATIC_APPROVAL_OPTIONS);
+const staticDepartureOptions = toSelectOptions(DEPARTURE_OPTIONS);
+
+/* ============================================================
+   COMPONENT: AddressSection
+   ============================================================ */
+
+function AddressSection({ label, address, onChange, errors = {}, disabled = false }) {
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [loadingCity, setLoadingCity] = useState(false);
+  const debounceTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+  }, []);
+
+  const fetchCitySuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setCitySuggestions([]);
+      return;
+    }
+    setLoadingCity(true);
+    try {
+      const suggestions = await routingService.suggestCities(query);
+      setCitySuggestions(suggestions || []);
+    } catch {
+      setCitySuggestions([]);
+    } finally {
+      setLoadingCity(false);
+    }
+  };
+
+  const handleCityInputChange = (_, value) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => fetchCitySuggestions(value), 300);
+  };
+
+  const handleCitySelect = (_, value) => {
+    if (!value) return;
+    onChange({
+      ...address,
+      city: typeof value === 'string' ? value : value.city,
+      province: value.province || address.province,
+      zipCode: value.zipCode || address.zipCode
+    });
+  };
 
   return (
-    <Card
+    <Paper
+      elevation={0}
       sx={{
-        height: '100%',
-        borderRadius: '16px',
-        border: isSelected ? `2px solid ${report.color}` : '1px solid #ECECEC',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-          borderColor: report.color,
-        },
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        width: '100%',
+        mb: 1.5,
       }}
     >
-      <CardActionArea 
-        onClick={() => onSelect(report.id)}
-        sx={{ height: '100%', p: 2 }}
-      >
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-          <Stack spacing={1.5} alignItems="center" textAlign="center">
-            <Box
-              sx={{
-                bgcolor: report.bgColor,
-                borderRadius: '12px',
-                p: 1.5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon sx={{ fontSize: '2rem', color: report.color }} />
-            </Box>
-            <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
-              {report.name}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-              {report.description}
-            </Typography>
-            {isSelected && (
-              <Chip
-                label="Selected"
+      <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+        <LocationOn sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+        <Typography 
+          variant="subtitle2" 
+          sx={{ 
+            fontWeight: 600, 
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
+            color: '#111827',
+          }}
+        >
+          {label}
+        </Typography>
+        {address.latitude && address.longitude && (
+          <Chip 
+            size="small" 
+            label="📍 Geocoded" 
+            color="success" 
+            variant="outlined"
+            sx={{ height: { xs: 16, sm: 20 }, fontSize: { xs: '0.45rem', sm: '0.6rem' } }}
+          />
+        )}
+      </Stack>
+
+      <Grid container spacing={{ xs: 1, sm: 1.5 }}>
+        <Grid size={{ xs: 12 }}>
+          <TextField
+            fullWidth
+            label="Street Address"
+            value={address.street || ''}
+            onChange={(e) => onChange({ ...address, street: e.target.value })}
+            size="small"
+            placeholder="e.g., 16275 Imbuzana Street"
+            disabled={disabled}
+            sx={{ 
+              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Autocomplete
+            freeSolo
+            options={citySuggestions}
+            getOptionLabel={(o) => (typeof o === 'string' ? o : o.city)}
+            loading={loadingCity}
+            value={address.city || ''}
+            onInputChange={handleCityInputChange}
+            onChange={handleCitySelect}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="City / Town *"
                 size="small"
-                sx={{
-                  mt: 1,
-                  bgcolor: report.bgColor,
-                  color: report.color,
-                  fontWeight: 600,
-                  fontSize: '0.6rem',
+                required
+                error={!!errors.city}
+                helperText={errors.city || 'Start typing for suggestions'}
+                disabled={disabled}
+                sx={{ 
+                  '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                  '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                 }}
               />
             )}
-          </Stack>
-        </CardContent>
-      </CardActionArea>
-    </Card>
-  );
-};
+            renderOption={(props, option) => (
+              <li {...props}>
+                <Box>
+                  <Typography sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                    {option.city}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                    {option.province}
+                    {option.zipCode && ` • ${option.zipCode}`}
+                  </Typography>
+                </Box>
+              </li>
+            )}
+          />
+        </Grid>
 
-// ============================================================
-// PARAMETER INPUT COMPONENT
-// ============================================================
-const ParameterInput = ({ field, value, onChange, options = [] }) => {
-  switch (field.type) {
-    case 'select':
-      return (
-        <FormControl fullWidth size="small">
-          <InputLabel sx={{ fontSize: '0.75rem' }}>{field.label}</InputLabel>
-          <Select
-            value={value || ''}
-            onChange={(e) => onChange(field.id, e.target.value)}
-            label={field.label}
-            sx={{ fontSize: '0.75rem', borderRadius: '10px' }}
-          >
-            <MenuItem value="" sx={{ fontSize: '0.75rem' }}>
-              Select {field.label}
-            </MenuItem>
-            {/* plain-string options used to get value={undefined} (could not be selected) */}
-            {options.map((opt) => {
-              const val = typeof opt === 'object' ? (opt.id ?? opt.value) : opt;
-              const label = typeof opt === 'object' ? (opt.label || opt.name || String(val)) : String(opt);
-              return (
-                <MenuItem key={String(val)} value={val} sx={{ fontSize: '0.75rem' }}>
-                  {label}
+        <Grid size={{ xs: 6, md: 3 }}>
+          <TextField
+            fullWidth
+            label="Postal Code"
+            value={address.zipCode || ''}
+            onChange={(e) => onChange({ ...address, zipCode: e.target.value })}
+            size="small"
+            placeholder="e.g., 1475"
+            inputProps={{ maxLength: 4 }}
+            disabled={disabled}
+            sx={{ 
+              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 6, md: 3 }}>
+          <FormControl fullWidth size="small" error={!!errors.province}>
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+              Province
+            </InputLabel>
+            <Select
+              value={address.province || ''}
+              label="Province"
+              onChange={(e) => onChange({ ...address, province: e.target.value })}
+              disabled={disabled}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+            >
+              <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Select province
+              </MenuItem>
+              {PROVINCE_OPTIONS.map(p => (
+                <MenuItem key={p} value={p} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  {p}
                 </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
-      );
+              ))}
+            </Select>
+            {errors.province && (
+              <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+                {errors.province}
+              </FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
 
-    case 'daterange':
-      return (
-        <Stack direction="row" spacing={1}>
-          <TextField
-            fullWidth
-            size="small"
-            type="date"
-            label="From"
-            value={value?.from || ''}
-            onChange={(e) => onChange(field.id, { ...value, from: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-          />
-          <TextField
-            fullWidth
-            size="small"
-            type="date"
-            label="To"
-            value={value?.to || ''}
-            onChange={(e) => onChange(field.id, { ...value, to: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-            sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
-          />
-        </Stack>
-      );
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ my: 0.75 }} />
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
+            Coordinates (optional)
+          </Typography>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={1.5} 
+            sx={{ mt: 0.75 }}
+          >
+            <TextField
+              fullWidth
+              label="Latitude"
+              type="number"
+              value={address.latitude || ''}
+              onChange={(e) => onChange({ ...address, latitude: parseFloat(e.target.value) || null })}
+              size="small"
+              placeholder="e.g., -26.3378"
+              InputProps={{ inputProps: { step: 'any' } }}
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Longitude"
+              type="number"
+              value={address.longitude || ''}
+              onChange={(e) => onChange({ ...address, longitude: parseFloat(e.target.value) || null })}
+              size="small"
+              placeholder="e.g., 28.2023"
+              InputProps={{ inputProps: { step: 'any' } }}
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Stack>
+        </Grid>
+      </Grid>
+    </Paper>
+  );
+}
 
-    default:
-      return (
-        <TextField
-          fullWidth
-          size="small"
-          label={field.label}
-          placeholder={field.placeholder}
-          value={value || ''}
-          onChange={(e) => {
-            const newValue = field.id === 'tripNumber' || field.id === 'loadNumber' 
-              ? e.target.value.toUpperCase() 
-              : e.target.value;
-            onChange(field.id, newValue);
-          }}
-          required={field.required}
+/* ============================================================
+   COMPONENT: DepotSection
+   ============================================================ */
+
+function DepotSection({ 
+  depots, 
+  selectedDepot, 
+  onDepotSelect, 
+  departureType, 
+  onDepartureTypeChange, 
+  departureLocation,
+  onLocationChange,
+  departureOptions 
+}) {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: { xs: '12px', sm: '16px' },
+        border: '1px solid #ECECEC',
+        bgcolor: '#FFFFFF',
+        width: '100%',
+        mb: 1.5,
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+        <WarehouseIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+        <Typography 
+          variant="subtitle2" 
           sx={{ 
-            '& .MuiInputLabel-root': { fontSize: '0.75rem' },
-            '& .MuiInputBase-root': { fontSize: '0.75rem', borderRadius: '10px' },
+            fontWeight: 600, 
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
+            color: '#111827',
           }}
-          InputProps={{
-            startAdornment: field.type === 'text' && (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
-              </InputAdornment>
-            ),
-            endAdornment: value && (
-              <InputAdornment position="end">
-                <IconButton 
-                  size="small" 
-                  onClick={() => onChange(field.id, '')}
-                >
-                  <ClearIcon sx={{ fontSize: '0.7rem' }} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-      );
-  }
-};
+        >
+          Depot & Departure
+        </Typography>
+      </Stack>
 
-// ============================================================
-// MAIN COMPONENT
-// ============================================================
-const TripReports = () => {
-  // ✅ Report Viewer state
-  const [showReportViewer, setShowReportViewer] = useState(false);
-  const [reportViewerData, setReportViewerData] = useState(null);
-  const [reportViewerType, setReportViewerType] = useState('trip');
-  const [reportViewerTitle, setReportViewerTitle] = useState('');
-  const [reportViewerLoading, setReportViewerLoading] = useState(false);
-  const [reportViewerError, setReportViewerError] = useState(null);
+      <Grid container spacing={1.5}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+              Departed From
+            </InputLabel>
+            <Select
+              value={departureType}
+              label="Departed From"
+              onChange={(e) => onDepartureTypeChange(e.target.value)}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+            >
+              {(departureOptions || []).map(option => (
+                <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {departureType === 'DEPOT' && (
+          <>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                  Select Depot
+                </InputLabel>
+                <Select
+                  value={selectedDepot?.id || ''}
+                  label="Select Depot"
+                  onChange={(e) => {
+                    const depot = depots.find(d => d.id === e.target.value);
+                    onDepotSelect(depot);
+                  }}
+                  sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                >
+                  <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                    <em>Select depot</em>
+                  </MenuItem>
+                  {(depots || []).map(depot => (
+                    <MenuItem key={depot.id} value={depot.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                      {depot.name} ({depot.depotCode})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {selectedDepot && (
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="Depot Address"
+                  value={selectedDepot.fullAddress || ''}
+                  size="small"
+                  disabled
+                  sx={{ 
+                    '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                    '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } }
+                  }}
+                />
+              </Grid>
+            )}
+          </>
+        )}
+
+        {departureType === 'FREEHAND' && (
+          <Grid size={{ xs: 12, md: 8 }}>
+            <TextField
+              fullWidth
+              label="Departure Location (Freehand)"
+              value={departureLocation || ''}
+              onChange={(e) => onLocationChange(e.target.value)}
+              size="small"
+              placeholder="Enter custom departure location..."
+              sx={{ 
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+              }}
+            />
+          </Grid>
+        )}
+
+        {departureType === 'LAST_DROP' && (
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Alert severity="info" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+              Vehicle departs from the last drop-off location of the previous trip.
+              Distance will be calculated based on the previous trip's destination.
+            </Alert>
+          </Grid>
+        )}
+      </Grid>
+    </Paper>
+  );
+}
+
+/* ============================================================
+   MAIN COMPONENT: TripForm
+   ============================================================ */
+
+function TripForm({ open = false, onClose, mode = 'create', initialData, onSuccess, fetchTrips }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
-  // ✅ Report selection state
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [parameters, setParameters] = useState({});
+  // Get enums from context
+  const {
+    enums,
+    loading: enumsLoading,
+    getTripStatusOptions,
+    getTripTypeOptions,
+    getApprovalStatusOptions,
+    getPriorityOptions,
+    getDepartureTypeOptions,
+    getDepartedFromOptions,
+    getDriverOptions,
+    getVehicleOptions,
+    getSupervisorOptions,
+    refreshEnums,
+    isReady,
+  } = useEnums();
+
+  // Loading States
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // ✅ Dropdown options
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  // Data States
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [supervisors, setSupervisors] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [depots, setDepots] = useState([]);
 
-  // Rows behind the last driver / vehicle / custom report (for CSV / Excel export)
-  const [lastReport, setLastReport] = useState(null);
+  // Address States
+  const [origin, setOrigin] = useState(getDefaultAddress);
+  const [destination, setDestination] = useState(getDefaultAddress);
 
-  const selectedReportConfig = REPORT_TYPES.find(r => r.id === selectedReport);
-  const isReportValid = selectedReportConfig?.fields.every(f => 
-    !f.required || (parameters[f.id] && parameters[f.id] !== '')
-  );
+  // Depot Tracking States
+  const [departureType, setDepartureType] = useState('DEPOT');
+  const [selectedDepot, setSelectedDepot] = useState(null);
+  const [departureLocation, setDepartureLocation] = useState('');
+  const [fromDepotKm, setFromDepotKm] = useState('');
+  const [toDepotKm, setToDepotKm] = useState('');
+  const [isFromDepot, setIsFromDepot] = useState(false);
 
-  // Load options for select fields
-  useEffect(() => {
-    if (selectedReport) {
-      loadOptions(selectedReport);
-    }
-  }, [selectedReport]);
+  // ✅ SAFELY get options - always return arrays
+  const tripTypeOptions = getTripTypeOptions() || [];
+  const statusOptions = getTripStatusOptions() || [];
+  const approvalOptions = getApprovalStatusOptions() || [];
+  const priorityOptions = getPriorityOptions() || [];
+  const departureOptions = getDepartureTypeOptions() || [];
+  const departedFromOptions = getDepartedFromOptions() || [];
+  const driverOptions = getDriverOptions() || [];
+  const vehicleOptions = getVehicleOptions() || [];
+  const supervisorOptions = getSupervisorOptions() || [];
 
-  const loadOptions = async (reportType) => {
-    setLoadingOptions(true);
-    try {
-      if (reportType === 'fuel' || reportType === 'vehicle') {
-        const response = await vehicleService.getAllVehicles();
-        setVehicles(asArray(response));
-      }
-      if (reportType === 'driver') {
-        const response = await driverService.getAllDrivers();
-        setDrivers(asArray(response));
-      }
-    } catch (error) {
-      console.error('Error loading options:', error);
-      setError('Could not load the vehicle / driver list. Refresh the page and try again.');
-    } finally {
-      setLoadingOptions(false);
-    }
-  };
+  // ✅ Fallback to static options if DB enums are not available
+  const finalTripTypeOptions = tripTypeOptions.length > 0 ? tripTypeOptions : staticTripTypeOptions;
+  const finalPriorityOptions = priorityOptions.length > 0 ? priorityOptions : staticPriorityOptions;
+  const finalApprovalOptions = approvalOptions.length > 0 ? approvalOptions : staticApprovalOptions;
+  const finalDepartureOptions = departureOptions.length > 0 ? departureOptions : staticDepartureOptions;
 
-  const getOptionsForField = (fieldId) => {
-    if (fieldId === 'vehicleId') {
-      return vehicles.map(v => ({
-        id: v.id,
-        label: v.registrationNumber || `${v.make} ${v.model}`
-      }));
-    }
-    if (fieldId === 'driverId') {
-      return drivers.map(d => ({
-        id: d.id,
-        label: personLabel(d)
-      }));
-    }
-    if (fieldId === 'status') {
-      return REPORT_STATUS_OPTIONS;
-    }
-    return [];
-  };
+  // ✅ Check if enums are ready before rendering
+  const isEnumReady = isReady && !enumsLoading;
 
-  const labelFor = (fieldId, id) =>
-    getOptionsForField(fieldId).find((o) => String(o.id) === String(id))?.label || `#${id}`;
-
-  /** Driver / vehicle / custom reports - built from the trips API (no backend changes needed). */
-  const buildTripListReport = async (params) => {
-    let trips;
-    let title;
-    const subtitleParts = [];
-
-    if (selectedReport === 'driver') {
-      trips = await tripService.fetchAllTripsFor('driver', params.driverId);
-      title = `Driver Report: ${labelFor('driverId', params.driverId)}`;
-    } else if (selectedReport === 'vehicle') {
-      trips = await tripService.fetchAllTripsFor('vehicle', params.vehicleId);
-      title = `Vehicle Report: ${labelFor('vehicleId', params.vehicleId)}`;
-    } else {
-      const filters = {};
-      if (params.status) {
-        filters.status = params.status;
-        subtitleParts.push(`Status: ${params.status}`);
-      }
-      if (params.search) {
-        filters.search = params.search;
-        subtitleParts.push(`Search: "${params.search}"`);
-      }
-      trips = await tripService.fetchAllTrips(filters);
-      title = 'Custom Trip Report';
-    }
-
-    const rows = filterTripsByDate(trips, params.startDate, params.endDate);
-    if (params.startDate || params.endDate) {
-      subtitleParts.unshift(`Period: ${params.startDate || 'start'} to ${params.endDate || 'today'}`);
-    }
-    subtitleParts.push(`Generated ${new Date().toLocaleString('en-ZA')}`);
-    const subtitle = subtitleParts.join('  •  ');
-
-    setLastReport({ title, subtitle, rows });
+  // Form State - initialize with defaults from DB
+  const [form, setForm] = useState(() => {
+    const defaults = getDefaultPlannedDates();
     return {
-      title,
-      html: buildTripReportHtml({ title, subtitle, summary: summarizeTrips(rows), columns: TRIP_REPORT_COLUMNS, rows }),
+      ...getDefaultFormState(),
+      tripType: getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
+      status: getDefaultEnumCode(statusOptions, 'PLANNED'),
+      approvalStatus: getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
+      priority: getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
+      plannedStartDate: defaults.plannedStartDate,
+      plannedEndDate: defaults.plannedEndDate,
     };
-  };
+  });
 
-  const filteredReports = REPORT_TYPES.filter(report =>
-    report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    report.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Guards so defaults / edit data are applied ONCE per opening. Previously these effects
+  // depended on option arrays that can be re-created every render, which could overwrite
+  // what the user had just selected or typed.
+  const defaultsAppliedRef = useRef(false);
+  const populatedForRef = useRef(null);
+  const originalStatusRef = useRef(null);
+  const submittingRef = useRef(false);
 
-  // ============================================================
-  // REPORT GENERATION
-  // ============================================================
-
-  const handleGenerateReport = async () => {
-    if (!selectedReport) {
-      setError('Please select a report type');
+  // Apply DB enum defaults when enums load (create mode) - only fills EMPTY fields
+  useEffect(() => {
+    if (!open) {
+      defaultsAppliedRef.current = false;
       return;
     }
+    if (defaultsAppliedRef.current || !isEnumReady || initialData || mode !== 'create') return;
+    defaultsAppliedRef.current = true;
+    setForm(prev => ({
+      ...prev,
+      tripType: prev.tripType || getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
+      status: prev.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
+      approvalStatus: prev.approvalStatus || getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
+      priority: prev.priority || getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
+    }));
+  }, [open, isEnumReady, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions, initialData, mode]);
 
-    // Validate required fields
-    const missingField = selectedReportConfig?.fields.find(f => f.required && !parameters[f.id]);
-    if (missingField) {
-      setError(`Please enter ${missingField.label}`);
-      return;
-    }
+  /* ============================================================
+     DATA LOADING
+   ============================================================ */
 
-    const rangeError = validateDateRange(parameters.dateRange?.from, parameters.dateRange?.to);
-    if (rangeError) {
-      setError(rangeError);
-      return;
-    }
-    setLastReport(null);
-
-    setReportViewerLoading(true);
-    setReportViewerError(null);
+  const loadData = useCallback(async () => {
+    setLoading(true);
     setError(null);
 
     try {
-      // Prepare parameters
-      const params = { ...parameters };
-      
-      // Handle date range
-      if (params.dateRange) {
-        params.startDate = params.dateRange.from || null;
-        params.endDate = params.dateRange.to || null;
-        delete params.dateRange;
+      const [vRes, dRes, cRes, depotRes] = await Promise.all([
+        vehicleService.getAllVehicles().catch(() => []),
+        driverService.getAllDrivers().catch(() => []),
+        customerService.getActiveCustomers().catch(() => []),
+        depotService.getAllDepots().catch(() => [])
+      ]);
+
+      const allVehicles = Array.isArray(vRes) ? vRes : (vRes?.content || []);
+      const allDrivers = Array.isArray(dRes) ? dRes : (dRes?.content || []);
+      const assignedVehicleId = initialData?.vehicleId ?? initialData?.vehicle?.id;
+      const assignedDriverId = initialData?.driverId ?? initialData?.driver?.id;
+
+      setVehicles(keepAssigned(filterActiveVehicles(allVehicles), allVehicles, assignedVehicleId));
+      setDrivers(keepAssigned(filterAvailableDrivers(allDrivers), allDrivers, assignedDriverId));
+      setCustomers(Array.isArray(cRes) ? cRes : (cRes?.content || []));
+      setDepots(Array.isArray(depotRes) ? depotRes : (depotRes?.content || []));
+
+      // Supervisors: use the authenticated API client. The previous raw fetch('/api/users')
+      // had no auth token and went to the FRONTEND host on Render, so the list was always empty.
+      try {
+        const usersResponse = await api.get('/users', { params: { roles: 'MANAGER,SUPER_ADMIN' } });
+        const usersData = usersResponse?.data !== undefined ? usersResponse.data : usersResponse;
+        setSupervisors(Array.isArray(usersData) ? usersData : (usersData?.content || usersData?.data || []));
+      } catch (supErr) {
+        console.warn('Could not load supervisors:', supErr?.message);
+        setSupervisors([]);
       }
+    } catch (err) {
+      console.error('Failed to load data:', err);
+      setError('Failed to load vehicles, drivers, or customers');
+    } finally {
+      setLoading(false);
+    }
+  }, [initialData]);
 
-      let htmlContent = null;
-      let reportTitle = '';
-      let reportType = selectedReport;
+  /* ============================================================
+     DISTANCE CALCULATION
+   ============================================================ */
 
-      console.log('🔄 Generating report with params:', params);
+  const calculateDistanceFromDepot = useCallback(async () => {
+    if (!selectedDepot || !origin.city) {
+      setFromDepotKm('');
+      return;
+    }
 
-      // Call the appropriate report service
-      switch (selectedReport) {
-        case 'trip':
-          if (!params.tripNumber) {
-            setError('Please enter a trip number');
-            setReportViewerLoading(false);
-            return;
-          }
-          reportTitle = `Trip Report: ${params.tripNumber}`;
-          htmlContent = await reportService.generateTripReport(params.tripNumber);
-          break;
-
-        case 'load':
-          if (!params.loadNumber) {
-            setError('Please enter a load number');
-            setReportViewerLoading(false);
-            return;
-          }
-          reportTitle = `Load Report: ${params.loadNumber}`;
-          htmlContent = await reportService.generateLoadReport(params.loadNumber);
-          break;
-
-        case 'fuel':
-          reportTitle = 'Fuel Consumption Report';
-          const vehicleId = params.vehicleId || null;
-          const startDate = params.startDate || null;
-          const endDate = params.endDate || null;
-          
-          console.log('📊 Fuel report params:', { vehicleId, startDate, endDate });
-          htmlContent = await reportService.generateFuelReport(vehicleId, startDate, endDate);
-          break;
-
-        case 'driver':
-        case 'vehicle':
-        case 'custom': {
-          // previously: "Report type ... is not fully implemented yet"
-          const built = await buildTripListReport(params);
-          reportTitle = built.title;
-          htmlContent = built.html;
-          break;
+    if (selectedDepot.latitude && selectedDepot.longitude) {
+      const originAddress = buildAddress(origin);
+      try {
+        setCalculatingDistance(true);
+        const result = await routingService.calculateDistance(
+          `${selectedDepot.latitude},${selectedDepot.longitude}`,
+          originAddress
+        );
+        if (result?.distance) {
+          setFromDepotKm(result.distance.toFixed(1));
         }
+      } catch (error) {
+        console.error('Failed to calculate depot distance:', error);
+        setFromDepotKm('');
+      } finally {
+        setCalculatingDistance(false);
+      }
+    }
+  }, [selectedDepot, origin]);
 
-        default:
-          setError(`Unknown report type "${selectedReport}"`);
-          setReportViewerLoading(false);
-          return;
+  const calculateDistanceToDepot = useCallback(async () => {
+    if (!selectedDepot || !destination.city) {
+      setToDepotKm('');
+      return;
+    }
+
+    if (selectedDepot.latitude && selectedDepot.longitude) {
+      const destAddress = buildAddress(destination);
+      try {
+        setCalculatingDistance(true);
+        const result = await routingService.calculateDistance(
+          destAddress,
+          `${selectedDepot.latitude},${selectedDepot.longitude}`
+        );
+        if (result?.distance) {
+          setToDepotKm(result.distance.toFixed(1));
+        }
+      } catch (error) {
+        console.error('Failed to calculate depot distance:', error);
+        setToDepotKm('');
+      } finally {
+        setCalculatingDistance(false);
+      }
+    }
+  }, [selectedDepot, destination]);
+
+  // Recalculate distances when origin/destination changes
+  useEffect(() => {
+    if (departureType === 'DEPOT' && selectedDepot) {
+      calculateDistanceFromDepot();
+      calculateDistanceToDepot();
+    }
+  }, [origin, destination, selectedDepot, departureType, calculateDistanceFromDepot, calculateDistanceToDepot]);
+
+  /* ============================================================
+     FORM RESET & POPULATION
+   ============================================================ */
+
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      const timer = setTimeout(() => {
+        setOrigin(getDefaultAddress);
+        setDestination(getDefaultAddress);
+        setDepartureType('DEPOT');
+        setSelectedDepot(null);
+        setDepartureLocation('');
+        setFromDepotKm('');
+        setToDepotKm('');
+        setIsFromDepot(false);
+        setForm(getDefaultFormState);
+        setFormErrors({});
+        setError(null);
+        setSuccessMessage(null);
+        setIsSuccess(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  // Load data on open
+  useEffect(() => {
+    if (!open) return;
+    loadData();
+    // Refresh enums to get latest from DB
+    refreshEnums();
+  }, [open, loadData, refreshEnums]);
+
+  // Populate form with initial data when editing - ONCE per opening, so the user's
+  // edits are never overwritten by a re-render.
+  useEffect(() => {
+    if (!open) {
+      populatedForRef.current = null;
+      return;
+    }
+    if (initialData && open && populatedForRef.current !== initialData.id) {
+      populatedForRef.current = initialData.id;
+      originalStatusRef.current = initialData.status || null;
+      console.log('🔍 Populating form with initial data:', initialData);
+      
+      setForm(prev => ({
+        ...prev,
+        ...initialData,
+        tripType: initialData.tripType || getDefaultEnumCode(finalTripTypeOptions, 'FREIGHT'),
+        status: initialData.status || getDefaultEnumCode(statusOptions, 'PLANNED'),
+        approvalStatus: initialData.approvalStatus || getDefaultEnumCode(finalApprovalOptions, 'PENDING'),
+        priority: initialData.priority || getDefaultEnumCode(finalPriorityOptions, 'NORMAL'),
+        // the list API may return nested objects instead of flat ids
+        vehicleId: initialData.vehicleId ?? initialData.vehicle?.id ?? '',
+        driverId: initialData.driverId ?? initialData.driver?.id ?? '',
+        supervisorId: initialData.supervisorId ?? initialData.supervisor?.id ?? '',
+        customerId: initialData.customerId ?? initialData.customer?.id ?? '',
+        referenceNumber: initialData.referenceNumber || '',
+        plannedStartDate: initialData.plannedStartDate || getDefaultPlannedDates().plannedStartDate,
+        plannedEndDate: initialData.plannedEndDate || getDefaultPlannedDates().plannedEndDate,
+      }));
+
+      if (initialData.departedFrom) setDepartureType(initialData.departedFrom);
+      if (initialData.departureLocation) setDepartureLocation(initialData.departureLocation);
+      if (initialData.fromDepotKm) setFromDepotKm(initialData.fromDepotKm);
+      if (initialData.toDepotKm) setToDepotKm(initialData.toDepotKm);
+      if (initialData.isFromDepot !== undefined) setIsFromDepot(initialData.isFromDepot);
+
+      // populate even if only the city (no full address string) was stored
+      if (initialData.originLocation || initialData.originCity) {
+        setOrigin({
+          street: initialData.originStreetAddress || '',
+          city: initialData.originCity || '',
+          zipCode: initialData.originZipCode || '',
+          province: initialData.originProvince || '',
+          latitude: initialData.originLatitude || null,
+          longitude: initialData.originLongitude || null,
+        });
+      }
+      if (initialData.destinationLocation || initialData.destinationCity) {
+        setDestination({
+          street: initialData.destinationStreetAddress || '',
+          city: initialData.destinationCity || '',
+          zipCode: initialData.destinationZipCode || '',
+          province: initialData.destinationProvince || '',
+          latitude: initialData.destinationLatitude || null,
+          longitude: initialData.destinationLongitude || null,
+        });
+      }
+    }
+  }, [initialData, open, finalTripTypeOptions, statusOptions, finalApprovalOptions, finalPriorityOptions]);
+
+  // Set default planned dates for new trip
+  useEffect(() => {
+    if (open && mode === 'create' && !initialData) {
+      const defaults = getDefaultPlannedDates();
+      setForm(prev => ({
+        ...prev,
+        plannedStartDate: defaults.plannedStartDate,
+        plannedEndDate: defaults.plannedEndDate,
+      }));
+    }
+  }, [open, mode, initialData]);
+
+  /* ============================================================
+     FORM VALIDATION
+   ============================================================ */
+
+  const validateForm = useCallback(() => {
+    const errors = {};
+
+    if (!origin.city) errors.originCity = 'Origin city is required';
+    if (!origin.province) errors.originProvince = 'Origin province is required';
+    if (!destination.city) errors.destinationCity = 'Destination city is required';
+    if (!destination.province) errors.destinationProvince = 'Destination province is required';
+
+    if (!form.plannedStartDate) errors.plannedStartDate = 'Planned start date is required';
+    if (form.plannedEndDate && form.plannedStartDate) {
+      if (dayjs(form.plannedEndDate).isBefore(form.plannedStartDate)) {
+        errors.plannedEndDate = 'End date must be after start date';
+      }
+    }
+
+    if (!form.vehicleId) errors.vehicleId = 'Please select a vehicle';
+    if (!form.driverId) errors.driverId = 'Please select a driver';
+    if (!form.commodityType) errors.commodityType = 'Please select commodity type';
+
+    // Numbers: must be numeric and not negative (was: parseFloat("12abc") passed, negatives allowed)
+    Object.entries(NUMERIC_FIELDS).forEach(([field, label]) => {
+      const raw = form[field];
+      if (raw === '' || raw === null || raw === undefined) return;
+      // strict: "12,5" is rejected (parseFloat would silently save 12) - use a dot for decimals
+      const n = Number(String(raw).trim());
+      if (!Number.isFinite(n)) errors[field] = `${label} must be a number (use a dot for decimals, e.g. 12.5)`;
+      else if (n < 0) errors[field] = `${label} cannot be negative`;
+      else if (field === 'palletCount' && !Number.isInteger(n)) errors[field] = 'Pallet count must be a whole number';
+    });
+
+    return errors;
+  }, [origin, destination, form]);
+
+  /* ============================================================
+     EVENT HANDLERS
+   ============================================================ */
+
+  const handleFieldChange = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleDateTimeChange = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleSwapLocations = () => {
+    const temp = origin;
+    setOrigin(destination);
+    setDestination(temp);
+  };
+
+  const handleDepartureTypeChange = (value) => {
+    setDepartureType(value);
+    if (value !== 'DEPOT') {
+      setSelectedDepot(null);
+      setFromDepotKm('');
+      setToDepotKm('');
+    }
+  };
+
+  const handleDepotSelect = (depot) => {
+    setSelectedDepot(depot);
+    if (depot) {
+      setFromDepotKm('');
+      setToDepotKm('');
+    }
+  };
+
+  /* ============================================================
+     LOAD CREATION/LINKING FUNCTION
+   ============================================================ */
+
+  const findOrCreateLoad = async (tripResult) => {
+    try {
+      const referenceNumber = tripResult.referenceNumber || form.referenceNumber;
+      
+      if (!referenceNumber) {
+        console.log('📦 No reference number provided. Creating new load...');
+        return await createNewLoad(tripResult);
       }
 
-      console.log('📥 Received HTML content length:', htmlContent?.length);
+      console.log(`🔍 Checking for existing load with reference: ${referenceNumber}`);
+      
+      let existingLoad = null;
+      try {
+        const searchResult = await loadService.searchLoads({ 
+          referenceNumber: referenceNumber,
+          size: 100 
+        });
+        
+        // Only link to a load whose reference matches EXACTLY and that belongs to the same
+        // customer (search may be a partial match - "123" also finds "1234").
+        const wanted = String(referenceNumber).trim().toUpperCase();
+        const tripCustomerId = tripResult.customerId ?? form.customerId ?? null;
+        const candidates = (searchResult?.content || []).filter(l =>
+          String(l.referenceNumber || '').trim().toUpperCase() === wanted &&
+          (!tripCustomerId || !l.customerId || String(l.customerId) === String(tripCustomerId))
+        );
+        if (candidates.length > 0) {
+          existingLoad = candidates[0];
+          console.log(`✅ Found existing load: ${existingLoad.loadNumber} (ID: ${existingLoad.id})`);
+        }
+      } catch (searchError) {
+        console.warn('⚠️ Error searching for load:', searchError);
+      }
 
-      // ✅ Check if we got valid HTML content
-      if (!htmlContent || typeof htmlContent !== 'string') {
-        setReportViewerError('Failed to generate report: No content received');
-        setReportViewerLoading(false);
+      if (existingLoad) {
+        console.log(`📦 Adding trip to existing load: ${existingLoad.loadNumber}`);
+        try {
+          const updatedLoad = await loadService.addTripToLoad(existingLoad.id, tripResult.id);
+          console.log(`✅ Trip added to load ${updatedLoad.loadNumber}`);
+          return updatedLoad;
+        } catch (addError) {
+          console.warn('⚠️ Could not add trip to existing load, creating new load:', addError);
+          return await createNewLoad(tripResult);
+        }
+      }
+
+      console.log('📦 No existing load found. Creating new load...');
+      return await createNewLoad(tripResult);
+
+    } catch (error) {
+      console.error('❌ Error in load creation/linking:', error);
+      return null;
+    }
+  };
+
+  const createNewLoad = async (tripResult) => {
+    try {
+      const loadData = {
+        referenceNumber: form.referenceNumber || tripResult.referenceNumber || null,
+        description: form.cargoDescription || form.description || `Load for trip ${tripResult.tripNumber}`,
+        customerId: tripResult.customerId || form.customerId || null,
+        weightKg: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+        volumeCubicM: null,
+        palletCount: form.palletCount ? parseInt(form.palletCount) : null,
+        containerNumber: form.containerNumber || null,
+        loadingDate: form.plannedStartDate || null,
+        unloadingDate: form.plannedEndDate || null,
+        status: 'PENDING',
+        priority: form.priority || 'NORMAL',
+        commodityType: form.commodityType || null,
+        originLocation: buildAddress(origin) || null,
+        destinationLocation: buildAddress(destination) || null,
+        tripIds: [tripResult.id],
+      };
+
+      Object.keys(loadData).forEach(key => {
+        if (loadData[key] === null || loadData[key] === undefined || loadData[key] === '') {
+          delete loadData[key];
+        }
+      });
+
+      console.log('📦 Creating new load with data:', loadData);
+      const newLoad = await loadService.createLoad(loadData);
+      console.log(`✅ New load created: ${newLoad.loadNumber} (ID: ${newLoad.id})`);
+      return newLoad;
+    } catch (error) {
+      console.error('❌ Failed to create load:', error);
+      return null;
+    }
+  };
+
+  /* ============================================================
+     FORM SUBMISSION
+   ============================================================ */
+
+  const handleSubmit = useCallback(async () => {
+    // ref guard: a fast double-click used to create two trips before `submitting` re-rendered
+    if (submitting || submittingRef.current) return;
+
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      setError('Please fix the validation errors before submitting.');
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+    setIsSuccess(false);
+
+    try {
+      const originAddress = buildAddress(origin);
+      const destAddress = buildAddress(destination);
+
+      const payload = {
+        tripType: form.tripType,
+        status: form.status,
+        approvalStatus: form.approvalStatus,
+        priority: form.priority,
+
+        plannedStartDate: formatDateForAPI(form.plannedStartDate),
+        plannedEndDate: formatDateForAPI(form.plannedEndDate),
+        estimatedDuration: form.estimatedDuration ? parseFloat(form.estimatedDuration) : null,
+        plannedDistanceKm: form.plannedDistanceKm ? parseFloat(form.plannedDistanceKm) : null,
+        plannedDurationHours: form.plannedDurationHours ? parseFloat(form.plannedDurationHours) : null,
+
+        tollCost: form.estimatedTollCost ? parseFloat(form.estimatedTollCost) : null,
+        otherExpenses: form.estimatedOtherExpenses ? parseFloat(form.estimatedOtherExpenses) : null,
+
+        vehicleId: form.vehicleId ? parseInt(form.vehicleId, 10) : null,
+        driverId: form.driverId ? parseInt(form.driverId, 10) : null,
+        supervisorId: form.supervisorId ? parseInt(form.supervisorId, 10) : null,
+        customerId: form.customerId ? parseInt(form.customerId, 10) : null,
+
+        commodityType: form.commodityType || null,
+        cargoDescription: form.cargoDescription || null,
+        cargoWeight: form.cargoWeight ? parseFloat(form.cargoWeight) : null,
+        cargoValue: form.cargoValue ? parseFloat(form.cargoValue) : null,
+        palletCount: form.palletCount ? parseInt(form.palletCount, 10) : null,
+        containerNumber: form.containerNumber || null,
+
+        originStreetAddress: origin.street || null,
+        originCity: origin.city,
+        originZipCode: origin.zipCode || null,
+        originProvince: origin.province || null,
+        originLatitude: origin.latitude || null,
+        originLongitude: origin.longitude || null,
+        originLocation: originAddress || null,
+
+        destinationStreetAddress: destination.street || null,
+        destinationCity: destination.city,
+        destinationZipCode: destination.zipCode || null,
+        destinationProvince: destination.province || null,
+        destinationLatitude: destination.latitude || null,
+        destinationLongitude: destination.longitude || null,
+        destinationLocation: destAddress || null,
+
+        fromDepotKm: fromDepotKm ? parseFloat(fromDepotKm) : null,
+        toDepotKm: toDepotKm ? parseFloat(toDepotKm) : null,
+        departedFrom: departureType,
+        departureLocation: departureType === 'FREEHAND' ? departureLocation : null,
+        isFromDepot: isFromDepot,
+
+        notes: form.notes || null,
+        specialInstructions: form.specialInstructions || null,
+        driverNotes: form.driverNotes || null,
+        referenceNumber: form.referenceNumber || null,
+        purchaseOrderNumber: form.purchaseOrderNumber || null,
+        cancellationReason: form.cancellationReason || null
+      };
+
+      // Remove empty values
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
+          delete payload[key];
+        }
+      });
+
+      console.log(`📤 ${mode === 'edit' ? 'Updating' : 'Creating'} trip:`, payload);
+
+      let result;
+      if (mode === 'edit' && initialData?.id) {
+        // Lost-update guard: if the trip's status changed on the server while this form was
+        // open (e.g. the driver started it), saving would silently put the old status back.
+        const latest = await tripService.getTripById(initialData.id);
+        const openedWith = originalStatusRef.current;
+        if (latest?.status && openedWith && latest.status !== openedWith) {
+          setError(
+            `This trip was changed to ${latest.status} while you were editing (it was ${openedWith}). ` +
+            'Close the form and open it again to edit the latest version.'
+          );
+          return;
+        }
+        result = await tripService.updateTrip(initialData.id, payload);
+        console.log('✅ Trip updated successfully:', result);
+        setSuccessMessage(`Trip ${result.tripNumber} updated successfully!`);
+      } else {
+        console.log('📤 Creating new trip...');
+        result = await tripService.createTrip(payload);
+        console.log('✅ Trip created successfully:', result);
+        
+        console.log('📦 Finding or creating load for trip...');
+        const loadResult = await findOrCreateLoad(result);
+        if (loadResult) {
+          setSuccessMessage(`Trip ${result.tripNumber} created successfully and added to Load ${loadResult.loadNumber}!`);
+        } else {
+          // the trip IS saved; make the missing load visible instead of hiding it
+          setSuccessMessage(
+            `Trip ${result.tripNumber} created successfully, but it could not be linked to a load. ` +
+            'Please link it from the Loads screen.'
+          );
+        }
+      }
+
+      setIsSuccess(true);
+
+      if (onSuccess) {
+        onSuccess(result);
+      }
+
+      if (fetchTrips) {
+        console.log('🔄 Refreshing trip list...');
+        try {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await fetchTrips();
+          console.log('✅ Trip list refreshed successfully');
+        } catch (refreshError) {
+          console.error('⚠️ Error refreshing trip list:', refreshError);
+        }
+      }
+
+      setTimeout(() => {
+        if (onClose) onClose();
+      }, 1500);
+
+    } catch (err) {
+      console.error('❌ Trip error:', err);
+      
+      // Create-only: in EDIT mode a 404 means the trip no longer exists and must not show "success"
+      if (mode !== 'edit' && err.response?.status === 404 && err.response?.data?.detail?.includes('Trip not found')) {
+        console.warn('⚠️ Trip was created but not found on refresh - race condition');
+        setSuccessMessage('Trip created successfully!');
+        setIsSuccess(true);
+        
+        if (fetchTrips) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await fetchTrips();
+          } catch (refreshError) {
+            console.error('⚠️ Error refreshing trip list after race condition:', refreshError);
+          }
+        }
+        
+        setTimeout(() => {
+          if (onClose) onClose();
+        }, 1500);
+        submittingRef.current = false;
+        setSubmitting(false);
         return;
       }
 
-      // ✅ Validate it's HTML
-      if (htmlContent.trim().startsWith('<')) {
-        console.log('✅ Valid HTML content received');
-        setReportViewerData(htmlContent);
-        setReportViewerType(selectedReport);
-        setReportViewerTitle(reportTitle);
-        setShowReportViewer(true);
-        setReportViewerLoading(false);
-      } else {
-        console.error('❌ Content is not HTML:', htmlContent.substring(0, 200));
-        setReportViewerError('Generated content is not valid HTML. Please try again.');
-        setReportViewerLoading(false);
+      let errorMessage = mode === 'edit' ? 'Failed to update trip' : 'Failed to create trip';
+
+      if (err.response?.status === 409) {
+        errorMessage = err.response.data?.message || 'Duplicate trip detected.';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.userMessage || err.response.data?.message || 'Invalid data. Please check all fields.';
+      } else if (err.response?.status === 429) {
+        // We cannot know whether the trip was saved - do not claim it was.
+        errorMessage = 'The server is busy (rate limit). Check the trip list before trying again - ' +
+          'the trip may already have been saved.';
+      } else if (err.userMessage) {
+        errorMessage = err.userMessage;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
 
-    } catch (err) {
-      console.error('❌ Error generating report:', err);
-      
-      // ✅ Check if error contains HTML content we can show
-      if (err.message && err.message.includes('<!DOCTYPE')) {
-        setReportViewerData(err.message);
-        setReportViewerType(selectedReport);
-        setReportViewerTitle(`Report (Error)`);
-        setReportViewerError('Report generated with warnings');
-        setShowReportViewer(true);
-      } else {
-        const msg = err.userMessage || err.message || 'Failed to generate report. Please try again.';
-        setReportViewerError(msg);
-        // the viewer is closed at this point, so also show the message on the page
-        setError(msg);
-      }
-      setReportViewerLoading(false);
+      setError(errorMessage);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
-  };
+  }, [form, origin, destination, fromDepotKm, toDepotKm, departureType, departureLocation, isFromDepot, validateForm, onSuccess, onClose, fetchTrips, submitting, mode, initialData]);
 
-  const handleParameterChange = (fieldId, value) => {
-    setParameters(prev => ({ ...prev, [fieldId]: value }));
-    setError(null);
-    setReportViewerError(null);
-  };
+  /* ============================================================
+     RENDER HELPERS
+   ============================================================ */
 
-  const handleClearParameters = () => {
-    setParameters({});
-    setLastReport(null);
-    setError(null);
-    setReportViewerError(null);
-  };
-
-  const handleSelectReport = (reportId) => {
-    if (selectedReport === reportId) {
-      setSelectedReport(null);
-      setParameters({});
-    } else {
-      setSelectedReport(reportId);
-      setParameters({});
-    }
-    setLastReport(null);
-    setError(null);
-    setReportViewerError(null);
-  };
-
-  const handleCloseViewer = () => {
-    setShowReportViewer(false);
-    setReportViewerData(null);
-    setReportViewerError(null);
-  };
-
-  return (
-    <Box sx={{ 
-      bgcolor: '#F7F7FC', 
-      minHeight: '100vh',
-      p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 }
-    }}>
-      <Box sx={{ maxWidth: '1600px', margin: '0 auto' }}>
-        
-        {/* HEADER */}
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          justifyContent="space-between"
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          mb={{ xs: 2, sm: 2.5 }}
-          spacing={{ xs: 1, sm: 0 }}
-        >
-          <Box>
-            <Typography variant="h5" fontWeight="700" sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
-              Report Center
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-              Generate and view detailed reports for trips, loads, fuel, drivers, and vehicles
-            </Typography>
-          </Box>
-        </Stack>
-
-        {/* SEARCH FILTER */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 1.5, sm: 2 },
-            mb: { xs: 2, sm: 2.5 },
-            borderRadius: '12px',
-            border: '1px solid #ECECEC',
-            bgcolor: '#FFFFFF'
-          }}
-        >
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search report types..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: '0.9rem', color: '#6B7280' }} />
-                </InputAdornment>
-              ),
-              endAdornment: searchTerm && (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm('')}>
-                    <ClearIcon sx={{ fontSize: '0.9rem' }} />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Paper>
-
-        {/* ============================================================
-            REPORT VIEWER
-            ============================================================ */}
-        <ReportViewer
-          open={showReportViewer}
-          onClose={handleCloseViewer}
-          reportType={reportViewerType}
-          title={reportViewerTitle}
-          htmlContent={reportViewerData}
-          loading={reportViewerLoading}
-          error={reportViewerError}
-        />
-        
-        {/* ERROR DISPLAY */}
-        {error && (
-          <Alert 
-            severity="error" 
-            sx={{ mb: 2, borderRadius: '12px' }}
-            onClose={() => setError(null)}
-          >
-            {error}
-          </Alert>
-        )}
-
-        {/* REPORT TYPES GRID */}
-        <Typography variant="subtitle2" fontWeight="600" sx={{ mb: 1.5, fontSize: '0.85rem' }}>
-          Available Reports
-        </Typography>
-
-        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
-          {filteredReports.length === 0 ? (
-            <Grid size={{ xs: 12 }}>
-              <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '12px' }}>
-                <Typography color="text.secondary" sx={{ fontSize: '0.9rem' }}>
-                  No report types match your search
-                </Typography>
-              </Paper>
-            </Grid>
-          ) : (
-            filteredReports.map((report) => (
-              <Grid key={report.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                <ReportCard
-                  report={report}
-                  isSelected={selectedReport === report.id}
-                  onSelect={handleSelectReport}
-                />
-              </Grid>
-            ))
-          )}
-        </Grid>
-
-        {/* PARAMETERS PANEL */}
-        {selectedReport && selectedReportConfig && (
-          <Paper
-            elevation={0}
-            sx={{
-              mt: { xs: 2, sm: 2.5 },
-              p: { xs: 2, sm: 2.5 },
-              borderRadius: '12px',
-              border: '1px solid #ECECEC',
-              bgcolor: '#FFFFFF',
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Box
-                  sx={{
-                    bgcolor: selectedReportConfig.bgColor,
-                    borderRadius: '8px',
-                    p: 0.75,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <selectedReportConfig.icon sx={{ fontSize: '1.2rem', color: selectedReportConfig.color }} />
-                </Box>
-                <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1rem' }}>
-                  {selectedReportConfig.name} Parameters
-                </Typography>
-                <Chip
-                  label={selectedReportConfig.fields.filter(f => f.required).length > 0 ? 'Required fields' : 'Optional'}
-                  size="small"
-                  sx={{ 
-                    fontSize: '0.55rem', 
-                    height: 20,
-                    bgcolor: '#F3F4F6',
-                    color: '#6B7280',
-                  }}
-                />
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleClearParameters}
-                  sx={{ fontSize: '0.75rem', textTransform: 'none', borderRadius: '10px' }}
-                >
-                  Clear All
-                </Button>
-                {/* server PDF exists for the Trip report only (was shown, disabled, on every report) */}
-                {selectedReport === 'trip' && (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<PdfIcon />}
-                    onClick={async () => {
-                      try {
-                        await reportService.downloadTripReportPDF(parameters.tripNumber);
-                      } catch (error) {
-                        setError('Failed to download PDF: ' + (error.userMessage || error.message));
-                      }
-                    }}
-                    disabled={!parameters.tripNumber}
-                    sx={{ 
-                      fontSize: '0.75rem', 
-                      textTransform: 'none',
-                      borderRadius: '10px',
-                    }}
-                  >
-                    Download PDF
-                  </Button>
-                )}
-                {/* CSV / Excel / PDF of the trips behind the last driver / vehicle / custom report */}
-                {['driver', 'vehicle', 'custom'].includes(selectedReport) && (
-                  <ExportButton
-                    title={lastReport?.title || 'Trip report'}
-                    subtitle={lastReport?.subtitle || ''}
-                    columns={TRIP_REPORT_COLUMNS}
-                    fetchRows={async () => lastReport?.rows || []}
-                    disabled={!lastReport}
-                    onError={(msg) => setError(msg)}
-                  />
-                )}
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleGenerateReport}
-                  disabled={reportViewerLoading || !isReportValid}
-                  sx={{ 
-                    fontSize: '0.75rem', 
-                    textTransform: 'none', 
-                    borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-                    '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' }
-                  }}
-                >
-                  {reportViewerLoading ? <CircularProgress size={16} /> : 'Generate Report'}
-                </Button>
-              </Stack>
-            </Stack>
-
-            <Divider sx={{ mb: 2 }} />
-
-            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-              {selectedReportConfig.fields.map((field) => (
-                <Grid key={field.id} size={{ xs: 12, sm: field.type === 'daterange' ? 12 : 6, md: field.type === 'daterange' ? 12 : 4 }}>
-                  <ParameterInput
-                    field={field}
-                    value={parameters[field.id]}
-                    onChange={handleParameterChange}
-                    options={getOptionsForField(field.id)}
-                  />
-                  {field.required && !parameters[field.id] && (
-                    <Typography variant="caption" color="error" sx={{ fontSize: '0.6rem', mt: 0.5, display: 'block' }}>
-                      * Required
-                    </Typography>
-                  )}
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
-        )}
-
-      </Box>
+  const renderLoading = () => (
+    <Box display="flex" justifyContent="center" p={3}>
+      <CircularProgress size={30} />
     </Box>
   );
-};
 
-export default TripReports;
+  const renderError = () => error && (
+    <Alert 
+      severity="error" 
+      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+      onClose={() => setError(null)}
+    >
+      {error}
+    </Alert>
+  );
+
+  const renderSuccess = () => successMessage && (
+    <Alert 
+      severity="success" 
+      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+      onClose={() => setSuccessMessage(null)}
+    >
+      {successMessage}
+    </Alert>
+  );
+
+  // Helper to render select with dynamic options
+  const renderSelectField = (field, label, options, required = false, helperText = null) => (
+    <FormControl fullWidth size="small" required={required} error={!!formErrors[field]}>
+      <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+        {label}
+      </InputLabel>
+      <Select
+        value={form[field] || ''}
+        label={label}
+        onChange={(e) => handleFieldChange(field, e.target.value)}
+        sx={{ 
+          fontSize: { xs: '0.7rem', sm: '0.75rem' },
+          borderRadius: '8px',
+        }}
+      >
+        {(options || []).map(option => (
+          <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+      {formErrors[field] && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors[field]}</FormHelperText>}
+      {helperText && !formErrors[field] && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{helperText}</FormHelperText>}
+    </FormControl>
+  );
+
+  // ✅ If enums are not ready, show loading
+  // (shown inside the dialog - previously it rendered on the page behind it)
+  if (!isEnumReady) {
+    return (
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+          <CircularProgress />
+          <Typography sx={{ ml: 2 }}>Loading form data...</Typography>
+        </Box>
+      </Dialog>
+    );
+  }
+
+  /* ============================================================
+     MAIN RENDER
+   ============================================================ */
+
+  return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Dialog 
+        open={open} 
+        onClose={onClose} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{ 
+          sx: { 
+            maxHeight: '90vh',
+            width: '100%',
+            m: isMobile ? 1 : 2,
+            borderRadius: isMobile ? '12px' : '16px',
+            bgcolor: '#F7F7FC',
+          } 
+        }}
+      >
+        <DialogTitle sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          bgcolor: '#FFFFFF',
+          py: isMobile ? 1 : 1.5, 
+          px: isMobile ? 1.5 : 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1,
+          borderRadius: isMobile ? '12px 12px 0 0' : '16px 16px 0 0',
+        }}>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontSize: { xs: '0.9rem', sm: '1rem' }, 
+              fontWeight: 700,
+              color: '#111827',
+            }}
+          >
+            {mode === 'create' ? 'Create New Trip' : 'Edit Trip'}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button 
+              startIcon={<Close />} 
+              onClick={onClose} 
+              disabled={submitting}
+              size="small"
+              sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                borderRadius: '10px',
+                textTransform: 'none',
+              }}
+            >
+              {isMobile ? '' : 'Cancel'}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
+              disabled={submitting || loading || enumsLoading || isSuccess}
+              size="small"
+              sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                borderRadius: '10px',
+                textTransform: 'none',
+                px: { xs: 1.5, sm: 2 },
+              }}
+            >
+              {submitting ? 'Saving...' : isSuccess ? '✓ Saved' : (isMobile ? 'Save' : (mode === 'create' ? 'Create Trip' : 'Update Trip'))}
+            </Button>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent 
+          dividers 
+          sx={{ 
+            overflowY: 'auto', 
+            p: { xs: 1.5, sm: 2, md: 2.5 },
+            bgcolor: '#F7F7FC',
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: '#b0b0b0',
+              borderRadius: '3px',
+            },
+          }}
+        >
+          {loading || enumsLoading ? renderLoading() : (
+            <>
+              {renderError()}
+              {renderSuccess()}
+
+              <Stack spacing={{ xs: 1.5, sm: 2 }}>
+                {/* Trip Type & Priority */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      {renderSelectField('tripType', 'Trip Type', finalTripTypeOptions)}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      {renderSelectField('priority', 'Priority', finalPriorityOptions)}
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Customer Selection */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+                    <BusinessIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Customer
+                    </Typography>
+                  </Stack>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                      Select Customer
+                    </InputLabel>
+                    <Select
+                      value={form.customerId}
+                      label="Select Customer"
+                      onChange={(e) => handleFieldChange('customerId', e.target.value)}
+                      sx={{ 
+                        fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                        borderRadius: '8px',
+                      }}
+                    >
+                      <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                        No Customer
+                      </MenuItem>
+                      {(customers || []).map(customer => (
+                        <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                          {customer.name} ({customer.customerCode})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Paper>
+
+                {/* Origin & Destination */}
+                <AddressSection
+                  label="Origin"
+                  address={origin}
+                  onChange={setOrigin}
+                  errors={{ city: formErrors.originCity, province: formErrors.originProvince }}
+                />
+
+                <Box display="flex" justifyContent="center" my={-1} position="relative" zIndex={1}>
+                  <IconButton 
+                    onClick={handleSwapLocations} 
+                    sx={{ 
+                      bgcolor: '#FFFFFF', 
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      width: { xs: 32, sm: 36 },
+                      height: { xs: 32, sm: 36 },
+                      border: '1px solid #ECECEC',
+                      '&:hover': {
+                        bgcolor: '#F7F7FC',
+                        transform: 'scale(1.05)',
+                      },
+                      '& .MuiSvgIcon-root': { 
+                        fontSize: { xs: '0.9rem', sm: '1rem' } 
+                      }
+                    }}
+                  >
+                    <SwapHoriz />
+                  </IconButton>
+                </Box>
+
+                <AddressSection
+                  label="Destination"
+                  address={destination}
+                  onChange={setDestination}
+                  errors={{ city: formErrors.destinationCity, province: formErrors.destinationProvince }}
+                />
+
+                {/* Depot & Departure */}
+                <DepotSection
+                  depots={depots}
+                  selectedDepot={selectedDepot}
+                  onDepotSelect={handleDepotSelect}
+                  departureType={departureType}
+                  onDepartureTypeChange={handleDepartureTypeChange}
+                  departureLocation={departureLocation}
+                  onLocationChange={setDepartureLocation}
+                  departureOptions={finalDepartureOptions}
+                />
+
+                {/* Depot Distance Fields */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
+                    <RouteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Depot Distances
+                    </Typography>
+                    {calculatingDistance && <CircularProgress size={16} />}
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="From Depot (km)"
+                        type="number"
+                        value={fromDepotKm}
+                        onChange={(e) => setFromDepotKm(e.target.value)}
+                        size="small"
+                        disabled={departureType === 'DEPOT'}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                              km
+                            </InputAdornment>
+                          )
+                        }}
+                        helperText={departureType === 'DEPOT' && selectedDepot 
+                          ? 'Auto-calculated from depot to pickup' 
+                          : 'Manual entry'}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="To Depot (km)"
+                        type="number"
+                        value={toDepotKm}
+                        onChange={(e) => setToDepotKm(e.target.value)}
+                        size="small"
+                        disabled={departureType === 'DEPOT'}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                              km
+                            </InputAdornment>
+                          )
+                        }}
+                        helperText={departureType === 'DEPOT' && selectedDepot 
+                          ? 'Auto-calculated from drop-off to depot' 
+                          : 'Manual entry'}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={isFromDepot}
+                            onChange={(e) => setIsFromDepot(e.target.checked)}
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                            Vehicle left from depot to pickup point
+                          </Typography>
+                        }
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Schedule */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <ScheduleIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Schedule
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <DateTimePicker
+                        label="Planned Start Date & Time *"
+                        value={form.plannedStartDate ? dayjs(form.plannedStartDate) : null}
+                        onChange={(value) => handleDateTimeChange('plannedStartDate', value)}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: 'small',
+                            required: true,
+                            error: !!formErrors.plannedStartDate,
+                            helperText: formErrors.plannedStartDate,
+                            sx: { 
+                              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                            }
+                          }
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <DateTimePicker
+                        label="Planned End Date & Time"
+                        value={form.plannedEndDate ? dayjs(form.plannedEndDate) : null}
+                        onChange={(value) => handleDateTimeChange('plannedEndDate', value)}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: 'small',
+                            error: !!formErrors.plannedEndDate,
+                            helperText: formErrors.plannedEndDate,
+                            sx: { 
+                              '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                              '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                            }
+                          }
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        label="Est. Duration (hours)"
+                        type="number"
+                        value={form.estimatedDuration}
+                        error={!!formErrors.estimatedDuration}
+                        helperText={formErrors.estimatedDuration || undefined}
+                        onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
+                        size="small"
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>hrs</InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        label="Planned Distance (km)"
+                        type="number"
+                        value={form.plannedDistanceKm}
+                        error={!!formErrors.plannedDistanceKm}
+                        helperText={formErrors.plannedDistanceKm || undefined}
+                        onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
+                        size="small"
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>km</InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        label="Planned Duration (hours)"
+                        type="number"
+                        value={form.plannedDurationHours}
+                        error={!!formErrors.plannedDurationHours}
+                        helperText={formErrors.plannedDurationHours || undefined}
+                        onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
+                        size="small"
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>hrs</InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Assignment */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <DirectionsCar sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Assignment
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <FormControl fullWidth size="small" required error={!!formErrors.vehicleId}>
+                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                          Vehicle *
+                        </InputLabel>
+                        <Select
+                          value={form.vehicleId}
+                          label="Vehicle *"
+                          onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
+                          sx={{ 
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                            borderRadius: '8px',
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                            <em>Select vehicle</em>
+                          </MenuItem>
+                          {(vehicles || []).map(v => (
+                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              {v.registrationNumber} - {v.make} {v.model}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {formErrors.vehicleId && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors.vehicleId}</FormHelperText>}
+                      </FormControl>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <FormControl fullWidth size="small" required error={!!formErrors.driverId}>
+                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                          Driver *
+                        </InputLabel>
+                        <Select
+                          value={form.driverId}
+                          label="Driver *"
+                          onChange={(e) => handleFieldChange('driverId', e.target.value)}
+                          sx={{ 
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                            borderRadius: '8px',
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                            <em>Select driver</em>
+                          </MenuItem>
+                          {(drivers || []).map(d => (
+                            <MenuItem key={d.id} value={d.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              {d.firstName} {d.lastName} - {d.licenseNumber}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {formErrors.driverId && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors.driverId}</FormHelperText>}
+                      </FormControl>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                          Supervisor
+                        </InputLabel>
+                        <Select
+                          value={form.supervisorId}
+                          label="Supervisor"
+                          onChange={(e) => handleFieldChange('supervisorId', e.target.value)}
+                          sx={{ 
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                            borderRadius: '8px',
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                            <em>Select supervisor</em>
+                          </MenuItem>
+                          {(supervisors || []).map(s => (
+                            <MenuItem key={s.id} value={s.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              {personName(s)}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Commodity & Cargo */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <Description sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Commodity & Cargo
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <FormControl fullWidth size="small" required error={!!formErrors.commodityType}>
+                        <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                          Commodity Type *
+                        </InputLabel>
+                        <Select
+                          value={form.commodityType}
+                          label="Commodity Type *"
+                          onChange={(e) => handleFieldChange('commodityType', e.target.value)}
+                          sx={{ 
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                            borderRadius: '8px',
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                            <em>Select commodity</em>
+                          </MenuItem>
+                          {COMMODITY_OPTIONS.map(c => (
+                            <MenuItem key={c} value={c} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              {c}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {formErrors.commodityType && <FormHelperText sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>{formErrors.commodityType}</FormHelperText>}
+                      </FormControl>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="Cargo Description"
+                        value={form.cargoDescription}
+                        onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
+                        size="small"
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        label="Weight (kg)"
+                        type="number"
+                        value={form.cargoWeight}
+                        error={!!formErrors.cargoWeight}
+                        helperText={formErrors.cargoWeight || undefined}
+                        onChange={(e) => handleFieldChange('cargoWeight', e.target.value)}
+                        size="small"
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>,
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>kg</InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        label="Value (ZAR)"
+                        type="number"
+                        value={form.cargoValue}
+                        error={!!formErrors.cargoValue}
+                        helperText={formErrors.cargoValue || undefined}
+                        onChange={(e) => handleFieldChange('cargoValue', e.target.value)}
+                        size="small"
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        label="Pallet Count"
+                        type="number"
+                        value={form.palletCount}
+                        error={!!formErrors.palletCount}
+                        helperText={formErrors.palletCount || undefined}
+                        onChange={(e) => handleFieldChange('palletCount', e.target.value)}
+                        size="small"
+                        InputProps={{ 
+                          endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>pallets</InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Financial Estimates */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <Receipt sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Financial Estimates
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="Est. Toll Cost (ZAR)"
+                        type="number"
+                        value={form.estimatedTollCost}
+                        error={!!formErrors.estimatedTollCost}
+                        helperText={formErrors.estimatedTollCost || undefined}
+                        onChange={(e) => handleFieldChange('estimatedTollCost', e.target.value)}
+                        size="small"
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start"><Toll sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="Est. Other Expenses (ZAR)"
+                        type="number"
+                        value={form.estimatedOtherExpenses}
+                        error={!!formErrors.estimatedOtherExpenses}
+                        helperText={formErrors.estimatedOtherExpenses || undefined}
+                        onChange={(e) => handleFieldChange('estimatedOtherExpenses', e.target.value)}
+                        size="small"
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
+                        }}
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Notes */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <Comment sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Notes
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="Reference Number"
+                        value={form.referenceNumber}
+                        onChange={(e) => handleFieldChange('referenceNumber', e.target.value)}
+                        size="small"
+                        helperText="Used to link trips to the same load"
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="Purchase Order Number"
+                        value={form.purchaseOrderNumber}
+                        onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
+                        size="small"
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Special Instructions"
+                        value={form.specialInstructions}
+                        onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
+                        size="small"
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Driver Notes"
+                        value={form.driverNotes}
+                        onChange={(e) => handleFieldChange('driverNotes', e.target.value)}
+                        size="small"
+                        sx={{ 
+                          '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                          '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Status & Approval */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: { xs: '12px', sm: '16px' },
+                    border: '1px solid #ECECEC',
+                    bgcolor: '#FFFFFF',
+                    width: '100%',
+                  }}
+                >
+                  <Stack direction="row" spacing={0.75} mb={1.5}>
+                    <AssignmentIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600, 
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                        color: '#111827',
+                      }}
+                    >
+                      Status & Approval
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      {renderSelectField('status', 'Trip Status', statusOptions)}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      {renderSelectField('approvalStatus', 'Approval Status', finalApprovalOptions)}
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Stack>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </LocalizationProvider>
+  );
+}
+
+export default TripForm;
