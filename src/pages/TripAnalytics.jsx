@@ -1,5 +1,5 @@
 // src/pages/TripAnalytics.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -64,6 +64,14 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { tripService } from '../services/tripService';
+import ExportButton from '../components/ExportButton';
+import {
+  computeTripAnalytics,
+  filterTripsByDate,
+  validateDateRange,
+  EMPTY_ANALYTICS,
+  TRIP_REPORT_COLUMNS,
+} from '../utils/tripReporting';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 import {
@@ -405,247 +413,41 @@ const TripAnalytics = () => {
 
   // ============================================================
   // FETCH ANALYTICS
+  // Previously this called tripService.getTripAnalytics, which does not exist, so it always
+  // fell back to the first 1,000 trips with NO date filter - the date range did nothing.
+  // Now: all trips (paged, capped at 10,000), filtered to the selected period, calculated by
+  // the tested helpers in utils/tripReporting.js.
   // ============================================================
+  const requestIdRef = useRef(0);
+  const [periodTrips, setPeriodTrips] = useState([]);
+
   const fetchAnalytics = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    const rangeError = validateDateRange(dateRange.start, dateRange.end);
+    if (rangeError) {
+      setError(rangeError);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const params = {
-        startDate: dateRange.start?.format('YYYY-MM-DD'),
-        endDate: dateRange.end?.format('YYYY-MM-DD')
-      };
-
-      let data;
-      try {
-        data = await tripService.getTripAnalytics(params);
-      } catch (err) {
-        console.warn('Failed to fetch analytics from API, using fallback data:', err);
-        // Fallback: fetch all trips and calculate analytics locally
-        const tripsResponse = await tripService.getAllTrips({ size: 1000 });
-        const trips = tripsResponse?.content || [];
-        data = calculateAnalyticsFromTrips(trips);
-      }
-      
-      setAnalytics(data);
+      const allTrips = await tripService.fetchAllTrips({});
+      const inPeriod = filterTripsByDate(allTrips, dateRange.start, dateRange.end);
+      if (requestId !== requestIdRef.current) return; // a newer request has started
+      setPeriodTrips(inPeriod);
+      setAnalytics(computeTripAnalytics(inPeriod));
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       console.error('Error fetching analytics:', err);
-      setError('Failed to load analytics data');
-      // Use fallback data
-      setAnalytics(getFallbackAnalytics());
+      setError(err.userMessage || err.message || 'Failed to load analytics data');
+      setPeriodTrips([]);
+      setAnalytics(null);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, [dateRange]);
 
-  // ============================================================
-  // CALCULATE ANALYTICS FROM TRIPS
-  // ============================================================
-  const calculateAnalyticsFromTrips = (trips) => {
-    if (!trips || trips.length === 0) return getFallbackAnalytics();
-    
-    const total = trips.length;
-    const completed = trips.filter(t => t.status === 'COMPLETED' || t.status === 'FINALIZED').length;
-    const cancelled = trips.filter(t => t.status === 'CANCELLED').length;
-    const active = trips.filter(t => t.status === 'ACTIVE' || t.status === 'IN_PROGRESS').length;
-    const planned = trips.filter(t => t.status === 'PLANNED' || t.status === 'ASSIGNED').length;
-    
-    // Calculate average distance
-    let totalDistance = 0;
-    let distanceCount = 0;
-    trips.forEach(t => {
-      const dist = t.totalDistance || t.distance || t.distanceKm || t.plannedDistanceKm || 0;
-      if (dist > 0) {
-        totalDistance += typeof dist === 'number' ? dist : parseFloat(dist) || 0;
-        distanceCount++;
-      }
-    });
-    const avgDistance = distanceCount > 0 ? totalDistance / distanceCount : 0;
-    
-    // Calculate average duration
-    let totalDuration = 0;
-    let durationCount = 0;
-    trips.forEach(t => {
-      if (t.actualStartDate && t.actualEndDate) {
-        try {
-          const start = new Date(t.actualStartDate);
-          const end = new Date(t.actualEndDate);
-          const hours = (end - start) / (1000 * 60 * 60);
-          if (hours > 0) {
-            totalDuration += hours;
-            durationCount++;
-          }
-        } catch {
-          // Ignore invalid dates
-        }
-      }
-    });
-    const avgDuration = durationCount > 0 ? totalDuration / durationCount : 0;
-    
-    // Calculate on-time rate
-    let onTime = 0;
-    let onTimeCount = 0;
-    trips.forEach(t => {
-      if (t.plannedStartDate && t.actualStartDate) {
-        try {
-          const planned = new Date(t.plannedStartDate);
-          const actual = new Date(t.actualStartDate);
-          const delay = (actual - planned) / (1000 * 60 * 60);
-          if (delay <= 2) {
-            onTime++;
-          }
-          onTimeCount++;
-        } catch {
-          // Ignore invalid dates
-        }
-      }
-    });
-    const onTimeRate = onTimeCount > 0 ? (onTime / onTimeCount) * 100 : 0;
-    
-    // Calculate total cost
-    let totalCost = 0;
-    trips.forEach(t => {
-      const cost = t.totalCost || t.cost || 0;
-      if (cost > 0) {
-        totalCost += typeof cost === 'number' ? cost : parseFloat(cost) || 0;
-      }
-    });
-    const avgCost = total > 0 ? totalCost / total : 0;
-    
-    // Calculate fuel efficiency
-    let totalFuel = 0;
-    let fuelDistance = 0;
-    trips.forEach(t => {
-      const fuel = t.fuelConsumed || 0;
-      const dist = t.totalDistance || t.distance || 0;
-      if (fuel > 0 && dist > 0) {
-        totalFuel += typeof fuel === 'number' ? fuel : parseFloat(fuel) || 0;
-        fuelDistance += typeof dist === 'number' ? dist : parseFloat(dist) || 0;
-      }
-    });
-    const fuelEfficiency = fuelDistance > 0 ? (totalFuel / fuelDistance) * 100 : 0;
-    
-    // Status distribution for chart
-    const statusDistribution = [
-      { label: 'Completed', value: completed },
-      { label: 'Active', value: active },
-      { label: 'Planned', value: planned },
-      { label: 'Cancelled', value: cancelled },
-      { label: 'Other', value: total - completed - active - planned - cancelled }
-    ].filter(item => item.value > 0);
-    
-    // Weekly trends
-    const weeklyData = getWeeklyTrends(trips);
-    
-    // Top routes
-    const routeData = getTopRoutes(trips);
-    
-    // Top drivers
-    const driverData = getTopDrivers(trips);
-    
-    return {
-      totalTrips: total,
-      completedTrips: completed,
-      cancelledTrips: cancelled,
-      activeTrips: active,
-      plannedTrips: planned,
-      avgDistance: avgDistance,
-      avgDuration: avgDuration,
-      totalCost: totalCost,
-      avgCost: avgCost,
-      fuelEfficiency: fuelEfficiency,
-      onTimeRate: onTimeRate,
-      statusDistribution: statusDistribution,
-      weeklyTrends: weeklyData,
-      topRoutes: routeData,
-      topDrivers: driverData
-    };
-  };
-
-  // ============================================================
-  // HELPER FUNCTIONS FOR ANALYTICS
-  // ============================================================
-  const getWeeklyTrends = (trips) => {
-    const weeks = {};
-    trips.forEach(t => {
-      const date = t.createdAt || t.plannedStartDate || t.startDate;
-      if (date) {
-        try {
-          const d = new Date(date);
-          const week = Math.ceil((d - new Date(d.getFullYear(), 0, 1)) / (7 * 24 * 60 * 60 * 1000));
-          weeks[week] = (weeks[week] || 0) + 1;
-        } catch {
-          // Ignore invalid dates
-        }
-      }
-    });
-    const sorted = Object.entries(weeks).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
-    const maxWeeks = Math.min(sorted.length, 8);
-    return sorted.slice(-maxWeeks).map(([week, count]) => ({
-      label: `Week ${week}`,
-      value: count
-    }));
-  };
-
-  const getTopRoutes = (trips) => {
-    const routes = {};
-    trips.forEach(t => {
-      const origin = t.originCity || t.origin?.city || 'Unknown';
-      const dest = t.destinationCity || t.destination?.city || 'Unknown';
-      const key = `${origin} → ${dest}`;
-      routes[key] = (routes[key] || 0) + 1;
-    });
-    return Object.entries(routes)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([label, value]) => ({ label, value }));
-  };
-
-  const getTopDrivers = (trips) => {
-    const drivers = {};
-    trips.forEach(t => {
-      const name = t.driver?.firstName || t.driver?.name || t.driverName || 'Unknown';
-      if (name !== 'Unknown') {
-        if (!drivers[name]) {
-          drivers[name] = { trips: 0, rating: 0, ratingCount: 0 };
-        }
-        drivers[name].trips++;
-        const rating = t.driver?.rating || t.rating || 0;
-        if (rating > 0) {
-          drivers[name].rating += typeof rating === 'number' ? rating : parseFloat(rating) || 0;
-          drivers[name].ratingCount++;
-        }
-      }
-    });
-    return Object.entries(drivers)
-      .sort((a, b) => b[1].trips - a[1].trips)
-      .slice(0, 5)
-      .map(([name, data]) => ({
-        name,
-        trips: data.trips,
-        rating: data.ratingCount > 0 ? (data.rating / data.ratingCount).toFixed(1) : '4.5'
-      }));
-  };
-
-  // ============================================================
-  // FALLBACK DATA
-  // ============================================================
-  const getFallbackAnalytics = () => ({
-    totalTrips: 0,
-    completedTrips: 0,
-    cancelledTrips: 0,
-    activeTrips: 0,
-    plannedTrips: 0,
-    avgDistance: 0,
-    avgDuration: 0,
-    totalCost: 0,
-    avgCost: 0,
-    fuelEfficiency: 0,
-    onTimeRate: 0,
-    statusDistribution: [{ label: 'No Data', value: 1 }],
-    weeklyTrends: [{ label: 'No Data', value: 1 }],
-    topRoutes: [{ label: 'No Data', value: 1 }],
-    topDrivers: [{ name: 'No Data', trips: 0, rating: '0' }]
-  });
+  const getFallbackAnalytics = () => ({ ...EMPTY_ANALYTICS });
 
   useEffect(() => {
     fetchAnalytics();
@@ -654,6 +456,30 @@ const TripAnalytics = () => {
   // ============================================================
   // HANDLERS
   // ============================================================
+  // Custom dates are edited in a draft and only applied with "Apply Filters"
+  // (previously every date-picker click reloaded the page data immediately).
+  const [draftRange, setDraftRange] = useState(dateRange);
+  const [draftError, setDraftError] = useState(null);
+
+  const openFilterDialog = () => {
+    setDraftRange(dateRange);
+    setDraftError(null);
+    setShowFilterDialog(true);
+  };
+
+  const applyCustomRange = () => {
+    const err = validateDateRange(draftRange.start, draftRange.end);
+    if (err) {
+      setDraftError(err);
+      return;
+    }
+    setTimeRange('custom');
+    setDateRange({ start: draftRange.start, end: draftRange.end });
+    setShowFilterDialog(false);
+  };
+
+  const periodLabel = `${dateRange.start ? dateRange.start.format('DD MMM YYYY') : '…'} – ${dateRange.end ? dateRange.end.format('DD MMM YYYY') : '…'}`;
+
   const handleTimeRangeChange = (range) => {
     setTimeRange(range);
     let start = dayjs();
@@ -764,7 +590,7 @@ const TripAnalytics = () => {
                   } 
                 }}
               >
-                Advanced analytics and insights for your trips
+                Trips planned for {periodLabel} • {metrics.totalTrips} trips
               </Typography>
             </Box>
             <Stack direction="row" spacing={0.75}>
@@ -786,7 +612,7 @@ const TripAnalytics = () => {
               </Button>
               <Button
                 startIcon={<FilterListIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
-                onClick={() => setShowFilterDialog(true)}
+                onClick={openFilterDialog}
                 variant="outlined"
                 size="small"
                 sx={{
@@ -802,6 +628,14 @@ const TripAnalytics = () => {
                  timeRange === '90days' ? '90 Days' :
                  timeRange === 'year' ? 'Year' : 'Custom'}
               </Button>
+              <ExportButton
+                title="Trip analytics"
+                subtitle={`Period: ${periodLabel}`}
+                columns={TRIP_REPORT_COLUMNS}
+                fetchRows={async () => periodTrips}
+                disabled={loading || periodTrips.length === 0}
+                onError={(msg) => setError(msg)}
+              />
             </Stack>
           </Stack>
 
@@ -874,7 +708,7 @@ const TripAnalytics = () => {
             <Grid size={{ xs: 6, sm: 4, md: 2 }}>
               <MetricCard
                 title="On-Time Rate"
-                value={`${metrics.onTimeRate.toFixed(0)}%`}
+                value={safeAnalytics.onTimeSample ? `${metrics.onTimeRate.toFixed(0)}%` : 'n/a'}
                 icon={AssessmentIcon}
                 color="success"
                 loading={loading}
@@ -934,7 +768,12 @@ const TripAnalytics = () => {
                     Top Performing Drivers
                   </Typography>
                   <List dense disablePadding>
-                    {(safeAnalytics.topDrivers || [{ name: 'No Data', trips: 0, rating: '0' }]).map((driver, index) => (
+                    {(safeAnalytics.topDrivers || []).length === 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        No driver data for this period.
+                      </Typography>
+                    )}
+                    {(safeAnalytics.topDrivers || []).map((driver, index) => (
                       <ListItem key={index} disablePadding sx={{ py: 0.75, borderBottom: index < 4 ? '1px solid #F3F4F6' : 'none' }}>
                         <ListItemIcon sx={{ minWidth: 32 }}>
                           <Avatar sx={{ width: 24, height: 24, fontSize: '0.6rem', bgcolor: '#4F46E5' }}>
@@ -943,7 +782,8 @@ const TripAnalytics = () => {
                         </ListItemIcon>
                         <ListItemText
                           primary={toSafeString(driver.name)}
-                          secondary={`${toSafeString(driver.trips)} trips • ⭐ ${toSafeString(driver.rating)}`}
+                          // was "⭐ 4.5" - a made-up rating shown for every driver without one
+                          secondary={`${driver.completed} completed • ${formatNumber(driver.km)} km`}
                           primaryTypographyProps={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500, color: '#111827' }}
                           secondaryTypographyProps={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, color: '#6B7280' }}
                         />
@@ -979,7 +819,9 @@ const TripAnalytics = () => {
                         💡 Efficiency Improvement
                       </Typography>
                       <Typography variant="body2" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#065F46' }}>
-                        Average fuel efficiency: {metrics.fuelEfficiency.toFixed(1)} L/100km
+                        {metrics.fuelEfficiency > 0
+                          ? `Average fuel efficiency: ${metrics.fuelEfficiency.toFixed(1)} L/100km`
+                          : 'Not enough fuel and distance data in this period to calculate efficiency.'}
                       </Typography>
                     </Paper>
                     
@@ -988,7 +830,12 @@ const TripAnalytics = () => {
                         ⚠️ Areas for Improvement
                       </Typography>
                       <Typography variant="body2" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#92400E' }}>
-                        {metrics.onTimeRate < 80 ? `${(100 - metrics.onTimeRate).toFixed(0)}% of trips have delays` : 'On-time performance is good'}
+                        {/* with no started trips this used to say "100% of trips have delays" */}
+                        {!safeAnalytics.onTimeSample
+                          ? 'No started trips in this period yet - on-time performance not available.'
+                          : metrics.onTimeRate < 80
+                            ? `${(100 - metrics.onTimeRate).toFixed(0)}% of ${safeAnalytics.onTimeSample} started trips began more than 2 hours late`
+                            : 'On-time performance is good'}
                       </Typography>
                     </Paper>
                     
@@ -1006,7 +853,7 @@ const TripAnalytics = () => {
                         🎯 Recommendation
                       </Typography>
                       <Typography variant="body2" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, color: '#5B21B6' }}>
-                        {safeAnalytics.topRoutes && safeAnalytics.topRoutes.length > 0 
+                        {safeAnalytics.topRoutes && safeAnalytics.topRoutes.length > 0 && metrics.totalTrips > 0
                           ? `Optimize ${safeAnalytics.topRoutes[0]?.label || 'top route'} for better efficiency`
                           : 'Analyze routes for optimization opportunities'}
                       </Typography>
@@ -1067,10 +914,14 @@ const TripAnalytics = () => {
                 Custom Range
               </Typography>
               
+              {draftError && (
+                <Alert severity="error" sx={{ fontSize: '0.75rem' }}>{draftError}</Alert>
+              )}
+
               <DatePicker
                 label="Start Date"
-                value={dateRange.start}
-                onChange={(newValue) => setDateRange({ ...dateRange, start: newValue })}
+                value={draftRange.start}
+                onChange={(newValue) => { setDraftRange((r) => ({ ...r, start: newValue })); setDraftError(null); }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
@@ -1085,8 +936,8 @@ const TripAnalytics = () => {
 
               <DatePicker
                 label="End Date"
-                value={dateRange.end}
-                onChange={(newValue) => setDateRange({ ...dateRange, end: newValue })}
+                value={draftRange.end}
+                onChange={(newValue) => { setDraftRange((r) => ({ ...r, end: newValue })); setDraftError(null); }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
@@ -1109,10 +960,7 @@ const TripAnalytics = () => {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                setShowFilterDialog(false);
-                fetchAnalytics();
-              }}
+              onClick={applyCustomRange}
               variant="contained"
               size="small"
               sx={{ 
