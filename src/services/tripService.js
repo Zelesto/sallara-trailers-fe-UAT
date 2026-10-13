@@ -735,6 +735,48 @@ export const tripService = {
   },
 
   /**
+   * ALL trips for one driver or vehicle (reports). The existing getTripsByDriver /
+   * getTripsByVehicle only return the first 100 because the backend pages them.
+   * /trips/driver/{id} returns a plain list (no totals) - we page until a short page.
+   * /trips/vehicle/{id} returns a Page.
+   */
+  fetchAllTripsFor: async (kind, id, { pageSize = 500, maxRows = 10000 } = {}) => {
+    if (!['driver', 'vehicle'].includes(kind)) throw new Error(`Unknown trip owner: ${kind}`);
+    if (id === null || id === undefined || id === '') throw new Error(`Please select a ${kind}`);
+    try {
+      const all = [];
+      const seen = new Set();
+      const maxPages = Math.ceil(maxRows / pageSize) + 1; // hard stop - never loop forever
+      for (let page = 0; page < maxPages; page += 1) {
+        const response = await api.get(`/trips/${kind}/${id}`, { params: { page, size: pageSize } });
+        const data = unwrap(response);
+        const content = Array.isArray(data) ? data : (data?.content || []);
+        let added = 0;
+        for (const t of content) {
+          if (t?.id == null || !seen.has(t.id)) {
+            if (t?.id != null) seen.add(t.id);
+            all.push(t);
+            added += 1;
+          }
+        }
+        // server ignored the page number and returned rows we already have -> stop
+        if (content.length > 0 && added === 0) break;
+        if (all.length > maxRows) {
+          const err = new Error(`More than ${maxRows.toLocaleString()} trips found - please narrow the date range.`);
+          err.userMessage = err.message;
+          throw err;
+        }
+        const totalPages = Array.isArray(data) ? null : data?.totalPages;
+        if (content.length < pageSize || (totalPages != null && page + 1 >= totalPages)) break;
+      }
+      return all;
+    } catch (error) {
+      if (error.userMessage) throw error;
+      throw handleApiError(error, `Fetching trips for ${kind} ${id}`);
+    }
+  },
+
+  /**
    * Fetch ALL trips matching the given list filters (for export), page by page.
    * Rejects if more than `maxRows` match, so a huge export cannot freeze the browser.
    */
@@ -1165,6 +1207,7 @@ export const {
   updateTripStatus,
   cancelTrip,
   fetchAllTrips,
+  fetchAllTripsFor,
   uploadTripDocument,
   getTripDocuments,
   deleteTripDocument,
