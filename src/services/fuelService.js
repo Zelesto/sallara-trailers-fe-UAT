@@ -1,7 +1,7 @@
 // src/services/fuelService.js
 import api from './api';
 import dayjs from 'dayjs';
-import { strictNumber, toBackendLocalDateTime } from '../utils/fuelSlipRules';
+import { strictNumber } from '../utils/fuelSlipRules';
 
 // "12,5" / "12abc" used to be saved as 12 by parseFloat; now they are rejected (null)
 const toNumberOrNull = (v) => {
@@ -17,12 +17,48 @@ const toIdOrNull = (v) => {
    UTILITY FUNCTIONS
    ============================================================ */
 
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// "YYYY-MM-DD", "YYYY-MM-DDTHH:mm" (<input type="datetime-local">), "...:ss", "...:ss.SSS"
+const LOCAL_DATE_TIME_RE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?)?$/;
+
 /**
- * Format date for backend API
+ * Convert any form date value to a backend LocalDateTime string "YYYY-MM-DDTHH:mm:ss"
+ * (local wall-clock time, no timezone suffix).
+ *
+ * FIX: the date picker emits "2026-08-14T08:46" (no seconds). The previous converter
+ * returned null for that, the backend skips null fields on update, so the PUT returned
+ * 200 and the old date was silently kept.
+ *
+ * Returns null for empty input or an unparseable/impossible date (e.g. 2026-02-30).
  */
-const formatDateForBackend = (date) => {
-  if (!date) return null;
-  return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
+export const toLocalDateTime = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+
+  if (typeof value === 'string') {
+    const m = value.trim().match(LOCAL_DATE_TIME_RE);
+    if (m) {
+      const [, y, mo, d, h = '00', mi = '00', s = '00'] = m;
+      const dt = new Date(+y, +mo - 1, +d, +h, +mi, +s);
+      const valid =
+        dt.getFullYear() === +y && dt.getMonth() === +mo - 1 && dt.getDate() === +d &&
+        dt.getHours() === +h && dt.getMinutes() === +mi && dt.getSeconds() === +s;
+      // Keep the wall-clock time exactly as typed (no UTC shift)
+      return valid ? `${y}-${mo}-${d}T${h}:${mi}:${s}` : null;
+    }
+  }
+
+  // Date, dayjs/moment (.toDate()), epoch ms, or ISO string with Z/offset -> browser-local time
+  const dt = value instanceof Date
+    ? value
+    : typeof value?.toDate === 'function'
+      ? value.toDate()
+      : new Date(value);
+  if (!dt || Number.isNaN(dt.getTime())) return null;
+
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}` +
+    `T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}`;
 };
 
 /**
@@ -47,10 +83,10 @@ const unwrap = (response) => {
  */
 const handleApiError = (error, context = '') => {
   console.error(`❌ ${context}:`, error);
-  
+
   // Extract user-friendly error message
   let message = error.message || 'An unexpected error occurred';
-  
+
   if (error.response?.data?.errors) {
     const errorMessages = Object.entries(error.response.data.errors)
       .map(([field, msg]) => `${field}: ${msg}`)
@@ -69,7 +105,7 @@ const handleApiError = (error, context = '') => {
   } else if (error.response?.status === 500) {
     message = 'Server error - Please try again later';
   }
-  
+
   // Enhance error object with user-friendly message
   error.userMessage = message;
   return error;
@@ -81,28 +117,38 @@ const handleApiError = (error, context = '') => {
 // NOTE: `finalized` is deliberately NOT sent. Finalizing happens only through
 // POST /fuel/slips/{id}/finalize (month close). Sending `finalized: data.finalized ?? false`
 // on every create/update meant an ordinary edit could UN-finalize a closed slip.
-const buildFuelSlipPayload = (data) => ({
-  slipNumber: sanitizeField(data.slipNumber),
-  // local date-time without timezone (was toISOString(): UTC, shifted SA slips by -2h)
-  transactionDate: toBackendLocalDateTime(data.transactionDate),
-  vehicleId: toIdOrNull(data.vehicleId),
-  vehicleRegistration: sanitizeField(data.vehicleRegistration),
-  driverId: toIdOrNull(data.driverId),
-  driverName: sanitizeField(data.driverName),
-  quantity: toNumberOrNull(data.quantity),
-  unitPrice: toNumberOrNull(data.unitPrice),
-  stationName: sanitizeField(data.stationName),
-  location: sanitizeField(data.location),
-  pumpNumber: sanitizeField(data.pumpNumber),
-  notes: sanitizeField(data.notes),
-  fuelType: sanitizeField(data.fuelType),
-  paymentMethod: sanitizeField(data.paymentMethod),
-  receiptNumber: sanitizeField(data.receiptNumber),
-  odometerReading: toNumberOrNull(data.odometerReading),
-  tripId: toIdOrNull(data.tripId),
-  loadId: toIdOrNull(data.loadId),
-  fuelSourceId: toIdOrNull(data.fuelSourceId),
-});
+const buildFuelSlipPayload = (data) => {
+  const transactionDate = toLocalDateTime(data.transactionDate);
+
+  // FIX: a date the user entered must never be silently turned into null
+  // (the backend ignores null on update and would keep the old date without any error).
+  if (sanitizeField(data.transactionDate) !== null && transactionDate === null) {
+    throw new Error(`Invalid transaction date: ${JSON.stringify(data.transactionDate)}`);
+  }
+
+  return {
+    slipNumber: sanitizeField(data.slipNumber),
+    // local date-time without timezone (was toISOString(): UTC, shifted SA slips by -2h)
+    transactionDate,
+    vehicleId: toIdOrNull(data.vehicleId),
+    vehicleRegistration: sanitizeField(data.vehicleRegistration),
+    driverId: toIdOrNull(data.driverId),
+    driverName: sanitizeField(data.driverName),
+    quantity: toNumberOrNull(data.quantity),
+    unitPrice: toNumberOrNull(data.unitPrice),
+    stationName: sanitizeField(data.stationName),
+    location: sanitizeField(data.location),
+    pumpNumber: sanitizeField(data.pumpNumber),
+    notes: sanitizeField(data.notes),
+    fuelType: sanitizeField(data.fuelType),
+    paymentMethod: sanitizeField(data.paymentMethod),
+    receiptNumber: sanitizeField(data.receiptNumber),
+    odometerReading: toNumberOrNull(data.odometerReading),
+    tripId: toIdOrNull(data.tripId),
+    loadId: toIdOrNull(data.loadId),
+    fuelSourceId: toIdOrNull(data.fuelSourceId),
+  };
+};
 
 /* ============================================================
    FUEL SERVICE - MAIN EXPORT
@@ -128,7 +174,7 @@ export const fuelService = {
   getFuelSlips: async (filters = {}) => {
     try {
       console.log('🔧 fuelService.getFuelSlips called with filters:', filters);
-      
+
       // Build query params
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
@@ -139,10 +185,10 @@ export const fuelService = {
 
       const url = `/fuel/slips${params.toString() ? `?${params.toString()}` : ''}`;
       console.log('🌐 Making API call to:', url);
-      
+
       const response = await api.get(url);
       const data = unwrap(response);
-      
+
       // Handle different response formats
       if (Array.isArray(data)) {
         return data;
@@ -175,7 +221,7 @@ export const fuelService = {
       if (data?.data && Array.isArray(data.data)) {
         return data.data;
       }
-      
+
       return data || [];
     } catch (error) {
       throw handleApiError(error, 'Fetching fuel slips');
@@ -216,27 +262,41 @@ export const fuelService = {
   },
 
   /**
- * Update an existing fuel slip
- * @param {number|string} id - Fuel slip ID
- * @param {Object} data - Updated fuel slip data
- */
-updateFuelSlip: async (id, data) => {
-  try {
-    console.log(`📤 Updating fuel slip with ID: ${id}`);
-    console.log('📤 Update data:', data);
-    
-    const payload = buildFuelSlipPayload(data);
-    console.log('📤 Update payload:', payload);
-    
-    const response = await api.put(`/fuel/slips/${id}`, payload);
-    const result = unwrap(response);
-    console.log('✅ Fuel slip updated:', result);
-    return result;
-  } catch (error) {
-    console.error('❌ Error updating fuel slip:', error);
-    throw handleApiError(error, `Updating fuel slip ${id}`);
-  }
-},
+   * Update an existing fuel slip
+   * @param {number|string} id - Fuel slip ID
+   * @param {Object} data - Updated fuel slip data
+   */
+  updateFuelSlip: async (id, data) => {
+    try {
+      console.log(`📤 Updating fuel slip with ID: ${id}`);
+      console.log('📤 Update data:', data);
+
+      const payload = buildFuelSlipPayload(data);
+      console.log('📤 Update payload:', payload);
+      // Plain-text line so the value survives copy/paste of the console (objects show as "Object")
+      console.log(
+        `📅 Date sent: input=${JSON.stringify(data.transactionDate ?? null)} -> payload=${JSON.stringify(payload.transactionDate)}`
+      );
+
+      const response = await api.put(`/fuel/slips/${id}`, payload);
+      const result = unwrap(response);
+      console.log('✅ Fuel slip updated:', result);
+
+      // Surface a silent server-side drop instead of pretending the date was saved
+      if (payload.transactionDate && result?.transactionDate) {
+        const saved = toLocalDateTime(result.transactionDate);
+        if (saved && saved.slice(0, 16) !== payload.transactionDate.slice(0, 16)) {
+          console.warn(
+            `⚠️ Server kept transactionDate=${result.transactionDate} although ${payload.transactionDate} was sent`
+          );
+        }
+      }
+      return result;
+    } catch (error) {
+      throw handleApiError(error, `Updating fuel slip ${id}`);
+    }
+  },
+
   /**
    * Delete a fuel slip
    * @param {number|string} id - Fuel slip ID
@@ -273,23 +333,23 @@ updateFuelSlip: async (id, data) => {
   },
 
   /**
- * Verify a fuel slip
- * @param {number|string} id - Fuel slip ID
- * @param {string} verifiedBy - Person verifying the slip
- */
-verifyFuelSlip: async (id, verifiedBy) => {
-  try {
-    console.log(`📤 Verifying fuel slip: ${id} with verifiedBy: ${verifiedBy}`);
-    const response = await api.post(`/fuel/slips/${id}/verify`, null, {
-      params: { verifiedBy }
-    });
-    const result = unwrap(response);
-    console.log('✅ Fuel slip verified:', result);
-    return result;
-  } catch (error) {
-    throw handleApiError(error, `Verifying fuel slip ${id}`);
-  }
-},
+   * Verify a fuel slip
+   * @param {number|string} id - Fuel slip ID
+   * @param {string} verifiedBy - Person verifying the slip
+   */
+  verifyFuelSlip: async (id, verifiedBy) => {
+    try {
+      console.log(`📤 Verifying fuel slip: ${id} with verifiedBy: ${verifiedBy}`);
+      const response = await api.post(`/fuel/slips/${id}/verify`, null, {
+        params: { verifiedBy },
+      });
+      const result = unwrap(response);
+      console.log('✅ Fuel slip verified:', result);
+      return result;
+    } catch (error) {
+      throw handleApiError(error, `Verifying fuel slip ${id}`);
+    }
+  },
 
   // ============================================================
   // QUERY OPERATIONS
@@ -297,14 +357,16 @@ verifyFuelSlip: async (id, verifiedBy) => {
 
   /**
    * Get fuel slips for a specific trip
+   * FIX: the backend has no /fuel/slips/trip/{id} route (it would hit /{id} with "trip"
+   * and fail); trip filtering is GET /fuel/slips?tripId=…
    * @param {number|string} tripId - Trip ID
    */
   getFuelSlipsByTrip: async (tripId) => {
     try {
       console.log(`📤 Fetching fuel slips for trip: ${tripId}`);
-      const response = await api.get(`/fuel/slips/trip/${tripId}`);
+      const response = await api.get('/fuel/slips', { params: { tripId } });
       const data = unwrap(response);
-      
+
       if (Array.isArray(data)) {
         return data;
       }
@@ -314,8 +376,8 @@ verifyFuelSlip: async (id, verifiedBy) => {
       if (data?.data && Array.isArray(data.data)) {
         return data.data;
       }
-      
-      return data || [];
+
+      return [];
     } catch (error) {
       throw handleApiError(error, `Fetching fuel slips for trip ${tripId}`);
     }
@@ -353,14 +415,21 @@ verifyFuelSlip: async (id, verifiedBy) => {
 
   /**
    * Get fuel slips for a date range
+   * FIX: the controller expects ?start=…&end=… (ISO dates); sending startDate/endDate
+   * made every call fail with 400 "Required parameter 'start' is not present".
    * @param {string} startDate - Start date (YYYY-MM-DD)
    * @param {string} endDate - End date (YYYY-MM-DD)
    */
   getFuelSlipsByDateRange: async (startDate, endDate) => {
     try {
-      console.log(`📤 Fetching fuel slips from ${startDate} to ${endDate}`);
+      const start = startDate ? dayjs(startDate).format('YYYY-MM-DD') : null;
+      const end = endDate ? dayjs(endDate).format('YYYY-MM-DD') : null;
+      if (!start || !end || start === 'Invalid Date' || end === 'Invalid Date') {
+        throw new Error(`Invalid date range: ${startDate} – ${endDate}`);
+      }
+      console.log(`📤 Fetching fuel slips from ${start} to ${end}`);
       const response = await api.get('/fuel/slips/period', {
-        params: { startDate, endDate }
+        params: { start, end },
       });
       const data = unwrap(response);
       return Array.isArray(data) ? data : (data?.data || []);
@@ -371,15 +440,12 @@ verifyFuelSlip: async (id, verifiedBy) => {
 
   // ============================================================
   // STATISTICS & REPORTS
+  // NOTE: no matching endpoints exist in the FuelSlipController you shared.
   // ============================================================
 
   /**
    * Get fuel slip statistics
    * @param {Object} params - Parameters
-   * @param {string} params.startDate - Start date (YYYY-MM-DD)
-   * @param {string} params.endDate - End date (YYYY-MM-DD)
-   * @param {number} params.vehicleId - Filter by vehicle
-   * @param {number} params.driverId - Filter by driver
    */
   getFuelStatistics: async (params = {}) => {
     try {
@@ -394,9 +460,6 @@ verifyFuelSlip: async (id, verifiedBy) => {
   /**
    * Get fuel consumption report
    * @param {Object} params - Parameters
-   * @param {string} params.startDate - Start date (YYYY-MM-DD)
-   * @param {string} params.endDate - End date (YYYY-MM-DD)
-   * @param {number} params.vehicleId - Filter by vehicle
    */
   getFuelConsumptionReport: async (params = {}) => {
     try {
@@ -410,6 +473,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
 
   // ============================================================
   // BULK OPERATIONS
+  // NOTE: no /fuel/slips/bulk endpoints exist in the FuelSlipController you shared.
   // ============================================================
 
   /**
@@ -419,7 +483,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
   bulkCreateFuelSlips: async (slips) => {
     try {
       console.log(`📤 Bulk creating ${slips.length} fuel slips`);
-      const payload = slips.map(slip => buildFuelSlipPayload(slip));
+      const payload = slips.map((slip) => buildFuelSlipPayload(slip));
       const response = await api.post('/fuel/slips/bulk', payload);
       const result = unwrap(response);
       console.log('✅ Bulk fuel slips created:', result);
@@ -438,7 +502,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
       console.log(`📤 Bulk updating ${updates.length} fuel slips`);
       const payload = updates.map(({ id, data }) => ({
         id,
-        ...buildFuelSlipPayload(data)
+        ...buildFuelSlipPayload(data),
       }));
       const response = await api.put('/fuel/slips/bulk', payload);
       const result = unwrap(response);
@@ -466,6 +530,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
 
   // ============================================================
   // EXPORT FUNCTIONS
+  // NOTE: no /fuel/slips/export endpoints exist in the FuelSlipController you shared.
   // ============================================================
 
   /**
@@ -477,10 +542,9 @@ verifyFuelSlip: async (id, verifiedBy) => {
       console.log('📤 Exporting fuel slips to CSV with filters:', filters);
       const response = await api.get('/fuel/slips/export/csv', {
         params: filters,
-        responseType: 'blob'
+        responseType: 'blob',
       });
-      
-      // Create download link
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -489,7 +553,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
       link.click();
       link.remove();
       setTimeout(() => window.URL.revokeObjectURL(url), 1000); // free the blob memory
-      
+
       return true;
     } catch (error) {
       throw handleApiError(error, 'Exporting fuel slips to CSV');
@@ -505,10 +569,9 @@ verifyFuelSlip: async (id, verifiedBy) => {
       console.log('📤 Exporting fuel slips to PDF with filters:', filters);
       const response = await api.get('/fuel/slips/export/pdf', {
         params: filters,
-        responseType: 'blob'
+        responseType: 'blob',
       });
-      
-      // Create download link
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -517,7 +580,7 @@ verifyFuelSlip: async (id, verifiedBy) => {
       link.click();
       link.remove();
       setTimeout(() => window.URL.revokeObjectURL(url), 1000); // free the blob memory
-      
+
       return true;
     } catch (error) {
       throw handleApiError(error, 'Exporting fuel slips to PDF');
