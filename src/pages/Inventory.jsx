@@ -2935,7 +2935,7 @@ const Inventory = () => {
                   >
                     <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
                     <MenuItem value="NEW" sx={{ fontSize: '0.8rem' }}>New</MenuItem>
-                    <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
+                    <MenuItem value="WORN" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -3053,7 +3053,7 @@ const Inventory = () => {
                   >
                     <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
                     <MenuItem value="NEW" sx={{ fontSize: '0.8rem' }}>New</MenuItem>
-                    <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
+                    <MenuItem value="WORN" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -3128,7 +3128,7 @@ const Inventory = () => {
           >
             <MenuItem value="GOOD" sx={{ fontSize: '0.8rem' }}>Good</MenuItem>
             <MenuItem value="DAMAGED" sx={{ fontSize: '0.8rem' }}>Damaged</MenuItem>
-            <MenuItem value="WOR" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
+            <MenuItem value="WORN" sx={{ fontSize: '0.8rem' }}>Worn</MenuItem>
             <MenuItem value="FAULTY" sx={{ fontSize: '0.8rem' }}>Faulty</MenuItem>
             <MenuItem value="BROKEN" sx={{ fontSize: '0.8rem' }}>Broken</MenuItem>
           </Select>
