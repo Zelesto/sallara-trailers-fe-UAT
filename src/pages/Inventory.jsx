@@ -39,6 +39,7 @@ import {
   FormControlLabel,
   Checkbox,
   Switch,
+  Snackbar,
 } from '@mui/material';
 import {
   Inventory as InventoryIcon,
@@ -87,6 +88,67 @@ import { driverService } from '../services/driverService';
 import MovementHistory from './MovementHistory';
 import { inventoryMovementService } from '../services/inventoryMovementService';
 import StockOnHand from '../components/StockOnHand';
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+// Set to false to allow non-consumable items (tools, PPE, radios…) to be issued and returned.
+// true keeps the previous behaviour (only consumables can be issued).
+const ISSUE_REQUIRES_CONSUMABLE = true;
+
+const ITEM_PAGE_SIZE = 100;
+const MAX_ITEM_PAGES = 50; // safety cap: 5,000 items
+
+// Accepts a plain array, a Spring page ({ content }), or a wrapped ({ data }) response
+const toArray = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.content)) return res.content;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.content)) return res.data.content;
+  return [];
+};
+
+// Best available message from an axios / interceptor error
+const getErrorMessage = (err, fallback) => {
+  const data = err?.response?.data ?? err?.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  return data?.message || data?.error || data?.detail || err?.userMessage || err?.message || fallback;
+};
+
+// Backend stock quantities are Integers: accept whole numbers only
+const parseWholeQuantity = (value, { allowZero = false } = {}) => {
+  if (value === '' || value === null || value === undefined) return null;
+  const n = Number(value);
+  if (!Number.isInteger(n)) return null;
+  return n > 0 || (allowZero && n === 0) ? n : null;
+};
+
+// Local date-time without timezone ("YYYY-MM-DDTHH:mm:ss"), for LocalDateTime fields
+const localNowIso = (d = new Date()) => {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+
+// Quantity of an issue line still out (issued minus already returned)
+const outstandingQty = (line) => {
+  if (!line) return 0;
+  const issued = Number(line.quantityIssued ?? line.quantity ?? 0) || 0;
+  const returned = Number(line.quantityReturned ?? line.returnedQuantity ?? 0) || 0;
+  return Math.max(0, issued - returned);
+};
+
+// Fallback only — the tables now pass the type explicitly
+const issueTypeOf = (issue) => (issue?.issueNumber?.startsWith('DI-') ? 'driver' : 'vehicle');
+
+// One rule used by BOTH the row buttons and the issue dropdowns (they used to disagree)
+const isIssuable = (item, target) => {
+  if (!item || item.isActive === false || item.isHeld) return false;
+  if (ISSUE_REQUIRES_CONSUMABLE && item.isConsumable === false) return false;
+  if (target === 'vehicle') return item.isVehicleIssuable !== false;
+  if (target === 'driver') return item.isDriverIssuable !== false;
+  return true;
+};
 
 // ============================================================
 // STAT CARD - Matching Dashboard
@@ -430,7 +492,7 @@ const InventoryItemRow = ({
           </Tooltip>
 
           {/* Issue to Vehicle - only if vehicle issuable */}
-          {isConsumable && !isHeld && item.isActive && isVehicleIssuable && (
+          {isIssuable(item, 'vehicle') && (
             <Tooltip title="Issue to Vehicle">
               <IconButton size="small" color="warning" onClick={() => onIssue(item)} sx={{ p: 0.5 }}>
                 <DirectionsCar sx={{ fontSize: '0.9rem' }} />
@@ -439,7 +501,7 @@ const InventoryItemRow = ({
           )}
 
           {/* Issue to Driver - only if driver issuable */}
-          {isConsumable && !isHeld && item.isActive && isDriverIssuable && (
+          {isIssuable(item, 'driver') && (
             <Tooltip title="Issue to Driver">
               <IconButton size="small" color="info" onClick={() => onIssueToDriver(item)} sx={{ p: 0.5 }}>
                 <Person sx={{ fontSize: '0.9rem' }} />
@@ -448,7 +510,7 @@ const InventoryItemRow = ({
           )}
 
           {/* Receive Return */}
-          {isConsumable && !isHeld && item.isActive && (
+          {isIssuable(item) && (
             <Tooltip title="Receive Return">
               <IconButton size="small" color="success" onClick={() => onReceive(item)} sx={{ p: 0.5 }}>
                 <UndoIcon sx={{ fontSize: '0.9rem' }} />
@@ -678,6 +740,8 @@ const Inventory = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedIssueItem, setSelectedIssueItem] = useState(null);
+  const [returnIssueOptions, setReturnIssueOptions] = useState([]); // open issues for "Receive Return"
+  const [submitting, setSubmitting] = useState(false); // blocks double-submits
 
   // Form states - ADDED SKU
   const [formData, setFormData] = useState({
@@ -750,131 +814,56 @@ const Inventory = () => {
     approvedAt: null,
   });
 
-  // Load data
+  // ============================================================
+  // DATA LOADING
+  // ============================================================
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Get items
-      const itemsResponse = await inventoryService.getInventoryItems(0, 100);
-      let itemsData = [];
-      if (Array.isArray(itemsResponse)) {
-        itemsData = itemsResponse;
-      } else if (itemsResponse?.content) {
-        itemsData = itemsResponse.content;
-      } else if (itemsResponse?.data) {
-        itemsData = Array.isArray(itemsResponse.data) ? itemsResponse.data : [];
-      }
-
-      // Ensure all items have the new fields with defaults
-      itemsData = itemsData.map(item => ({
-        ...item,
-        sku: item.sku || null,
-        isDriverIssuable: item.isDriverIssuable !== undefined ? item.isDriverIssuable : true,
-        isVehicleIssuable: item.isVehicleIssuable !== undefined ? item.isVehicleIssuable : true,
-        isActive: item.isActive !== undefined ? item.isActive : true,
-        isHeld: item.isHeld || false,
-        holdCode: item.holdCode || null,
-        holdDate: item.holdDate || null,
-        holdReason: item.holdReason || null,
-        heldBy: item.heldBy || null,
-        returnByDate: item.returnByDate || null,
-      }));
-
-      setInventoryItems(itemsData);
-
-      // Get locations
-      const locationsResponse = await inventoryService.getLocations();
-      let locationsData = [];
-      if (Array.isArray(locationsResponse)) {
-        locationsData = locationsResponse;
-      } else if (locationsResponse?.data) {
-        locationsData = Array.isArray(locationsResponse.data) ? locationsResponse.data : [];
-      }
-      setLocations(locationsData);
-
-      // Get vehicles
-      try {
-        setLoadingVehicles(true);
-        const vehiclesResponse = await vehicleService.getAllVehicles();
-        let vehiclesData = [];
-        if (Array.isArray(vehiclesResponse)) {
-          vehiclesData = vehiclesResponse;
-        } else if (vehiclesResponse?.content) {
-          vehiclesData = vehiclesResponse.content;
-        } else if (vehiclesResponse?.data) {
-          vehiclesData = Array.isArray(vehiclesResponse.data) ? vehiclesResponse.data : [];
-        }
-        setVehicles(vehiclesData);
-      } catch (err) {
-        console.error('Error loading vehicles:', err);
-      } finally {
-        setLoadingVehicles(false);
-      }
-
-      // Get drivers
-      try {
-        setLoadingDrivers(true);
-        const driversResponse = await driverService.getAllDrivers();
-        let driversData = [];
-        if (Array.isArray(driversResponse)) {
-          driversData = driversResponse;
-        } else if (driversResponse?.content) {
-          driversData = driversResponse.content;
-        } else if (driversResponse?.data) {
-          driversData = Array.isArray(driversResponse.data) ? driversResponse.data : [];
-        }
-        setDrivers(driversData);
-      } catch (err) {
-        console.error('Error loading drivers:', err);
-      } finally {
-        setLoadingDrivers(false);
-      }
-
-      // Get stats
-      try {
-        const statsResponse = await inventoryService.getInventoryStats();
-        setStats(statsResponse);
-      } catch (err) {
-        console.error('Error loading stats:', err);
-      }
-
-      // Load issues if tabs are active
-      if (activeTab === 1) {
-        await loadVehicleIssues();
-      }
-      if (activeTab === 2) {
-        await loadDriverIssues();
-      }
-
-    } catch (err) {
-      console.error('Error loading inventory data:', err);
-      setError('Failed to load inventory data');
-    } finally {
-      setLoading(false);
+  // Fetch every page of items (previously only the first 100 were ever shown)
+  const fetchAllItems = async () => {
+    const all = [];
+    for (let page = 0; page < MAX_ITEM_PAGES; page += 1) {
+      const res = await inventoryService.getInventoryItems(page, ITEM_PAGE_SIZE);
+      const rows = toArray(res);
+      all.push(...rows);
+      const totalPages = Number(res?.totalPages);
+      const isLast = res?.last === true
+        || rows.length < ITEM_PAGE_SIZE
+        || (Number.isFinite(totalPages) && page + 1 >= totalPages);
+      if (isLast) break;
     }
+    return all;
   };
+
+  const normalizeItem = (item) => ({
+    ...item,
+    sku: item.sku || null,
+    quantity: Number(item.quantity) || 0,
+    minLevel: Number(item.minLevel) || 0,
+    isDriverIssuable: item.isDriverIssuable !== undefined ? item.isDriverIssuable : true,
+    isVehicleIssuable: item.isVehicleIssuable !== undefined ? item.isVehicleIssuable : true,
+    isActive: item.isActive !== undefined && item.isActive !== null ? item.isActive : true,
+    isHeld: item.isHeld || false,
+    holdCode: item.holdCode || null,
+    holdDate: item.holdDate || null,
+    holdReason: item.holdReason || null,
+    heldBy: item.heldBy || null,
+    returnByDate: item.returnByDate || null,
+  });
 
   const loadVehicleIssues = async () => {
     setLoadingIssues(true);
     try {
-      const response = await vehicleIssueService.getVehicleIssues();
-      let issuesData = [];
-      if (Array.isArray(response)) {
-        issuesData = response;
-      } else if (response?.content && Array.isArray(response.content)) {
-        issuesData = response.content;
-      } else if (response?.data && Array.isArray(response.data)) {
-        issuesData = response.data;
-      }
-      setVehicleIssues(issuesData);
+      const issues = toArray(await vehicleIssueService.getVehicleIssues());
+      setVehicleIssues(issues);
+      return issues;
     } catch (err) {
       console.error('Error loading vehicle issues:', err);
       setVehicleIssues([]);
+      return [];
     } finally {
       setLoadingIssues(false);
     }
@@ -883,39 +872,106 @@ const Inventory = () => {
   const loadDriverIssues = async () => {
     setLoadingIssues(true);
     try {
-      const response = await vehicleIssueService.getDriverIssues();
-      let issuesData = [];
-      if (Array.isArray(response)) {
-        issuesData = response;
-      } else if (response?.content && Array.isArray(response.content)) {
-        issuesData = response.content;
-      } else if (response?.data && Array.isArray(response.data)) {
-        issuesData = response.data;
-      }
-      setDriverIssues(issuesData);
+      const issues = toArray(await vehicleIssueService.getDriverIssues());
+      setDriverIssues(issues);
+      return issues;
     } catch (err) {
       console.error('Error loading driver issues:', err);
       setDriverIssues([]);
+      return [];
     } finally {
       setLoadingIssues(false);
     }
   };
 
-  // Handle tab change
+  // Each source loads independently: one failing endpoint no longer blanks the whole page.
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    setLoadingVehicles(true);
+    setLoadingDrivers(true);
+
+    const [itemsRes, locationsRes, vehiclesRes, driversRes, statsRes] = await Promise.allSettled([
+      fetchAllItems(),
+      inventoryService.getLocations(),
+      vehicleService.getAllVehicles(),
+      driverService.getAllDrivers(),
+      inventoryService.getInventoryStats(),
+    ]);
+
+    const failed = [];
+
+    if (itemsRes.status === 'fulfilled') {
+      setInventoryItems(itemsRes.value.map(normalizeItem));
+    } else {
+      console.error('Error loading inventory items:', itemsRes.reason);
+      failed.push(`items (${getErrorMessage(itemsRes.reason, 'unknown error')})`);
+    }
+
+    if (locationsRes.status === 'fulfilled') {
+      // Accepts a plain list OR a paged { content: [...] } response
+      setLocations(toArray(locationsRes.value));
+    } else {
+      console.error('Error loading locations:', locationsRes.reason);
+      failed.push(`locations (${getErrorMessage(locationsRes.reason, 'unknown error')})`);
+    }
+
+    if (vehiclesRes.status === 'fulfilled') {
+      setVehicles(toArray(vehiclesRes.value));
+    } else {
+      console.error('Error loading vehicles:', vehiclesRes.reason);
+      failed.push('vehicles');
+    }
+    setLoadingVehicles(false);
+
+    if (driversRes.status === 'fulfilled') {
+      setDrivers(toArray(driversRes.value));
+    } else {
+      console.error('Error loading drivers:', driversRes.reason);
+      failed.push('drivers');
+    }
+    setLoadingDrivers(false);
+
+    if (statsRes.status === 'fulfilled') {
+      setStats(statsRes.value);
+    } else {
+      console.warn('Inventory stats unavailable:', statsRes.reason); // optional, not shown as an error
+    }
+
+    // Issues are always loaded so the tab counts are right and "Receive Return" can find open issues
+    await Promise.all([loadVehicleIssues(), loadDriverIssues()]);
+
+    if (failed.length > 0) {
+      setError(`Failed to load: ${failed.join(', ')}`);
+    }
+    setLoading(false);
+  };
+
+  const reloadAfterChange = async () => {
+    await loadData();
+  };
+
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
     if (newValue === 1) loadVehicleIssues();
     if (newValue === 2) loadDriverIssues();
   };
 
-  // View Issue Details
+  const findItem = (id) => inventoryItems.find((i) => i.id === Number(id));
+
+  // ============================================================
+  // ISSUE DETAILS
+  // ============================================================
   const handleViewIssue = (issue) => {
     setSelectedIssue(issue);
     setShowIssueDetailsDialog(true);
   };
 
-  // Movement Operations
+  // ============================================================
+  // STOCK MOVEMENT
+  // ============================================================
   const handleMovement = (item) => {
+    setError(null);
     setSelectedItem(item);
     setMovementFormData({
       itemId: item.id,
@@ -937,79 +993,87 @@ const Inventory = () => {
     setShowMovementDialog(true);
   };
 
+  const OPERATION_TYPES = {
+    ADD: { movementType: 'IN', referenceType: 'PURCHASE_ORDER', done: 'added' },
+    SUBTRACT: { movementType: 'OUT', referenceType: 'ADJUSTMENT', done: 'removed' },
+    SET: { movementType: 'ADJUSTMENT', referenceType: 'ADJUSTMENT', done: 'adjusted' },
+  };
+
   const handleSubmitMovement = async () => {
+    setError(null);
+    const item = findItem(movementFormData.itemId) || selectedItem;
+    if (!item) {
+      setError('Please select an item');
+      return;
+    }
+
+    const op = OPERATION_TYPES[movementFormData.operation] || OPERATION_TYPES.SET;
+    const qty = movementFormData.operation === 'SET'
+      ? parseWholeQuantity(movementFormData.quantity, { allowZero: true })
+      : parseWholeQuantity(movementFormData.quantity);
+    if (qty === null) {
+      setError(movementFormData.operation === 'SET'
+        ? 'Quantity must be a whole number of 0 or more'
+        : 'Quantity must be a whole number greater than 0');
+      return;
+    }
+    if (movementFormData.operation === 'SUBTRACT' && qty > item.quantity) {
+      setError(`Insufficient stock. Available: ${item.quantity} ${item.unitOfMeasure || 'EA'}`);
+      return;
+    }
+    if (!movementFormData.reason?.trim()) {
+      setError('Please provide a reason for the movement');
+      return;
+    }
+    if (movementFormData.requiresApproval && !movementFormData.approvedBy) {
+      setError('Please specify who will approve this movement');
+      return;
+    }
+
+    const currentUser = movementFormData.performedBy || 'SYSTEM';
+    const payload = {
+      itemId: Number(item.id),
+      quantity: qty,
+      movementType: op.movementType,
+      reason: movementFormData.reason.trim(),
+      notes: movementFormData.notes || '',
+      referenceNumber: movementFormData.referenceNumber || `MOV-${Date.now()}`,
+      referenceType: movementFormData.referenceType || op.referenceType,
+      requiresApproval: !!movementFormData.requiresApproval,
+      approvalStatus: movementFormData.requiresApproval ? 'PENDING' : 'APPROVED',
+      performedBy: currentUser,
+      tripId: movementFormData.tripId ? parseInt(movementFormData.tripId, 10) : null,
+      fuelSlipId: movementFormData.fuelSlipId ? parseInt(movementFormData.fuelSlipId, 10) : null,
+      approvedBy: movementFormData.requiresApproval ? movementFormData.approvedBy : currentUser,
+      // local time, no "Z" (toISOString() stored SA times 2h early)
+      approvedAt: movementFormData.requiresApproval ? null : localNowIso(),
+    };
+
+    setSubmitting(true);
     try {
-      if (!movementFormData.itemId || movementFormData.quantity <= 0) {
-        setError('Please select an item and enter a valid quantity');
-        return;
-      }
-
-      if (!movementFormData.reason) {
-        setError('Please provide a reason for the movement');
-        return;
-      }
-
-      // Map operation to movementType
-      let movementType = 'ADJUSTMENT';
-      let referenceType = 'ADJUSTMENT';
-
-      switch (movementFormData.operation) {
-        case 'ADD':
-          movementType = 'IN';
-          referenceType = 'PURCHASE_ORDER';
-          break;
-        case 'SUBTRACT':
-          movementType = 'OUT';
-          referenceType = 'ADJUSTMENT';
-          break;
-        case 'SET':
-          movementType = 'ADJUSTMENT';
-          referenceType = 'ADJUSTMENT';
-          break;
-        default:
-          movementType = 'ADJUSTMENT';
-          referenceType = 'ADJUSTMENT';
-      }
-
-      const currentUser = 'SYSTEM';
-
-      const payload = {
-        itemId: parseInt(movementFormData.itemId),
-        quantity: parseFloat(movementFormData.quantity),
-        movementType: movementType,
-        reason: movementFormData.reason,
-        notes: movementFormData.notes || '',
-        referenceNumber: movementFormData.referenceNumber || `MOV-${Date.now()}`,
-        referenceType: referenceType,
-        requiresApproval: movementFormData.requiresApproval || false,
-        approvalStatus: movementFormData.requiresApproval ? 'PENDING' : 'APPROVED',
-        performedBy: currentUser,
-        tripId: movementFormData.tripId ? parseInt(movementFormData.tripId) : null,
-        fuelSlipId: movementFormData.fuelSlipId ? parseInt(movementFormData.fuelSlipId) : null,
-        approvedBy: movementFormData.requiresApproval ? movementFormData.approvedBy : currentUser,
-        approvedAt: movementFormData.requiresApproval ? null : new Date().toISOString(),
-      };
-
       await inventoryMovementService.recordMovement(payload);
-
-      showSuccess(`Stock ${movementFormData.operation === 'ADD' ? 'added' : movementFormData.operation === 'SUBTRACT' ? 'removed' : 'adjusted'} successfully`);
+      showSuccess(`Stock ${op.done} successfully`);
       setShowMovementDialog(false);
       resetForms();
-      await loadData();
+      await reloadAfterChange();
     } catch (err) {
       console.error('Error updating stock:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to update stock';
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to update stock'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // CRUD Operations
+  // ============================================================
+  // ITEM CRUD
+  // ============================================================
   const handleView = (item) => {
     setSelectedItem(item);
     setShowViewDialog(true);
   };
 
   const handleEdit = (item) => {
+    setError(null);
     setSelectedItem(item);
     setFormData({
       sku: item.sku || '',
@@ -1033,21 +1097,26 @@ const Inventory = () => {
       holdReason: item.holdReason || '',
       heldBy: item.heldBy || '',
     });
+    setFormErrors({});
     setShowAddDialog(true);
   };
 
   const handleDelete = async (item) => {
     if (!window.confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+    setError(null);
     try {
       await inventoryService.deleteInventoryItem(item.id);
       showSuccess('Item deleted successfully');
-      loadData();
+      await reloadAfterChange();
     } catch (err) {
-      setError('Failed to delete item');
+      console.error('Error deleting item:', err);
+      // Show the backend reason (e.g. item still referenced by issues/movements)
+      setError(getErrorMessage(err, 'Failed to delete item'));
     }
   };
 
   const handleAddNew = () => {
+    setError(null);
     setSelectedItem(null);
     setFormData({
       sku: '',
@@ -1075,11 +1144,14 @@ const Inventory = () => {
     setShowAddDialog(true);
   };
 
-  // Issue operations - Vehicle
-  const handleIssueItem = (item) => {
+  // ============================================================
+  // ISSUE TO VEHICLE / DRIVER
+  // ============================================================
+  const openVehicleIssueDialog = (item = null) => {
+    setError(null);
     setSelectedItem(item);
     setIssueFormData({
-      itemId: item.id,
+      itemId: item?.id || '',
       vehicleId: '',
       driverId: '',
       tripId: '',
@@ -1090,8 +1162,8 @@ const Inventory = () => {
     setShowIssueDialog(true);
   };
 
-  // Issue operations - Driver
-  const handleIssueToDriver = (item) => {
+  const openDriverIssueDialog = (item = null) => {
+    setError(null);
     setSelectedItem(item);
     setDriverIssueFormData({
       driverId: '',
@@ -1102,263 +1174,326 @@ const Inventory = () => {
     setShowDriverIssueDialog(true);
   };
 
-  const handleReceiveItem = (item) => {
-    setSelectedItem(item);
-    setReturnFormData({
-      quantity: 1,
-      condition: 'GOOD',
-      notes: '',
-    });
-    setShowReturnDialog(true);
-  };
+  const handleIssueItem = (item) => openVehicleIssueDialog(item);
+  const handleIssueToDriver = (item) => openDriverIssueDialog(item);
 
-  const handleReturnItems = (issue) => {
-    console.log('📦 Issue data:', issue);
-    console.log('📦 Issue items:', issue.items);
-    setSelectedIssue(issue);
-    const firstItem = issue.items?.[0];
-
-    if (!firstItem) {
-    setError('No items found in this issue');
-    return;
-  }
-  
-  // CRITICAL: Use itemId (inventory item ID), not the issue item ID
-  const inventoryItemId = firstItem.itemId;
-  
-  // Find the actual inventory item to get its name
-  const inventoryItem = inventoryItems.find(i => i.id === inventoryItemId);
-  
-  console.log('📦 First item in issue:', firstItem);
-  console.log('📦 Inventory item ID to return:', inventoryItemId);
-  console.log('📦 Inventory item:', inventoryItem);
-    
-      setSelectedItem({
-      ...firstItem,
-      id: inventoryItemId,        // Use inventory item ID
-      itemId: inventoryItemId,    // Ensure itemId is set
-      name: inventoryItem?.name || firstItem.itemName || 'Unknown Item'
-    });
-    setReturnFormData({
-        itemId: inventoryItemId,    // Store the inventory item ID
-        quantity: firstItem?.quantityIssued || firstItem?.quantity || 1,
-        condition: 'DAMAGED',
-        notes: '',
-      });
-    setShowReturnDialog(true);
-  };
-
-  const handleSwap = (issue) => {
-    setSelectedIssue(issue);
-    const firstItem = issue.items?.[0];
-    setSelectedIssueItem(firstItem);
-    setSwapFormData({
-      oldItemId: firstItem?.itemId || '',
-      newItemId: '',
-      newQuantity: 1,
-      returnQuantity: firstItem?.quantityIssued || 1,
-      damagedCondition: 'DAMAGED',
-      damageNotes: '',
-      issueType: issue.issueNumber?.startsWith('DI-') ? 'driver' : 'vehicle',
-    });
-    setShowSwapDialog(true);
+  // Shared validation for both issue types; returns { item, qty } or null (and sets the error)
+  const validateIssue = (itemId, quantityValue, target) => {
+    const item = findItem(itemId);
+    if (!item) {
+      setError('Please select an item');
+      return null;
+    }
+    if (!isIssuable(item, target)) {
+      setError(`${item.name} cannot be issued to a ${target} (inactive, on hold, or not ${target}-issuable)`);
+      return null;
+    }
+    const qty = parseWholeQuantity(quantityValue);
+    if (qty === null) {
+      setError('Quantity must be a whole number greater than 0');
+      return null;
+    }
+    if (qty > item.quantity) {
+      setError(`Only ${item.quantity} ${item.unitOfMeasure || 'EA'} of ${item.name} available`);
+      return null;
+    }
+    return { item, qty };
   };
 
   const handleSubmitVehicleIssue = async () => {
+    setError(null);
+    const checked = validateIssue(selectedItem?.id || issueFormData.itemId, issueFormData.quantity, 'vehicle');
+    if (!checked) return;
+    if (!issueFormData.vehicleId || !issueFormData.driverId) {
+      setError('Please select a vehicle and a driver');
+      return;
+    }
+
+    const payload = {
+      vehicleId: Number(issueFormData.vehicleId),
+      driverId: Number(issueFormData.driverId),
+      tripId: issueFormData.tripId ? parseInt(issueFormData.tripId, 10) : null,
+      items: [{
+        itemId: Number(checked.item.id),
+        quantity: checked.qty,
+        condition: issueFormData.condition,
+        notes: issueFormData.notes || '',
+      }],
+    };
+
+    setSubmitting(true);
     try {
-      const itemId = selectedItem?.id || issueFormData.itemId;
-
-      if (!itemId) {
-        setError('Please select an item');
-        return;
-      }
-
-      if (!issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0) {
-        setError('Please fill in all required fields');
-        return;
-      }
-
-      const payload = {
-        vehicleId: parseInt(issueFormData.vehicleId),
-        driverId: parseInt(issueFormData.driverId),
-        tripId: issueFormData.tripId ? parseInt(issueFormData.tripId) : null,
-        items: [{
-          itemId: parseInt(itemId),
-          quantity: parseFloat(issueFormData.quantity),
-          condition: issueFormData.condition,
-          notes: issueFormData.notes,
-        }],
-      };
-
       await vehicleIssueService.createVehicleIssue(payload);
-      showSuccess('Items issued to vehicle successfully');
+      showSuccess(`Issued ${checked.qty} × ${checked.item.name} to vehicle`);
       setShowIssueDialog(false);
       resetForms();
-      await loadData();
-      if (activeTab === 1) await loadVehicleIssues();
+      await reloadAfterChange();
     } catch (err) {
       console.error('Error issuing items:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to issue items';
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to issue items to vehicle'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSubmitDriverIssue = async () => {
+    setError(null);
+    const checked = validateIssue(selectedItem?.id, driverIssueFormData.quantity, 'driver');
+    if (!checked) return;
+    if (!driverIssueFormData.driverId) {
+      setError('Please select a driver');
+      return;
+    }
+
+    const payload = {
+      driverId: Number(driverIssueFormData.driverId),
+      items: [{
+        itemId: Number(checked.item.id),
+        quantity: checked.qty,
+        condition: driverIssueFormData.condition,
+        notes: driverIssueFormData.notes || '',
+      }],
+    };
+
+    setSubmitting(true);
     try {
-      if (!driverIssueFormData.driverId || driverIssueFormData.quantity <= 0) {
-        setError('Please fill in all required fields');
-        return;
-      }
-
-      const itemId = selectedItem?.id;
-      if (!itemId) {
-        setError('Please select an item');
-        return;
-      }
-
-      const payload = {
-        driverId: parseInt(driverIssueFormData.driverId),
-        items: [{
-          itemId: parseInt(itemId),
-          quantity: parseFloat(driverIssueFormData.quantity),
-          condition: driverIssueFormData.condition,
-          notes: driverIssueFormData.notes,
-        }],
-      };
-
       await vehicleIssueService.createDriverIssue(payload);
-      showSuccess('Items issued to driver successfully');
+      showSuccess(`Issued ${checked.qty} × ${checked.item.name} to driver`);
       setShowDriverIssueDialog(false);
       resetForms();
-      await loadData();
-      if (activeTab === 2) await loadDriverIssues();
+      await reloadAfterChange();
     } catch (err) {
       console.error('Error issuing items to driver:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to issue items to driver';
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to issue items to driver'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  // ============================================================
+  // RETURNS
+  // ============================================================
+  // Put one issue line into the return dialog
+  const selectReturnLine = (issue, type, line) => {
+    const inventoryItem = findItem(line?.itemId);
+    setSelectedIssue({ ...issue, _type: type });
+    setSelectedItem(line ? {
+      ...line,
+      id: line.itemId,
+      itemId: line.itemId,
+      name: inventoryItem?.name || line.itemName || 'Unknown Item',
+      outstanding: outstandingQty(line),
+    } : null);
+    setReturnFormData({
+      itemId: line?.itemId || '',
+      quantity: line ? Math.max(1, outstandingQty(line)) : 1,
+      condition: 'DAMAGED',
+      notes: '',
+    });
+  };
+
+  // From the Vehicle / Driver issue tables
+  const handleReturnItems = (issue, type = issueTypeOf(issue)) => {
+    setError(null);
+    setReturnIssueOptions([]);
+    const lines = issue?.items || [];
+    const line = lines.find((l) => outstandingQty(l) > 0) || lines[0];
+    if (!line) {
+      setError('No items found in this issue');
+      return;
+    }
+    selectReturnLine(issue, type, line);
+    setShowReturnDialog(true);
+  };
+
+  // From the item row: previously opened the dialog with NO issue selected, so every return
+  // failed with "Item X is not associated with this issue". Now finds the open issues for the item.
+  const handleReceiveItem = async (item) => {
+    setError(null);
+    const [vIssues, dIssues] = await Promise.all([loadVehicleIssues(), loadDriverIssues()]);
+    const options = [
+      ...vIssues.map((issue) => ({ issue, type: 'vehicle' })),
+      ...dIssues.map((issue) => ({ issue, type: 'driver' })),
+    ]
+      .map(({ issue, type }) => ({
+        issue,
+        type,
+        line: (issue.items || []).find((l) => Number(l.itemId) === Number(item.id) && outstandingQty(l) > 0),
+      }))
+      .filter((o) => o.line && o.issue.status !== 'RETURNED');
+
+    if (options.length === 0) {
+      setError(`No open vehicle or driver issue contains "${item.name}", so there is nothing to return.`);
+      return;
+    }
+    setReturnIssueOptions(options);
+    selectReturnLine(options[0].issue, options[0].type, options[0].line);
+    setShowReturnDialog(true);
+  };
+
   const handleSubmitReturn = async () => {
-  try {
-    // Get the item ID from form data or selected item
-    const itemId = returnFormData.itemId || selectedItem?.itemId || selectedItem?.id;
-    
-    console.log('📤 Submitting return for itemId:', itemId);
-    console.log('📤 Selected item:', selectedItem);
-    console.log('📤 Return form data:', returnFormData);
-    
+    setError(null);
+    const itemId = Number(returnFormData.itemId || selectedItem?.itemId || selectedItem?.id);
+    if (!selectedIssue) {
+      setError('No issue selected for this return');
+      return;
+    }
     if (!itemId) {
       setError('No item selected for return');
       return;
     }
-    
-    if (returnFormData.quantity <= 0) {
-      setError('Please enter a valid quantity');
+    const line = (selectedIssue.items || []).find((l) => Number(l.itemId) === itemId);
+    if (!line) {
+      const valid = (selectedIssue.items || []).map((l) => l.itemId).join(', ');
+      setError(`Item ${itemId} is not part of issue ${selectedIssue.issueNumber || selectedIssue.id}. Valid items: ${valid}`);
       return;
     }
-    
-    // Verify the item belongs to the issue
-    const validItemIds = selectedIssue?.items?.map(item => item.itemId) || [];
-    console.log('📤 Valid item IDs for this issue:', validItemIds);
-    
-    if (!validItemIds.includes(Number(itemId))) {
-      setError(`Item ${itemId} is not associated with this issue. Valid items: ${validItemIds.join(', ')}`);
+    const qty = parseWholeQuantity(returnFormData.quantity);
+    if (qty === null) {
+      setError('Quantity must be a whole number greater than 0');
       return;
     }
-    
+    const outstanding = outstandingQty(line);
+    if (qty > outstanding) {
+      setError(`Only ${outstanding} still out on this issue`);
+      return;
+    }
+
     const returnPayload = [{
-      itemId: Number(itemId),  // Use Number() to ensure it's a number
-      quantity: parseFloat(returnFormData.quantity),
+      itemId,
+      quantity: qty,
       condition: returnFormData.condition || 'DAMAGED',
       notes: returnFormData.notes || '',
     }];
-    
-    console.log('📤 Return payload:', returnPayload);
-    
-    // Submit the return
-    if (selectedIssue?.issueNumber?.startsWith('DI-')) {
-      await vehicleIssueService.returnDriverItems(selectedIssue.id, returnPayload);
-    } else {
-      await vehicleIssueService.returnItems(selectedIssue.id, returnPayload);
+
+    setSubmitting(true);
+    try {
+      if ((selectedIssue._type || issueTypeOf(selectedIssue)) === 'driver') {
+        await vehicleIssueService.returnDriverItems(selectedIssue.id, returnPayload);
+      } else {
+        await vehicleIssueService.returnItems(selectedIssue.id, returnPayload);
+      }
+      showSuccess('Items returned successfully');
+      setShowReturnDialog(false);
+      resetForms();
+      await reloadAfterChange();
+    } catch (err) {
+      console.error('Error returning items:', err);
+      setError(getErrorMessage(err, 'Failed to return items'));
+    } finally {
+      setSubmitting(false);
     }
-    
-    showSuccess('Items returned successfully');
-    setShowReturnDialog(false);
-    resetForms();
-    await loadData();
-    if (activeTab === 1) await loadVehicleIssues();
-    if (activeTab === 2) await loadDriverIssues();
-  } catch (err) {
-    console.error('Error returning items:', err);
-    const errorMessage = err.response?.data?.message || err.message || 'Failed to return items';
-    setError(errorMessage);
-  }
-};
+  };
+
+  // ============================================================
+  // SWAPS
+  // ============================================================
+  const handleSwap = (issue, type = issueTypeOf(issue)) => {
+    setError(null);
+    const lines = issue?.items || [];
+    const firstItem = lines.find((l) => outstandingQty(l) > 0) || lines[0];
+    if (!firstItem) {
+      setError('No items found in this issue');
+      return;
+    }
+    setSelectedIssue({ ...issue, _type: type });
+    setSelectedIssueItem(firstItem);
+    setSwapFormData({
+      oldItemId: firstItem.itemId || '',
+      newItemId: '',
+      newQuantity: 1,
+      returnQuantity: Math.max(1, outstandingQty(firstItem)),
+      damagedCondition: 'DAMAGED',
+      damageNotes: '',
+      issueType: type,
+    });
+    setShowSwapDialog(true);
+  };
 
   const handleSubmitSwap = async () => {
+    setError(null);
+    const newItem = findItem(swapFormData.newItemId);
+    if (!newItem) {
+      setError('Please select a replacement item');
+      return;
+    }
+    const newQty = parseWholeQuantity(swapFormData.newQuantity);
+    const returnQty = parseWholeQuantity(swapFormData.returnQuantity);
+    if (newQty === null || returnQty === null) {
+      setError('Quantities must be whole numbers greater than 0');
+      return;
+    }
+    if (newQty > newItem.quantity) {
+      setError(`Only ${newItem.quantity} ${newItem.unitOfMeasure || 'EA'} of ${newItem.name} available`);
+      return;
+    }
+    const outstanding = outstandingQty(selectedIssueItem);
+    if (returnQty > outstanding) {
+      setError(`Only ${outstanding} of the old item still out on this issue`);
+      return;
+    }
+
+    const swapPayload = {
+      oldItemId: Number(swapFormData.oldItemId),
+      newItemId: Number(newItem.id),
+      newQuantity: newQty,
+      returnQuantity: returnQty,
+      damagedCondition: swapFormData.damagedCondition,
+      damageNotes: swapFormData.damageNotes,
+      condition: swapFormData.damagedCondition,
+    };
+
+    setSubmitting(true);
     try {
-      if (!swapFormData.newItemId || swapFormData.newQuantity <= 0) {
-        setError('Please select a replacement item and enter a valid quantity');
-        return;
-      }
-
-      const swapPayload = {
-        oldItemId: parseInt(swapFormData.oldItemId),
-        newItemId: parseInt(swapFormData.newItemId),
-        newQuantity: parseInt(swapFormData.newQuantity),
-        returnQuantity: parseFloat(swapFormData.returnQuantity),
-        damagedCondition: swapFormData.damagedCondition,
-        damageNotes: swapFormData.damageNotes,
-        condition: swapFormData.damagedCondition,
-      };
-
       if (swapFormData.issueType === 'driver') {
         await vehicleIssueService.swapDriverItem(selectedIssue.id, swapPayload);
       } else {
         await vehicleIssueService.swapItem(selectedIssue.id, swapPayload);
       }
-
       showSuccess('Item swapped successfully!');
       setShowSwapDialog(false);
       resetForms();
-      await loadData();
-      if (activeTab === 1) await loadVehicleIssues();
-      if (activeTab === 2) await loadDriverIssues();
+      await reloadAfterChange();
     } catch (err) {
       console.error('Error swapping item:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to swap item';
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to swap item'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  // ============================================================
+  // ITEM SAVE
+  // ============================================================
   const handleSubmit = async () => {
     if (!validateForm()) return;
+    setError(null);
 
+    const payload = {
+      sku: formData.sku?.trim() || null,
+      name: formData.name.trim(),
+      category: formData.category,
+      unitOfMeasure: formData.unitOfMeasure || 'EA',
+      isConsumable: formData.isConsumable !== false,
+      reorderLevel: parseInt(formData.reorderLevel, 10) || 0,
+      locationId: parseInt(formData.locationId, 10),
+      quantity: parseInt(formData.quantity, 10) || 0,
+      unitCost: parseFloat(formData.unitCost) || 0,
+      minLevel: parseInt(formData.minLevel, 10) || 0,
+      isActive: formData.isActive !== false,
+      notes: formData.notes || '',
+      isDriverIssuable: formData.isDriverIssuable !== false,
+      isVehicleIssuable: formData.isVehicleIssuable !== false,
+      returnByDate: formData.returnByDate || null,
+      isHeld: formData.isHeld || false,
+      holdCode: formData.holdCode || null,
+      holdDate: formData.holdDate || null,
+      holdReason: formData.holdReason || null,
+      heldBy: formData.heldBy || null,
+    };
+
+    setSubmitting(true);
     try {
-      const payload = {
-        sku: formData.sku?.trim() || null,
-        name: formData.name.trim(),
-        category: formData.category,
-        unitOfMeasure: formData.unitOfMeasure || 'EA',
-        isConsumable: formData.isConsumable !== false,
-        reorderLevel: parseInt(formData.reorderLevel) || 0,
-        locationId: parseInt(formData.locationId),
-        quantity: parseInt(formData.quantity) || 0,
-        unitCost: parseFloat(formData.unitCost) || 0,
-        minLevel: parseInt(formData.minLevel) || 0,
-        isActive: formData.isActive !== false,
-        notes: formData.notes || '',
-        isDriverIssuable: formData.isDriverIssuable !== false,
-        isVehicleIssuable: formData.isVehicleIssuable !== false,
-        returnByDate: formData.returnByDate || null,
-        isHeld: formData.isHeld || false,
-        holdCode: formData.holdCode || null,
-        holdDate: formData.holdDate || null,
-        holdReason: formData.holdReason || null,
-        heldBy: formData.heldBy || null,
-      };
-
       if (selectedItem) {
         await inventoryService.updateInventoryItem(selectedItem.id, payload);
         showSuccess('Item updated successfully');
@@ -1366,14 +1501,14 @@ const Inventory = () => {
         await inventoryService.createInventoryItem(payload);
         showSuccess('Item created successfully');
       }
-
       setShowAddDialog(false);
       resetForms();
-      await loadData();
+      await reloadAfterChange();
     } catch (err) {
       console.error('Error saving inventory item:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to save inventory item';
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to save inventory item'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1382,9 +1517,9 @@ const Inventory = () => {
     if (!formData.name.trim()) errors.name = 'Name is required';
     if (!formData.category) errors.category = 'Category is required';
     if (!formData.locationId) errors.locationId = 'Location is required';
-    if (formData.minLevel < 0) errors.minLevel = 'Min level cannot be negative';
-    if (formData.quantity < 0) errors.quantity = 'Quantity cannot be negative';
-    if (formData.unitCost < 0) errors.unitCost = 'Unit cost cannot be negative';
+    if (Number(formData.minLevel) < 0) errors.minLevel = 'Min level cannot be negative';
+    if (Number(formData.quantity) < 0) errors.quantity = 'Quantity cannot be negative';
+    if (Number(formData.unitCost) < 0) errors.unitCost = 'Unit cost cannot be negative';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -1417,6 +1552,7 @@ const Inventory = () => {
       notes: ''
     });
     setReturnFormData({
+      itemId: '',
       quantity: 1,
       condition: 'DAMAGED',
       notes: ''
@@ -1430,6 +1566,7 @@ const Inventory = () => {
       damageNotes: '',
       issueType: 'vehicle'
     });
+    setReturnIssueOptions([]);
     setSelectedItem(null);
     setSelectedIssue(null);
     setSelectedIssueItem(null);
@@ -1474,6 +1611,9 @@ const Inventory = () => {
 
     return searchMatch && categoryMatch && statusMatch && issueableMatch;
   });
+
+  const anyDialogOpen = showAddDialog || showIssueDialog || showDriverIssueDialog
+    || showReturnDialog || showSwapDialog || showMovementDialog;
 
   // Loading state
   if (loading) {
@@ -1586,6 +1726,12 @@ const Inventory = () => {
             {error}
           </Alert>
         )}
+        {/* The page-level alert is hidden behind an open dialog's backdrop, so also show errors on top */}
+        <Snackbar open={!!error && anyDialogOpen} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+          <Alert severity="error" variant="filled" onClose={() => setError(null)} sx={{ fontSize: '0.8rem', maxWidth: 640 }}>
+            {error}
+          </Alert>
+        </Snackbar>
         {success && (
           <Alert severity="success" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }} onClose={() => setSuccess(null)}>
             {success}
@@ -1887,17 +2033,7 @@ const Inventory = () => {
                   },
                 }}
                 onClick={() => {
-                  setSelectedItem(null);
-                  setIssueFormData({
-                    itemId: '',
-                    vehicleId: '',
-                    driverId: '',
-                    tripId: '',
-                    quantity: 1,
-                    condition: 'NEW',
-                    notes: ''
-                  });
-                  setShowIssueDialog(true);
+                  openVehicleIssueDialog();
                 }}
               >
                 New Issue
@@ -1929,17 +2065,7 @@ const Inventory = () => {
                   size="small"
                   sx={{ mt: 1, fontSize: '0.75rem', borderRadius: '10px', textTransform: 'none' }}
                   onClick={() => {
-                    setSelectedItem(null);
-                    setIssueFormData({
-                      itemId: '',
-                      vehicleId: '',
-                      driverId: '',
-                      tripId: '',
-                      quantity: 1,
-                      condition: 'NEW',
-                      notes: ''
-                    });
-                    setShowIssueDialog(true);
+                    openVehicleIssueDialog();
                   }}
                 >
                   Create First Issue
@@ -1965,8 +2091,8 @@ const Inventory = () => {
                         key={issue.id}
                         issue={issue}
                         onView={handleViewIssue}
-                        onReturn={handleReturnItems}
-                        onSwap={handleSwap}
+                        onReturn={(issue) => handleReturnItems(issue, 'vehicle')}
+                        onSwap={(issue) => handleSwap(issue, 'vehicle')}
                         vehicles={vehicles}
                         drivers={drivers}
                         inventoryItems={inventoryItems}
@@ -2011,14 +2137,7 @@ const Inventory = () => {
                   },
                 }}
                 onClick={() => {
-                  setSelectedItem(null);
-                  setDriverIssueFormData({
-                    driverId: '',
-                    quantity: 1,
-                    condition: 'NEW',
-                    notes: ''
-                  });
-                  setShowDriverIssueDialog(true);
+                  openDriverIssueDialog();
                 }}
               >
                 New Driver Issue
@@ -2050,14 +2169,7 @@ const Inventory = () => {
                   size="small"
                   sx={{ mt: 1, fontSize: '0.75rem', borderRadius: '10px', textTransform: 'none' }}
                   onClick={() => {
-                    setSelectedItem(null);
-                    setDriverIssueFormData({
-                      driverId: '',
-                      quantity: 1,
-                      condition: 'NEW',
-                      notes: ''
-                    });
-                    setShowDriverIssueDialog(true);
+                    openDriverIssueDialog();
                   }}
                 >
                   Create First Issue
@@ -2082,8 +2194,8 @@ const Inventory = () => {
                         key={issue.id}
                         issue={issue}
                         onView={handleViewIssue}
-                        onReturn={handleReturnItems}
-                        onSwap={handleSwap}
+                        onReturn={(issue) => handleReturnItems(issue, 'driver')}
+                        onSwap={(issue) => handleSwap(issue, 'driver')}
                         drivers={drivers}
                         inventoryItems={inventoryItems}
                       />
@@ -2535,6 +2647,7 @@ const Inventory = () => {
               variant="contained" 
               size="small" 
               onClick={handleSubmit} 
+              disabled={submitting}
               sx={{ 
                 fontSize: '0.8rem',
                 background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
@@ -2730,11 +2843,11 @@ const Inventory = () => {
     {selectedIssue && (
       <Stack spacing={2}>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Number</Typography>
             <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.issueNumber || selectedIssue.id}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Status</Typography>
             <Chip
               label={selectedIssue.status || 'ISSUED'}
@@ -2744,7 +2857,7 @@ const Inventory = () => {
             />
           </Grid>
           {selectedIssue.vehicleId && (
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Vehicle</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
                 {vehicles.find(v => v.id === selectedIssue.vehicleId)?.registrationNumber || 
@@ -2754,7 +2867,7 @@ const Inventory = () => {
             </Grid>
           )}
           {selectedIssue.driverId && (
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Driver</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
                 {drivers.find(d => d.id === selectedIssue.driverId)?.fullName || 
@@ -2763,7 +2876,7 @@ const Inventory = () => {
               </Typography>
             </Grid>
           )}
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Items</Typography>
             <TableContainer>
               <Table size="small">
@@ -2784,7 +2897,7 @@ const Inventory = () => {
                       <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.quantityIssued || item.quantity || 0}</TableCell>
                       <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>{item.condition || 'N/A'}</TableCell>
                       <TableCell sx={{ fontSize: '0.7rem', py: 0.5 }}>
-                        {item.returnedQuantity ? `${item.returnedQuantity} returned` : 'Not returned'}
+                        {(item.quantityReturned ?? item.returnedQuantity) ? `${item.quantityReturned ?? item.returnedQuantity} returned` : 'Not returned'}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -2792,20 +2905,20 @@ const Inventory = () => {
               </Table>
             </TableContainer>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Date</Typography>
             <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
               {selectedIssue.issueDate ? new Date(selectedIssue.issueDate).toLocaleDateString() : 'N/A'}
             </Typography>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Expected Return</Typography>
             <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
               {selectedIssue.expectedReturnDate ? new Date(selectedIssue.expectedReturnDate).toLocaleDateString() : 'N/A'}
             </Typography>
           </Grid>
           {selectedIssue.notes && (
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{selectedIssue.notes}</Typography>
             </Grid>
@@ -2846,9 +2959,9 @@ const Inventory = () => {
               >
                 <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
                 {inventoryItems
-                  .filter(item => item.isVehicleIssuable !== false && !item.isHeld && item.isActive)
+                  .filter(item => isIssuable(item, 'vehicle'))
                   .map((item) => (
-                    <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                    <MenuItem key={item.id} value={item.id} disabled={item.quantity <= 0} sx={{ fontSize: '0.8rem' }}>
                       {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
                     </MenuItem>
                   ))}
@@ -2917,10 +3030,7 @@ const Inventory = () => {
                   fullWidth
                   size="small"
                   InputProps={{
-                    inputProps: {
-                      min: 0.01,
-                      max: selectedItem.quantity
-                    }
+                    inputProps: { min: 1, step: 1, max: selectedItem.quantity }
                   }}
                   helperText={`Max: ${selectedItem.quantity}`}
                 />
@@ -2961,7 +3071,7 @@ const Inventory = () => {
             size="small"
             onClick={handleSubmitVehicleIssue}
             sx={{ fontSize: '0.8rem' }}
-            disabled={!selectedItem || !issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0}
+            disabled={submitting || !selectedItem || !issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0}
           >
             Issue Item
           </Button>
@@ -2992,9 +3102,9 @@ const Inventory = () => {
               >
                 <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Choose an item...</MenuItem>
                 {inventoryItems
-                  .filter(item => item.isDriverIssuable !== false && !item.isHeld && item.isActive)
+                  .filter(item => isIssuable(item, 'driver'))
                   .map((item) => (
-                    <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                    <MenuItem key={item.id} value={item.id} disabled={item.quantity <= 0} sx={{ fontSize: '0.8rem' }}>
                       {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
                     </MenuItem>
                   ))}
@@ -3035,10 +3145,7 @@ const Inventory = () => {
                   fullWidth
                   size="small"
                   InputProps={{
-                    inputProps: {
-                      min: 0.01,
-                      max: selectedItem.quantity
-                    }
+                    inputProps: { min: 1, step: 1, max: selectedItem.quantity }
                   }}
                   helperText={`Max: ${selectedItem.quantity}`}
                 />
@@ -3079,7 +3186,7 @@ const Inventory = () => {
             size="small"
             onClick={handleSubmitDriverIssue}
             sx={{ fontSize: '0.8rem' }}
-            disabled={!selectedItem || !driverIssueFormData.driverId || driverIssueFormData.quantity <= 0}
+            disabled={submitting || !selectedItem || !driverIssueFormData.driverId || driverIssueFormData.quantity <= 0}
           >
             Issue to Driver
           </Button>
@@ -3101,8 +3208,48 @@ const Inventory = () => {
           Item ID: {selectedItem.itemId || selectedItem.id}
           {selectedIssue && ` from ${selectedIssue.issueNumber}`}
           <br />
-          <small>Quantity Issued: {selectedItem.quantityIssued || selectedItem.quantity || 0}</small>
+          <small>Still out on this issue: {selectedItem.outstanding ?? outstandingQty(selectedItem)}</small>
         </Alert>
+        {returnIssueOptions.length > 1 && (
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ fontSize: '0.75rem' }}>Return against issue</InputLabel>
+            <Select
+              value={selectedIssue ? `${selectedIssue._type}-${selectedIssue.id}` : ''}
+              onChange={(e) => {
+                const opt = returnIssueOptions.find((o) => `${o.type}-${o.issue.id}` === e.target.value);
+                if (opt) selectReturnLine(opt.issue, opt.type, opt.line);
+              }}
+              label="Return against issue"
+              sx={{ fontSize: '0.8rem' }}
+            >
+              {returnIssueOptions.map((o) => (
+                <MenuItem key={`${o.type}-${o.issue.id}`} value={`${o.type}-${o.issue.id}`} sx={{ fontSize: '0.8rem' }}>
+                  {o.issue.issueNumber || `Issue #${o.issue.id}`} ({o.type}) – {outstandingQty(o.line)} out
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+        {returnIssueOptions.length === 0 && (selectedIssue?.items?.length || 0) > 1 && (
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ fontSize: '0.75rem' }}>Item on this issue</InputLabel>
+            <Select
+              value={returnFormData.itemId || ''}
+              onChange={(e) => {
+                const line = selectedIssue.items.find((l) => Number(l.itemId) === Number(e.target.value));
+                if (line) selectReturnLine(selectedIssue, selectedIssue._type, line);
+              }}
+              label="Item on this issue"
+              sx={{ fontSize: '0.8rem' }}
+            >
+              {selectedIssue.items.map((l) => (
+                <MenuItem key={l.itemId} value={l.itemId} disabled={outstandingQty(l) <= 0} sx={{ fontSize: '0.8rem' }}>
+                  {l.itemName || findItem(l.itemId)?.name || `Item #${l.itemId}`} – {outstandingQty(l)} out
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
         <TextField
           label="Quantity *"
           type="number"
@@ -3110,13 +3257,8 @@ const Inventory = () => {
           onChange={(e) => setReturnFormData(prev => ({ ...prev, quantity: e.target.value }))}
           fullWidth
           size="small"
-          InputProps={{ 
-            inputProps: { 
-              min: 0.01,
-              max: selectedItem.quantityIssued || selectedItem.quantity || 1
-            } 
-          }}
-          helperText={`Max: ${selectedItem.quantityIssued || selectedItem.quantity || 1}`}
+          InputProps={{ inputProps: { min: 1, step: 1, max: selectedItem.outstanding ?? outstandingQty(selectedItem) } }}
+          helperText={`Max: ${selectedItem.outstanding ?? outstandingQty(selectedItem)}`}
         />
         <FormControl fullWidth size="small">
           <InputLabel sx={{ fontSize: '0.75rem' }}>Condition</InputLabel>
@@ -3154,7 +3296,7 @@ const Inventory = () => {
       size="small"
       onClick={handleSubmitReturn}
       sx={{ fontSize: '0.8rem' }}
-      disabled={returnFormData.quantity <= 0}
+      disabled={submitting || !selectedIssue || returnFormData.quantity <= 0}
     >
       Return Item
     </Button>
@@ -3192,9 +3334,9 @@ const Inventory = () => {
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Replacement Item</MenuItem>
                   {inventoryItems
-                    .filter(item => item.id !== selectedIssueItem.itemId && !item.isHeld)
+                    .filter(item => item.id !== Number(selectedIssueItem.itemId) && isIssuable(item, swapFormData.issueType))
                     .map((item) => (
-                      <MenuItem key={item.id} value={item.id} sx={{ fontSize: '0.8rem' }}>
+                      <MenuItem key={item.id} value={item.id} disabled={item.quantity <= 0} sx={{ fontSize: '0.8rem' }}>
                         {item.name} (Available: {item.quantity} {item.unitOfMeasure || 'EA'})
                       </MenuItem>
                     ))}
@@ -3202,7 +3344,7 @@ const Inventory = () => {
               </FormControl>
 
               <Grid container spacing={1.5}>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <TextField
                     label="New Quantity"
                     type="number"
@@ -3213,7 +3355,7 @@ const Inventory = () => {
                     InputProps={{ inputProps: { min: 1 } }}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <TextField
                     label="Return Quantity"
                     type="number"
@@ -3221,7 +3363,7 @@ const Inventory = () => {
                     onChange={(e) => setSwapFormData(prev => ({ ...prev, returnQuantity: e.target.value }))}
                     fullWidth
                     size="small"
-                    InputProps={{ inputProps: { min: 0.01 } }}
+                    InputProps={{ inputProps: { min: 1, step: 1 } }}
                   />
                 </Grid>
               </Grid>
@@ -3264,7 +3406,7 @@ const Inventory = () => {
             size="small"
             onClick={handleSubmitSwap}
             sx={{ fontSize: '0.8rem' }}
-            disabled={!swapFormData.newItemId || swapFormData.newQuantity <= 0}
+            disabled={submitting || !swapFormData.newItemId || swapFormData.newQuantity <= 0}
           >
             Swap Item
           </Button>
@@ -3360,9 +3502,9 @@ const Inventory = () => {
                 size="small"
                 InputProps={{
                   inputProps: {
-                    min: movementFormData.operation === 'SUBTRACT' ? 0.01 : 0,
+                    min: movementFormData.operation === 'SET' ? 0 : 1,
                     max: movementFormData.operation === 'SUBTRACT' ? selectedItem.quantity : undefined,
-                    step: 0.01
+                    step: 1
                   }
                 }}
                 helperText={
@@ -3406,7 +3548,7 @@ const Inventory = () => {
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Reference Number"
                     value={movementFormData.referenceNumber}
@@ -3416,7 +3558,7 @@ const Inventory = () => {
                     placeholder="e.g., PO-12345, INV-67890"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel sx={{ fontSize: '0.75rem' }}>Reference Type</InputLabel>
                     <Select
@@ -3433,7 +3575,7 @@ const Inventory = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Trip ID (Optional)"
                     type="number"
@@ -3444,7 +3586,7 @@ const Inventory = () => {
                     placeholder="Associated trip ID"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Fuel Slip ID (Optional)"
                     type="number"
@@ -3484,7 +3626,7 @@ const Inventory = () => {
 
               {movementFormData.requiresApproval && (
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       label="Approved By"
                       value={movementFormData.approvedBy || ''}
@@ -3494,7 +3636,7 @@ const Inventory = () => {
                       placeholder="Name of approver"
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel sx={{ fontSize: '0.75rem' }}>Approval Status</InputLabel>
                       <Select
@@ -3509,7 +3651,7 @@ const Inventory = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <TextField
                       label="Performed By"
                       value={movementFormData.performedBy}
@@ -3523,7 +3665,7 @@ const Inventory = () => {
               )}
 
               {/* Validation Alert */}
-              {movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem.quantity && (
+              {movementFormData.operation === 'SUBTRACT' && Number(movementFormData.quantity) > selectedItem.quantity && (
                 <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
                   Insufficient stock! Available: {selectedItem.quantity}
                 </Alert>
@@ -3547,10 +3689,13 @@ const Inventory = () => {
             onClick={handleSubmitMovement}
             sx={{ fontSize: '0.8rem' }}
             disabled={
+              submitting ||
               !movementFormData.itemId ||
-              movementFormData.quantity <= 0 ||
+              (movementFormData.operation === 'SET'
+                ? movementFormData.quantity === '' || Number(movementFormData.quantity) < 0
+                : Number(movementFormData.quantity) <= 0) ||
               !movementFormData.reason ||
-              (movementFormData.operation === 'SUBTRACT' && movementFormData.quantity > selectedItem?.quantity) ||
+              (movementFormData.operation === 'SUBTRACT' && Number(movementFormData.quantity) > (selectedItem?.quantity ?? 0)) ||
               (movementFormData.requiresApproval && !movementFormData.approvedBy)
             }
           >
