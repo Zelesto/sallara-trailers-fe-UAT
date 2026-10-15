@@ -87,7 +87,7 @@ api.interceptors.response.use(
     console.error('Response:', error.response?.data);
     console.groupEnd();
 
-    const status = error.response?.status || 500;
+    //const status = error.response?.status || 500;
     const status = error.response?.status ?? 0;
     const url = error.config?.url || '';
     const isDownloadRequest = error.config?.__isDownload || false;
