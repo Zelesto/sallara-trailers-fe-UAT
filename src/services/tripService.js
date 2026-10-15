@@ -215,7 +215,8 @@ export const tripService = {
               }
             });
             
-            const trips = searchResponse.data?.content || [];
+            // api.js already returns the response body, so read .content directly
+            const trips = unwrap(searchResponse)?.content || [];
             console.log(`🔍 Search returned ${trips.length} trips matching "${cleanedNumber}"`);
             
             if (trips.length > 0) {
@@ -251,7 +252,7 @@ export const tripService = {
               }
             });
             
-            const allTrips = allTripsResponse.data?.content || [];
+            const allTrips = unwrap(allTripsResponse)?.content || [];
             console.log(`Found ${allTrips.length} total trips`);
             
             if (allTrips.length === 0) {
@@ -972,10 +973,12 @@ export const tripService = {
   getTripsWithoutLoad: async (params = {}) => {
     try {
       const response = await api.get('/trips', { params });
-      const trips = response.data.content || response.data;
+      // api.js already returns the response body (a Page or an array), not the axios response
+      const data = unwrap(response);
+      const trips = Array.isArray(data) ? data : (data?.content || []);
       const tripsWithoutLoad = trips.filter(trip => !trip.loadId);
       return {
-        ...response.data,
+        ...(Array.isArray(data) ? {} : data),
         content: tripsWithoutLoad
       };
     } catch (error) {
@@ -1156,22 +1159,22 @@ export const tripService = {
 
        getTripBilling: async (tripId) => {
         const response = await api.get(`/billing/trip/${tripId}`);
-        return response.data;
+        return response; // api.js already returns the response body
     },
 
     recalculateTripBilling: async (tripId) => {
         const response = await api.post(`/billing/trip/${tripId}/recalculate`);
-        return response.data;
+        return response; // api.js already returns the response body
     },
 
     getLoadBilling: async (loadId) => {
         const response = await api.get(`/billing/load/${loadId}`);
-        return response.data;
+        return response; // api.js already returns the response body
     },
 
     recalculateLoadBilling: async (loadId) => {
         const response = await api.post(`/billing/load/${loadId}/recalculate`);
-        return response.data;
+        return response; // api.js already returns the response body
     },
 };
 
