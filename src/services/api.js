@@ -88,6 +88,7 @@ api.interceptors.response.use(
     console.groupEnd();
 
     const status = error.response?.status || 500;
+    const status = error.response?.status ?? 0;
     const url = error.config?.url || '';
     const isDownloadRequest = error.config?.__isDownload || false;
 
@@ -214,9 +215,13 @@ api.interceptors.response.use(
 
     // Handle Network Errors
     if (error.message === 'Network Error' || status === 0) {
+      const isTimeout = error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT';
       return Promise.reject({
         status: 0,
         message: 'Network error. Please check your connection.',
+        message: isTimeout
+          ? 'The server took too long to respond. Please try again.'
+          : 'Network error. Please check your connection.',
         originalError: error,
       });
     }
