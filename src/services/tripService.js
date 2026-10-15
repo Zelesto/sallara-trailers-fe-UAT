@@ -45,29 +45,40 @@ const normalizePage = (data, fallbackPage = 0, fallbackSize = 10) => ({
 });
 
 /**
+ * The api.js interceptor rejects with { status, message, data, originalError }
+ * instead of the raw AxiosError, so `error.response` is usually undefined here.
+ * Read the HTTP response from whichever shape we received.
+ */
+const getErrorResponse = (error) =>
+  error?.response ||
+  error?.originalError?.response ||
+  (error?.status !== undefined ? { status: error.status, data: error.data } : undefined);
+
+/**
  * Handle API errors consistently
  */
 const handleApiError = (error, context = '') => {
   console.error(`❌ ${context}:`, error);
   
+  const res = getErrorResponse(error);
   let message = error.message || 'An unexpected error occurred';
   
-  if (error.response?.data?.errors) {
-    const errorMessages = Object.entries(error.response.data.errors)
+  if (res?.data?.errors) {
+    const errorMessages = Object.entries(res.data.errors)
       .map(([field, msg]) => `${field}: ${msg}`)
       .join(', ');
     message = `Validation errors: ${errorMessages}`;
-  } else if (error.response?.data?.detail) {
-    message = error.response.data.detail;
-  } else if (error.response?.data?.message) {
-    message = error.response.data.message;
-  } else if (error.response?.status === 404) {
+  } else if (res?.data?.detail) {
+    message = res.data.detail;
+  } else if (res?.data?.message) {
+    message = res.data.message;
+  } else if (res?.status === 404) {
     message = 'Resource not found';
-  } else if (error.response?.status === 401) {
+  } else if (res?.status === 401) {
     message = 'Unauthorized - Please log in again';
-  } else if (error.response?.status === 403) {
+  } else if (res?.status === 403) {
     message = 'Forbidden - You do not have permission';
-  } else if (error.response?.status === 500) {
+  } else if (res?.status === 500) {
     message = 'Server error - Please try again later';
   }
   
@@ -284,7 +295,7 @@ export const tripService = {
         }
       } catch (error) {
         lastError = error;
-        if (error.response?.status !== 404 || attempt === retries) {
+        if (getErrorResponse(error)?.status !== 404 || attempt === retries) {
           throw handleApiError(error, `Fetching trip ${id}`);
         }
         console.warn(`⚠️ Trip ${id} not found (attempt ${attempt}), retrying in ${delay}ms...`);
@@ -425,19 +436,22 @@ export const tripService = {
         throw new Error('Please enter a valid odometer reading (positive number)');
       }
       
-      // Get trip details to validate against start odometer
+      // Get trip details to validate against start odometer.
+      // Only the fetch is best-effort; a failed validation must still stop the request.
+      let startOdometer = null;
       try {
         const tripDetails = await api.get(`/trips/${tripId}`);
         const tripData = unwrap(tripDetails);
-        const startOdometer = tripData?.actualStartOdometer;
-        
-        if (startOdometer && endOdometerNum < startOdometer) {
-          throw new Error(
-            `End odometer (${endOdometerNum.toFixed(2)} km) cannot be less than start odometer (${startOdometer.toFixed(2)} km).`
-          );
-        }
+        const parsedStart = parseFloat(tripData?.actualStartOdometer);
+        startOdometer = Number.isFinite(parsedStart) ? parsedStart : null;
       } catch (fetchError) {
         console.warn(`Could not fetch trip details for validation: ${fetchError.message}`);
+      }
+
+      if (startOdometer && endOdometerNum < startOdometer) {
+        throw new Error(
+          `End odometer (${endOdometerNum.toFixed(2)} km) cannot be less than start odometer (${startOdometer.toFixed(2)} km).`
+        );
       }
       
       const response = await api.post(`/trips/${tripId}/end`, {
@@ -449,8 +463,8 @@ export const tripService = {
     } catch (error) {
       console.error('❌ Error ending trip:', error);
       
-      if (error.response?.data?.detail) {
-        const detail = error.response.data.detail;
+      const detail = getErrorResponse(error)?.data?.detail;
+      if (detail) {
         if (detail.includes('cannot be less than start odometer')) {
           throw new Error('End odometer cannot be less than start odometer. Please check the reading.');
         }
@@ -1141,22 +1155,22 @@ export const tripService = {
   },
 
        getTripBilling: async (tripId) => {
-        const response = await api.get(`/api/billing/trip/${tripId}`);
+        const response = await api.get(`/billing/trip/${tripId}`);
         return response.data;
     },
 
     recalculateTripBilling: async (tripId) => {
-        const response = await api.post(`/api/billing/trip/${tripId}/recalculate`);
+        const response = await api.post(`/billing/trip/${tripId}/recalculate`);
         return response.data;
     },
 
     getLoadBilling: async (loadId) => {
-        const response = await api.get(`/api/billing/load/${loadId}`);
+        const response = await api.get(`/billing/load/${loadId}`);
         return response.data;
     },
 
     recalculateLoadBilling: async (loadId) => {
-        const response = await api.post(`/api/billing/load/${loadId}/recalculate`);
+        const response = await api.post(`/billing/load/${loadId}/recalculate`);
         return response.data;
     },
 };
