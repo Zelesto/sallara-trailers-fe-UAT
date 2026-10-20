@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Menu,
 } from '@mui/material';
 import {
   Refresh,
@@ -45,11 +46,13 @@ import {
   Person,
   Event,
   Add,
+  Download as DownloadIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { inventoryMovementService } from '../services/inventoryMovementService';
 import { inventoryService } from '../services/inventoryService';
+import { exportCsv, exportXlsx, printToPdf } from '../utils/exportTable';
 
 // ============================================================
 // STAT CARD - Matching Dashboard
@@ -164,14 +167,51 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle }) => 
               },
             }}
           >
-            <SafeIcon sx={{ 
-              color: iconColor, 
+            <SafeIcon sx={{
+              color: iconColor,
               fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
             }} />
           </Box>
         </Stack>
       </CardContent>
     </Card>
+  );
+};
+
+// ============================================================
+// EXPORT MENU (CSV / Excel / PDF)
+// ============================================================
+const ExportMenu = ({ disabled, onCsv, onXlsx, onPdf }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+  const run = (fn) => {
+    setAnchorEl(null);
+    if (typeof fn === 'function') fn();
+  };
+  return (
+    <>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<DownloadIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        disabled={disabled}
+        sx={{
+          borderRadius: '10px',
+          fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+          textTransform: 'none',
+          py: { xs: 0.5, sm: 0.75 },
+          px: { xs: 1.5, sm: 2 },
+        }}
+      >
+        Export
+      </Button>
+      <Menu anchorEl={anchorEl} open={open} onClose={() => setAnchorEl(null)}>
+        <MenuItem onClick={() => run(onCsv)} sx={{ fontSize: '0.8rem' }}>Export as CSV</MenuItem>
+        <MenuItem onClick={() => run(onXlsx)} sx={{ fontSize: '0.8rem' }}>Export as Excel (.xlsx)</MenuItem>
+        <MenuItem onClick={() => run(onPdf)} sx={{ fontSize: '0.8rem' }}>Print / Save as PDF</MenuItem>
+      </Menu>
+    </>
   );
 };
 
@@ -222,6 +262,7 @@ const MovementHistory = () => {
 
   useEffect(() => {
     loadMovements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMovements = async () => {
@@ -229,7 +270,7 @@ const MovementHistory = () => {
     setError(null);
     try {
       const data = await inventoryMovementService.getMovementHistory();
-      
+
       let movementsData = [];
       if (Array.isArray(data)) {
         movementsData = data;
@@ -242,7 +283,7 @@ const MovementHistory = () => {
         const arrayProp = values.find(v => Array.isArray(v));
         movementsData = arrayProp || [];
       }
-      
+
       setMovements(movementsData);
       calculateStats(movementsData);
     } catch (err) {
@@ -349,27 +390,62 @@ const MovementHistory = () => {
     return filtered;
   }, [movements, searchTerm, filterType, filterStatus]);
 
+  // ============================================================
+  // TABLE EXPORTS
+  // ============================================================
+  const buildMovementColumns = () => [
+    { header: 'Date',             value: (r) => (r.createdAt ? new Date(r.createdAt).toLocaleString() : ''), width: 20 },
+    { header: 'Item',             value: (r) => r.itemName || `Item #${r.itemId}`,           width: 25 },
+    { header: 'Type',             value: (r) => r.movementType,                              width: 12 },
+    { header: 'Quantity',         value: (r) => r.quantity, type: 'number',                  width: 10 },
+    { header: 'Reason',           value: (r) => r.reason || '',                              width: 30 },
+    { header: 'Reference Number', value: (r) => r.referenceNumber || '',                     width: 18 },
+    { header: 'Reference Type',   value: (r) => r.referenceType || '',                       width: 16 },
+    { header: 'Status',           value: (r) => r.approvalStatus,                            width: 12 },
+    { header: 'Performed By',     value: (r) => r.performedBy || '',                         width: 16 },
+    { header: 'Approved By',      value: (r) => r.approvedBy || '',                          width: 16 },
+    { header: 'Notes',            value: (r) => r.notes || '',                               width: 30 },
+  ];
+
+  const handleExportCsv = () => {
+    if (!filteredMovements.length) { setError('No movements to export'); return; }
+    exportCsv('stock-movements', buildMovementColumns(), filteredMovements);
+  };
+
+  const handleExportXlsx = () => {
+    if (!filteredMovements.length) { setError('No movements to export'); return; }
+    exportXlsx('stock-movements', buildMovementColumns(), filteredMovements, 'Movements');
+  };
+
+  const handleExportPdf = () => {
+    if (!filteredMovements.length) { setError('No movements to export'); return; }
+    const win = window.open('', '_blank'); // must be synchronous
+    if (!win) { setError('Please allow popups to export PDF'); return; }
+    printToPdf(win, 'Stock Movement History', buildMovementColumns(), filteredMovements,
+      `Generated ${new Date().toLocaleString()} • ${filteredMovements.length} row(s)`);
+  };
+
   return (
-    <Box sx={{ 
-      bgcolor: '#F7F7FC', 
+    <Box sx={{
+      bgcolor: '#F7F7FC',
       minHeight: '100vh',
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
       p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
       width: '100%',
-      overflowX: 'hidden' 
+      overflowX: 'hidden'
     }}>
-      <Box sx={{ 
-        maxWidth: '1600px', 
+      <Box sx={{
+        maxWidth: '1600px',
         margin: '0 auto',
         flex: 1,
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
       }}>
-        
-        {/* Header - Matching Dashboard */}
+
+        {/* Header */}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
@@ -378,35 +454,35 @@ const MovementHistory = () => {
           spacing={{ xs: 1, sm: 0 }}
         >
           <Box>
-            <Typography 
-              variant="h5" 
-              fontWeight="700" 
-              sx={{ 
-                fontSize: { 
-                  xs: '1.1rem', 
-                  sm: '1.3rem', 
-                  md: '1.4rem', 
-                  lg: '1.5rem' 
-                } 
+            <Typography
+              variant="h5"
+              fontWeight="700"
+              sx={{
+                fontSize: {
+                  xs: '1.1rem',
+                  sm: '1.3rem',
+                  md: '1.4rem',
+                  lg: '1.5rem'
+                }
               }}
             >
               Stock Movement History
             </Typography>
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
-              sx={{ 
-                fontSize: { 
-                  xs: '0.7rem', 
-                  sm: '0.8rem', 
-                  md: '0.85rem' 
-                } 
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: {
+                  xs: '0.7rem',
+                  sm: '0.8rem',
+                  md: '0.85rem'
+                }
               }}
             >
               Track and manage all inventory movements
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} alignItems="center">
             <Button
               variant="outlined"
               startIcon={<Refresh sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
@@ -422,6 +498,14 @@ const MovementHistory = () => {
             >
               Refresh
             </Button>
+
+            <ExportMenu
+              disabled={filteredMovements.length === 0}
+              onCsv={handleExportCsv}
+              onXlsx={handleExportXlsx}
+              onPdf={handleExportPdf}
+            />
+
             {stats.pending > 0 && (
               <Button
                 variant="contained"
@@ -453,10 +537,10 @@ const MovementHistory = () => {
         )}
 
         {/* Stats Cards */}
-        <Grid 
-          container 
+        <Grid
+          container
           spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
-          sx={{ 
+          sx={{
             mb: { xs: 2, sm: 2.5, md: 3 },
             width: '100%',
             margin: 0,
@@ -542,7 +626,7 @@ const MovementHistory = () => {
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Stack direction="row" spacing={0.75}>
+              <Stack direction="row" spacing={0.75} alignItems="center">
                 <Tooltip title="Refresh">
                   <IconButton size="small" onClick={loadMovements} sx={{ p: 0.5 }}>
                     <Refresh sx={{ fontSize: '0.9rem' }} />
@@ -607,8 +691,8 @@ const MovementHistory = () => {
                       <Box sx={{ textAlign: 'center' }}>
                         <Inventory sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
                         <Typography variant="body1" color="text.secondary">
-                          {filterStatus !== 'ALL' 
-                            ? `No ${filterStatus.toLowerCase()} movements found` 
+                          {filterStatus !== 'ALL'
+                            ? `No ${filterStatus.toLowerCase()} movements found`
                             : 'No movements found'}
                         </Typography>
                       </Box>
@@ -711,10 +795,10 @@ const MovementHistory = () => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle sx={{ 
-            py: 1.5, 
-            px: 2.5, 
-            borderBottom: 1, 
+          <DialogTitle sx={{
+            py: 1.5,
+            px: 2.5,
+            borderBottom: 1,
             borderColor: 'divider',
             bgcolor: '#F8FAFC',
             display: 'flex',
@@ -820,10 +904,10 @@ const MovementHistory = () => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle sx={{ 
-            py: 1.5, 
-            px: 2.5, 
-            borderBottom: 1, 
+          <DialogTitle sx={{
+            py: 1.5,
+            px: 2.5,
+            borderBottom: 1,
             borderColor: 'divider',
             bgcolor: '#F8FAFC',
             display: 'flex',
@@ -873,7 +957,7 @@ const MovementHistory = () => {
                   value={approveNotes}
                   onChange={(e) => setApproveNotes(e.target.value)}
                   size="small"
-                  sx={{ 
+                  sx={{
                     '& .MuiInputLabel-root': { fontSize: '0.75rem' },
                     '& .MuiInputBase-root': { fontSize: '0.8rem' }
                   }}
