@@ -1,5 +1,6 @@
 // src/pages/Reports.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -7,7 +8,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActionArea,
   Button,
   FormControl,
   InputLabel,
@@ -34,6 +34,7 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   Analytics as AnalyticsIcon,
@@ -57,10 +58,10 @@ import {
   Visibility,
   Close as CloseIcon,
   Description as DescriptionIcon,
+  Route as RouteIcon,
+  LocalShipping as LocalShippingIcon,
 } from '@mui/icons-material';
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart,
@@ -80,6 +81,9 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 import { reportService } from '../services/reportService';
+import { tripService } from '../services/tripService';
+import { loadService } from '../services/loadService';
+import { vehicleService } from '../services/vehicleService';
 import { exportCsv } from '../utils/exportTable';
 
 // ============================================================
@@ -106,8 +110,16 @@ const periodToRange = (period) => {
   return { start, end };
 };
 
+const toArray = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.content)) return res.content;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.content)) return res.data.content;
+  return [];
+};
+
 // ============================================================
-// STAT CARD (unchanged from your original)
+// STAT CARD
 // ============================================================
 const StatCard = ({ title, value, icon: Icon, color = 'primary', trend, trendLabel, trendColor = 'success' }) => (
   <Card sx={{ height: '100%' }}>
@@ -140,7 +152,7 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', trend, trendLab
 );
 
 // ============================================================
-// REPORT PREVIEW DIALOG (same pattern as Inventory.jsx)
+// REPORT PREVIEW DIALOG
 // ============================================================
 const ReportPreviewDialog = ({ preview, onClose }) => (
   <Dialog open={preview.open} onClose={onClose} maxWidth="lg" fullWidth>
@@ -279,10 +291,344 @@ const InventoryReportCard = ({ report, onPreview, onDownload, disabled }) => {
 };
 
 // ============================================================
+// TRIP REPORTS TAB
+// ============================================================
+const TripReportsTab = ({ onPreview, onDownload, setError }) => {
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const highlight = searchParams.get('highlight');
+    if (highlight) setSearch(highlight);
+  }, [searchParams]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await tripService.getAllTrips?.();
+        setTrips(toArray(res));
+      } catch (err) {
+        setError?.(err?.userMessage || err?.message || 'Failed to load trips');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [setError]);
+
+  const filtered = trips.filter((t) =>
+    !search ||
+    (t.tripNumber || '').toLowerCase().includes(search.toLowerCase()) ||
+    (t.customerName || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <Card sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+            Trip Reports
+            <Chip label={`${filtered.length} trips`} size="small" sx={{ ml: 1, height: 18, fontSize: '0.55rem' }} />
+          </Typography>
+          <TextField
+            size="small"
+            placeholder="Search trip # or customer…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ maxWidth: 280, '& .MuiInputBase-root': { fontSize: '0.75rem', borderRadius: '10px' } }}
+          />
+        </Stack>
+
+        {loading ? (
+          <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+        ) : filtered.length === 0 ? (
+          <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+            {search ? `No trips match "${search}".` : 'No trips found.'}
+          </Alert>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+                <TableRow>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Trip #</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Customer</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Route</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Status</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }} align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filtered.map((t) => (
+                  <TableRow key={t.id || t.tripNumber} hover>
+                    <TableCell sx={{ fontSize: '0.75rem' }}><strong>{t.tripNumber}</strong></TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{t.customerName || '—'}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>
+                      {t.originLocation || '—'} → {t.destinationLocation || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={t.status || 'N/A'} size="small" sx={{ height: 18, fontSize: '0.55rem' }} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Preview HTML">
+                          <IconButton size="small" onClick={() => onPreview(t)} sx={{ p: 0.5 }}>
+                            <Visibility sx={{ fontSize: '0.9rem' }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Download PDF">
+                          <IconButton size="small" color="primary" onClick={() => onDownload(t)} sx={{ p: 0.5 }}>
+                            <Download sx={{ fontSize: '0.9rem' }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================================
+// LOAD REPORTS TAB
+// ============================================================
+const LoadReportsTab = ({ onPreview, onDownload, setError }) => {
+  const [loads, setLoads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await loadService.getAllLoads?.();
+        setLoads(toArray(res));
+      } catch (err) {
+        setError?.(err?.userMessage || err?.message || 'Failed to load loads');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [setError]);
+
+  const filtered = loads.filter((l) =>
+    !search ||
+    (l.loadNumber || '').toLowerCase().includes(search.toLowerCase()) ||
+    (l.customerName || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <Card sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+            Load Reports
+            <Chip label={`${filtered.length} loads`} size="small" sx={{ ml: 1, height: 18, fontSize: '0.55rem' }} />
+          </Typography>
+          <TextField
+            size="small"
+            placeholder="Search load # or customer…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ maxWidth: 280, '& .MuiInputBase-root': { fontSize: '0.75rem', borderRadius: '10px' } }}
+          />
+        </Stack>
+
+        {loading ? (
+          <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+        ) : filtered.length === 0 ? (
+          <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+            {search ? `No loads match "${search}".` : 'No loads found.'}
+          </Alert>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+                <TableRow>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Load #</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Customer</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Commodity</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }}>Status</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', fontWeight: 600 }} align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filtered.map((l) => (
+                  <TableRow key={l.id || l.loadNumber} hover>
+                    <TableCell sx={{ fontSize: '0.75rem' }}><strong>{l.loadNumber}</strong></TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{l.customerName || '—'}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{l.commodityType || '—'}</TableCell>
+                    <TableCell>
+                      <Chip label={l.status || 'N/A'} size="small" sx={{ height: 18, fontSize: '0.55rem' }} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Preview HTML">
+                          <IconButton size="small" onClick={() => onPreview(l)} sx={{ p: 0.5 }}>
+                            <Visibility sx={{ fontSize: '0.9rem' }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Download PDF">
+                          <IconButton size="small" color="primary" onClick={() => onDownload(l)} sx={{ p: 0.5 }}>
+                            <Download sx={{ fontSize: '0.9rem' }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================================
+// FUEL REPORTS TAB
+// ============================================================
+const FuelReportsTab = ({ onPreview, onDownload, setError }) => {
+  const [vehicles, setVehicles] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+  const [vehicleId, setVehicleId] = useState('');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await vehicleService.getAllVehicles?.();
+        setVehicles(toArray(res));
+      } catch (err) {
+        setError?.(err?.userMessage || err?.message || 'Failed to load vehicles');
+      } finally {
+        setLoadingVehicles(false);
+      }
+    })();
+  }, [setError]);
+
+  const params = () => ({
+    vehicleId: vehicleId ? Number(vehicleId) : undefined,
+    startDate: ymd(startDate),
+    endDate: ymd(endDate),
+  });
+
+  return (
+    <Card sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
+      <CardContent sx={{ p: 2 }}>
+        <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600, mb: 2 }}>
+          Fuel Consumption Report
+        </Typography>
+
+        <Grid container spacing={1.5} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle</InputLabel>
+              <Select
+                value={vehicleId}
+                label="Vehicle"
+                onChange={(e) => setVehicleId(e.target.value)}
+                disabled={loadingVehicles}
+                sx={{ fontSize: '0.8rem', borderRadius: '10px' }}
+              >
+                <MenuItem value="" sx={{ fontSize: '0.8rem' }}>All Vehicles</MenuItem>
+                {vehicles.map((v) => (
+                  <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.8rem' }}>
+                    {v.registrationNumber || v.regNumber || `Vehicle #${v.id}`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <DatePicker
+              label="From"
+              value={startDate}
+              onChange={setStartDate}
+              slotProps={{ textField: { fullWidth: true, size: 'small', sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } } } }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <DatePicker
+              label="To"
+              value={endDate}
+              onChange={setEndDate}
+              slotProps={{ textField: { fullWidth: true, size: 'small', sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } } } }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={2}>
+            <Stack direction="row" spacing={0.5}>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                onClick={() => onPreview(params())}
+                sx={{ fontSize: '0.72rem', textTransform: 'none', borderRadius: '10px', py: 1 }}
+              >
+                Preview
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                fullWidth
+                onClick={() => onDownload(params())}
+                sx={{
+                  fontSize: '0.72rem', textTransform: 'none', borderRadius: '10px', py: 1,
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                  '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' },
+                }}
+              >
+                PDF
+              </Button>
+            </Stack>
+          </Grid>
+        </Grid>
+
+        <Alert severity="info" sx={{ fontSize: '0.75rem' }}>
+          Leave all filters empty to generate a full fuel consumption report across all vehicles and dates.
+        </Alert>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================================
 // MAIN REPORTS COMPONENT
 // ============================================================
 const Reports = () => {
-  // ── Existing Analytics state ────────────────────────────────
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabFromUrl = (() => {
+    const t = searchParams.get('tab');
+    if (t === 'trip')      return 1;
+    if (t === 'load')      return 2;
+    if (t === 'fuel')      return 3;
+    if (t === 'inventory') return 4;
+    return 0;
+  })();
+
+  const [activeTab, setActiveTab] = useState(tabFromUrl);
+
+  useEffect(() => {
+    setActiveTab(tabFromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleTabChange = (_, v) => {
+    setActiveTab(v);
+    const map = ['', 'trip', 'load', 'fuel', 'inventory'];
+    const params = new URLSearchParams(searchParams);
+    if (v === 0) params.delete('tab'); else params.set('tab', map[v]);
+    setSearchParams(params, { replace: true });
+  };
+
+  // ── Analytics state ─────────────────────────────────────────
   const [period, setPeriod] = useState('last6months');
   const [vehicle, setVehicle] = useState('all');
   const [reportType, setReportType] = useState('fuel');
@@ -293,8 +639,7 @@ const Reports = () => {
   const [showCustomRange, setShowCustomRange] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
 
-  // ── NEW: Tab + Inventory filter state ───────────────────────
-  const [activeTab, setActiveTab] = useState(0);
+  // ── Inventory filter state ──────────────────────────────────
   const [invCategory, setInvCategory] = useState('all');
   const [invStatus, setInvStatus] = useState('all');
   const [invIssueable, setInvIssueable] = useState('all');
@@ -313,7 +658,7 @@ const Reports = () => {
 
   const showSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); };
 
-  // ── Mock Analytics data (unchanged) ─────────────────────────
+  // ── Mock Analytics data ─────────────────────────────────────
   const fuelConsumptionData = [
     { month: 'Jan', consumption: 4200, cost: 94500, average: 3.8 },
     { month: 'Feb', consumption: 3800, cost: 85500, average: 3.9 },
@@ -324,10 +669,10 @@ const Reports = () => {
   ];
 
   const vehiclePerformanceData = [
-    { vehicle: 'ABC123GP', fuelEfficiency: 3.8, distance: 12500, cost: 87500, status: 'Good',            avgCostPerKm: 7.0 },
-    { vehicle: 'DEF456GP', fuelEfficiency: 4.2, distance: 9800,  cost: 68500, status: 'Excellent',       avgCostPerKm: 6.99 },
+    { vehicle: 'ABC123GP', fuelEfficiency: 3.8, distance: 12500, cost: 87500, status: 'Good',             avgCostPerKm: 7.0 },
+    { vehicle: 'DEF456GP', fuelEfficiency: 4.2, distance: 9800,  cost: 68500, status: 'Excellent',        avgCostPerKm: 6.99 },
     { vehicle: 'GHI789GP', fuelEfficiency: 3.5, distance: 15200, cost: 106400, status: 'Needs Attention', avgCostPerKm: 7.0 },
-    { vehicle: 'JKL012GP', fuelEfficiency: 4.0, distance: 11000, cost: 77000, status: 'Good',            avgCostPerKm: 7.0 },
+    { vehicle: 'JKL012GP', fuelEfficiency: 4.0, distance: 11000, cost: 77000, status: 'Good',             avgCostPerKm: 7.0 },
   ];
 
   const expenseByCategory = [
@@ -348,7 +693,7 @@ const Reports = () => {
   ];
 
   // ============================================================
-  // ANALYTICS EXPORTS (now wired to real service)
+  // ANALYTICS EXPORTS
   // ============================================================
   const handlePeriodChange = (event) => {
     const value = event.target.value;
@@ -394,7 +739,6 @@ const Reports = () => {
           exportCsv('vehicle-performance', columns, vehiclePerformanceData);
           showSuccess('Vehicle performance CSV downloaded');
         } else {
-          // .xlsx path uses the same helper
           const { exportXlsx } = await import('../utils/exportTable');
           exportXlsx('vehicle-performance', columns, vehiclePerformanceData, 'Vehicle Performance');
           showSuccess('Vehicle performance Excel downloaded');
@@ -488,6 +832,9 @@ const Reports = () => {
     },
   ];
 
+  // ============================================================
+  // PREVIEW / DOWNLOAD ORCHESTRATORS
+  // ============================================================
   const previewReport = async (report) => {
     setError(null);
     setBusy(true);
@@ -525,6 +872,37 @@ const Reports = () => {
       setBusy(false);
     }
   };
+
+  // ── Trip / Load / Fuel wrappers ─────────────────────────────
+  const previewTripReport = (trip) => previewReport({
+    title: `Trip Report — ${trip.tripNumber}`,
+    buildHtml: () => reportService.generateTripReport(trip.tripNumber),
+    buildPdf: () => reportService.downloadTripReportPDF(trip.tripNumber),
+  });
+  const downloadTripReport = (trip) => downloadReport({
+    title: `Trip Report — ${trip.tripNumber}`,
+    buildPdf: () => reportService.downloadTripReportPDF(trip.tripNumber),
+  });
+
+  const previewLoadReport = (load) => previewReport({
+    title: `Load Report — ${load.loadNumber}`,
+    buildHtml: () => reportService.generateLoadReport(load.loadNumber),
+    buildPdf: () => reportService.downloadLoadReportPDF(load.loadNumber),
+  });
+  const downloadLoadReport = (load) => downloadReport({
+    title: `Load Report — ${load.loadNumber}`,
+    buildPdf: () => reportService.downloadLoadReportPDF(load.loadNumber),
+  });
+
+  const previewFuelReport = (params) => previewReport({
+    title: 'Fuel Consumption Report',
+    buildHtml: () => reportService.generateFuelReport(params.vehicleId, params.startDate, params.endDate),
+    buildPdf: () => reportService.downloadFuelReportPDF(params.vehicleId, params.startDate, params.endDate),
+  });
+  const downloadFuelReport = (params) => downloadReport({
+    title: 'Fuel Consumption Report',
+    buildPdf: () => reportService.downloadFuelReportPDF(params.vehicleId, params.startDate, params.endDate),
+  });
 
   // ============================================================
   // RENDER
@@ -606,32 +984,24 @@ const Reports = () => {
         >
           <Tabs
             value={activeTab}
-            onChange={(_, v) => setActiveTab(v)}
+            onChange={handleTabChange}
             variant="scrollable"
             scrollButtons="auto"
             sx={{ minHeight: 40 }}
           >
-            <Tab
-              icon={<AnalyticsIcon sx={{ fontSize: '0.9rem' }} />}
-              iconPosition="start"
-              label="Analytics"
-              sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }}
-            />
-            <Tab
-              icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />}
-              iconPosition="start"
-              label="Inventory Reports"
-              sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }}
-            />
+            <Tab icon={<AnalyticsIcon sx={{ fontSize: '0.9rem' }} />}     iconPosition="start" label="Analytics"         sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
+            <Tab icon={<RouteIcon sx={{ fontSize: '0.9rem' }} />}         iconPosition="start" label="Trip Reports"      sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
+            <Tab icon={<LocalShippingIcon sx={{ fontSize: '0.9rem' }} />} iconPosition="start" label="Load Reports"      sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
+            <Tab icon={<LocalGasStation sx={{ fontSize: '0.9rem' }} />}   iconPosition="start" label="Fuel Reports"      sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
+            <Tab icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />}     iconPosition="start" label="Inventory Reports" sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
           </Tabs>
         </Paper>
 
         {/* =============================================== */}
-        {/* TAB 0 — Analytics (existing content)            */}
+        {/* TAB 0 — Analytics                               */}
         {/* =============================================== */}
         {activeTab === 0 && (
           <Box>
-            {/* Filters */}
             <Paper sx={{ p: 1.5, mb: 2, borderRadius: '12px', border: '1px solid #ECECEC' }}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
                 <FilterList sx={{ mr: 0.5, fontSize: '0.9rem', verticalAlign: 'middle' }} />
@@ -732,7 +1102,6 @@ const Reports = () => {
               </Grid>
             </Paper>
 
-            {/* Stats */}
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
               <Grid item xs={6} sm={6} md={3}>
                 <StatCard title="Total Fuel" value={`${stats.totalFuel.toLocaleString()} L`} icon={LocalGasStation} color="primary" trend trendLabel="5.2% from last period" trendColor="success" />
@@ -748,7 +1117,6 @@ const Reports = () => {
               </Grid>
             </Grid>
 
-            {/* Charts */}
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
               <Grid item xs={12} lg={8}>
                 <Card sx={{ borderRadius: '12px', border: '1px solid #ECECEC' }}>
@@ -899,11 +1267,43 @@ const Reports = () => {
         )}
 
         {/* =============================================== */}
-        {/* TAB 1 — Inventory Reports                       */}
+        {/* TAB 1 — Trip Reports                            */}
         {/* =============================================== */}
         {activeTab === 1 && (
+          <TripReportsTab
+            onPreview={previewTripReport}
+            onDownload={downloadTripReport}
+            setError={setError}
+          />
+        )}
+
+        {/* =============================================== */}
+        {/* TAB 2 — Load Reports                            */}
+        {/* =============================================== */}
+        {activeTab === 2 && (
+          <LoadReportsTab
+            onPreview={previewLoadReport}
+            onDownload={downloadLoadReport}
+            setError={setError}
+          />
+        )}
+
+        {/* =============================================== */}
+        {/* TAB 3 — Fuel Reports                            */}
+        {/* =============================================== */}
+        {activeTab === 3 && (
+          <FuelReportsTab
+            onPreview={previewFuelReport}
+            onDownload={downloadFuelReport}
+            setError={setError}
+          />
+        )}
+
+        {/* =============================================== */}
+        {/* TAB 4 — Inventory Reports                       */}
+        {/* =============================================== */}
+        {activeTab === 4 && (
           <Box>
-            {/* Inventory filter panel */}
             <Paper sx={{ p: 1.5, mb: 2, borderRadius: '12px', border: '1px solid #ECECEC' }}>
               <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1.5 }}>
                 <FilterList sx={{ mr: 0.5, fontSize: '0.9rem', verticalAlign: 'middle' }} />
@@ -993,13 +1393,11 @@ const Reports = () => {
               </Grid>
             </Paper>
 
-            {/* Info banner */}
             <Alert severity="info" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }}>
               Click <strong>Preview</strong> to view any report inline, or <strong>PDF</strong> to download.
               Filters above are applied automatically.
             </Alert>
 
-            {/* Report cards grid */}
             <Grid container spacing={2}>
               {inventoryReports.map((report) => (
                 <Grid item xs={12} sm={6} md={4} key={report.id}>
@@ -1013,7 +1411,6 @@ const Reports = () => {
               ))}
             </Grid>
 
-            {/* Bottom hint */}
             <Box sx={{ mt: 3 }}>
               <Alert severity="success" icon={false} sx={{ fontSize: '0.75rem', py: 0.75, borderRadius: '12px' }}>
                 <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
@@ -1026,13 +1423,13 @@ const Reports = () => {
           </Box>
         )}
 
-        {/* Preview dialog (shared between tabs) */}
+        {/* Preview dialog (shared across tabs) */}
         <ReportPreviewDialog
           preview={reportPreview}
           onClose={() => setReportPreview({ open: false, html: '', title: '', onDownloadPdf: null })}
         />
 
-        {/* Busy snackbar (bottom) */}
+        {/* Busy snackbar */}
         <Snackbar
           open={busy}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
