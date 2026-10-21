@@ -70,6 +70,8 @@ import {
   LocalShipping as LocalShippingIcon,
   Merge as MergeIcon,
   Receipt as ReceiptIcon,
+  Tune as TuneIcon,
+
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { inventoryMovementService } from '../../services/inventoryMovementService';
@@ -352,6 +354,7 @@ const menuSections = [
         { text: 'Load Reports',      path: '/reports?tab=load',   icon: <LocalShippingIcon sx={{ color: '#6B7280' }} /> },
         { text: 'Fuel Reports',      path: '/reports?tab=fuel',   icon: <FuelIcon sx={{ color: '#6B7280' }} /> },
         { text: 'Inventory Reports', path: '/reports?tab=inventory', icon: <InventoryIcon sx={{ color: '#6B7280' }} /> },
+        { text: 'Custom Pivot',        path: '/reports?tab=pivot',    icon: <TuneIcon sx={{ color: '#6B7280' }} /> },
       ],
     },
   ],
