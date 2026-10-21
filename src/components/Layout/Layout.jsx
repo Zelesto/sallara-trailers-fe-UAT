@@ -334,13 +334,28 @@ const menuSections = [
     ],
   },
   {
-    title: 'Reports & Analytics',
-    icon: <AnalyticsIcon sx={{ color: '#6B7280' }} />,
-    items: [
-      { text: 'Trip Analytics', icon: <AnalyticsIcon sx={{ color: '#6B7280' }} />, path: '/analytics/trips' },
-      { text: 'Trip Reports', icon: <ReportsIcon sx={{ color: '#6B7280' }} />, path: '/reports/trips' },
-    ],
-  },
+  title: 'Reports & Analytics',
+  icon: <AnalyticsIcon sx={{ color: '#6B7280' }} />,
+  items: [
+    {
+      text: 'Trip Analytics',
+      icon: <AnalyticsIcon sx={{ color: '#6B7280' }} />,
+      path: '/analytics/trips',
+    },
+    {
+      text: 'Reports Hub',
+      icon: <ReportsIcon sx={{ color: '#6B7280' }} />,
+      path: '/reports',
+      subItems: [
+        { text: 'All Reports',       path: '/reports',            icon: <ReportsIcon sx={{ color: '#6B7280' }} /> },
+        { text: 'Trip Reports',      path: '/reports?tab=trip',   icon: <RouteIcon sx={{ color: '#6B7280' }} /> },
+        { text: 'Load Reports',      path: '/reports?tab=load',   icon: <LocalShippingIcon sx={{ color: '#6B7280' }} /> },
+        { text: 'Fuel Reports',      path: '/reports?tab=fuel',   icon: <FuelIcon sx={{ color: '#6B7280' }} /> },
+        { text: 'Inventory Reports', path: '/reports?tab=inventory', icon: <InventoryIcon sx={{ color: '#6B7280' }} /> },
+      ],
+    },
+  ],
+},
   {
     title: 'Administration',
     icon: <AdminPanelSettings sx={{ color: '#6B7280' }} />,
