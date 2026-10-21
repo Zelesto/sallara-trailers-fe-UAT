@@ -55,6 +55,8 @@ import {
   Warning as WarningIcon,
   SwapHoriz,
   Assignment,
+  TuneRoundedIcon,
+  GridOnRoundedIcon,
   Visibility,
   Close as CloseIcon,
   Description as DescriptionIcon,
@@ -598,6 +600,280 @@ const FuelReportsTab = ({ onPreview, onDownload, setError }) => {
   );
 };
 
+
+// ============================================================
+// PIVOT REPORTS TAB
+// ============================================================
+const PivotReportsTab = ({ onPreview, onDownload, setError, busy }) => {
+  // Preset definitions
+  const presets = [
+    { label: 'Trips by Vehicle',        entity: 'TRIPS', groupBy: 'VEHICLE',  pivotBy: null,      metric: 'COUNT',    icon: RouteIcon,           color: '#4F46E5' },
+    { label: 'Trips by Customer',       entity: 'TRIPS', groupBy: 'CUSTOMER', pivotBy: null,      metric: 'COUNT',    icon: Person,              color: '#6366F1' },
+    { label: 'Trips by Month',          entity: 'TRIPS', groupBy: 'MONTH',    pivotBy: null,      metric: 'COUNT',    icon: CalendarMonth,       color: '#8B5CF6' },
+    { label: 'Trips by Customer × Month', entity: 'TRIPS', groupBy: 'CUSTOMER', pivotBy: 'MONTH', metric: 'COUNT',    icon: GridOnRoundedIcon,   color: '#A78BFA' },
+    { label: 'Trip Distance by Vehicle', entity: 'TRIPS', groupBy: 'VEHICLE', pivotBy: null,      metric: 'DISTANCE', icon: TrendingUp,          color: '#14B8A6' },
+    { label: 'Fuel by Vehicle',         entity: 'FUEL',  groupBy: 'VEHICLE',  pivotBy: null,      metric: 'LITERS',   icon: LocalGasStation,     color: '#F59E0B' },
+    { label: 'Fuel by Month',           entity: 'FUEL',  groupBy: 'MONTH',    pivotBy: null,      metric: 'LITERS',   icon: CalendarMonth,       color: '#FBBF24' },
+    { label: 'Fuel by Trip',            entity: 'FUEL',  groupBy: 'TRIP',     pivotBy: null,      metric: 'LITERS',   icon: RouteIcon,           color: '#F97316' },
+    { label: 'Fuel by Vehicle × Month', entity: 'FUEL',  groupBy: 'VEHICLE',  pivotBy: 'MONTH',   metric: 'LITERS',   icon: GridOnRoundedIcon,   color: '#EA580C' },
+    { label: 'Loads by Customer',       entity: 'LOADS', groupBy: 'CUSTOMER', pivotBy: null,      metric: 'COUNT',    icon: Person,              color: '#EC4899' },
+    { label: 'Loads by Driver',         entity: 'LOADS', groupBy: 'DRIVER',   pivotBy: null,      metric: 'COUNT',    icon: Person,              color: '#DB2777' },
+    { label: 'Loads by Vehicle',        entity: 'LOADS', groupBy: 'VEHICLE',  pivotBy: null,      metric: 'COUNT',    icon: DirectionsCar,       color: '#BE185D' },
+  ];
+
+  // Custom builder state
+  const [entity,  setEntity]  = useState('TRIPS');
+  const [groupBy, setGroupBy] = useState('VEHICLE');
+  const [pivotBy, setPivotBy] = useState('');
+  const [metric,  setMetric]  = useState('COUNT');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate,   setEndDate]   = useState(null);
+
+  const entities = [
+    { value: 'TRIPS', label: 'Trips' },
+    { value: 'LOADS', label: 'Loads' },
+    { value: 'FUEL',  label: 'Fuel Purchases' },
+  ];
+
+  const groupers = [
+    { value: 'VEHICLE',   label: 'Vehicle' },
+    { value: 'DRIVER',    label: 'Driver' },
+    { value: 'CUSTOMER',  label: 'Customer' },
+    { value: 'MONTH',     label: 'Month' },
+    { value: 'YEAR',      label: 'Year' },
+    { value: 'STATUS',    label: 'Status' },
+    { value: 'COMMODITY', label: 'Commodity' },
+    { value: 'LOCATION',  label: 'Location' },
+    { value: 'TRIP_TYPE', label: 'Trip Type' },
+    { value: 'TRIP',      label: 'Trip Number' },
+    { value: 'LOAD',      label: 'Load Number' },
+  ];
+
+  const metrics = [
+    { value: 'COUNT',    label: 'Count (Trips / Records)' },
+    { value: 'DISTANCE', label: 'Distance (km)' },
+    { value: 'COST',     label: 'Cost (R)' },
+    { value: 'LITERS',   label: 'Fuel Volume (L)' },
+    { value: 'WEIGHT',   label: 'Weight (kg)' },
+    { value: 'DURATION', label: 'Duration (h)' },
+  ];
+
+  const buildParams = (cfg) => {
+    const params = {
+      entity: cfg.entity,
+      groupBy: cfg.groupBy,
+      metric: cfg.metric,
+    };
+    if (cfg.pivotBy) params.pivotBy = cfg.pivotBy;
+    const ymd = (d) => {
+      if (!d) return undefined;
+      const dt = d instanceof Date ? d : new Date(d);
+      if (Number.isNaN(dt.getTime())) return undefined;
+      const p = (n) => String(n).padStart(2, '0');
+      return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
+    };
+    if (startDate) params.startDate = ymd(startDate);
+    if (endDate)   params.endDate   = ymd(endDate);
+    return params;
+  };
+
+  const runPreset = (preset, mode) => {
+    const params = buildParams({ ...preset, startDate, endDate });
+    const report = {
+      title: preset.label,
+      buildHtml: () => reportService.generatePivotReport(params),
+      buildPdf:  () => reportService.downloadPivotReportPDF(params),
+    };
+    if (mode === 'preview') onPreview(report);
+    else onDownload(report);
+  };
+
+  const runCustom = (mode) => {
+    const params = buildParams({ entity, groupBy, pivotBy, metric });
+    const title = `${entity === 'TRIPS' ? 'Trips' : entity === 'LOADS' ? 'Loads' : 'Fuel'} by ${groupBy}${
+      pivotBy ? ' × ' + pivotBy : ''
+    }`;
+    const report = {
+      title,
+      buildHtml: () => reportService.generatePivotReport(params),
+      buildPdf:  () => reportService.downloadPivotReportPDF(params),
+    };
+    if (mode === 'preview') onPreview(report);
+    else onDownload(report);
+  };
+
+  return (
+    <Box>
+      {/* Quick presets */}
+      <Paper sx={{ p: 2, mb: 2, borderRadius: '12px', border: '1px solid #ECECEC' }}>
+        <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600, mb: 1.5 }}>
+          Quick Reports
+        </Typography>
+        <Grid container spacing={1.5}>
+          {presets.map((preset) => {
+            const Icon = preset.icon;
+            return (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={preset.label}>
+                <Card
+                  sx={{
+                    border: '1px solid #ECECEC',
+                    borderRadius: '12px',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      borderColor: preset.color,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 1.5 }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                      <Box sx={{ bgcolor: `${preset.color}15`, p: 0.75, borderRadius: '8px' }}>
+                        <Icon sx={{ color: preset.color, fontSize: '1rem' }} />
+                      </Box>
+                      <Typography variant="body2" sx={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                        {preset.label}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={0.5}>
+                      <Button
+                        size="small"
+                        fullWidth
+                        startIcon={<Visibility sx={{ fontSize: '0.8rem' }} />}
+                        onClick={() => runPreset(preset, 'preview')}
+                        disabled={busy}
+                        sx={{
+                          fontSize: '0.7rem',
+                          textTransform: 'none',
+                          borderRadius: '8px',
+                          py: 0.5,
+                        }}
+                      >
+                        Preview
+                      </Button>
+                      <Button
+                        size="small"
+                        fullWidth
+                        startIcon={<Download sx={{ fontSize: '0.8rem' }} />}
+                        onClick={() => runPreset(preset, 'download')}
+                        disabled={busy}
+                        sx={{
+                          fontSize: '0.7rem',
+                          textTransform: 'none',
+                          borderRadius: '8px',
+                          py: 0.5,
+                          color: preset.color,
+                          fontWeight: 600,
+                        }}
+                      >
+                        PDF
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
+      </Paper>
+
+      {/* Custom builder */}
+      <Paper sx={{ p: 2, borderRadius: '12px', border: '1px solid #ECECEC' }}>
+        <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600, mb: 1.5 }}>
+          Custom Pivot — pick anything
+        </Typography>
+        <Grid container spacing={1.5}>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Entity</InputLabel>
+              <Select value={entity} label="Entity" onChange={(e) => setEntity(e.target.value)} sx={{ fontSize: '0.78rem' }}>
+                {entities.map((e) => (
+                  <MenuItem key={e.value} value={e.value} sx={{ fontSize: '0.78rem' }}>{e.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Group By</InputLabel>
+              <Select value={groupBy} label="Group By" onChange={(e) => setGroupBy(e.target.value)} sx={{ fontSize: '0.78rem' }}>
+                {groupers.map((g) => (
+                  <MenuItem key={g.value} value={g.value} sx={{ fontSize: '0.78rem' }}>{g.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Pivot By</InputLabel>
+              <Select value={pivotBy} label="Pivot By" onChange={(e) => setPivotBy(e.target.value)} sx={{ fontSize: '0.78rem' }}>
+                <MenuItem value="" sx={{ fontSize: '0.78rem' }}>None (simple list)</MenuItem>
+                {groupers.filter((g) => g.value !== groupBy).map((g) => (
+                  <MenuItem key={g.value} value={g.value} sx={{ fontSize: '0.78rem' }}>{g.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.75rem' }}>Metric</InputLabel>
+              <Select value={metric} label="Metric" onChange={(e) => setMetric(e.target.value)} sx={{ fontSize: '0.78rem' }}>
+                {metrics.map((m) => (
+                  <MenuItem key={m.value} value={m.value} sx={{ fontSize: '0.78rem' }}>{m.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <DatePicker
+              label="From"
+              value={startDate}
+              onChange={setStartDate}
+              slotProps={{ textField: { fullWidth: true, size: 'small', sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } } } }}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <DatePicker
+              label="To"
+              value={endDate}
+              onChange={setEndDate}
+              slotProps={{ textField: { fullWidth: true, size: 'small', sx: { '& .MuiInputLabel-root': { fontSize: '0.75rem' } } } }}
+            />
+          </Grid>
+        </Grid>
+        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Visibility sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => runCustom('preview')}
+            disabled={busy}
+            sx={{ fontSize: '0.78rem', textTransform: 'none', borderRadius: '10px', py: 1 }}
+          >
+            Preview
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Download sx={{ fontSize: '0.9rem' }} />}
+            onClick={() => runCustom('download')}
+            disabled={busy}
+            sx={{
+              fontSize: '0.78rem',
+              textTransform: 'none',
+              borderRadius: '10px',
+              py: 1,
+              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+              '&:hover': { background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)' },
+            }}
+          >
+            Download PDF
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
+  );
+};
+
 // ============================================================
 // MAIN REPORTS COMPONENT
 // ============================================================
@@ -610,6 +886,7 @@ const Reports = () => {
     if (t === 'load')      return 2;
     if (t === 'fuel')      return 3;
     if (t === 'inventory') return 4;
+    if (t === 'pivot') return 5;
     return 0;
   })();
 
@@ -622,7 +899,7 @@ const Reports = () => {
 
   const handleTabChange = (_, v) => {
     setActiveTab(v);
-    const map = ['', 'trip', 'load', 'fuel', 'inventory'];
+    const map = ['', 'trip', 'load', 'fuel', 'inventory','pivot'];
     const params = new URLSearchParams(searchParams);
     if (v === 0) params.delete('tab'); else params.set('tab', map[v]);
     setSearchParams(params, { replace: true });
@@ -994,6 +1271,12 @@ const Reports = () => {
             <Tab icon={<LocalShippingIcon sx={{ fontSize: '0.9rem' }} />} iconPosition="start" label="Load Reports"      sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
             <Tab icon={<LocalGasStation sx={{ fontSize: '0.9rem' }} />}   iconPosition="start" label="Fuel Reports"      sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
             <Tab icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />}     iconPosition="start" label="Inventory Reports" sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
+            <Tab
+  icon={<TuneRoundedIcon sx={{ fontSize: '0.9rem' }} />}
+  iconPosition="start"
+  label="Custom Pivot"
+  sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }}
+/>
           </Tabs>
         </Paper>
 
@@ -1421,6 +1704,13 @@ const Reports = () => {
               </Alert>
             </Box>
           </Box>
+        )}
+
+        {/* =============================================== */}
+        {/* TAB 5 — Custom Pivot                            */}
+        {/* =============================================== */}
+        {activeTab === 5 && (
+          <PivotReportsTab onPreview={previewReport} onDownload={downloadReport} setError={setError} busy={busy} />
         )}
 
         {/* Preview dialog (shared across tabs) */}
