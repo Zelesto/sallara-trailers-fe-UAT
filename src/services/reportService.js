@@ -103,6 +103,23 @@ export const reportService = {
     return generateHtmlReport('/reports/fuel', params, 'fuel report');
   },
 
+
+// ============================================================
+// ANALYTICS — PIVOT
+// ============================================================
+
+generatePivotReport: async (params = {}) =>
+  generateHtmlReport('/reports/analytics/pivot', params, 'pivot report'),
+
+downloadPivotReportPDF: async (params = {}) =>
+  downloadPdfReport(
+    '/reports/analytics/pivot/pdf',
+    params,
+    `pivot-${params.entity || 'report'}-${params.groupBy || 'group'}${
+      params.pivotBy ? '-by-' + params.pivotBy : ''
+    }.pdf`,
+    'pivot report'
+  ),
   // ============================================================
   // TRIPS / LOADS / FUEL — PDF
   // ============================================================
