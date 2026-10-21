@@ -610,12 +610,12 @@ const PivotReportsTab = ({ onPreview, onDownload, setError, busy }) => {
     { label: 'Trips by Vehicle',        entity: 'TRIPS', groupBy: 'VEHICLE',  pivotBy: null,      metric: 'COUNT',    icon: RouteIcon,           color: '#4F46E5' },
     { label: 'Trips by Customer',       entity: 'TRIPS', groupBy: 'CUSTOMER', pivotBy: null,      metric: 'COUNT',    icon: Person,              color: '#6366F1' },
     { label: 'Trips by Month',          entity: 'TRIPS', groupBy: 'MONTH',    pivotBy: null,      metric: 'COUNT',    icon: CalendarMonth,       color: '#8B5CF6' },
-    { label: 'Trips by Customer × Month', entity: 'TRIPS', groupBy: 'CUSTOMER', pivotBy: 'MONTH', metric: 'COUNT',    icon: GridOnRoundedIcon,   color: '#A78BFA' },
+    { label: 'Trips by Customer × Month', entity: 'TRIPS', groupBy: 'CUSTOMER', pivotBy: 'MONTH', metric: 'COUNT',    icon: GridOnRounded,   color: '#A78BFA' },
     { label: 'Trip Distance by Vehicle', entity: 'TRIPS', groupBy: 'VEHICLE', pivotBy: null,      metric: 'DISTANCE', icon: TrendingUp,          color: '#14B8A6' },
     { label: 'Fuel by Vehicle',         entity: 'FUEL',  groupBy: 'VEHICLE',  pivotBy: null,      metric: 'LITERS',   icon: LocalGasStation,     color: '#F59E0B' },
     { label: 'Fuel by Month',           entity: 'FUEL',  groupBy: 'MONTH',    pivotBy: null,      metric: 'LITERS',   icon: CalendarMonth,       color: '#FBBF24' },
     { label: 'Fuel by Trip',            entity: 'FUEL',  groupBy: 'TRIP',     pivotBy: null,      metric: 'LITERS',   icon: RouteIcon,           color: '#F97316' },
-    { label: 'Fuel by Vehicle × Month', entity: 'FUEL',  groupBy: 'VEHICLE',  pivotBy: 'MONTH',   metric: 'LITERS',   icon: GridOnRoundedIcon,   color: '#EA580C' },
+    { label: 'Fuel by Vehicle × Month', entity: 'FUEL',  groupBy: 'VEHICLE',  pivotBy: 'MONTH',   metric: 'LITERS',   icon: GridOnRounded,   color: '#EA580C' },
     { label: 'Loads by Customer',       entity: 'LOADS', groupBy: 'CUSTOMER', pivotBy: null,      metric: 'COUNT',    icon: Person,              color: '#EC4899' },
     { label: 'Loads by Driver',         entity: 'LOADS', groupBy: 'DRIVER',   pivotBy: null,      metric: 'COUNT',    icon: Person,              color: '#DB2777' },
     { label: 'Loads by Vehicle',        entity: 'LOADS', groupBy: 'VEHICLE',  pivotBy: null,      metric: 'COUNT',    icon: DirectionsCar,       color: '#BE185D' },
@@ -1272,7 +1272,7 @@ const Reports = () => {
             <Tab icon={<LocalGasStation sx={{ fontSize: '0.9rem' }} />}   iconPosition="start" label="Fuel Reports"      sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
             <Tab icon={<InventoryIcon sx={{ fontSize: '0.9rem' }} />}     iconPosition="start" label="Inventory Reports" sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }} />
             <Tab
-  icon={<TuneRoundedIcon sx={{ fontSize: '0.9rem' }} />}
+  icon={<TuneRounded sx={{ fontSize: '0.9rem' }} />}
   iconPosition="start"
   label="Custom Pivot"
   sx={{ fontSize: '0.78rem', minHeight: 40, textTransform: 'none' }}
