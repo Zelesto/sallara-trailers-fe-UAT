@@ -73,6 +73,7 @@ const DebriefPOD = lazy(() => import("./pages/DebriefPOD"));
 const TripReports = lazy(() => import("./pages/TripReports"));
 const TripAnalytics = lazy(() => import("./pages/TripAnalytics"));
 
+
 const Logs = lazy(() => import("./pages/Logs"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const StockMovementForm = lazy(() => import("./pages/StockMovementForm"));
@@ -283,7 +284,7 @@ function App() {
                       {/* Reports */}
                       <Route path="reports/trips" element={<TripReports />} />
                       <Route path="analytics/trips" element={<TripAnalytics />} />
-                      <Route path="reports" element={<Reports />} />
+                      <Route path="/reports" element={<Reports />} />
 
                       {/* Other */}
                       <Route path="billing" element={<BillingPage />} />
