@@ -10,7 +10,13 @@
 const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImE4ZmFlZjFiNmFmMjQyNjQ4ZDA5MzBiOGRjMzIzMDlhIiwiaCI6Im11cm11cjY0In0='; // Get from https://openrouteservice.org/dev/#/signup
 
 // Alternative: Mapbox free tier (50k requests/month)
+<<<<<<< HEAD
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
+=======
+const MAPBOX_TOKEN = typeof import.meta !== 'undefined' && import.meta.env
+  ? (import.meta.env.VITE_MAPBOX_TOKEN || '')
+  : '';
+>>>>>>> 964a610 (Initial frontend upload)
 
 // Cache for geocoding results
 const geocodeCache = new Map();
@@ -853,7 +859,13 @@ async function calculateWithMapbox(origin, destination, vehicleType) {
  */
 async function calculateWithGraphHopper(origin, destination, vehicleType) {
   try {
+<<<<<<< HEAD
     const apiKey = process.env.REACT_APP_GRAPHHOPPER_KEY || 'demo_key';
+=======
+    const apiKey = typeof import.meta !== 'undefined' && import.meta.env
+      ? (import.meta.env.VITE_GRAPHHOPPER_KEY || 'demo_key')
+      : 'demo_key';
+>>>>>>> 964a610 (Initial frontend upload)
 
     const response = await fetch(
       `https://graphhopper.com/api/1/route?point=${encodeURIComponent(origin)}&point=${encodeURIComponent(destination)}&vehicle=truck&locale=en&key=${apiKey}&points_encoded=false`

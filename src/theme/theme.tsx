@@ -29,8 +29,12 @@ function getCurrentTheme(): Theme {
 
 function isThemeStyleSheet(styleSheet, theme: Theme) {
   const themeMarker = `${themePrefix}${theme}`;
+<<<<<<< HEAD
   // eslint-disable-next-line no-undef
   if(process.env.NODE_ENV === 'production') {
+=======
+  if (import.meta.env.PROD) {
+>>>>>>> 964a610 (Initial frontend upload)
     return styleSheet?.href?.includes(`${themeMarker}`);
   } else {
     const rules = Array.from<CSSStyleRule>(styleSheet.cssRules);

@@ -1,0 +1,2 @@
+import{j as i,B as o}from"./mui-vendor-BNqVk-dS.js";import"./react-vendor-fgBgGU_4.js";const n=({children:e,maxWidth:s="1600px",...x})=>i.jsx(o,{sx:{bgcolor:"#F7F7FC",minHeight:"100vh",height:"100%",display:"flex",flexDirection:"column",p:{xs:1.5,sm:2,md:2.5,lg:3},width:"100%",overflowX:"hidden",...x.sx},children:i.jsx(o,{sx:{maxWidth:s,margin:"0 auto",flex:1,width:"100%",display:"flex",flexDirection:"column"},children:e})});export{n as R};
+//# sourceMappingURL=ResponsiveContainer-DXmRov3K.js.map

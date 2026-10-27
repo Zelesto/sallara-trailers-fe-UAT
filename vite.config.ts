@@ -28,10 +28,16 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
+<<<<<<< HEAD
         target: 'https://trailers-backend.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '')
+=======
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false
+>>>>>>> 964a610 (Initial frontend upload)
       }
     }
   },

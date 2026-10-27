@@ -551,10 +551,17 @@ export const podService = {
    * Get POD document URL for viewing/downloading
    */
   getPodDocumentUrl: (id, download = false) => {
+<<<<<<< HEAD
     const baseUrl = process.env.REACT_APP_API_URL || 'https://trailers-backend.onrender.com/api';
     const action = download ? 'download' : 'view';
     const timestamp = new Date().getTime();
     return `${baseUrl}/pods/${id}/${action}?_t=${timestamp}`;
+=======
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || api.defaults.baseURL || '/api';
+    const action = download ? 'download' : 'view';
+    const timestamp = new Date().getTime();
+    return `${baseUrl.replace(/\/$/, '')}/pods/${id}/${action}?_t=${timestamp}`;
+>>>>>>> 964a610 (Initial frontend upload)
   },
 
   /**

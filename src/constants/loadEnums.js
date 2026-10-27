@@ -1,6 +1,11 @@
 // src/constants/loadEnums.js
 // Load-related enums from database
 
+<<<<<<< HEAD
+=======
+import { COMMODITY_TYPES, toOptions as cargoToOptions } from './cargoEnums';
+
+>>>>>>> 964a610 (Initial frontend upload)
 export const LOAD_STATUSES = [
   { id: 13, code: 'PENDING', displayName: 'Pending', description: 'Load is pending', sortOrder: 1, isDefault: true, color: '#FF9800' },
   { id: 14, code: 'PLANNED', displayName: 'Planned', description: 'Load has been planned', sortOrder: 2, isDefault: false, color: '#2196F3' },
@@ -39,6 +44,10 @@ export const toOptions = (items) =>
 export const LOAD_STATUS_OPTIONS = toOptions(LOAD_STATUSES);
 export const LOAD_PRIORITY_OPTIONS = toOptions(LOAD_PRIORITIES);
 export const CUSTOMS_STATUS_OPTIONS = toOptions(CUSTOMS_STATUSES);
+<<<<<<< HEAD
+=======
+export const COMMODITY_OPTIONS = cargoToOptions(COMMODITY_TYPES);
+>>>>>>> 964a610 (Initial frontend upload)
 
 export const LOAD_STATUS_CONFIG = Object.fromEntries(
   LOAD_STATUSES.map(item => [item.code, item])
@@ -47,6 +56,18 @@ export const LOAD_STATUS_CONFIG = Object.fromEntries(
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
+<<<<<<< HEAD
+=======
+export const getDisplayName = (items, code, defaultValue = null) => {
+  if (!items || !Array.isArray(items) || !code) {
+    return defaultValue || code || 'Unknown';
+  }
+
+  const item = items.find(i => i.code === code || i.value === code);
+  return item?.displayName || item?.label || defaultValue || code || 'Unknown';
+};
+
+>>>>>>> 964a610 (Initial frontend upload)
 export const getColor = (colorName) => {
   const colors = {
     primary: '#4F46E5',
