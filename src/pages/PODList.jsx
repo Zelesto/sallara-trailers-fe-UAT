@@ -362,15 +362,9 @@ const PODList = () => {
 
   const handleExport = async () => {
     try {
-<<<<<<< HEAD
-      const baseUrl = process.env.REACT_APP_API_URL || 'https://sallara-trailers-be-UAT.onrender.com/api';
-      const timestamp = new Date().getTime();
-      const exportUrl = `${baseUrl}/pods/export?format=csv&_t=${timestamp}`;
-=======
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://trailers-backend.onrender.com/api';
       const timestamp = new Date().getTime();
       const exportUrl = `${baseUrl.replace(/\/$/, '')}/pods/export?format=csv&_t=${timestamp}`;
->>>>>>> 964a610 (Initial frontend upload)
       window.open(exportUrl, '_blank');
     } catch (error) {
       console.error('Error exporting PODs:', error);

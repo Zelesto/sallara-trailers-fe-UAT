@@ -52,6 +52,7 @@ import {
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { useNavigate } from 'react-router-dom';
+import expenseService from '../../services/expense';
 
 // Import enums
 import {
@@ -96,40 +97,44 @@ const PayablePage = () => {
   const statusOptions = PAYMENT_STATUS_OPTIONS;
 
   useEffect(() => {
-    // Simulate API call with mock data
-    setTimeout(() => {
-      const mockPayables = [
-        {
-          id: 1,
-          billNumber: 'BILL-2024-001',
-          vendorName: 'Diesel Suppliers Inc',
-          amount: 50000,
-          currency: 'ZAR',
-          dueDate: '2024-02-10',
-          status: 'OVERDUE',
-          daysOverdue: 8,
-          category: 'FUEL',
-          description: 'January fuel supply'
-        },
-        {
-          id: 2,
-          billNumber: 'BILL-2024-002',
-          vendorName: 'Truck Maintenance Ltd',
-          amount: 25000,
-          currency: 'ZAR',
-          dueDate: '2024-02-25',
-          status: 'DUE_SOON',
-          daysOverdue: 0,
-          category: 'MAINTENANCE',
-          description: 'Vehicle service charges'
-        },
-        // ... more mock data
-      ];
-      
-      setPayables(mockPayables);
-      setLoading(false);
-    }, 1000);
+    fetchPayables();
   }, []);
+
+  const fetchPayables = async () => {
+    try {
+      setLoading(true);
+      const expenses = await expenseService.getAllExpenses();
+
+      const mappedPayables = (Array.isArray(expenses) ? expenses : []).map((expense) => {
+        const dueDate = expense.expenseDate || expense.dueDate || expense.createdAt || new Date().toISOString();
+        const normalizedStatus = String(expense.status || 'PENDING').toUpperCase();
+        const daysOverdue = dueDate ? Math.max(0, Math.ceil((new Date() - new Date(dueDate)) / 86400000)) : 0;
+
+        return {
+          ...expense,
+          id: expense.id,
+          billNumber: expense.expenseNumber || `EXP-${expense.id || 'N/A'}`,
+          vendorName: expense.vendorName || expense.vendor || expense.description || 'Supplier',
+          amount: Number(expense.amount || 0),
+          currency: expense.currency || 'ZAR',
+          dueDate,
+          status: normalizedStatus,
+          daysOverdue: normalizedStatus === 'OVERDUE' ? daysOverdue : (normalizedStatus === 'PENDING' ? Math.min(daysOverdue, 14) : 0),
+          category: expense.category || 'OTHER',
+          description: expense.description || 'Expense payable',
+        };
+      });
+
+      setPayables(mappedPayables);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching payables:', err);
+      setError('Failed to load payables. Please check your connection and try again.');
+      setPayables([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -166,18 +171,30 @@ const PayablePage = () => {
     }));
   };
 
-  const handleRecordPayment = () => {
-    console.log('Recording payable payment:', {
-      payableId: selectedPayable.id,
-      ...paymentForm
-    });
+  const handleRecordPayment = async () => {
+    if (!selectedPayable) return;
 
-    setPayables(prev => prev.map(p =>
-      p.id === selectedPayable.id
-        ? { ...p, status: 'PAID' }
-        : p
-    ));
-    handleCloseDialog();
+    try {
+      await expenseService.updateExpense(selectedPayable.id, {
+        ...selectedPayable,
+        status: 'PAID',
+        paymentDate: paymentForm.paymentDate,
+        paymentMethod: paymentForm.paymentMethod,
+        referenceNumber: paymentForm.referenceNumber,
+        notes: paymentForm.notes,
+      });
+
+      setPayables(prev => prev.map(p =>
+        p.id === selectedPayable.id
+          ? { ...p, status: 'PAID' }
+          : p
+      ));
+      setError('');
+      handleCloseDialog();
+    } catch (err) {
+      console.error('Error marking payable as paid:', err);
+      setError('Failed to record payment. Please try again.');
+    }
   };
 
   const formatCurrency = (amount, currency = 'ZAR') => {

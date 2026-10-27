@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -436,5 +435,4 @@ const TripList = () => {
   );
 };
 
->>>>>>> 964a610 (Initial frontend upload)
 export default TripList;

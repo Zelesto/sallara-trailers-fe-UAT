@@ -70,11 +70,7 @@ const SOURCE_TYPE_MAP = {
   'INSURANCE': 'Insurance',
 };
 
-<<<<<<< HEAD
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
-=======
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
->>>>>>> 964a610 (Initial frontend upload)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://trailers-backend.onrender.com/api';
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
