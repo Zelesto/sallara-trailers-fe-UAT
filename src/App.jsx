@@ -103,19 +103,151 @@ const theme = createTheme({
     primary: { main: "#1976d2" },
     secondary: { main: "#dc004e" },
     background: {
-      default: "#f5f5f5",
+      default: "#f5f7fb",
       paper: "#ffffff",
+    },
+    text: {
+      primary: "#1f2937",
+      secondary: "#475467",
     },
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    h4: { fontWeight: 700 },
+    h5: { fontWeight: 700 },
+    h6: { fontWeight: 700 },
+  },
+  shape: {
+    borderRadius: 12,
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: "#f5f7fb",
+          color: "#1f2937",
+        },
+        '*': {
+          boxSizing: 'border-box',
+        },
+      },
+    },
     MuiCard: {
       styleOverrides: {
         root: {
           borderRadius: 12,
-          boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+          boxShadow: "0 4px 16px rgba(15, 23, 42, 0.06)",
+          border: "1px solid rgba(15, 23, 42, 0.04)",
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+        },
+      },
+    },
+    MuiTextField: {
+      defaultProps: {
+        size: "small",
+      },
+      styleOverrides: {
+        root: {
+          width: '100%',
+          '& .MuiInputBase-root': {
+            borderRadius: 10,
+            backgroundColor: '#ffffff',
+            minHeight: 42,
+            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+          },
+          '& .MuiOutlinedInput-root': {
+            '& fieldset': {
+              borderColor: '#d0d7de',
+              borderWidth: 1,
+            },
+            '&:hover fieldset': {
+              borderColor: '#90caf9',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#1976d2',
+              borderWidth: 2,
+              boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.08)',
+            },
+          },
+          '& .MuiInputBase-input': {
+            fontSize: '0.92rem',
+            padding: '10.5px 14px',
+            color: '#1f2937',
+          },
+          '& .MuiInputLabel-root': {
+            color: '#475467',
+            fontSize: '0.9rem',
+          },
+          '& .MuiInputLabel-root.Mui-focused': {
+            color: '#1976d2',
+          },
+        },
+      },
+    },
+    MuiFormControl: {
+      styleOverrides: {
+        root: {
+          '& .MuiInputBase-root': {
+            borderRadius: 10,
+            backgroundColor: '#ffffff',
+            minHeight: 42,
+          },
+          '& .MuiOutlinedInput-root': {
+            '& fieldset': {
+              borderColor: '#d0d7de',
+              borderWidth: 1,
+            },
+            '&:hover fieldset': {
+              borderColor: '#90caf9',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#1976d2',
+              borderWidth: 2,
+              boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.08)',
+            },
+          },
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          fontSize: '0.9rem',
+          color: '#475467',
+          '&.Mui-focused': {
+            color: '#1976d2',
+          },
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        select: {
+          paddingTop: '10.5px',
+          paddingBottom: '10.5px',
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          fontSize: '0.9rem',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          textTransform: 'none',
+          fontWeight: 600,
+          boxShadow: 'none',
         },
       },
     },
