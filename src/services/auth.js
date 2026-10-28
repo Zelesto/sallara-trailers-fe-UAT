@@ -4,8 +4,9 @@ import api from './api';
 const authService = {
   login: async (email, password) => {
     try {
-      const payload = await api.post('/auth/login', { email, password });
-      const { token, user } = payload;
+      const response = await api.post('/auth/login', { email, password });
+      const payload = response?.data ?? response;
+      const { token, user } = payload ?? {};
 
       if (!token) throw new Error('No token returned from backend');
 
@@ -52,7 +53,9 @@ const authService = {
 
   getCurrentUser: async () => {
     try {
-      const user = await api.get('/auth/me');
+      const response = await api.get('/auth/me');
+      const payload = response?.data ?? response;
+      const user = payload?.user ?? payload;
       if (user) {
         localStorage.setItem('user', JSON.stringify(user));
         sessionStorage.setItem('user', JSON.stringify(user));
@@ -62,7 +65,7 @@ const authService = {
       console.error('Failed to get current user:', error);
       
       // If 401, clear auth data and dispatch session expiry
-      if (error.status === 401) {
+      if (error.status === 401 || error.response?.status === 401) {
         authService.clearAuthData();
         window.dispatchEvent(new CustomEvent('sessionExpired', {
           detail: { message: 'Your session has expired. Please log in again.' }
@@ -75,7 +78,8 @@ const authService = {
 
   register: async (userData) => {
     try {
-      return await api.post('/auth/register', userData);
+      const response = await api.post('/auth/register', userData);
+      return response?.data ?? response;
     } catch (error) {
       console.error('Registration error:', error);
       throw error.response?.data || error;
@@ -84,7 +88,8 @@ const authService = {
 
   updatePassword: async (oldPassword, newPassword) => {
     try {
-      return await api.put('/user/password', { oldPassword, newPassword });
+      const response = await api.put('/user/password', { oldPassword, newPassword });
+      return response?.data ?? response;
     } catch (error) {
       console.error('Password update error:', error);
       throw error.response?.data || error;
@@ -93,7 +98,8 @@ const authService = {
 
   updateProfile: async (profileData) => {
     try {
-      const updatedUser = await api.put('/user/profile', profileData);
+      const response = await api.put('/user/profile', profileData);
+      const updatedUser = response?.data ?? response;
       if (updatedUser) {
         localStorage.setItem('user', JSON.stringify(updatedUser));
         sessionStorage.setItem('user', JSON.stringify(updatedUser));
@@ -107,7 +113,8 @@ const authService = {
 
   getUserProfile: async () => {
     try {
-      return await api.get('/user/profile');
+      const response = await api.get('/user/profile');
+      return response?.data ?? response;
     } catch (error) {
       console.error('Get profile error:', error);
       throw error.response?.data || error;
@@ -174,10 +181,10 @@ const authService = {
     }
 
     try {
-      await api.get('/auth/verify');
+      await api.get('/auth/verify-token');
       return { valid: true };
     } catch (error) {
-      if (error.status === 401) {
+      if (error.status === 401 || error.response?.status === 401) {
         authService.clearAuthData();
         window.dispatchEvent(new CustomEvent('sessionExpired', {
           detail: { message: 'Your session has expired. Please log in again.' }
@@ -191,14 +198,15 @@ const authService = {
   refreshToken: async () => {
     try {
       const response = await api.post('/auth/refresh');
-      if (response.token) {
-        localStorage.setItem('token', response.token);
-        sessionStorage.setItem('token', response.token);
-        if (response.user) {
-          localStorage.setItem('user', JSON.stringify(response.user));
-          sessionStorage.setItem('user', JSON.stringify(response.user));
+      const payload = response?.data ?? response;
+      if (payload.token) {
+        localStorage.setItem('token', payload.token);
+        sessionStorage.setItem('token', payload.token);
+        if (payload.user) {
+          localStorage.setItem('user', JSON.stringify(payload.user));
+          sessionStorage.setItem('user', JSON.stringify(payload.user));
         }
-        return { success: true, token: response.token };
+        return { success: true, token: payload.token };
       }
       return { success: false, message: 'No token in refresh response' };
     } catch (error) {

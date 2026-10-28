@@ -1,5 +1,5 @@
 // src/services/invoice.service.js
-import api from './api';
+import api, { unwrapApiResponse, unwrapSingleApiResponse } from './api';
 
 const invoiceService = {
   // Get all invoices with pagination and filters
@@ -8,8 +8,8 @@ const invoiceService = {
       const response = await api.get('/invoices', { params });
       console.log('📋 Invoice service response:', response);
       
-      // Return the data in a consistent format
-      return response.data;
+      const payload = unwrapSingleApiResponse(response, { content: [], totalElements: 0, totalPages: 0 });
+      return payload && typeof payload === 'object' && 'content' in payload ? payload : { content: unwrapApiResponse(payload, []), totalElements: unwrapApiResponse(payload, []).length, totalPages: 1 };
     } catch (error) {
       console.error('❌ Invoice service error:', error);
       // Return empty array structure instead of throwing
@@ -21,7 +21,7 @@ const invoiceService = {
   getInvoiceById: async (id) => {
     try {
       const response = await api.get(`/invoices/${id}`);
-      return response.data;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error(`Error fetching invoice ${id}:`, error);
       throw error;
@@ -32,7 +32,7 @@ const invoiceService = {
   createInvoice: async (invoiceData) => {
     try {
       const response = await api.post('/invoices', invoiceData);
-      return response.data;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error('Error creating invoice:', error);
       throw error;
@@ -43,7 +43,7 @@ const invoiceService = {
   updateInvoice: async (id, invoiceData) => {
     try {
       const response = await api.put(`/invoices/${id}`, invoiceData);
-      return response.data;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error(`Error updating invoice ${id}:`, error);
       throw error;
@@ -64,7 +64,7 @@ const invoiceService = {
   markAsPaid: async (id) => {
     try {
       const response = await api.post(`/invoices/${id}/mark-as-paid`);
-      return response.data;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error(`Error marking invoice ${id} as paid:`, error);
       throw error;
@@ -75,7 +75,7 @@ const invoiceService = {
   sendInvoiceEmail: async (id) => {
     try {
       const response = await api.post(`/invoices/${id}/send-email`);
-      return response.data;
+      return unwrapSingleApiResponse(response, {});
     } catch (error) {
       console.error(`Error sending invoice ${id} email:`, error);
       throw error;
@@ -86,7 +86,12 @@ const invoiceService = {
   getInvoiceStats: async () => {
     try {
       const response = await api.get('/invoices/stats');
-      return response.data;
+      return unwrapSingleApiResponse(response, {
+        totalInvoices: 0,
+        overdueCount: 0,
+        totalPaid: 0,
+        totalOutstanding: 0
+      });
     } catch (error) {
       console.error('Error fetching invoice stats:', error);
       return {
@@ -102,7 +107,7 @@ const invoiceService = {
   getInvoicesByCustomer: async (customerId) => {
     try {
       const response = await api.get(`/invoices/customer/${customerId}`);
-      return response.data;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error(`Error fetching invoices for customer ${customerId}:`, error);
       return [];
@@ -113,7 +118,7 @@ const invoiceService = {
   getOverdueInvoices: async () => {
     try {
       const response = await api.get('/invoices/overdue');
-      return response.data;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error('Error fetching overdue invoices:', error);
       return [];

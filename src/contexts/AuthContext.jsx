@@ -76,34 +76,22 @@ export const AuthProvider = ({ children }) => {
 
       console.log('AuthContext login result:', result);
 
-      // Check different response structures
-      let token, user;
-
-      if (result.token && result.user) {
-        token = result.token;
-        user = result.user;
-      } else if (result.data?.token) {
-        token = result.data.token;
-        user = result.data.user;
-      } else if (result.access_token) {
-        token = result.access_token;
-        user = result.user;
-      } else {
-        console.error('Unexpected response structure:', result);
-        throw new Error('Invalid response from server');
-      }
+      // Support backend payloads in both direct-shape and axios-wrapped shapes
+      const payload = result?.data ?? result;
+      const token = payload?.token ?? result?.token;
+      const user = payload?.user ?? result?.user;
 
       if (!token) {
         throw new Error('No authentication token received');
       }
 
-      setUser(user);
+      setUser(user || null);
       setSessionExpired(false);
       setLoading(false);
 
       return {
         success: true,
-        user,
+        user: user || null,
         token
       };
     } catch (err) {

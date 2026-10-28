@@ -1,12 +1,12 @@
 // src/services/expense.js
-import api from './api';
+import api, { unwrapApiResponse, unwrapSingleApiResponse } from './api';
 
 const expenseService = {
   // Get all expenses
   getAllExpenses: async () => {
     try {
       const response = await api.get('/expenses');
-      return response;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       throw error;
@@ -17,7 +17,7 @@ const expenseService = {
   getExpenseById: async (id) => {
     try {
       const response = await api.get(`/expenses/${id}`);
-      return response;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error(`Error fetching expense ${id}:`, error);
       throw error;
@@ -28,7 +28,7 @@ const expenseService = {
   createExpense: async (expenseData) => {
     try {
       const response = await api.post('/expenses', expenseData);
-      return response;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error('Error creating expense:', error);
       throw error;
@@ -39,7 +39,7 @@ const expenseService = {
   updateExpense: async (id, expenseData) => {
     try {
       const response = await api.put(`/expenses/${id}`, expenseData);
-      return response;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error(`Error updating expense ${id}:`, error);
       throw error;
@@ -60,7 +60,7 @@ const expenseService = {
   getExpensesByCategory: async (category) => {
     try {
       const response = await api.get(`/expenses/category/${category}`);
-      return response;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error(`Error fetching expenses by category ${category}:`, error);
       throw error;
@@ -73,7 +73,7 @@ const expenseService = {
       const response = await api.get(`/expenses/date-range`, {
         params: { startDate, endDate }
       });
-      return response;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error('Error fetching expenses by date range:', error);
       throw error;
@@ -84,7 +84,7 @@ const expenseService = {
   getExpenseSummary: async () => {
     try {
       const response = await api.get('/expenses/summary');
-      return response;
+      return unwrapSingleApiResponse(response, {});
     } catch (error) {
       console.error('Error fetching expense summary:', error);
       throw error;
@@ -102,7 +102,7 @@ const expenseService = {
           'Content-Type': 'multipart/form-data'
         }
       });
-      return response;
+      return unwrapSingleApiResponse(response, {});
     } catch (error) {
       console.error(`Error uploading receipt for expense ${expenseId}:`, error);
       throw error;

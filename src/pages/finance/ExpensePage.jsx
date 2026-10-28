@@ -65,6 +65,26 @@ const EXPENSE_CATEGORY_OPTIONS = EXPENSE_CATEGORIES.map(cat => ({
   color: cat.color,
 }));
 
+const parseDateValue = (value) => {
+  if (!value) return null;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+};
+
+const formatDateToString = (value) => {
+  const parsed = parseDateValue(value);
+  return parsed ? parsed.toISOString().split('T')[0] : '';
+};
+
 const ExpensesPage = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
@@ -88,7 +108,7 @@ const ExpensesPage = () => {
     category: 'FUEL',
     amount: 0,
     currency: 'ZAR',
-    expenseDate: new Date().toISOString().split('T')[0],
+    expenseDate: new Date(),
     paymentMethod: 'CASH',
     accountId: '',
     vendorName: '',
@@ -111,9 +131,10 @@ const ExpensesPage = () => {
     try {
       setLoading(true);
       const data = await expenseService.getAllExpenses();
+      const expenseList = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : []);
       
       // Transform data to include display names
-      const transformedData = data.map(expense => ({
+      const transformedData = expenseList.map(expense => ({
         ...expense,
         categoryDisplayName: getDisplayName(EXPENSE_CATEGORIES, expense.category) || expense.category,
         statusDisplayName: getDisplayName(PAYMENT_STATUS_OPTIONS, expense.status) || expense.status,
@@ -147,7 +168,7 @@ const ExpensesPage = () => {
         category: expense.category || 'FUEL',
         amount: expense.amount || 0,
         currency: expense.currency || 'ZAR',
-        expenseDate: expense.expenseDate || new Date().toISOString().split('T')[0],
+        expenseDate: parseDateValue(expense.expenseDate) || new Date(),
         paymentMethod: expense.paymentMethod || 'CASH',
         accountId: expense.accountId || '',
         vendorName: expense.vendorName || '',
@@ -165,7 +186,7 @@ const ExpensesPage = () => {
         category: 'FUEL',
         amount: 0,
         currency: 'ZAR',
-        expenseDate: new Date().toISOString().split('T')[0],
+        expenseDate: new Date(),
         paymentMethod: 'CASH',
         accountId: '',
         vendorName: '',
@@ -196,16 +217,21 @@ const ExpensesPage = () => {
   const handleDateChange = (date) => {
     setFormData(prev => ({
       ...prev,
-      expenseDate: date ? date.toISOString().split('T')[0] : ''
+      expenseDate: parseDateValue(date)
     }));
   };
 
   const handleSubmit = async () => {
     try {
+      const payload = {
+        ...formData,
+        expenseDate: formatDateToString(formData.expenseDate)
+      };
+
       if (selectedExpense) {
-        await expenseService.updateExpense(selectedExpense.id, formData);
+        await expenseService.updateExpense(selectedExpense.id, payload);
       } else {
-        await expenseService.createExpense(formData);
+        await expenseService.createExpense(payload);
       }
       fetchExpenses();
       handleCloseDialog();

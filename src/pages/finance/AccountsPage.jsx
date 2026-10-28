@@ -102,9 +102,10 @@ const AccountsPage = () => {
     try {
       setLoading(true);
       const data = await accountService.getAllAccounts();
+      const accountList = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : []);
 
       // Transform data to include display names from enums
-      const transformedData = data.map(account => ({
+      const transformedData = accountList.map(account => ({
         ...account,
         typeDisplayName: getDisplayName(ACCOUNT_TYPES, account.type) || account.type,
         statusDisplayName: getDisplayName(PAYMENT_STATUS_OPTIONS, account.status) || account.status,
@@ -144,12 +145,21 @@ const AccountsPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
+    if (!selectedRow?.id) {
+      setDeleteDialogOpen(false);
+      return;
+    }
+
     try {
       await accountService.deleteAccount(selectedRow.id);
-      setAccounts(accounts.filter(acc => acc.id !== selectedRow.id));
+      setAccounts(prev => prev.filter(acc => acc.id !== selectedRow.id));
       setDeleteDialogOpen(false);
+      setSelectedRow(null);
+      setError('');
     } catch (err) {
       console.error('Error deleting account:', err);
+      setError('Failed to delete account. Please try again.');
+      setDeleteDialogOpen(false);
     }
   };
 

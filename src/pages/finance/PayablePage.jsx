@@ -104,8 +104,9 @@ const PayablePage = () => {
     try {
       setLoading(true);
       const expenses = await expenseService.getAllExpenses();
+      const expenseList = Array.isArray(expenses) ? expenses : (Array.isArray(expenses?.content) ? expenses.content : []);
 
-      const mappedPayables = (Array.isArray(expenses) ? expenses : []).map((expense) => {
+      const mappedPayables = expenseList.map((expense) => {
         const dueDate = expense.expenseDate || expense.dueDate || expense.createdAt || new Date().toISOString();
         const normalizedStatus = String(expense.status || 'PENDING').toUpperCase();
         const daysOverdue = dueDate ? Math.max(0, Math.ceil((new Date() - new Date(dueDate)) / 86400000)) : 0;

@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'https://trailers-backend.onrender.com/api';
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
 
 console.log('API Base URL from env:', import.meta.env.VITE_API_BASE_URL);
 console.log('Final API Base URL:', API_BASE_URL);
@@ -15,6 +15,28 @@ const api = axios.create({
     Accept: 'application/json',
   },
 });
+
+export const unwrapApiResponse = (payload, fallback = []) => {
+  if (Array.isArray(payload)) return payload;
+
+  if (payload && payload.data !== undefined) {
+    const data = payload.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.content)) return data.content;
+    if (Array.isArray(data.items)) return data.items;
+  }
+
+  if (payload && Array.isArray(payload.content)) return payload.content;
+  if (payload && Array.isArray(payload.items)) return payload.items;
+  return fallback;
+};
+
+export const unwrapSingleApiResponse = (payload, fallback = null) => {
+  if (payload && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    return payload.data ?? fallback;
+  }
+  return payload ?? fallback;
+};
 
 // Flag to prevent multiple redirects
 let isRedirecting = false;
@@ -76,7 +98,7 @@ api.interceptors.response.use(
     console.log(
       `✅ ${response.config.method?.toUpperCase()} ${response.config.url}`
     );
-    return response.data;
+    return response;
   },
   (error) => {
     console.group('❌ API Error');
@@ -131,7 +153,8 @@ api.interceptors.response.use(
       const isAuthRequest = 
         url.includes('/auth/login') ||
         url.includes('/auth/refresh') ||
-        url.includes('/auth/verify');
+        url.includes('/auth/verify') ||
+        url.includes('/auth/verify-token');
 
       const isAuthPage = window.location.pathname.includes('/login');
 
@@ -299,7 +322,7 @@ api.checkSession = async () => {
   }
 
   try {
-    await api.get('/auth/verify');
+    await api.get('/auth/verify-token');
     return { valid: true };
   } catch (error) {
     if (error.isSessionExpired) {

@@ -1,12 +1,12 @@
 // src/services/account.js
-import api from './api';
+import api, { unwrapApiResponse, unwrapSingleApiResponse } from './api';
 
 const accountService = {
   // Get all accounts
   getAllAccounts: async () => {
     try {
       const response = await api.get('/accounts');
-      return response.data;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
       throw error;
@@ -17,7 +17,7 @@ const accountService = {
   getAccountById: async (id) => {
     try {
       const response = await api.get(`/accounts/${id}`);
-      return response.data;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error(`Error fetching account ${id}:`, error);
       throw error;
@@ -28,7 +28,7 @@ const accountService = {
   createAccount: async (accountData) => {
     try {
       const response = await api.post('/accounts', accountData);
-      return response.data;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error('Error creating account:', error);
       throw error;
@@ -39,7 +39,7 @@ const accountService = {
   updateAccount: async (id, accountData) => {
     try {
       const response = await api.put(`/accounts/${id}`, accountData);
-      return response.data;
+      return unwrapSingleApiResponse(response);
     } catch (error) {
       console.error(`Error updating account ${id}:`, error);
       throw error;
@@ -55,24 +55,25 @@ const accountService = {
       throw error;
     }
   },
-async getAccountsByType(type) {
+
+  getAccountsByType: async (type) => {
     try {
       const response = await api.get(`/accounts?type=${type}`);
-      return response.data;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error(`Error fetching ${type} accounts:`, error);
       throw error;
     }
   },
 
-  async getFuelAccounts() {
-      return this.getAccountsByType('FUEL');
-    },
+  getFuelAccounts: async () => {
+    return accountService.getAccountsByType('FUEL');
+  },
   // Get account statements
   getAccountStatements: async (accountId) => {
     try {
       const response = await api.get(`/accounts/${accountId}/statements`);
-      return response.data;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error(`Error fetching statements for account ${accountId}:`, error);
       throw error;
@@ -83,7 +84,7 @@ async getAccountsByType(type) {
   getAccountReconciliations: async (accountId) => {
     try {
       const response = await api.get(`/accounts/${accountId}/reconciliations`);
-      return response.data;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error(`Error fetching reconciliations for account ${accountId}:`, error);
       throw error;

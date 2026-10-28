@@ -220,7 +220,9 @@ const MainContentWrapper = styled(Box)(({ theme }) => ({
   },
 }));
 
-const UserProfileContainer = styled(Box)(({ theme, collapsed }) => ({
+const UserProfileContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'collapsed',
+})(({ theme, collapsed }) => ({
   borderTop: '1px solid #ECECEC',
   padding: collapsed ? theme.spacing(1, 0.75) : theme.spacing(1.5, 2),
   position: 'fixed',

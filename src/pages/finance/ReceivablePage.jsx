@@ -49,7 +49,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../services/api';
 
 // Import enums
 import {
@@ -70,7 +70,7 @@ const SOURCE_TYPE_MAP = {
   'INSURANCE': 'Insurance',
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://trailers-backend.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -172,8 +172,10 @@ const ReceivablesPage = () => {
   const fetchReceivables = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/account-transactions`);
-      const creditTransactions = response.data.filter(tx => tx.direction === 'CREDIT');
+      const response = await api.get('/account-transactions');
+      const payload = response?.data ?? response;
+      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.content) ? payload.content : []);
+      const creditTransactions = list.filter(tx => tx.direction === 'CREDIT');
       
       const formattedTransactions = creditTransactions.map(transaction => ({
         ...transaction,
@@ -293,7 +295,7 @@ const ReceivablesPage = () => {
         paymentMethod: paymentForm.paymentMethod,
       };
       
-      await axios.post(`${API_BASE_URL}/account-transactions`, paymentTransaction);
+      await api.post('/account-transactions', paymentTransaction);
       
       setSnackbar({
         open: true,
@@ -316,7 +318,7 @@ const ReceivablesPage = () => {
   const deleteTransaction = async (id) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
       try {
-        await axios.delete(`${API_BASE_URL}/account-transactions/${id}`);
+        await api.delete(`/account-transactions/${id}`);
         setSnackbar({
           open: true,
           message: 'Transaction deleted successfully!',

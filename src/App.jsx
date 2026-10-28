@@ -59,6 +59,8 @@ const CustomerDetails = lazy(() => import("./pages/customer/CustomerDetails"));
 const FinanceDashboard = lazy(() => import("./pages/finance/FinanceDashboard"));
 const BillingPage = lazy(() => import("./pages/Billing"));         
 const AccountsPage = lazy(() => import("./pages/finance/AccountsPage"));
+const AccountForm = lazy(() => import("./pages/finance/AccountForm"));
+const AccountDetails = lazy(() => import("./pages/finance/AccountDetails"));
 const ExpensesPage = lazy(() => import("./pages/finance/ExpensePage"));
 const InvoicesPage = lazy(() => import("./pages/finance/InvoicePage"));
 const ReceivablesPage = lazy(() => import("./pages/finance/ReceivablePage"));
@@ -408,6 +410,9 @@ function App() {
                       <Route path="finance" element={<FinanceDashboard />} />
                       <Route path="billing" element={<BillingPage />} />
                       <Route path="finance/accounts" element={<AccountsPage />} />
+                      <Route path="finance/accounts/new" element={<AccountForm />} />
+                      <Route path="finance/accounts/:id" element={<AccountDetails />} />
+                      <Route path="finance/accounts/:id/edit" element={<AccountForm />} />
                       <Route path="finance/expenses" element={<ExpensesPage />} />
                       <Route path="finance/invoices" element={<InvoicesPage />} />
                       <Route path="finance/receivables" element={<ReceivablesPage />} />

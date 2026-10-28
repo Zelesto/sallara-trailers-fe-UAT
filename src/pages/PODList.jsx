@@ -362,7 +362,7 @@ const PODList = () => {
 
   const handleExport = async () => {
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://trailers-backend.onrender.com/api';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
       const timestamp = new Date().getTime();
       const exportUrl = `${baseUrl.replace(/\/$/, '')}/pods/export?format=csv&_t=${timestamp}`;
       window.open(exportUrl, '_blank');

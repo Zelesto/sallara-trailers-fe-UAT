@@ -551,7 +551,7 @@ export const podService = {
    * Get POD document URL for viewing/downloading
    */
   getPodDocumentUrl: (id, download = false) => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://trailers-backend.onrender.com/api';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
     const action = download ? 'download' : 'view';
     const timestamp = new Date().getTime();
     return `${baseUrl.replace(/\/$/, '')}/pods/${id}/${action}?_t=${timestamp}`;
