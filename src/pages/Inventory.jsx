@@ -782,64 +782,113 @@ const Inventory = () => {
     setShowEditIssueDialog(true);
   };
 
-  const handleSubmitEditIssue = async () => {
-    if (!selectedIssue || !editIssueType) return;
-    setError(null);
-    const iso = fromDTLocal(editIssueForm.issueDate);
-    if (!iso) { setError('Invalid date'); return; }
-    const payload = {
-      issueDate: iso,
-      status: editIssueForm.status,
-      notes: editIssueForm.notes,
-      items: editIssueForm.items.map(it => ({
-        itemId: Number(it.itemId),
-        quantity: Number(it.quantity),
-        condition: it.condition,
-        notes: it.notes || '',
-      })),
-    };
-    setSubmitting(true);
-    try {
-      const path = editIssueType === 'vehicle'
-        ? `/inventory/vehicle-issues/${selectedIssue.id}`
-        : `/inventory/driver-issues/${selectedIssue.id}`;
-      await api.put(path, payload);
-      showSuccess(`${editIssueType === 'vehicle' ? 'Vehicle' : 'Driver'} issue updated`);
-      setShowEditIssueDialog(false);
-      await reload();
-    } catch (err) {
-      setError(
-        `Update failed: ${errMsg(err, 'unknown')}. ` +
-        `If you see 404/405, add PUT ${editIssueType === 'vehicle' ? '/vehicle-issues' : '/driver-issues'}/{id} to the InventoryController.`
-      );
-    } finally { setSubmitting(false); }
+ const handleSubmitEditIssue = async () => {
+  if (!selectedIssue || !editIssueType) return;
+  setError(null);
+
+  const iso = fromDTLocal(editIssueForm.issueDate);
+  if (!iso) { setError('Invalid issue date'); return; }
+
+  // ⚠️ The backend PUT reuses the POST DTO, which requires driverId
+  // (and vehicleId for vehicle issues). Omitting them causes a 500.
+  const basePayload = {
+    issueDate: iso,
+    status: editIssueForm.status,
+    notes: editIssueForm.notes || '',
+    items: editIssueForm.items.map(it => ({
+      itemId: Number(it.itemId),
+      quantity: Number(it.quantity),
+      condition: it.condition || 'NEW',
+      notes: it.notes || '',
+    })),
   };
 
-  const openDeleteIssue = (issue, type) => {
-    setDeleteIssueTarget({ issue, type });
-    setShowDeleteIssueDialog(true);
-  };
+  const payload = editIssueType === 'driver'
+    ? {
+        ...basePayload,
+        driverId: selectedIssue.driverId,
+        tripId: selectedIssue.tripId ?? null,
+      }
+    : {
+        ...basePayload,
+        vehicleId: selectedIssue.vehicleId,
+        driverId: selectedIssue.driverId,
+        tripId: selectedIssue.tripId ?? null,
+      };
+
+  console.log(`📤 PUT /inventory/${editIssueType}-issues/${selectedIssue.id}`, payload);
+
+  setSubmitting(true);
+  const path = `/inventory/${editIssueType}-issues/${selectedIssue.id}`;
+  try {
+    await api.put(path, payload);
+    showSuccess(`${editIssueType === 'vehicle' ? 'Vehicle' : 'Driver'} issue updated`);
+    setShowEditIssueDialog(false);
+    await reload();
+  } catch (err) {
+    const status = err?.response?.status ?? err?.status;
+    const detail =
+      err?.response?.data?.detail ||
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      'unknown error';
+
+    // Friendlier fallback: try PATCH with the same payload (some backends
+    // expose only PATCH for partial updates)
+    if (status === 500 || status === 405) {
+      try {
+        console.warn(`PUT ${path} failed (${status}) — trying PATCH as fallback`);
+        await api.patch(path, payload);
+        showSuccess(`${editIssueType === 'vehicle' ? 'Vehicle' : 'Driver'} issue updated (via PATCH)`);
+        setShowEditIssueDialog(false);
+        await reload();
+        return;
+      } catch (patchErr) {
+        console.warn(`PATCH ${path} also failed:`, patchErr?.message);
+      }
+    }
+
+    setError(
+      `Update failed (${status}): ${detail}. ` +
+      `If this keeps failing, check Render → your backend service → Logs for the stack ` +
+      `trace at PUT ${path}. The 500 comes from the backend service, not the frontend — ` +
+      `the controller may need a proper update DTO that accepts the current issue fields.`
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleDeleteIssueConfirm = async () => {
-    if (!deleteIssueTarget) return;
-    const { issue, type } = deleteIssueTarget;
-    setSubmitting(true);
-    try {
-      const path = type === 'vehicle'
-        ? `/inventory/vehicle-issues/${issue.id}`
-        : `/inventory/driver-issues/${issue.id}`;
-      await api.delete(path);
-      showSuccess(`${type === 'vehicle' ? 'Vehicle' : 'Driver'} issue deleted`);
-      setShowDeleteIssueDialog(false);
-      setDeleteIssueTarget(null);
-      await reload();
-    } catch (err) {
-      setError(
-        `Delete failed: ${errMsg(err, 'unknown')}. ` +
-        `If you see 404/405, add DELETE ${type === 'vehicle' ? '/vehicle-issues' : '/driver-issues'}/{id} to the InventoryController.`
-      );
-    } finally { setSubmitting(false); }
-  };
+  if (!deleteIssueTarget) return;
+  const { issue, type } = deleteIssueTarget;
+  const path = `/inventory/${type}-issues/${issue.id}`;
+
+  setSubmitting(true);
+  try {
+    await api.delete(path);
+    showSuccess(`${type === 'vehicle' ? 'Vehicle' : 'Driver'} issue deleted`);
+    setShowDeleteIssueDialog(false);
+    setDeleteIssueTarget(null);
+    await reload();
+  } catch (err) {
+    const status = err?.response?.status ?? err?.status;
+    const detail =
+      err?.response?.data?.detail ||
+      err?.response?.data?.message ||
+      err?.message ||
+      'unknown error';
+    setError(
+      `Delete failed (${status}): ${detail}. ` +
+      `If this returns 404 or 405, the backend has no DELETE endpoint for ` +
+      `${type}-issues yet — you'd need to add it to the controller.`
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   // ============================================================
   // RETURNS / SWAPS
