@@ -60,23 +60,22 @@ import {
    ============================================================ */
 
 /**
- * Unwrap anything the backend (or the service layer) returns into a page:
+ * Unwrap anything the backend (or service layer) returns into a page:
  *   { content: [], totalElements: number, totalPages: number }
  *
  * Handles:
  *   - raw array
- *   - { content: [...] }                                        (Spring Page)
- *   - { data: [...] } or { data: { content: [...] } }           (axios / extra nesting)
- *   - { content: { "0": {...}, "1": {...} } }                   (list serialized as map)
- *   - { content: { items: [...] } }                             (nested under items/list/records/rows/results)
- *   - { content: null } or { content: {} }                      (empty)
- *   - axios wrapper around any of the above
+ *   - { content: [...] }
+ *   - { data: [...] } / { data: { content: [...] } } / axios wrapper of any of the above
+ *   - { content: { items: [...] } }  → digs into items/list/records/rows/results
+ *   - { content: { "0": {...}, "1": {...} } }  → list serialized as object map
+ *   - content: null / {} / scalar → empty
+ *   - deeply nested shapes → recursive search up to depth 4
  */
 const unwrapPodsPage = (res) => {
   const empty = { content: [], totalElements: 0, totalPages: 0 };
   if (!res) return empty;
 
-  // Peel the axios wrapper if present
   let payload = res;
   if (
     payload.data !== undefined &&
@@ -85,17 +84,8 @@ const unwrapPodsPage = (res) => {
     payload = payload.data;
   }
 
-  // Raw array
   if (Array.isArray(payload)) {
     return { content: payload, totalElements: payload.length, totalPages: 1 };
-  }
-
-  // Some backends wrap the page again under `data`
-  if (
-    payload?.data &&
-    (Array.isArray(payload.data) || Array.isArray(payload.data?.content))
-  ) {
-    payload = payload.data;
   }
 
   if (!payload || typeof payload !== 'object') {
@@ -103,45 +93,55 @@ const unwrapPodsPage = (res) => {
     return empty;
   }
 
-  // Extract content from whatever shape it's in
-  let content = payload.content;
+  // Recursively hunt for the first array inside `content`
+  const findArray = (node, depth = 0) => {
+    if (!node || depth > 4) return null;
+    if (Array.isArray(node)) return node;
+    if (typeof node !== 'object') return null;
 
-  if (content == null) {
-    content = [];
-  } else if (Array.isArray(content)) {
-    // happy path
-  } else if (typeof content === 'object') {
-    // Some backends serialize a list as an object map { "0": {...}, "1": {...} }
-    // or nest it under items/list/records/rows/results.
-    const nestedKey = ['items', 'list', 'records', 'rows', 'results'].find(
-      (k) => Array.isArray(content[k])
-    );
-    if (nestedKey) {
-      content = content[nestedKey];
-    } else {
-      const values = Object.values(content);
-      if (values.length > 0 && values.every((v) => v && typeof v === 'object')) {
-        content = values;
-      } else {
-        // Truly empty or unrecognised object
-        console.warn(
-          '⚠️ PODs content is an object with no extractable array. Raw content:',
-          content
-        );
-        content = [];
+    // Prefer common container keys
+    const preferred = ['items', 'list', 'records', 'rows', 'results', 'content', 'data', 'pods'];
+    for (const k of preferred) {
+      if (node[k] !== undefined) {
+        const found = findArray(node[k], depth + 1);
+        if (found) return found;
       }
     }
-  } else {
-    // string / number / boolean — unexpected, treat as empty
-    console.warn('⚠️ PODs content is a scalar, expected array/object:', content);
-    content = [];
+    // Last resort: any array value
+    for (const v of Object.values(node)) {
+      const found = findArray(v, depth + 1);
+      if (found) return found;
+    }
+    // Or if every value looks like a row, it's a Map-shaped list
+    const vals = Object.values(node);
+    if (vals.length > 0 && vals.every((v) => v && typeof v === 'object' && !Array.isArray(v))) {
+      return vals;
+    }
+    return null;
+  };
+
+  let content = Array.isArray(payload.content) ? payload.content : null;
+
+  if (!content) {
+    const rawContent = payload.content;
+    console.warn(
+      '🔬 POD content is not an array. Keys:',
+      rawContent && typeof rawContent === 'object' ? Object.keys(rawContent) : rawContent
+    );
+    console.warn('🔬 POD content raw sample:', rawContent);
+    content = findArray(rawContent) || [];
   }
 
-  return {
-    content,
-    totalElements: Number(payload.totalElements) || content.length || 0,
-    totalPages: Number(payload.totalPages) || (content.length > 0 ? 1 : 0),
-  };
+  const totalElements = Number(payload.totalElements) || content.length || 0;
+  const totalPages = Number(payload.totalPages) || (content.length > 0 ? 1 : 0);
+
+  if (content.length > 0 && Number(payload.totalElements) === 0) {
+    console.warn(
+      `🔬 POD pagination mismatch: extracted ${content.length} rows but totalElements=0. Backend bug — rowCount will be forced to extracted length.`
+    );
+  }
+
+  return { content, totalElements, totalPages };
 };
 
 /* ============================================================
@@ -188,12 +188,7 @@ const StatCard = React.memo(
           },
         }}
       >
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="flex-start"
-          spacing={1}
-        >
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="caption"
@@ -272,7 +267,7 @@ const StatCard = React.memo(
 );
 
 /* ============================================================
-   MAIN COMPONENT
+   MAIN
    ============================================================ */
 
 const PODList = () => {
@@ -280,7 +275,6 @@ const PODList = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // State
   const [pods, setPods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -293,17 +287,14 @@ const PODList = () => {
     pendingDebrief: 0,
   });
 
-  // Pagination
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 20 });
   const [rowCount, setRowCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Debounced search
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
@@ -327,11 +318,8 @@ const PODList = () => {
       if (debouncedSearchTerm) params.search = debouncedSearchTerm;
 
       const response = await podService.getAllPods(params);
-
-      // ✅ Bulletproof unwrap — array guaranteed
       const { content, totalElements, totalPages: pages } = unwrapPodsPage(response);
 
-      // Transform each row defensively
       let transformed = content.map((pod) => ({
         ...pod,
         tripNumber: pod?.tripNumber || pod?.trip?.tripNumber || pod?.tripId || 'N/A',
@@ -341,7 +329,6 @@ const PODList = () => {
         isScanned: pod?.source === 'SCANNED' || pod?.status === 'SCANNED',
       }));
 
-      // Client-side Type filter
       if (filterType !== 'ALL') {
         transformed = transformed.filter(
           (p) => (p.source || '').toUpperCase() === filterType
@@ -354,7 +341,6 @@ const PODList = () => {
     } catch (err) {
       console.error('Error loading PODs:', err);
       setError(err?.message || 'Failed to load PODs');
-      // Reset state so a bad response can never leave the grid in a crash state
       setPods([]);
       setRowCount(0);
       setTotalPages(0);
@@ -526,10 +512,7 @@ const PODList = () => {
             label={`#${params.value}`}
             size="small"
             variant="outlined"
-            sx={{
-              fontSize: { xs: '0.5rem', sm: '0.6rem' },
-              height: { xs: 16, sm: 18 },
-            }}
+            sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, height: { xs: 16, sm: 18 } }}
           />
         ),
       },
@@ -764,12 +747,8 @@ const PODList = () => {
         </Alert>
       )}
 
-      {/* Stats Cards */}
-      <Grid
-        container
-        spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
-        sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}
-      >
+      {/* Stats */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
         <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
           <StatCard title="Total" value={stats.total} icon={ReceiptIcon} color="primary" />
         </Grid>
@@ -792,12 +771,7 @@ const PODList = () => {
           />
         </Grid>
         <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
-          <StatCard
-            title="Delivered"
-            value={stats.delivered}
-            icon={CheckCircleIcon}
-            color="success"
-          />
+          <StatCard title="Delivered" value={stats.delivered} icon={CheckCircleIcon} color="success" />
         </Grid>
         <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
           <StatCard title="Rejected" value={stats.rejected} icon={CancelIcon} color="error" />
