@@ -93,17 +93,51 @@ const formatDateForAPI = (date) => {
   return dayjs(date).format('YYYY-MM-DDTHH:mm:ss');
 };
 
+/**
+ * Unwraps a list from any of the shapes our services currently return:
+ *   - raw array                          → [ … ]
+ *   - axios response wrapping an array   → { data: [ … ] }
+ *   - axios response wrapping a page     → { data: { content: [ … ] } }
+ *   - paginated object                   → { content: [ … ] }
+ *   - axios response of a page           → { data: { data: [ … ] } } (defensive)
+ */
+const unwrapList = (res) => {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+
+  const payload = res.data !== undefined ? res.data : res;
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.content)) return payload.content;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+
+  if (Array.isArray(res.content)) return res.content;
+  return [];
+};
+
 const filterActiveVehicles = (vehicles) =>
   (vehicles || []).filter(v =>
     ['ACTIVE', 'OPERATIONAL', 'AVAILABLE'].includes(v.status?.toUpperCase()) ||
     v.available === true
   );
 
+// Only exclude drivers that genuinely cannot drive. Drivers who are
+// currently IN_TRIP / ASSIGNED are still selectable so trips can be
+// re-assigned without changing the driver's own status first.
+const INACTIVE_DRIVER_STATUSES = [
+  'INACTIVE',
+  'SUSPENDED',
+  'ON_LEAVE',
+  'TERMINATED',
+  'DISMISSED',
+];
+
 const filterAvailableDrivers = (drivers) =>
-  (drivers || []).filter(d =>
-    ['ACTIVE', 'AVAILABLE'].includes(d.status?.toUpperCase()) &&
-    d.licenseValid !== false
-  );
+  (drivers || []).filter(d => {
+    const st = (d.status || '').toUpperCase();
+    if (INACTIVE_DRIVER_STATUSES.includes(st)) return false;
+    if (d.licenseValid === false) return false;
+    return true;
+  });
 
 /**
  * When editing, the vehicle/driver already on the trip is usually busy (e.g. IN_TRIP),
@@ -122,6 +156,21 @@ const personName = (p) =>
   [p?.firstName, p?.lastName].filter(Boolean).join(' ') ||
   p?.email ||
   `User #${p?.id}`;
+
+const driverLabel = (d) => {
+  const name = personName(d);
+  const license = d?.licenseNumber ? ` — ${d.licenseNumber}` : '';
+  const st = (d?.status || '').toUpperCase();
+  const statusTag =
+    st && st !== 'ACTIVE' && st !== 'AVAILABLE' ? ` (${st})` : '';
+  return `${name}${license}${statusTag}`;
+};
+
+const vehicleLabel = (v) => {
+  const reg = v?.registrationNumber || v?.registration || `Vehicle #${v?.id}`;
+  const desc = [v?.make, v?.model].filter(Boolean).join(' ');
+  return desc ? `${reg} — ${desc}` : reg;
+};
 
 const NUMERIC_FIELDS = {
   cargoWeight: 'Weight',
@@ -181,10 +230,10 @@ const getDefaultPlannedDates = () => {
   const now = new Date();
   const startDate = new Date(now);
   startDate.setMinutes(0, 0, 0);
-  
+
   const endDate = new Date(startDate);
   endDate.setHours(endDate.getHours() + 8);
-  
+
   return {
     plannedStartDate: startDate.toISOString(),
     plannedEndDate: endDate.toISOString()
@@ -280,10 +329,10 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
     >
       <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
         <LocationOn sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-        <Typography 
-          variant="subtitle2" 
-          sx={{ 
-            fontWeight: 600, 
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 600,
             fontSize: { xs: '0.7rem', sm: '0.8rem' },
             color: '#111827',
           }}
@@ -291,10 +340,10 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
           {label}
         </Typography>
         {address.latitude && address.longitude && (
-          <Chip 
-            size="small" 
-            label="📍 Geocoded" 
-            color="success" 
+          <Chip
+            size="small"
+            label="📍 Geocoded"
+            color="success"
             variant="outlined"
             sx={{ height: { xs: 16, sm: 20 }, fontSize: { xs: '0.45rem', sm: '0.6rem' } }}
           />
@@ -311,7 +360,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
             size="small"
             placeholder="e.g., 16275 Imbuzana Street"
             disabled={disabled}
-            sx={{ 
+            sx={{
               '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
               '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
             }}
@@ -336,7 +385,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
                 error={!!errors.city}
                 helperText={errors.city || 'Start typing for suggestions'}
                 disabled={disabled}
-                sx={{ 
+                sx={{
                   '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                   '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                 }}
@@ -368,7 +417,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
             placeholder="e.g., 1475"
             inputProps={{ maxLength: 4 }}
             disabled={disabled}
-            sx={{ 
+            sx={{
               '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
               '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
             }}
@@ -409,9 +458,9 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' } }}>
             Coordinates (optional)
           </Typography>
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={1.5} 
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
             sx={{ mt: 0.75 }}
           >
             <TextField
@@ -423,7 +472,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
               size="small"
               placeholder="e.g., -26.3378"
               InputProps={{ inputProps: { step: 'any' } }}
-              sx={{ 
+              sx={{
                 '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                 '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
               }}
@@ -437,7 +486,7 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
               size="small"
               placeholder="e.g., 28.2023"
               InputProps={{ inputProps: { step: 'any' } }}
-              sx={{ 
+              sx={{
                 '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                 '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
               }}
@@ -453,15 +502,15 @@ function AddressSection({ label, address, onChange, errors = {}, disabled = fals
    COMPONENT: DepotSection
    ============================================================ */
 
-function DepotSection({ 
-  depots, 
-  selectedDepot, 
-  onDepotSelect, 
-  departureType, 
-  onDepartureTypeChange, 
+function DepotSection({
+  depots,
+  selectedDepot,
+  onDepotSelect,
+  departureType,
+  onDepartureTypeChange,
   departureLocation,
   onLocationChange,
-  departureOptions 
+  departureOptions
 }) {
   return (
     <Paper
@@ -477,10 +526,10 @@ function DepotSection({
     >
       <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
         <WarehouseIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-        <Typography 
-          variant="subtitle2" 
-          sx={{ 
-            fontWeight: 600, 
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 600,
             fontSize: { xs: '0.7rem', sm: '0.8rem' },
             color: '#111827',
           }}
@@ -546,7 +595,7 @@ function DepotSection({
                   value={selectedDepot.fullAddress || ''}
                   size="small"
                   disabled
-                  sx={{ 
+                  sx={{
                     '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                     '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } }
                   }}
@@ -565,7 +614,7 @@ function DepotSection({
               onChange={(e) => onLocationChange(e.target.value)}
               size="small"
               placeholder="Enter custom departure location..."
-              sx={{ 
+              sx={{
                 '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                 '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
               }}
@@ -594,7 +643,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   // Get enums from context
   const {
     enums,
@@ -707,30 +756,43 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
     setLoading(true);
     setError(null);
 
+    // Helper that logs failures instead of silently swallowing them, so an
+    // empty dropdown has a visible reason in the console.
+    const safe = (promise, label) =>
+      promise.catch((err) => {
+        console.warn(`[TripForm] Failed to load ${label}:`, err?.message || err);
+        return [];
+      });
+
     try {
       const [vRes, dRes, cRes, depotRes] = await Promise.all([
-        vehicleService.getAllVehicles().catch(() => []),
-        driverService.getAllDrivers().catch(() => []),
-        customerService.getActiveCustomers().catch(() => []),
-        depotService.getAllDepots().catch(() => [])
+        safe(vehicleService.getAllVehicles(), 'vehicles'),
+        safe(driverService.getAllDrivers(), 'drivers'),
+        safe(customerService.getActiveCustomers(), 'customers'),
+        safe(depotService.getAllDepots(), 'depots'),
       ]);
 
-      const allVehicles = Array.isArray(vRes) ? vRes : (vRes?.content || []);
-      const allDrivers = Array.isArray(dRes) ? dRes : (dRes?.content || []);
+      // Services currently return the axios wrapper ({ data: [...] }), but we
+      // accept raw arrays and paginated shapes too, so this keeps working if
+      // the service layer is normalised later.
+      const allVehicles = unwrapList(vRes);
+      const allDrivers = unwrapList(dRes);
+      const allCustomers = unwrapList(cRes);
+      const allDepots = unwrapList(depotRes);
+
       const assignedVehicleId = initialData?.vehicleId ?? initialData?.vehicle?.id;
       const assignedDriverId = initialData?.driverId ?? initialData?.driver?.id;
 
       setVehicles(keepAssigned(filterActiveVehicles(allVehicles), allVehicles, assignedVehicleId));
       setDrivers(keepAssigned(filterAvailableDrivers(allDrivers), allDrivers, assignedDriverId));
-      setCustomers(Array.isArray(cRes) ? cRes : (cRes?.content || []));
-      setDepots(Array.isArray(depotRes) ? depotRes : (depotRes?.content || []));
+      setCustomers(allCustomers);
+      setDepots(allDepots);
 
       // Supervisors: use the authenticated API client. The previous raw fetch('/api/users')
       // had no auth token and went to the FRONTEND host on Render, so the list was always empty.
       try {
         const usersResponse = await api.get('/users', { params: { roles: 'MANAGER,SUPER_ADMIN' } });
-        const usersData = usersResponse?.data !== undefined ? usersResponse.data : usersResponse;
-        setSupervisors(Array.isArray(usersData) ? usersData : (usersData?.content || usersData?.data || []));
+        setSupervisors(unwrapList(usersResponse));
       } catch (supErr) {
         console.warn('Could not load supervisors:', supErr?.message);
         setSupervisors([]);
@@ -852,7 +914,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
       populatedForRef.current = initialData.id;
       originalStatusRef.current = initialData.status || null;
       console.log('🔍 Populating form with initial data:', initialData);
-      
+
       setForm(prev => ({
         ...prev,
         ...initialData,
@@ -997,21 +1059,21 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   const findOrCreateLoad = async (tripResult) => {
     try {
       const referenceNumber = tripResult.referenceNumber || form.referenceNumber;
-      
+
       if (!referenceNumber) {
         console.log('📦 No reference number provided. Creating new load...');
         return await createNewLoad(tripResult);
       }
 
       console.log(`🔍 Checking for existing load with reference: ${referenceNumber}`);
-      
+
       let existingLoad = null;
       try {
-        const searchResult = await loadService.searchLoads({ 
+        const searchResult = await loadService.searchLoads({
           referenceNumber: referenceNumber,
-          size: 100 
+          size: 100
         });
-        
+
         // Only link to a load whose reference matches EXACTLY and that belongs to the same
         // customer (search may be a partial match - "123" also finds "1234").
         const wanted = String(referenceNumber).trim().toUpperCase();
@@ -1196,7 +1258,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         console.log('📤 Creating new trip...');
         result = await tripService.createTrip(payload);
         console.log('✅ Trip created successfully:', result);
-        
+
         console.log('📦 Finding or creating load for trip...');
         const loadResult = await findOrCreateLoad(result);
         if (loadResult) {
@@ -1233,13 +1295,13 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
     } catch (err) {
       console.error('❌ Trip error:', err);
-      
+
       // Create-only: in EDIT mode a 404 means the trip no longer exists and must not show "success"
       if (mode !== 'edit' && err.response?.status === 404 && err.response?.data?.detail?.includes('Trip not found')) {
         console.warn('⚠️ Trip was created but not found on refresh - race condition');
         setSuccessMessage('Trip created successfully!');
         setIsSuccess(true);
-        
+
         if (fetchTrips) {
           try {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1248,7 +1310,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
             console.error('⚠️ Error refreshing trip list after race condition:', refreshError);
           }
         }
-        
+
         setTimeout(() => {
           if (onClose) onClose();
         }, 1500);
@@ -1293,9 +1355,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   );
 
   const renderError = () => error && (
-    <Alert 
-      severity="error" 
-      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+    <Alert
+      severity="error"
+      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
       onClose={() => setError(null)}
     >
       {error}
@@ -1303,9 +1365,9 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
   );
 
   const renderSuccess = () => successMessage && (
-    <Alert 
-      severity="success" 
-      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+    <Alert
+      severity="success"
+      sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
       onClose={() => setSuccessMessage(null)}
     >
       {successMessage}
@@ -1322,7 +1384,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
         value={form[field] || ''}
         label={label}
         onChange={(e) => handleFieldChange(field, e.target.value)}
-        sx={{ 
+        sx={{
           fontSize: { xs: '0.7rem', sm: '0.75rem' },
           borderRadius: '8px',
         }}
@@ -1357,26 +1419,26 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Dialog 
-        open={open} 
-        onClose={onClose} 
-        maxWidth="lg" 
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="lg"
         fullWidth
-        PaperProps={{ 
-          sx: { 
+        PaperProps={{
+          sx: {
             maxHeight: '90vh',
             width: '100%',
             m: isMobile ? 1 : 2,
             borderRadius: isMobile ? '12px' : '16px',
             bgcolor: '#F7F7FC',
-          } 
+          }
         }}
       >
-        <DialogTitle sx={{ 
-          borderBottom: 1, 
+        <DialogTitle sx={{
+          borderBottom: 1,
           borderColor: 'divider',
           bgcolor: '#FFFFFF',
-          py: isMobile ? 1 : 1.5, 
+          py: isMobile ? 1 : 1.5,
           px: isMobile ? 1.5 : 2,
           display: 'flex',
           alignItems: 'center',
@@ -1385,10 +1447,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           gap: 1,
           borderRadius: isMobile ? '12px 12px 0 0' : '16px 16px 0 0',
         }}>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              fontSize: { xs: '0.9rem', sm: '1rem' }, 
+          <Typography
+            variant="h6"
+            sx={{
+              fontSize: { xs: '0.9rem', sm: '1rem' },
               fontWeight: 700,
               color: '#111827',
             }}
@@ -1396,12 +1458,12 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
             {mode === 'create' ? 'Create New Trip' : 'Edit Trip'}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
-              startIcon={<Close />} 
-              onClick={onClose} 
+            <Button
+              startIcon={<Close />}
+              onClick={onClose}
               disabled={submitting}
               size="small"
-              sx={{ 
+              sx={{
                 fontSize: { xs: '0.7rem', sm: '0.75rem' },
                 borderRadius: '10px',
                 textTransform: 'none',
@@ -1415,7 +1477,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
               startIcon={submitting ? <CircularProgress size={18} /> : <Save />}
               disabled={submitting || loading || enumsLoading || isSuccess}
               size="small"
-              sx={{ 
+              sx={{
                 fontSize: { xs: '0.7rem', sm: '0.75rem' },
                 borderRadius: '10px',
                 textTransform: 'none',
@@ -1427,10 +1489,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
           </Box>
         </DialogTitle>
 
-        <DialogContent 
-          dividers 
-          sx={{ 
-            overflowY: 'auto', 
+        <DialogContent
+          dividers
+          sx={{
+            overflowY: 'auto',
             p: { xs: 1.5, sm: 2, md: 2.5 },
             bgcolor: '#F7F7FC',
             '&::-webkit-scrollbar': {
@@ -1482,10 +1544,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
                     <BusinessIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
@@ -1501,7 +1563,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                       value={form.customerId}
                       label="Select Customer"
                       onChange={(e) => handleFieldChange('customerId', e.target.value)}
-                      sx={{ 
+                      sx={{
                         fontSize: { xs: '0.7rem', sm: '0.75rem' },
                         borderRadius: '8px',
                       }}
@@ -1527,10 +1589,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 />
 
                 <Box display="flex" justifyContent="center" my={-1} position="relative" zIndex={1}>
-                  <IconButton 
-                    onClick={handleSwapLocations} 
-                    sx={{ 
-                      bgcolor: '#FFFFFF', 
+                  <IconButton
+                    onClick={handleSwapLocations}
+                    sx={{
+                      bgcolor: '#FFFFFF',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                       width: { xs: 32, sm: 36 },
                       height: { xs: 32, sm: 36 },
@@ -1539,8 +1601,8 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         bgcolor: '#F7F7FC',
                         transform: 'scale(1.05)',
                       },
-                      '& .MuiSvgIcon-root': { 
-                        fontSize: { xs: '0.9rem', sm: '1rem' } 
+                      '& .MuiSvgIcon-root': {
+                        fontSize: { xs: '0.9rem', sm: '1rem' }
                       }
                     }}
                   >
@@ -1580,10 +1642,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" alignItems="center" spacing={0.75} mb={1.5}>
                     <RouteIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
@@ -1610,10 +1672,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             </InputAdornment>
                           )
                         }}
-                        helperText={departureType === 'DEPOT' && selectedDepot 
-                          ? 'Auto-calculated from depot to pickup' 
+                        helperText={departureType === 'DEPOT' && selectedDepot
+                          ? 'Auto-calculated from depot to pickup'
                           : 'Manual entry'}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -1635,10 +1697,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             </InputAdornment>
                           )
                         }}
-                        helperText={departureType === 'DEPOT' && selectedDepot 
-                          ? 'Auto-calculated from drop-off to depot' 
+                        helperText={departureType === 'DEPOT' && selectedDepot
+                          ? 'Auto-calculated from drop-off to depot'
                           : 'Manual entry'}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -1676,10 +1738,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" spacing={0.75} mb={1.5}>
                     <ScheduleIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
@@ -1701,7 +1763,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             required: true,
                             error: !!formErrors.plannedStartDate,
                             helperText: formErrors.plannedStartDate,
-                            sx: { 
+                            sx: {
                               '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                               '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                             }
@@ -1720,7 +1782,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                             size: 'small',
                             error: !!formErrors.plannedEndDate,
                             helperText: formErrors.plannedEndDate,
-                            sx: { 
+                            sx: {
                               '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                               '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                             }
@@ -1738,10 +1800,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         helperText={formErrors.estimatedDuration || undefined}
                         onChange={(e) => handleFieldChange('estimatedDuration', e.target.value)}
                         size="small"
-                        InputProps={{ 
+                        InputProps={{
                           endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>hrs</InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -1757,10 +1819,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         helperText={formErrors.plannedDistanceKm || undefined}
                         onChange={(e) => handleFieldChange('plannedDistanceKm', e.target.value)}
                         size="small"
-                        InputProps={{ 
+                        InputProps={{
                           endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>km</InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -1776,10 +1838,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         helperText={formErrors.plannedDurationHours || undefined}
                         onChange={(e) => handleFieldChange('plannedDurationHours', e.target.value)}
                         size="small"
-                        InputProps={{ 
+                        InputProps={{
                           endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>hrs</InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -1801,10 +1863,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" spacing={0.75} mb={1.5}>
                     <DirectionsCar sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
@@ -1823,7 +1885,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.vehicleId}
                           label="Vehicle *"
                           onChange={(e) => handleFieldChange('vehicleId', e.target.value)}
-                          sx={{ 
+                          sx={{
                             fontSize: { xs: '0.7rem', sm: '0.75rem' },
                             borderRadius: '8px',
                           }}
@@ -1833,7 +1895,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           </MenuItem>
                           {(vehicles || []).map(v => (
                             <MenuItem key={v.id} value={v.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {v.registrationNumber} - {v.make} {v.model}
+                              {vehicleLabel(v)}
                             </MenuItem>
                           ))}
                         </Select>
@@ -1849,7 +1911,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.driverId}
                           label="Driver *"
                           onChange={(e) => handleFieldChange('driverId', e.target.value)}
-                          sx={{ 
+                          sx={{
                             fontSize: { xs: '0.7rem', sm: '0.75rem' },
                             borderRadius: '8px',
                           }}
@@ -1857,9 +1919,14 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                             <em>Select driver</em>
                           </MenuItem>
+                          {(drivers || []).length === 0 && (
+                            <MenuItem disabled value="__no_drivers__" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                              <em>No drivers available</em>
+                            </MenuItem>
+                          )}
                           {(drivers || []).map(d => (
                             <MenuItem key={d.id} value={d.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                              {d.firstName} {d.lastName} - {d.licenseNumber}
+                              {driverLabel(d)}
                             </MenuItem>
                           ))}
                         </Select>
@@ -1875,7 +1942,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.supervisorId}
                           label="Supervisor"
                           onChange={(e) => handleFieldChange('supervisorId', e.target.value)}
-                          sx={{ 
+                          sx={{
                             fontSize: { xs: '0.7rem', sm: '0.75rem' },
                             borderRadius: '8px',
                           }}
@@ -1907,10 +1974,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" spacing={0.75} mb={1.5}>
                     <Description sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
@@ -1929,7 +1996,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           value={form.commodityType}
                           label="Commodity Type *"
                           onChange={(e) => handleFieldChange('commodityType', e.target.value)}
-                          sx={{ 
+                          sx={{
                             fontSize: { xs: '0.7rem', sm: '0.75rem' },
                             borderRadius: '8px',
                           }}
@@ -1953,7 +2020,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.cargoDescription}
                         onChange={(e) => handleFieldChange('cargoDescription', e.target.value)}
                         size="small"
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -1973,7 +2040,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                           startAdornment: <InputAdornment position="start"><Scale sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>,
                           endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>kg</InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -1992,7 +2059,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         InputProps={{
                           startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2008,10 +2075,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         helperText={formErrors.palletCount || undefined}
                         onChange={(e) => handleFieldChange('palletCount', e.target.value)}
                         size="small"
-                        InputProps={{ 
+                        InputProps={{
                           endAdornment: <InputAdornment position="end" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>pallets</InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2033,10 +2100,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" spacing={0.75} mb={1.5}>
                     <Receipt sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
@@ -2059,7 +2126,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         InputProps={{
                           startAdornment: <InputAdornment position="start"><Toll sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2078,7 +2145,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         InputProps={{
                           startAdornment: <InputAdornment position="start"><AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} /></InputAdornment>
                         }}
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2100,10 +2167,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" spacing={0.75} mb={1.5}>
                     <Comment sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
@@ -2121,7 +2188,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         onChange={(e) => handleFieldChange('referenceNumber', e.target.value)}
                         size="small"
                         helperText="Used to link trips to the same load"
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2134,7 +2201,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.purchaseOrderNumber}
                         onChange={(e) => handleFieldChange('purchaseOrderNumber', e.target.value)}
                         size="small"
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2149,7 +2216,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.specialInstructions}
                         onChange={(e) => handleFieldChange('specialInstructions', e.target.value)}
                         size="small"
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2164,7 +2231,7 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                         value={form.driverNotes}
                         onChange={(e) => handleFieldChange('driverNotes', e.target.value)}
                         size="small"
-                        sx={{ 
+                        sx={{
                           '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
                           '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' } },
                         }}
@@ -2186,10 +2253,10 @@ function TripForm({ open = false, onClose, mode = 'create', initialData, onSucce
                 >
                   <Stack direction="row" spacing={0.75} mb={1.5}>
                     <AssignmentIcon sx={{ fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#4F46E5' }} />
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600, 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         color: '#111827',
                       }}
