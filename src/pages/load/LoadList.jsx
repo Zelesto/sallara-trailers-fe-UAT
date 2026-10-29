@@ -1,5 +1,5 @@
 // src/pages/load/LoadList.jsx
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -30,13 +30,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
-  Avatar,
-  Collapse,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
+  Tooltip as MuiTooltip,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -45,47 +39,34 @@ import {
   Add as AddIcon,
   Merge as MergeIcon,
   LocalShipping,
-  Person,
-  CalendarToday,
-  LocationOn,
-  Route,
   CheckCircle,
   Pending,
   Warning,
   Cancel,
-  Business,
-  Schedule,
-  TrendingUp,
   AttachMoney,
   ExpandMore,
   ExpandLess,
-  Speed,
-  Home,
-  Map,
+  LocationOn,
   Business as BusinessIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { loadService } from '../../services/loadService';
 import { customerService } from '../../services/customerService';
 import { tripService } from '../../services/tripService';
+import billingService from '../../services/billingService';
 
 import {
   LOAD_STATUSES,
-  LOAD_PRIORITIES,
   LOAD_STATUS_OPTIONS,
-  LOAD_PRIORITY_OPTIONS,
-  getDisplayName,
-  getColor,
 } from '../../constants';
 
-// ============================================================
-// UTILITY FUNCTIONS (matching Dashboard)
-// ============================================================
+/* ============================================================
+   UTILITIES
+   ============================================================ */
 
-const getColorBg = (color) => {
+const getColor = (color) => {
   const colors = {
     primary: '#4F46E5',
     success: '#22C55E',
@@ -93,33 +74,49 @@ const getColorBg = (color) => {
     error: '#EF4444',
     info: '#3B82F6',
     secondary: '#6B7280',
-    purple: '#8B5CF6',
-    pink: '#EC4899',
-    teal: '#14B8A6',
-    indigo: '#6366F1',
   };
   return colors[color] || colors.primary;
 };
 
-
-const formatCurrency = (amount) => {
-  if (amount === null || amount === undefined || isNaN(amount)) return 'R 0.00';
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numAmount);
+const getColorBg = (color) => {
+  const colors = {
+    primary: '#EEF2FF',
+    success: '#DCFCE7',
+    warning: '#FEF3C7',
+    error: '#FEE2E2',
+    info: '#DBEAFE',
+    secondary: '#F3F4F6',
+  };
+  return colors[color] || colors.primary;
 };
 
-const formatNumber = (num, decimals = 0) => {
-  if (num === null || num === undefined || isNaN(num)) return '0';
-  const number = typeof num === 'string' ? parseFloat(num) : num;
-  return new Intl.NumberFormat('en-ZA', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(number);
+/**
+ * Unwraps any of:
+ *   raw array | { data: [...] } | { content: [...] }
+ *   | { data: { content: [...] } } | axios wrapper of the above
+ * Always returns an array (never throws).
+ */
+const unwrapList = (res) => {
+  try {
+    if (!res) return [];
+    if (Array.isArray(res)) return res;
+
+    // Axios wrapper detection: has status + config/data
+    const payload =
+      res.data !== undefined && (res.status !== undefined || res.config !== undefined)
+        ? res.data
+        : res;
+
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.content)) return payload.content;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && payload.data && Array.isArray(payload.data.content)) {
+      return payload.data.content;
+    }
+    return [];
+  } catch {
+    return [];
+  }
 };
 
 const formatDate = (date) => {
@@ -135,18 +132,11 @@ const formatDate = (date) => {
   }
 };
 
-// ============================================================
-// STAT CARD (matching Dashboard)
-// ============================================================
+/* ============================================================
+   STAT CARD
+   ============================================================ */
 
-const StatCard = React.memo(({
-  title,
-  value,
-  icon: Icon,
-  color = 'primary',
-  subtitle,
-  loading = false,
-}) => {
+const StatCard = React.memo(({ title, value, icon: Icon, color = 'primary', subtitle }) => {
   const iconColor = getColor(color);
   const bgColor = getColorBg(color);
   const SafeIcon = Icon || LocalShipping;
@@ -184,7 +174,6 @@ const StatCard = React.memo(({
             >
               {title}
             </Typography>
-            
             <Typography
               variant="h4"
               sx={{
@@ -194,9 +183,8 @@ const StatCard = React.memo(({
                 lineHeight: 1.2,
               }}
             >
-              {value || 0}
+              {value ?? 0}
             </Typography>
-            
             {subtitle && (
               <Typography
                 variant="caption"
@@ -211,7 +199,6 @@ const StatCard = React.memo(({
               </Typography>
             )}
           </Box>
-
           <Box
             sx={{
               bgcolor: bgColor,
@@ -222,15 +209,15 @@ const StatCard = React.memo(({
               justifyContent: 'center',
               flexShrink: 0,
               transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'scale(1.05)',
-              },
+              '&:hover': { transform: 'scale(1.05)' },
             }}
           >
-            <SafeIcon sx={{ 
-              color: iconColor, 
-              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
-            }} />
+            <SafeIcon
+              sx={{
+                color: iconColor,
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+              }}
+            />
           </Box>
         </Stack>
       </CardContent>
@@ -238,50 +225,32 @@ const StatCard = React.memo(({
   );
 });
 
-// ============================================================
-// STATUS CHIP (matching TripList)
-// ============================================================
+/* ============================================================
+   STATUS CHIP
+   ============================================================ */
 
 const StatusChip = ({ status }) => {
-  const config = LOAD_STATUSES.find(s => s.code === status);
-  
-  if (config) {
-    return (
-      <Chip
-        label={config.displayName}
-        size="small"
-        sx={{
-          backgroundColor: config.color ? `${config.color}20` : '#F3F4F6',
-          color: config.color || '#6B7280',
-          fontWeight: 600,
-          fontSize: { xs: '0.5rem', sm: '0.6rem' },
-          height: { xs: 18, sm: 22 },
-          border: `1px solid ${config.color || '#6B7280'}20`,
-          '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
-        }}
-      />
-    );
-  }
-  
-  // Fallback
+  const config = LOAD_STATUSES.find((s) => s.code === status);
   return (
     <Chip
-      label={status || 'Unknown'}
+      label={config?.displayName || status || 'Unknown'}
       size="small"
       sx={{
-        backgroundColor: '#F3F4F6',
-        color: '#6B7280',
+        backgroundColor: config?.color ? `${config.color}20` : '#F3F4F6',
+        color: config?.color || '#6B7280',
         fontWeight: 600,
         fontSize: { xs: '0.5rem', sm: '0.6rem' },
         height: { xs: 18, sm: 22 },
+        border: `1px solid ${config?.color || '#6B7280'}20`,
+        '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
       }}
     />
   );
 };
 
-// ============================================================
-// DISTANCE CHIP (shows pickup distance)
-// ============================================================
+/* ============================================================
+   DISTANCE CHIP
+   ============================================================ */
 
 const DistanceChip = ({ distance, isZero }) => {
   if (isZero) {
@@ -299,13 +268,11 @@ const DistanceChip = ({ distance, isZero }) => {
       />
     );
   }
-  
   if (!distance || distance === 0) {
     return <Typography sx={{ fontSize: '0.6rem', color: '#6B7280' }}>-</Typography>;
   }
-  
   return (
-    <Tooltip title={`${distance} km from depot to pickup`} arrow>
+    <MuiTooltip title={`${distance} km from depot to pickup`} arrow>
       <Chip
         size="small"
         label={`${distance} km`}
@@ -317,18 +284,19 @@ const DistanceChip = ({ distance, isZero }) => {
           fontWeight: 500,
         }}
       />
-    </Tooltip>
+    </MuiTooltip>
   );
 };
 
-// ============================================================
-// TRIP EXPANDABLE ROW (shows detailed trip info)
-// ============================================================
+/* ============================================================
+   TRIP EXPANDABLE ROW
+   ============================================================ */
 
-const TripExpandableRow = ({ load, loadIndex }) => {
+const TripExpandableRow = ({ load }) => {
   const [expanded, setExpanded] = useState(false);
-  
-  if (!load.trips || load.trips.length === 0) {
+
+  // ✅ Guard: only render if trips is a real array with content
+  if (!Array.isArray(load.trips) || load.trips.length === 0) {
     return null;
   }
 
@@ -363,12 +331,14 @@ const TripExpandableRow = ({ load, loadIndex }) => {
               </TableHead>
               <TableBody>
                 {load.trips.map((trip, index) => {
-                  const totalDistance = (trip.pickupDistance || 0) + (trip.routeDistance || trip.totalDistance || 0);
+                  const totalDistance =
+                    (trip.pickupDistance || 0) + (trip.routeDistance || trip.totalDistance || 0);
                   const isFromLastDropOff = trip.pickupFromLastDropOff || false;
-                  
                   return (
                     <TableRow key={trip.id || index}>
-                      <TableCell sx={{ fontSize: '0.6rem' }}>{trip.tripNumber || `Trip ${index + 1}`}</TableCell>
+                      <TableCell sx={{ fontSize: '0.6rem' }}>
+                        {trip.tripNumber || `Trip ${index + 1}`}
+                      </TableCell>
                       <TableCell><StatusChip status={trip.status} /></TableCell>
                       <TableCell sx={{ fontSize: '0.6rem' }}>
                         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -383,10 +353,7 @@ const TripExpandableRow = ({ load, loadIndex }) => {
                         </Stack>
                       </TableCell>
                       <TableCell>
-                        <DistanceChip 
-                          distance={trip.pickupDistance} 
-                          isZero={isFromLastDropOff} 
-                        />
+                        <DistanceChip distance={trip.pickupDistance} isZero={isFromLastDropOff} />
                       </TableCell>
                       <TableCell sx={{ fontSize: '0.6rem' }}>
                         {trip.routeDistance || trip.totalDistance || 0} km
@@ -406,24 +373,29 @@ const TripExpandableRow = ({ load, loadIndex }) => {
   );
 };
 
-// ============================================================
-// MAIN COMPONENT: LoadList
-// ============================================================
+/* ============================================================
+   MAIN COMPONENT
+   ============================================================ */
 
 const LoadList = () => {
   const navigate = useNavigate();
+
   const [loads, setLoads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
+
+  // Smart Merge
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeData, setMergeData] = useState({
     customerId: '',
     plannedDate: new Date().toISOString().slice(0, 10),
   });
-  const [mergeResult, setMergeResult] = useState(null);
   const [mergeLoading, setMergeLoading] = useState(false);
+  const [mergeResult, setMergeResult] = useState(null);
+
   const [customers, setCustomers] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -433,90 +405,101 @@ const LoadList = () => {
     cancelled: 0,
   });
 
-  useEffect(() => {
-    loadLoads();
-    loadCustomers();
-  }, []);
+  // Per-row billing recalc state (so each row can show its own spinner)
+  const [billingInProgress, setBillingInProgress] = useState(null);
+
+  /* ============================================================
+     DATA LOADING
+     ============================================================ */
 
   const loadCustomers = async () => {
     try {
       const response = await customerService.getActiveCustomers();
-      setCustomers(response || []);
+      setCustomers(unwrapList(response));   // ← was: setCustomers(response || [])
     } catch (err) {
       console.error('Error loading customers:', err);
+      setCustomers([]);
     }
   };
 
   const loadLoads = async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await loadService.getAllLoads();
-      const loadsData = response?.content || response || [];
-      
-      // Enrich each load with trip distance calculations
-      const enrichedLoads = await Promise.all(loadsData.map(async (load) => {
-        if (load.trips && load.trips.length > 0) {
-          // Fetch detailed trip data if needed
-          const enrichedTrips = await Promise.all(load.trips.map(async (trip) => {
-            // If trip has pickup distance already calculated, use it
-            if (trip.pickupDistance !== undefined) {
-              return trip;
-            }
-            
-            // Otherwise, fetch trip details
-            try {
-              const tripDetails = await tripService.getTripById(trip.id);
-              return {
-                ...trip,
-                pickupDistance: tripDetails.pickupDistance || 0,
-                routeDistance: tripDetails.totalDistance || trip.totalDistance || 0,
-                pickupFromLastDropOff: tripDetails.pickupFromLastDropOff || false,
-                originLocation: tripDetails.originLocation || trip.originLocation,
-                destinationLocation: tripDetails.destinationLocation || trip.destinationLocation,
-              };
-            } catch {
-              return trip;
-            }
-          }));
-          
-          return {
-            ...load,
-            trips: enrichedTrips,
-          };
-        }
-        return load;
-      }));
-      
+
+      // ✅ Robust unwrap — handles axios wrapper, page, raw array
+      const loadsData = unwrapList(response);
+
+      // Enrich each load with trip distance calculations.
+      // Every step is guarded so a single malformed load cannot break the whole page.
+      const enrichedLoads = await Promise.all(
+        loadsData.map(async (load) => {
+          if (!Array.isArray(load?.trips) || load.trips.length === 0) {
+            return { ...load, trips: [] };
+          }
+          const enrichedTrips = await Promise.all(
+            load.trips.map(async (trip) => {
+              if (trip?.pickupDistance !== undefined) return trip;
+              try {
+                const tripDetails = await tripService.getTripById(trip.id);
+                return {
+                  ...trip,
+                  pickupDistance: tripDetails?.pickupDistance || 0,
+                  routeDistance: tripDetails?.totalDistance || trip?.totalDistance || 0,
+                  pickupFromLastDropOff: tripDetails?.pickupFromLastDropOff || false,
+                  originLocation: tripDetails?.originLocation || trip?.originLocation,
+                  destinationLocation: tripDetails?.destinationLocation || trip?.destinationLocation,
+                };
+              } catch {
+                return trip;
+              }
+            })
+          );
+          return { ...load, trips: enrichedTrips };
+        })
+      );
+
       setLoads(enrichedLoads);
       calculateStats(enrichedLoads);
     } catch (err) {
       console.error('Error loading loads:', err);
-      setError('Failed to load loads');
+      setError(err?.message || 'Failed to load loads');
+      // ✅ Critical: reset BOTH so a bad response can never leave the UI in a crash state
+      setLoads([]);
+      calculateStats([]);
     } finally {
       setLoading(false);
     }
   };
 
   const calculateStats = (data) => {
-    const pending = data.filter(l => l.status === 'PENDING').length;
-    const inProgress = data.filter(l => l.status === 'IN_PROGRESS').length;
-    const completed = data.filter(l => l.status === 'COMPLETED').length;
-    const cancelled = data.filter(l => l.status === 'CANCELLED').length;
+    const safe = Array.isArray(data) ? data : [];
+    const count = (status) => safe.filter((l) => l?.status === status).length;
     setStats({
-      total: data.length,
-      pending,
-      inProgress,
-      completed,
-      cancelled,
+      total: safe.length,
+      pending: count('PENDING'),
+      inProgress: count('IN_PROGRESS'),
+      completed: count('COMPLETED'),
+      cancelled: count('CANCELLED'),
     });
   };
+
+  useEffect(() => {
+    loadLoads();
+    loadCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ============================================================
+     ACTIONS
+     ============================================================ */
 
   const handleSmartMerge = async () => {
     if (!mergeData.customerId || !mergeData.plannedDate) {
       setError('Please select a customer and date');
       return;
     }
-
     setMergeLoading(true);
     setError(null);
     try {
@@ -526,69 +509,127 @@ const LoadList = () => {
       );
       setMergeResult(response);
       setShowMergeDialog(false);
-      loadLoads();
+      setSuccessMessage('Trips merged successfully.');
+      await loadLoads();
     } catch (err) {
       console.error('Error merging trips:', err);
-      setError(err.message || 'Failed to merge trips');
+      setError(err?.message || 'Failed to merge trips');
     } finally {
       setMergeLoading(false);
     }
   };
 
+  const handleRecalcAllDistances = async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      const response = await loadService.recalculateAllDistances();
+      if (response?.success) {
+        setSuccessMessage(
+          `Batch recalculation started (Job ID: ${response.jobId}). Refresh shortly to see updated distances.`
+        );
+        setTimeout(() => loadLoads(), 3000);
+      } else {
+        throw new Error(response?.message || 'Failed to start recalculation');
+      }
+    } catch (err) {
+      console.error('Failed to recalculate:', err);
+      setError(err?.message || 'Failed to recalculate distances');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Recalculate billing for a single load.
+   * This is what makes the load appear in Invoice → "From Billing".
+   */
+  const handleRecalculateBilling = async (loadId) => {
+    setBillingInProgress(loadId);
+    setError(null);
+    try {
+      // Prefer the no-userId variant (backend pulls user from JWT)
+      if (typeof tripService.recalculateLoadBilling === 'function') {
+        await tripService.recalculateLoadBilling(loadId);
+      } else {
+        await billingService.calculateLoadBilling(loadId);
+      }
+      setSuccessMessage(
+        `Billing recalculated for load ${loadId}. You can now generate an invoice from Invoice → From Billing.`
+      );
+      await loadLoads();
+    } catch (err) {
+      console.error('Error recalculating billing:', err);
+      setError(
+        err?.response?.data?.message ||
+        err?.userMessage ||
+        err?.message ||
+        'Failed to recalculate billing'
+      );
+    } finally {
+      setBillingInProgress(null);
+    }
+  };
+
+  /* ============================================================
+     DERIVED VALUES
+     ============================================================ */
+
   const filteredLoads = useMemo(() => {
-    return loads.filter(load => {
-      const searchMatch = 
-        (load.loadNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (load.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (load.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+    // ✅ Absolute guard: even if `loads` somehow became a non-array,
+    // the page renders an empty list rather than crashing.
+    const safeLoads = Array.isArray(loads) ? loads : [];
+    const term = searchTerm.toLowerCase();
+    return safeLoads.filter((load) => {
+      const searchMatch =
+        (load.loadNumber || '').toLowerCase().includes(term) ||
+        (load.customerName || '').toLowerCase().includes(term) ||
+        (load.description || '').toLowerCase().includes(term);
       const statusMatch = filterStatus === 'ALL' || load.status === filterStatus;
       return searchMatch && statusMatch;
     });
   }, [loads, searchTerm, filterStatus]);
 
-  // Calculate total distances for a load
-    const calculateLoadDistances = (load) => {
-      // ✅ Use the actual database fields
-      const totalPickupDistance = load.totalFromDepotKm || 0;  // from depot to pickup
-      const totalToDepot = load.totalToDepotKm || 0;          // to depot from drop-off
-      
-      // ✅ Use calculated distance fields from the load
-      const totalRouteDistance = load.totalCalculatedDistanceKm || 
-                                 load.totalCalculatedDistance || 
-                                 load.totalDistanceKm || 0;
-      
-      // Total distance = all combined
-      const totalDistance = totalPickupDistance + totalToDepot + totalRouteDistance;
-      
-      return {
-          totalPickupDistance,
-          totalToDepot,
-          totalRouteDistance,
-          totalDistance,
-      };
+  const calculateLoadDistances = (load) => {
+    const totalPickupDistance = load.totalFromDepotKm || 0;
+    const totalToDepot = load.totalToDepotKm || 0;
+    const totalRouteDistance =
+      load.totalCalculatedDistanceKm ||
+      load.totalCalculatedDistance ||
+      load.totalDistanceKm ||
+      0;
+    const totalDistance = totalPickupDistance + totalToDepot + totalRouteDistance;
+    return { totalPickupDistance, totalToDepot, totalRouteDistance, totalDistance };
   };
 
+  /* ============================================================
+     RENDER
+     ============================================================ */
+
   return (
-    <Box sx={{ 
-      bgcolor: '#F7F7FC', 
-      minHeight: '100vh',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
-      width: '100%',
-      overflowX: 'hidden' 
-    }}>
-      <Box sx={{ 
-        maxWidth: '1600px', 
-        margin: '0 auto',
-        flex: 1,
-        width: '100%',
+    <Box
+      sx={{
+        bgcolor: '#F7F7FC',
+        minHeight: '100vh',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
-      }}>
-        
-        {/* Header - matching Dashboard */}
+        p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
+        width: '100%',
+        overflowX: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          maxWidth: '1600px',
+          margin: '0 auto',
+          flex: 1,
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
@@ -597,79 +638,43 @@ const LoadList = () => {
           spacing={{ xs: 1, sm: 0 }}
         >
           <Box>
-            <Typography 
-              variant="h5" 
-              fontWeight="700" 
-              sx={{ 
-                fontSize: { 
-                  xs: '1.1rem', 
-                  sm: '1.3rem', 
-                  md: '1.4rem', 
-                  lg: '1.5rem' 
-                } 
+            <Typography
+              variant="h5"
+              fontWeight="700"
+              sx={{
+                fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.4rem', lg: '1.5rem' },
               }}
             >
               Load Management
             </Typography>
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
-              sx={{ 
-                fontSize: { 
-                  xs: '0.7rem', 
-                  sm: '0.8rem', 
-                  md: '0.85rem' 
-                } 
-              }}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.85rem' } }}
             >
               Manage and track all loads • {stats.total} total loads
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button
-                variant="contained"
-                startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
-                onClick={async () => {
-                    try {
-                        setError(null);
-                        setLoading(true);
-                        
-                        // ✅ Use loadService.recalculateAllDistances()
-                        const response = await loadService.recalculateAllDistances();
-                        
-                        if (response.success) {
-                            const jobId = response.jobId;
-                            alert(`✅ Batch recalculation started! Job ID: ${jobId}\n\nIt will run in the background. Refresh the page later to see updated distances.`);
-                            
-                            // ✅ Refresh the load list after a short delay
-                            setTimeout(async () => {
-                                await loadLoads();
-                            }, 3000);
-                        } else {
-                            throw new Error(response.message || 'Failed to start recalculation');
-                        }
-                    } catch (err) {
-                        console.error('Failed to recalculate:', err);
-                        setError(err.message || 'Failed to recalculate distances');
-                    } finally {
-                        setLoading(false);
-                    }
-                }}
-                size="small"
-                sx={{
-                    borderRadius: '10px',
-                    fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
-                    textTransform: 'none',
-                    py: { xs: 0.5, sm: 0.75 },
-                    px: { xs: 1.5, sm: 2 },
-                    background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-                    '&:hover': {
-                        background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
-                    },
-                }}
+              variant="contained"
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={handleRecalcAllDistances}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                },
+              }}
             >
-                Recalc All Distances
-            </Button> 
+              Recalc All Distances
+            </Button>
             <Button
               variant="outlined"
               startIcon={<MergeIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
@@ -722,70 +727,50 @@ const LoadList = () => {
           </Stack>
         </Stack>
 
-        {/* Error Alert */}
+        {/* Alerts */}
         {error && (
-          <Alert 
-            severity="error" 
-            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }} 
+          <Alert
+            severity="error"
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }}
             onClose={() => setError(null)}
           >
             {error}
           </Alert>
         )}
+        {successMessage && (
+          <Alert
+            severity="success"
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }}
+            onClose={() => setSuccessMessage(null)}
+          >
+            {successMessage}
+          </Alert>
+        )}
 
-        {/* Stats Cards - matching Dashboard */}
-        <Grid 
-          container 
+        {/* Stats */}
+        <Grid
+          container
           spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
-          sx={{ 
-            mb: { xs: 2, sm: 2.5, md: 3 },
-            width: '100%',
-            margin: 0,
-          }}
+          sx={{ mb: { xs: 2, sm: 2.5, md: 3 }, width: '100%', margin: 0 }}
         >
           <Grid size={{ xs: 6, sm: 2.4 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Total Loads"
-              value={stats.total}
-              icon={LocalShipping}
-              color="primary"
-            />
+            <StatCard title="Total Loads" value={stats.total} icon={LocalShipping} color="primary" />
           </Grid>
           <Grid size={{ xs: 6, sm: 2.4 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Pending"
-              value={stats.pending}
-              icon={Pending}
-              color="warning"
-            />
+            <StatCard title="Pending" value={stats.pending} icon={Pending} color="warning" />
           </Grid>
           <Grid size={{ xs: 6, sm: 2.4 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="In Progress"
-              value={stats.inProgress}
-              icon={Warning}
-              color="info"
-            />
+            <StatCard title="In Progress" value={stats.inProgress} icon={Warning} color="info" />
           </Grid>
           <Grid size={{ xs: 6, sm: 2.4 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Completed"
-              value={stats.completed}
-              icon={CheckCircle}
-              color="success"
-            />
+            <StatCard title="Completed" value={stats.completed} icon={CheckCircle} color="success" />
           </Grid>
           <Grid size={{ xs: 6, sm: 2.4 }} sx={{ display: 'flex' }}>
-            <StatCard
-              title="Cancelled"
-              value={stats.cancelled}
-              icon={Cancel}
-              color="error"
-            />
+            <StatCard title="Cancelled" value={stats.cancelled} icon={Cancel} color="error" />
           </Grid>
         </Grid>
 
-        {/* Filters - matching Dashboard */}
+        {/* Filters */}
         <Paper
           elevation={0}
           sx={{
@@ -797,8 +782,8 @@ const LoadList = () => {
             width: '100%',
           }}
         >
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
             spacing={{ xs: 1, sm: 1.5 }}
             alignItems={{ xs: 'stretch', sm: 'center' }}
             flexWrap="wrap"
@@ -809,11 +794,14 @@ const LoadList = () => {
               placeholder="Search loads..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ 
+              sx={{
                 flex: 1,
                 minWidth: { xs: '100%', sm: 200 },
                 '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' },
+                '& .MuiInputBase-root': {
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  borderRadius: '10px',
+                },
               }}
               InputProps={{
                 startAdornment: (
@@ -823,7 +811,6 @@ const LoadList = () => {
                 ),
               }}
             />
-            
             <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
               <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Status</InputLabel>
               <Select
@@ -832,16 +819,21 @@ const LoadList = () => {
                 label="Status"
                 sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
               >
-                <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Status</MenuItem>
-                {LOAD_STATUS_OPTIONS.map(option => (
-                  <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  All Status
+                </MenuItem>
+                {(LOAD_STATUS_OPTIONS || []).map((option) => (
+                  <MenuItem
+                    key={option.value}
+                    value={option.value}
+                    sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                  >
                     {option.label}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-
-            <Button 
+            <Button
               onClick={() => {
                 setSearchTerm('');
                 setFilterStatus('ALL');
@@ -863,7 +855,7 @@ const LoadList = () => {
           </Stack>
         </Paper>
 
-        {/* Loads Table - matching TripList */}
+        {/* Table */}
         <Paper
           elevation={0}
           sx={{
@@ -878,33 +870,19 @@ const LoadList = () => {
             <Table size="small">
               <TableHead sx={{ bgcolor: '#F9FAFB' }}>
                 <TableRow>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Load #
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Customer
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Status
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Trips
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Pickup Distance
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Route Distance
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Total Distance
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Date
-                  </TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, fontWeight: 600, color: '#6B7280', py: 1.5 }}>
-                    Actions
-                  </TableCell>
+                  {['Load #', 'Customer', 'Status', 'Trips', 'Pickup Distance', 'Route Distance', 'Total Distance', 'Date', 'Actions'].map((label) => (
+                    <TableCell
+                      key={label}
+                      sx={{
+                        fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                        fontWeight: 600,
+                        color: '#6B7280',
+                        py: 1.5,
+                      }}
+                    >
+                      {label}
+                    </TableCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -919,16 +897,22 @@ const LoadList = () => {
                     <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                       <Box sx={{ textAlign: 'center' }}>
                         <LocalShipping sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-                        <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
-                          {searchTerm || filterStatus !== 'ALL' ? 'No loads match your filters' : 'No loads found'}
+                        <Typography
+                          variant="body1"
+                          color="text.secondary"
+                          sx={{ fontSize: '0.9rem' }}
+                        >
+                          {searchTerm || filterStatus !== 'ALL'
+                            ? 'No loads match your filters'
+                            : 'No loads found'}
                         </Typography>
                         {(searchTerm || filterStatus !== 'ALL') && (
-                          <Button 
+                          <Button
                             onClick={() => {
                               setSearchTerm('');
                               setFilterStatus('ALL');
-                            }} 
-                            sx={{ mt: 1, fontSize: '0.7rem' }} 
+                            }}
+                            sx={{ mt: 1, fontSize: '0.7rem' }}
                             size="small"
                           >
                             Clear Filters
@@ -939,25 +923,35 @@ const LoadList = () => {
                   </TableRow>
                 ) : (
                   filteredLoads.map((load) => {
-                    const distances = calculateLoadDistances(load);
-                    const totalPickupDistance = distances.totalPickupDistance;
-                    const totalRouteDistance = distances.totalRouteDistance;
-                    const totalDistance = distances.totalDistance;
-                    
+                    const { totalPickupDistance, totalRouteDistance, totalDistance } =
+                      calculateLoadDistances(load);
+                    const isRecalculating = billingInProgress === load.id;
+
                     return (
                       <React.Fragment key={load.id}>
                         <TableRow hover sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
-                            <Typography fontWeight="600" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#4F46E5' }}>
+                            <Typography
+                              fontWeight="600"
+                              sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#4F46E5' }}
+                            >
                               {load.loadNumber}
                             </Typography>
                             {load.description && (
-                              <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.55rem' }, color: '#6B7280', display: 'block' }}>
-                                {load.description.length > 30 ? load.description.substring(0, 30) + '...' : load.description}
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontSize: { xs: '0.5rem', sm: '0.55rem' },
+                                  color: '#6B7280',
+                                  display: 'block',
+                                }}
+                              >
+                                {load.description.length > 30
+                                  ? load.description.substring(0, 30) + '...'
+                                  : load.description}
                               </Typography>
                             )}
                           </TableCell>
-
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
                             <Stack direction="row" alignItems="center" spacing={0.5}>
                               <BusinessIcon sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
@@ -966,25 +960,22 @@ const LoadList = () => {
                               </Typography>
                             </Stack>
                           </TableCell>
-
                           <TableCell sx={{ py: 0.5 }}>
                             <StatusChip status={load.status} />
                           </TableCell>
-
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
                             <Chip
                               label={load.trips?.length || 0}
                               size="small"
                               color="primary"
                               variant="outlined"
-                              sx={{ 
-                                height: { xs: 16, sm: 20 }, 
+                              sx={{
+                                height: { xs: 16, sm: 20 },
                                 fontSize: { xs: '0.5rem', sm: '0.6rem' },
                                 fontWeight: 600,
                               }}
                             />
                           </TableCell>
-
                           <TableCell sx={{ py: 0.5 }}>
                             {totalPickupDistance > 0 ? (
                               <Chip
@@ -1002,7 +993,6 @@ const LoadList = () => {
                               <Typography sx={{ fontSize: '0.6rem', color: '#6B7280' }}>-</Typography>
                             )}
                           </TableCell>
-
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
                             {totalRouteDistance > 0 ? (
                               <Chip
@@ -1020,7 +1010,6 @@ const LoadList = () => {
                               <Typography sx={{ fontSize: '0.6rem', color: '#6B7280' }}>-</Typography>
                             )}
                           </TableCell>
-
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
                             <Chip
                               size="small"
@@ -1034,11 +1023,9 @@ const LoadList = () => {
                               }}
                             />
                           </TableCell>
-
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
                             {load.loadingDate ? formatDate(load.loadingDate) : 'N/A'}
                           </TableCell>
-
                           <TableCell sx={{ py: 0.5 }}>
                             <Stack direction="row" spacing={0.25}>
                               <Tooltip title="View Details">
@@ -1061,7 +1048,24 @@ const LoadList = () => {
                                   <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
-                              {load.trips && load.trips.length > 0 && (
+                              <Tooltip title="Recalculate Billing">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="success"
+                                    onClick={() => handleRecalculateBilling(load.id)}
+                                    disabled={isRecalculating}
+                                    sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                  >
+                                    {isRecalculating ? (
+                                      <CircularProgress size={14} />
+                                    ) : (
+                                      <AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                                    )}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              {Array.isArray(load.trips) && load.trips.length > 0 && (
                                 <Tooltip title={`${load.trips.length} trips`}>
                                   <Chip
                                     size="small"
@@ -1079,8 +1083,7 @@ const LoadList = () => {
                             </Stack>
                           </TableCell>
                         </TableRow>
-                        
-                        {/* Expandable trips row */}
+
                         <TripExpandableRow load={load} />
                       </React.Fragment>
                     );
@@ -1097,17 +1100,17 @@ const LoadList = () => {
           onClose={() => setShowMergeDialog(false)}
           maxWidth="sm"
           fullWidth
-          PaperProps={{
-            sx: { borderRadius: { xs: '12px', sm: '16px' } }
-          }}
+          PaperProps={{ sx: { borderRadius: { xs: '12px', sm: '16px' } } }}
         >
-          <DialogTitle sx={{ 
-            py: 1.5, 
-            px: 2.5, 
-            borderBottom: 1, 
-            borderColor: 'divider',
-            bgcolor: '#F9FAFB',
-          }}>
+          <DialogTitle
+            sx={{
+              py: 1.5,
+              px: 2.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+              bgcolor: '#F9FAFB',
+            }}
+          >
             <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
               <MergeIcon sx={{ mr: 0.5, verticalAlign: 'middle' }} />
               Smart Merge Trips
@@ -1115,8 +1118,8 @@ const LoadList = () => {
           </DialogTitle>
           <DialogContent sx={{ p: 2.5 }}>
             <Alert severity="info" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }}>
-              This will find all trips for the selected customer on the specified date
-              and merge them into a single load.
+              This will find all trips for the selected customer on the specified date and merge
+              them into a single load.
             </Alert>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <FormControl fullWidth size="small">
@@ -1127,8 +1130,10 @@ const LoadList = () => {
                   label="Customer *"
                   sx={{ fontSize: '0.8rem' }}
                 >
-                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Select Customer</MenuItem>
-                  {customers.map(customer => (
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>
+                    Select Customer
+                  </MenuItem>
+                  {(customers || []).map((customer) => (
                     <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: '0.8rem' }}>
                       {customer.name} ({customer.customerCode})
                     </MenuItem>
@@ -1148,9 +1153,9 @@ const LoadList = () => {
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-            <Button 
-              onClick={() => setShowMergeDialog(false)} 
-              size="small" 
+            <Button
+              onClick={() => setShowMergeDialog(false)}
+              size="small"
               sx={{ fontSize: '0.8rem', color: '#6B7280' }}
             >
               Cancel
@@ -1161,7 +1166,13 @@ const LoadList = () => {
               color="primary"
               size="small"
               disabled={!mergeData.customerId || !mergeData.plannedDate || mergeLoading}
-              startIcon={mergeLoading ? <CircularProgress size={16} /> : <MergeIcon sx={{ fontSize: '0.9rem' }} />}
+              startIcon={
+                mergeLoading ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <MergeIcon sx={{ fontSize: '0.9rem' }} />
+                )
+              }
               sx={{
                 fontSize: '0.8rem',
                 borderRadius: '10px',
