@@ -26,6 +26,7 @@ import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 
+import { tripService } from '../../services/tripService';
 import invoiceService from '../../services/invoice';
 import billingService from '../../services/billingService';
 import customerService from '../../services/customerService';
@@ -496,12 +497,26 @@ const InvoicePage = () => {
   };
 
   const handleLoadSelect = async (loadId) => {
-    setSelectedLoadId(loadId);
-    setLoadBillingSummary(null);
-    if (loadId !== '' && loadId !== null && loadId !== undefined) {
-      await fetchLoadBillingSummary(loadId);
+  setSelectedLoadId(loadId);
+  setLoadBillingSummary(null);
+  setBillingError('');
+
+  if (loadId === '' || loadId === null || loadId === undefined) return;
+
+  // Step 1: ensure the Billing entity exists — without this, /summary 500s
+  try {
+    if (typeof tripService.recalculateLoadBilling === 'function') {
+      await tripService.recalculateLoadBilling(loadId);
+    } else {
+      await billingService.calculateLoadBilling(loadId);
     }
-  };
+  } catch (err) {
+    console.warn(`Recalculate billing for load ${loadId} failed:`, err?.message);
+  }
+
+  // Step 2: now fetch the summary
+  await fetchLoadBillingSummary(loadId);
+};
 
   const handleGenerateInvoiceFromBilling = async () => {
     if (!selectedLoadId) {
