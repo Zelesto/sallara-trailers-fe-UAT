@@ -24,8 +24,6 @@ import {
   Tooltip,
   Alert,
   Button,
-  Card,
-  CardContent,
   Stack,
   Grid,
   Dialog,
@@ -36,17 +34,13 @@ import {
   Divider,
   useTheme,
   useMediaQuery,
-  Tabs,
-  Tab,
   TextField,
   InputAdornment,
 } from '@mui/material';
 import {
-  FilterList,
   Clear,
   Visibility,
   CheckCircle,
-  Cancel,
   LocalGasStation,
   Person,
   DirectionsCar,
@@ -56,8 +50,6 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  TrendingUp,
-  TrendingDown,
   Receipt,
   Verified as VerifiedIcon,
   Pending as PendingIcon,
@@ -82,14 +74,54 @@ import {
   buildFuelSlipColumns,
 } from '../utils/fuelSlipRules';
 
-import {
-  FUEL_TYPES,
-  PAYMENT_METHODS,
-  getDisplayName,
-} from '../constants';
+/* ============================================================
+   DEFENSIVE UNWRAP
+   ============================================================ */
 
+/**
+ * Unwrap anything the backend or a service layer returns into an array:
+ *   raw array | axios wrapper {data: X} | page {content: [...]}
+ *   | axios wrapper of page | {data: {content: [...]}} | {data: [...]}
+ * Always returns an array.
+ */
+const unwrapList = (res) => {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
 
-// Currency formatter for South African Rand (ZAR)
+  // Peel axios wrapper if present
+  let payload = res;
+  if (
+    payload.data !== undefined &&
+    (payload.status !== undefined || payload.config !== undefined)
+  ) {
+    payload = payload.data;
+  }
+
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.content)) return payload.content;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  if (payload && payload.data && Array.isArray(payload.data.content)) {
+    return payload.data.content;
+  }
+  return [];
+};
+
+/** Same idea but returns a single object (for GET-by-id responses). */
+const unwrapObject = (res) => {
+  if (!res) return null;
+  if (
+    res.data !== undefined &&
+    (res.status !== undefined || res.config !== undefined)
+  ) {
+    return res.data;
+  }
+  return res;
+};
+
+/* ============================================================
+   FORMATTERS
+   ============================================================ */
+
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return 'R 0.00';
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -101,7 +133,6 @@ const formatCurrency = (amount) => {
   }).format(numAmount);
 };
 
-// Format number with commas (for quantity)
 const formatNumber = (num) => {
   if (num === null || num === undefined) return '0.00';
   const number = typeof num === 'string' ? parseFloat(num) : num;
@@ -111,7 +142,6 @@ const formatNumber = (num) => {
   }).format(number);
 };
 
-// Format date for display
 const formatDate = (date) => {
   if (!date) return '-';
   const d = new Date(date);
@@ -123,24 +153,13 @@ const formatDate = (date) => {
   });
 };
 
-// Status rules live in utils/fuelSlipRules.js
 const getFuelSlipStatus = fuelSlipStatus;
 
-// The hard-coded VEHICLE_TYPE_OVERRIDES (vehicle ID -> TRUCK/VAN) were removed: IDs differ
-// between UAT and live, and the overrides were checked BEFORE the vehicle's real type, so
-// Truck / Van fuel totals were wrong. The real vehicle type is used now (see fuelCategory).
+/* ============================================================
+   STAT CARD
+   ============================================================ */
 
-// ============================================================
-// STAT CARD COMPONENT
-// ============================================================
-const StatCard = React.memo(({
-  title,
-  value,
-  icon: Icon,
-  color = 'primary',
-  subtitle,
-  badge,
-}) => {
+const StatCard = React.memo(({ title, value, icon: Icon, color = 'primary', subtitle, badge }) => {
   const colors = {
     primary: '#4F46E5',
     success: '#22C55E',
@@ -194,16 +213,16 @@ const StatCard = React.memo(({
           label={badge}
           size="small"
           color={color}
-          sx={{ 
-            position: 'absolute', 
-            top: 8, 
-            right: 8, 
-            height: { xs: 16, sm: 20 }, 
-            fontSize: { xs: '0.4rem', sm: '0.5rem' } 
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            height: { xs: 16, sm: 20 },
+            fontSize: { xs: '0.4rem', sm: '0.5rem' },
           }}
         />
       )}
-      
+
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
@@ -220,24 +239,19 @@ const StatCard = React.memo(({
           >
             {title}
           </Typography>
-          
+
           <Typography
             variant="h4"
             sx={{
               fontWeight: 700,
               color: '#111827',
-              fontSize: { 
-                xs: '1.2rem', 
-                sm: '1.4rem', 
-                md: '1.6rem', 
-                lg: '1.8rem' 
-              },
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
               lineHeight: 1.2,
             }}
           >
             {value || 0}
           </Typography>
-          
+
           {subtitle && (
             <Typography
               variant="caption"
@@ -264,26 +278,25 @@ const StatCard = React.memo(({
             flexShrink: 0,
           }}
         >
-          <Icon sx={{ 
-            color: iconColor, 
-            fontSize: { 
-              xs: '1.2rem', 
-              sm: '1.4rem', 
-              md: '1.6rem' 
-            },
-          }} />
+          <Icon
+            sx={{
+              color: iconColor,
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
+            }}
+          />
         </Box>
       </Stack>
     </Paper>
   );
 });
 
-// ============================================================
-// STATUS CHIP COMPONENT
-// ============================================================
+/* ============================================================
+   STATUS CHIP
+   ============================================================ */
+
 const StatusChip = ({ slip }) => {
   const status = getFuelSlipStatus(slip);
-  
+
   const getStatusConfig = (status) => {
     switch (status) {
       case 'VERIFIED':
@@ -304,8 +317,8 @@ const StatusChip = ({ slip }) => {
       size="small"
       color={config.color}
       icon={config.icon}
-      sx={{ 
-        height: { xs: 16, sm: 20 }, 
+      sx={{
+        height: { xs: 16, sm: 20 },
         fontSize: { xs: '0.45rem', sm: '0.6rem' },
         '& .MuiChip-label': { px: { xs: 0.5, sm: 1 } },
       }}
@@ -313,9 +326,10 @@ const StatusChip = ({ slip }) => {
   );
 };
 
-// ============================================================
-// FUEL CATEGORY CHIP
-// ============================================================
+/* ============================================================
+   FUEL CATEGORY CHIP
+   ============================================================ */
+
 const FuelCategoryChip = ({ category }) => {
   const configs = {
     TRIP: { color: 'primary', icon: <LocalShippingIcon sx={{ fontSize: '0.7rem' }} />, label: 'Trip' },
@@ -323,7 +337,7 @@ const FuelCategoryChip = ({ category }) => {
     TRUCK: { color: 'warning', icon: <TruckIcon sx={{ fontSize: '0.7rem' }} />, label: 'Truck' },
     UNKNOWN: { color: 'default', icon: null, label: 'Unknown' },
   };
-  
+
   const config = configs[category] || configs.UNKNOWN;
   return (
     <Chip
@@ -332,8 +346,8 @@ const FuelCategoryChip = ({ category }) => {
       color={config.color}
       icon={config.icon}
       variant="outlined"
-      sx={{ 
-        height: { xs: 16, sm: 18 }, 
+      sx={{
+        height: { xs: 16, sm: 18 },
         fontSize: { xs: '0.4rem', sm: '0.55rem' },
         '& .MuiChip-label': { px: { xs: 0.5, sm: 0.75 } },
       }}
@@ -341,9 +355,10 @@ const FuelCategoryChip = ({ category }) => {
   );
 };
 
-// ============================================================
-// PERIOD SELECTOR
-// ============================================================
+/* ============================================================
+   PERIOD OPTIONS
+   ============================================================ */
+
 const PERIOD_OPTIONS = [
   { value: 'today', label: 'Today' },
   { value: 'week', label: 'This Week' },
@@ -353,20 +368,19 @@ const PERIOD_OPTIONS = [
   { value: 'custom', label: 'Custom Range' },
 ];
 
-// Period rules in utils/fuelSlipRules.js: custom end date now includes the whole day,
-// and a one-sided custom range works.
 const getDateRange = periodRange;
 
-// ============================================================
-// MAIN COMPONENT
-// ============================================================
+/* ============================================================
+   MAIN COMPONENT
+   ============================================================ */
+
 function FuelSlips() {
   const params = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   const [slips, setSlips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -378,22 +392,23 @@ function FuelSlips() {
   const [period, setPeriod] = useState('month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  
+
   const [tripNumbers, setTripNumbers] = useState({});
   const [vehicleTypes, setVehicleTypes] = useState({});
   const [isFetchingVehicleTypes, setIsFetchingVehicleTypes] = useState(false);
 
-  // Delete Dialog State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Verify Dialog State
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const [verifyId, setVerifyId] = useState(null);
   const [verifying, setVerifying] = useState(false);
 
-  // Fetch slips
+  /* ============================================================
+     FETCH FUEL SLIPS
+     ============================================================ */
+
   const fetchSlips = async () => {
     setLoading(true);
     setError(null);
@@ -410,19 +425,25 @@ function FuelSlips() {
       if (vehicleFilter) {
         filters.vehicleId = vehicleFilter;
       }
-      
-      const data = await fuelService.getFuelSlips(filters);
-      
-      const sortedData = (data || []).sort((a, b) => {
-        const dateA = new Date(a.transactionDate || a.createdAt || 0);
-        const dateB = new Date(b.transactionDate || b.createdAt || 0);
-        return dateB - dateA;
-      });
-      
+
+      const response = await fuelService.getFuelSlips(filters);
+
+      // ✅ Bulletproof unwrap — always an array
+      const data = unwrapList(response);
+
+      const sortedData = data
+        .filter(Boolean) // drop null/undefined entries
+        .sort((a, b) => {
+          const dateA = new Date(a.transactionDate || a.createdAt || 0);
+          const dateB = new Date(b.transactionDate || b.createdAt || 0);
+          return dateB - dateA;
+        });
+
       setSlips(sortedData);
     } catch (err) {
       console.error('Failed to fetch fuel slips:', err);
-      setError(err.userMessage || err.message || 'Failed to load fuel slips');
+      setError(err?.userMessage || err?.message || 'Failed to load fuel slips');
+      // ✅ Reset so a bad response can never leave the page in a crash state
       setSlips([]);
     } finally {
       setLoading(false);
@@ -431,55 +452,101 @@ function FuelSlips() {
 
   useEffect(() => {
     fetchSlips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id, driverFilter, vehicleFilter]);
 
-  // Vehicle types: each vehicle fetched ONCE, in parallel (was one request per slip, in sequence).
-  // No guessing - a vehicle whose type cannot be read is shown as "Unknown".
+  /* ============================================================
+     VEHICLE TYPES — fetch each vehicle once, in parallel
+     ============================================================ */
+
   useEffect(() => {
     let cancelled = false;
-    const ids = [...new Set(slips.map(s => s.vehicleId).filter(id => id != null && !(id in vehicleTypes)))];
+    const ids = [
+      ...new Set(
+        (Array.isArray(slips) ? slips : [])
+          .map((s) => s.vehicleId)
+          .filter((id) => id != null && !(id in vehicleTypes))
+      ),
+    ];
     if (ids.length === 0) return undefined;
     setIsFetchingVehicleTypes(true);
-    Promise.all(ids.map(async (vid) => {
-      try {
-        const v = await vehicleService.getVehicleById(vid);
-        return [vid, String(v?.vehicleType || v?.type || v?.category || '').toUpperCase()];
-      } catch (err) {
-        console.warn(`Could not fetch vehicle ${vid}:`, err?.message);
-        return [vid, ''];
-      }
-    })).then((pairs) => {
-      if (cancelled) return;
-      setVehicleTypes(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
-    }).finally(() => {
-      if (!cancelled) setIsFetchingVehicleTypes(false);
-    });
-    return () => { cancelled = true; };
-  }, [slips]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Trip numbers: each trip fetched ONCE, in parallel, single attempt
-  // (getTripById retries 3x on 404, which made the list very slow for deleted trips).
+    Promise.all(
+      ids.map(async (vid) => {
+        try {
+          const raw = await vehicleService.getVehicleById(vid);
+          // ✅ Defensive unwrap — getVehicleById may return the axios wrapper
+          const v = unwrapObject(raw);
+          const type = String(
+            v?.vehicleType || v?.type || v?.category || ''
+          ).toUpperCase();
+          return [vid, type];
+        } catch (err) {
+          console.warn(`Could not fetch vehicle ${vid}:`, err?.message);
+          return [vid, ''];
+        }
+      })
+    )
+      .then((pairs) => {
+        if (cancelled) return;
+        setVehicleTypes((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+      })
+      .finally(() => {
+        if (!cancelled) setIsFetchingVehicleTypes(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slips]);
+
+  /* ============================================================
+     TRIP NUMBERS — fetch each trip once, in parallel, single attempt
+     ============================================================ */
+
   useEffect(() => {
     let cancelled = false;
-    const ids = [...new Set(slips.map(s => s.tripId).filter(id => id != null && !(id in tripNumbers)))];
+    const ids = [
+      ...new Set(
+        (Array.isArray(slips) ? slips : [])
+          .map((s) => s.tripId)
+          .filter((id) => id != null && !(id in tripNumbers))
+      ),
+    ];
     if (ids.length === 0) return undefined;
-    Promise.all(ids.map(async (tid) => {
-      try {
-        const trip = await tripService.getTripById(tid, 1);
-        return [tid, trip?.tripNumber || `Trip #${tid}`];
-      } catch {
-        return [tid, `Trip #${tid}`];
+
+    Promise.all(
+      ids.map(async (tid) => {
+        try {
+          // 1 retry: getTripById retries 3x on 404, which was very slow for deleted trips
+          const trip = await tripService.getTripById(tid, 1);
+          return [tid, trip?.tripNumber || `Trip #${tid}`];
+        } catch {
+          return [tid, `Trip #${tid}`];
+        }
+      })
+    ).then((pairs) => {
+      if (!cancelled) {
+        setTripNumbers((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
       }
-    })).then((pairs) => {
-      if (!cancelled) setTripNumbers(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
     });
-    return () => { cancelled = true; };
-  }, [slips]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Trip -> TRIP, otherwise the vehicle's real type, otherwise UNKNOWN (utils/fuelSlipRules.js)
-  const getFuelCategory = useCallback((slip) => fuelCategory(slip, vehicleTypes), [vehicleTypes]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slips]);
 
-  // Get unique drivers, vehicles, and statuses for filters
+  /* ============================================================
+     CATEGORY / DERIVED
+     ============================================================ */
+
+  const getFuelCategory = useCallback(
+    (slip) => fuelCategory(slip, vehicleTypes),
+    [vehicleTypes]
+  );
+
   const { drivers, vehicles, statuses, categories } = useMemo(() => {
     const uniqueDrivers = [];
     const uniqueVehicles = [];
@@ -488,7 +555,9 @@ function FuelSlips() {
     const driverMap = new Map();
     const vehicleMap = new Map();
 
-    slips.forEach(slip => {
+    const safeSlips = Array.isArray(slips) ? slips : [];
+
+    safeSlips.forEach((slip) => {
       if (slip.driverId && slip.driverName && !driverMap.has(slip.driverId)) {
         driverMap.set(slip.driverId, slip.driverName);
         uniqueDrivers.push({ id: slip.driverId, name: slip.driverName });
@@ -499,60 +568,67 @@ function FuelSlips() {
         uniqueVehicles.push({ id: slip.vehicleId, regNumber: slipRegistration(slip) });
       }
 
-      const status = getFuelSlipStatus(slip);
-      uniqueStatuses.add(status);
-      
-      const category = getFuelCategory(slip);
-      uniqueCategories.add(category);
+      uniqueStatuses.add(getFuelSlipStatus(slip));
+      uniqueCategories.add(getFuelCategory(slip));
     });
 
-    return { 
-      drivers: uniqueDrivers, 
+    return {
+      drivers: uniqueDrivers,
       vehicles: uniqueVehicles,
       statuses: Array.from(uniqueStatuses),
       categories: Array.from(uniqueCategories),
     };
   }, [slips, getFuelCategory]);
 
-  // Filter slips by period, search, status, and category
   const filteredSlips = useMemo(() => {
-    let result = [...slips];
-    
+    let result = Array.isArray(slips) ? [...slips] : [];
+
     const dateRange = getDateRange(period, customStartDate, customEndDate);
-    result = result.filter(slip => inPeriod(slip, dateRange));
-    
+    result = result.filter((slip) => inPeriod(slip, dateRange));
+
     if (statusFilter !== 'all') {
-      result = result.filter(slip => getFuelSlipStatus(slip) === statusFilter);
+      result = result.filter((slip) => getFuelSlipStatus(slip) === statusFilter);
     }
-    
+
     if (categoryFilter !== 'all') {
-      result = result.filter(slip => getFuelCategory(slip) === categoryFilter);
+      result = result.filter((slip) => getFuelCategory(slip) === categoryFilter);
     }
-    
+
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      result = result.filter(slip => 
-        (slip.driverName || '').toLowerCase().includes(search) ||
-        slipRegistration(slip).toLowerCase().includes(search) ||
-        (slip.stationName || '').toLowerCase().includes(search) ||
-        (slip.location || '').toLowerCase().includes(search) ||
-        (slip.receiptNumber || '').toLowerCase().includes(search)
+      result = result.filter(
+        (slip) =>
+          (slip.driverName || '').toLowerCase().includes(search) ||
+          slipRegistration(slip).toLowerCase().includes(search) ||
+          (slip.stationName || '').toLowerCase().includes(search) ||
+          (slip.location || '').toLowerCase().includes(search) ||
+          (slip.receiptNumber || '').toLowerCase().includes(search)
       );
     }
-    
-    return result;
-  }, [slips, period, customStartDate, customEndDate, statusFilter, categoryFilter, searchTerm, getFuelCategory]);
 
-  // Calculate summary stats
+    return result;
+  }, [
+    slips,
+    period,
+    customStartDate,
+    customEndDate,
+    statusFilter,
+    categoryFilter,
+    searchTerm,
+    getFuelCategory,
+  ]);
+
   const summary = useMemo(() => {
     if (!filteredSlips.length) return null;
 
-    const totalAmount = filteredSlips.reduce((sum, slip) =>
-      sum + (parseFloat(slip.totalAmount) || 0), 0
+    const totalAmount = filteredSlips.reduce(
+      (sum, slip) => sum + (parseFloat(slip.totalAmount) || 0),
+      0
     );
 
-    const totalQuantity = filteredSlips.reduce((sum, slip) =>
-      sum + (parseFloat(slip.quantity) || 0), 0
+    const totalQuantity = filteredSlips.reduce(
+      (sum, slip) => sum + (parseFloat(slip.quantity) || 0),
+      0
     );
 
     const averagePrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0;
@@ -561,15 +637,17 @@ function FuelSlips() {
     const categoryCounts = {};
     const categoryAmounts = {};
     const categoryQuantities = {};
-    
-    filteredSlips.forEach(slip => {
+
+    filteredSlips.forEach((slip) => {
       const status = getFuelSlipStatus(slip);
       statusCounts[status] = (statusCounts[status] || 0) + 1;
-      
+
       const category = getFuelCategory(slip);
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-      categoryAmounts[category] = (categoryAmounts[category] || 0) + (parseFloat(slip.totalAmount) || 0);
-      categoryQuantities[category] = (categoryQuantities[category] || 0) + (parseFloat(slip.quantity) || 0);
+      categoryAmounts[category] =
+        (categoryAmounts[category] || 0) + (parseFloat(slip.totalAmount) || 0);
+      categoryQuantities[category] =
+        (categoryQuantities[category] || 0) + (parseFloat(slip.quantity) || 0);
     });
 
     return {
@@ -584,7 +662,10 @@ function FuelSlips() {
     };
   }, [filteredSlips, getFuelCategory]);
 
-  // Handle clear filters
+  /* ============================================================
+     HANDLERS
+     ============================================================ */
+
   const handleClearFilters = () => {
     setDriverFilter('');
     setVehicleFilter('');
@@ -596,19 +677,11 @@ function FuelSlips() {
     setCustomEndDate('');
   };
 
-  // Handle view slip details
-  const handleViewSlip = (id) => {
-    navigate(`/fuel/slips/${id}`);
-  };
+  const handleViewSlip = (id) => navigate(`/fuel/slips/${id}`);
+  const handleEditSlip = (id) => navigate(`/fuel/slips/${id}/edit`);
 
-  // Handle edit slip
-  const handleEditSlip = (id) => {
-    navigate(`/fuel/slips/${id}/edit`);
-  };
-
-  // Handle delete dialog
   const handleDeleteClick = (id) => {
-    const target = slips.find(sl => sl.id === id);
+    const target = slips.find((sl) => sl.id === id);
     if (target && isFuelSlipLocked(target)) {
       setError('Verified or finalized fuel slips cannot be deleted.');
       return;
@@ -627,7 +700,7 @@ function FuelSlips() {
       await fetchSlips();
     } catch (err) {
       console.error('Failed to delete fuel slip:', err);
-      setError(err.userMessage || err.message || 'Failed to delete fuel slip');
+      setError(err?.userMessage || err?.message || 'Failed to delete fuel slip');
     } finally {
       setDeleting(false);
     }
@@ -638,7 +711,6 @@ function FuelSlips() {
     setDeleteId(null);
   };
 
-  // Handle verify dialog
   const handleVerifyClick = (id) => {
     setVerifyId(id);
     setVerifyDialogOpen(true);
@@ -655,7 +727,7 @@ function FuelSlips() {
       await fetchSlips();
     } catch (err) {
       console.error('Failed to verify fuel slip:', err);
-      setError(err.userMessage || err.message || 'Failed to verify fuel slip');
+      setError(err?.userMessage || err?.message || 'Failed to verify fuel slip');
     } finally {
       setVerifying(false);
     }
@@ -666,10 +738,13 @@ function FuelSlips() {
     setVerifyId(null);
   };
 
-  // Handle refresh
   const handleRefresh = async () => {
     await fetchSlips();
   };
+
+  /* ============================================================
+     LOADING / RENDER
+     ============================================================ */
 
   if (loading) {
     return (
@@ -693,31 +768,20 @@ function FuelSlips() {
         spacing={{ xs: 1, sm: 0 }}
       >
         <Box>
-          <Typography 
-            variant="h5" 
-            fontWeight="700" 
-            sx={{ 
-              fontSize: { 
-                xs: '1.1rem', 
-                sm: '1.3rem', 
-                md: '1.4rem', 
-                lg: '1.5rem' 
-              } 
-            }}
+          <Typography
+            variant="h5"
+            fontWeight="700"
+            sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.4rem', lg: '1.5rem' } }}
           >
-            <LocalGasStation sx={{ verticalAlign: 'middle', mr: 1, fontSize: { xs: '1.2rem', sm: '1.4rem' } }} />
+            <LocalGasStation
+              sx={{ verticalAlign: 'middle', mr: 1, fontSize: { xs: '1.2rem', sm: '1.4rem' } }}
+            />
             Fuel Slips
           </Typography>
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ 
-              fontSize: { 
-                xs: '0.7rem', 
-                sm: '0.8rem', 
-                md: '0.85rem' 
-              } 
-            }}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.85rem' } }}
           >
             Manage fuel transactions in ZAR • {filteredSlips.length} slips
           </Typography>
@@ -740,7 +804,13 @@ function FuelSlips() {
           </Button>
           <ExportButton
             title="Fuel slips"
-            subtitle={`${filteredSlips.length} slips • Period: ${PERIOD_OPTIONS.find(o => o.value === period)?.label || period}${period === 'custom' ? ` (${customStartDate || '…'} to ${customEndDate || '…'})` : ''}${searchTerm ? ` • Search: "${searchTerm}"` : ''}`}
+            subtitle={`${filteredSlips.length} slips • Period: ${
+              PERIOD_OPTIONS.find((o) => o.value === period)?.label || period
+            }${
+              period === 'custom'
+                ? ` (${customStartDate || '…'} to ${customEndDate || '…'})`
+                : ''
+            }${searchTerm ? ` • Search: "${searchTerm}"` : ''}`}
             columns={buildFuelSlipColumns({ tripNumbers, vehicleTypes })}
             fetchRows={async () => filteredSlips}
             disabled={filteredSlips.length === 0}
@@ -769,20 +839,20 @@ function FuelSlips() {
       </Stack>
 
       {error && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }} 
+        <Alert
+          severity="error"
+          sx={{ mb: 2, borderRadius: '12px', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
           onClose={() => setError(null)}
         >
           {error}
         </Alert>
       )}
 
-      {/* Stats Cards */}
+      {/* Stats */}
       {summary && (
         <>
-          <Grid 
-            container 
+          <Grid
+            container
             spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
             sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}
           >
@@ -799,7 +869,9 @@ function FuelSlips() {
               <StatCard
                 title="Total Fuel"
                 value={`${formatNumber(summary.totalQuantity)} L`}
-                subtitle={`Avg: ${formatNumber(summary.totalQuantity / (summary.slipCount || 1))} L/slip`}
+                subtitle={`Avg: ${formatNumber(
+                  summary.totalQuantity / (summary.slipCount || 1)
+                )} L/slip`}
                 icon={LocalGasStation}
                 color="teal"
               />
@@ -824,9 +896,8 @@ function FuelSlips() {
             </Grid>
           </Grid>
 
-          {/* Fuel Category Cards */}
-          <Grid 
-            container 
+          <Grid
+            container
             spacing={{ xs: 1.5, sm: 2 }}
             sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}
           >
@@ -834,7 +905,9 @@ function FuelSlips() {
               <StatCard
                 title="Trip Fuel"
                 value={formatCurrency(summary.categoryAmounts.TRIP || 0)}
-                subtitle={`${summary.categoryCounts.TRIP || 0} slips • ${formatNumber(summary.categoryQuantities.TRIP || 0)} L`}
+                subtitle={`${summary.categoryCounts.TRIP || 0} slips • ${formatNumber(
+                  summary.categoryQuantities.TRIP || 0
+                )} L`}
                 icon={LocalShippingIcon}
                 color="primary"
                 badge="With Trip"
@@ -844,7 +917,9 @@ function FuelSlips() {
               <StatCard
                 title="Van Fuel"
                 value={formatCurrency(summary.categoryAmounts.VAN || 0)}
-                subtitle={`${summary.categoryCounts.VAN || 0} slips • ${formatNumber(summary.categoryQuantities.VAN || 0)} L`}
+                subtitle={`${summary.categoryCounts.VAN || 0} slips • ${formatNumber(
+                  summary.categoryQuantities.VAN || 0
+                )} L`}
                 icon={VanIcon}
                 color="info"
                 badge="Light Vehicle"
@@ -854,7 +929,9 @@ function FuelSlips() {
               <StatCard
                 title="Truck Fuel"
                 value={formatCurrency(summary.categoryAmounts.TRUCK || 0)}
-                subtitle={`${summary.categoryCounts.TRUCK || 0} slips • ${formatNumber(summary.categoryQuantities.TRUCK || 0)} L`}
+                subtitle={`${summary.categoryCounts.TRUCK || 0} slips • ${formatNumber(
+                  summary.categoryQuantities.TRUCK || 0
+                )} L`}
                 icon={TruckIcon}
                 color="warning"
                 badge="Heavy Vehicle"
@@ -864,7 +941,7 @@ function FuelSlips() {
         </>
       )}
 
-      {/* Period Selector & Filters */}
+      {/* Filters */}
       <Paper
         elevation={0}
         sx={{
@@ -877,9 +954,8 @@ function FuelSlips() {
         }}
       >
         <Stack spacing={1.5}>
-          {/* Period Selector */}
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
             spacing={{ xs: 1, sm: 1.5 }}
             alignItems={{ xs: 'flex-start', sm: 'center' }}
           >
@@ -892,13 +968,14 @@ function FuelSlips() {
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
                 label="Period"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  borderRadius: '8px',
-                }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' }}
               >
-                {PERIOD_OPTIONS.map(option => (
-                  <MenuItem key={option.value} value={option.value} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                {PERIOD_OPTIONS.map((option) => (
+                  <MenuItem
+                    key={option.value}
+                    value={option.value}
+                    sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                  >
                     {option.label}
                   </MenuItem>
                 ))}
@@ -914,10 +991,13 @@ function FuelSlips() {
                   onChange={(e) => setCustomStartDate(e.target.value)}
                   size="small"
                   InputLabelProps={{ shrink: true }}
-                  sx={{ 
+                  sx={{
                     flex: 1,
                     '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                    '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' },
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                      borderRadius: '8px',
+                    },
                   }}
                 />
                 <TextField
@@ -927,10 +1007,13 @@ function FuelSlips() {
                   onChange={(e) => setCustomEndDate(e.target.value)}
                   size="small"
                   InputLabelProps={{ shrink: true }}
-                  sx={{ 
+                  sx={{
                     flex: 1,
                     '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                    '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' },
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                      borderRadius: '8px',
+                    },
                   }}
                 />
               </Stack>
@@ -939,20 +1022,19 @@ function FuelSlips() {
 
           <Divider />
 
-          {/* Search & Filters */}
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={{ xs: 1, sm: 1.5 }}
-          >
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 1.5 }}>
             <TextField
               placeholder="Search slips..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               size="small"
-              sx={{ 
+              sx={{
                 flex: 1,
                 '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-                '& .MuiInputBase-root': { fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' },
+                '& .MuiInputBase-root': {
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  borderRadius: '8px',
+                },
               }}
               InputProps={{
                 startAdornment: (
@@ -972,14 +1054,17 @@ function FuelSlips() {
                 value={driverFilter}
                 onChange={(e) => setDriverFilter(e.target.value)}
                 label="Driver"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  borderRadius: '8px',
-                }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' }}
               >
-                <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Drivers</MenuItem>
-                {drivers.map(driver => (
-                  <MenuItem key={driver.id} value={driver.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  All Drivers
+                </MenuItem>
+                {drivers.map((driver) => (
+                  <MenuItem
+                    key={driver.id}
+                    value={driver.id}
+                    sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                  >
                     {driver.name}
                   </MenuItem>
                 ))}
@@ -995,14 +1080,17 @@ function FuelSlips() {
                 value={vehicleFilter}
                 onChange={(e) => setVehicleFilter(e.target.value)}
                 label="Vehicle"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  borderRadius: '8px',
-                }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' }}
               >
-                <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Vehicles</MenuItem>
-                {vehicles.map(vehicle => (
-                  <MenuItem key={vehicle.id} value={vehicle.id} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                <MenuItem value="" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  All Vehicles
+                </MenuItem>
+                {vehicles.map((vehicle) => (
+                  <MenuItem
+                    key={vehicle.id}
+                    value={vehicle.id}
+                    sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                  >
                     {vehicle.regNumber}
                   </MenuItem>
                 ))}
@@ -1018,14 +1106,17 @@ function FuelSlips() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 label="Status"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  borderRadius: '8px',
-                }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' }}
               >
-                <MenuItem value="all" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Status</MenuItem>
-                {statuses.map(status => (
-                  <MenuItem key={status} value={status} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                <MenuItem value="all" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  All Status
+                </MenuItem>
+                {statuses.map((status) => (
+                  <MenuItem
+                    key={status}
+                    value={status}
+                    sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                  >
                     {status}
                   </MenuItem>
                 ))}
@@ -1041,15 +1132,24 @@ function FuelSlips() {
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 label="Category"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  borderRadius: '8px',
-                }}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '8px' }}
               >
-                <MenuItem value="all" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>All Categories</MenuItem>
-                {categories.map(category => (
-                  <MenuItem key={category} value={category} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                    {category === 'TRIP' ? 'Trip' : category === 'VAN' ? 'Van' : category === 'TRUCK' ? 'Truck' : category}
+                <MenuItem value="all" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  All Categories
+                </MenuItem>
+                {categories.map((category) => (
+                  <MenuItem
+                    key={category}
+                    value={category}
+                    sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                  >
+                    {category === 'TRIP'
+                      ? 'Trip'
+                      : category === 'VAN'
+                      ? 'Van'
+                      : category === 'TRUCK'
+                      ? 'Truck'
+                      : category}
                   </MenuItem>
                 ))}
               </Select>
@@ -1059,24 +1159,36 @@ function FuelSlips() {
       </Paper>
 
       {/* Results count */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 1,
-        flexWrap: 'wrap',
-        gap: 1,
-      }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 1,
+          flexWrap: 'wrap',
+          gap: 1,
+        }}
+      >
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+        >
           {filteredSlips.length} slip{filteredSlips.length !== 1 ? 's' : ''}
           {summary && ` • ${formatCurrency(summary.totalAmount)}`}
+          {isFetchingVehicleTypes && ' • loading vehicle types…'}
         </Typography>
-        {(searchTerm || driverFilter || vehicleFilter || statusFilter !== 'all' || categoryFilter !== 'all' || period !== 'month') && (
+        {(searchTerm ||
+          driverFilter ||
+          vehicleFilter ||
+          statusFilter !== 'all' ||
+          categoryFilter !== 'all' ||
+          period !== 'month') && (
           <Button
             size="small"
             startIcon={<Clear sx={{ fontSize: '0.8rem' }} />}
             onClick={handleClearFilters}
-            sx={{ 
+            sx={{
               fontSize: { xs: '0.6rem', sm: '0.7rem' },
               borderRadius: '8px',
               textTransform: 'none',
@@ -1102,34 +1214,90 @@ function FuelSlips() {
           <Table size="small">
             <TableHead sx={{ bgcolor: '#F9FAFB' }}>
               <TableRow>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   <Event sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, mr: 0.5 }} />
                   Date
                 </TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   <Person sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, mr: 0.5 }} />
                   Driver
                 </TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   <DirectionsCar sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, mr: 0.5 }} />
                   Vehicle
                 </TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   <LocalGasStation sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, mr: 0.5 }} />
                   Fuel
                 </TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   <AttachMoney sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, mr: 0.5 }} />
                   Amount
                 </TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   Category
                 </TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   <CheckCircle sx={{ fontSize: { xs: '0.6rem', sm: '0.8rem' }, mr: 0.5 }} />
                   Status
                 </TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.55rem', sm: '0.65rem' }, fontWeight: 600, color: '#6B7280', py: 1 }}>
+                <TableCell
+                  sx={{
+                    fontSize: { xs: '0.55rem', sm: '0.65rem' },
+                    fontWeight: 600,
+                    color: '#6B7280',
+                    py: 1,
+                  }}
+                >
                   Actions
                 </TableCell>
               </TableRow>
@@ -1140,11 +1308,23 @@ function FuelSlips() {
                   <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     <Box sx={{ textAlign: 'center' }}>
                       <LocalGasStation sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-                      <Typography variant="body1" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+                      <Typography
+                        variant="body1"
+                        color="text.secondary"
+                        sx={{ fontSize: '0.9rem' }}
+                      >
                         No fuel slips found
                       </Typography>
-                      {(searchTerm || driverFilter || vehicleFilter || statusFilter !== 'all' || categoryFilter !== 'all') && (
-                        <Button onClick={handleClearFilters} sx={{ mt: 1, fontSize: '0.7rem' }} size="small">
+                      {(searchTerm ||
+                        driverFilter ||
+                        vehicleFilter ||
+                        statusFilter !== 'all' ||
+                        categoryFilter !== 'all') && (
+                        <Button
+                          onClick={handleClearFilters}
+                          sx={{ mt: 1, fontSize: '0.7rem' }}
+                          size="small"
+                        >
                           Clear Filters
                         </Button>
                       )}
@@ -1152,33 +1332,50 @@ function FuelSlips() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSlips.map(slip => {
+                filteredSlips.map((slip) => {
                   const status = getFuelSlipStatus(slip);
                   const category = getFuelCategory(slip);
                   const isVerified = status === 'VERIFIED' || status === 'FINALIZED';
-                  
+
                   return (
                     <TableRow
                       key={slip.id}
                       hover
-                      sx={{ 
+                      sx={{
                         '&:hover': { bgcolor: '#F9FAFB' },
                         bgcolor: isVerified ? 'rgba(34, 197, 94, 0.03)' : 'transparent',
                       }}
                     >
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
-                        <Typography variant="body2" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
+                        <Typography
+                          variant="body2"
+                          sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+                        >
                           {formatDate(slip.transactionDate || slip.createdAt)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
-                        <Typography variant="body2" fontWeight="500" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
+                        <Typography
+                          variant="body2"
+                          fontWeight="500"
+                          sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+                        >
                           {slip.driverName || '-'}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
                         <Box>
-                          <Typography variant="body2" fontWeight="500" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                          <Typography
+                            variant="body2"
+                            fontWeight="500"
+                            sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+                          >
                             {slipRegistration(slip) || '-'}
                           </Typography>
                           {slip.tripId && (
@@ -1193,28 +1390,51 @@ function FuelSlips() {
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
-                        <Typography variant="body2" fontWeight="500" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
+                        <Typography
+                          variant="body2"
+                          fontWeight="500"
+                          sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+                        >
                           {slip.quantity ? `${formatNumber(slip.quantity)} L` : '-'}
                         </Typography>
                         {slip.unitPrice && (
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.45rem', sm: '0.55rem' } }}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ fontSize: { xs: '0.45rem', sm: '0.55rem' } }}
+                          >
                             @ {formatCurrency(slip.unitPrice)}/L
                           </Typography>
                         )}
                       </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
-                        <Typography variant="body2" fontWeight="600" color="primary" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
+                        <Typography
+                          variant="body2"
+                          fontWeight="600"
+                          color="primary"
+                          sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}
+                        >
                           {formatCurrency(slip.totalAmount)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
                         <FuelCategoryChip category={category} />
                       </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
                         <StatusChip slip={slip} />
                       </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}>
+                      <TableCell
+                        sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.75 }}
+                      >
                         <Stack direction="row" spacing={0.25}>
                           <Tooltip title="View Details">
                             <IconButton
@@ -1223,7 +1443,9 @@ function FuelSlips() {
                               color="primary"
                               sx={{ p: { xs: 0.25, sm: 0.5 } }}
                             >
-                              <Visibility sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                              <Visibility
+                                sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }}
+                              />
                             </IconButton>
                           </Tooltip>
                           {!isVerified && (
@@ -1234,7 +1456,9 @@ function FuelSlips() {
                                 color="info"
                                 sx={{ p: { xs: 0.25, sm: 0.5 } }}
                               >
-                                <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                                <EditIcon
+                                  sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }}
+                                />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -1246,7 +1470,9 @@ function FuelSlips() {
                                 color="success"
                                 sx={{ p: { xs: 0.25, sm: 0.5 } }}
                               >
-                                <VerifiedIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                                <VerifiedIcon
+                                  sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }}
+                                />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -1258,7 +1484,9 @@ function FuelSlips() {
                                 color="error"
                                 sx={{ p: { xs: 0.25, sm: 0.5 } }}
                               >
-                                <DeleteIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                                <DeleteIcon
+                                  sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }}
+                                />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -1275,12 +1503,14 @@ function FuelSlips() {
 
       {/* Footer Summary */}
       {summary && (
-        <Box sx={{ 
-          mt: { xs: 1, sm: 2 },
-          pt: { xs: 1, sm: 1.5 }, 
-          borderTop: '1px solid #ECECEC',
-          width: '100%',
-        }}>
+        <Box
+          sx={{
+            mt: { xs: 1, sm: 2 },
+            pt: { xs: 1, sm: 1.5 },
+            borderTop: '1px solid #ECECEC',
+            width: '100%',
+          }}
+        >
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             justifyContent="space-between"
@@ -1288,23 +1518,35 @@ function FuelSlips() {
             spacing={{ xs: 0.5, sm: 0 }}
           >
             <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-              <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}>
+              <Typography
+                variant="caption"
+                sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}
+              >
                 {filteredSlips.length} slips • {formatNumber(summary.totalQuantity)} litres
               </Typography>
-              <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}>
+              <Typography
+                variant="caption"
+                sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}
+              >
                 Trip: {formatCurrency(summary.categoryAmounts.TRIP || 0)}
               </Typography>
-              <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}>
+              <Typography
+                variant="caption"
+                sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}
+              >
                 Van: {formatCurrency(summary.categoryAmounts.VAN || 0)}
               </Typography>
-              <Typography variant="caption" sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}>
+              <Typography
+                variant="caption"
+                sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, color: '#6B7280' }}
+              >
                 Truck: {formatCurrency(summary.categoryAmounts.TRUCK || 0)}
               </Typography>
             </Stack>
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                fontSize: { xs: '0.5rem', sm: '0.6rem' }, 
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: { xs: '0.5rem', sm: '0.6rem' },
                 color: '#6B7280',
                 fontWeight: 600,
               }}
@@ -1315,13 +1557,8 @@ function FuelSlips() {
         </Box>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
-        maxWidth="sm"
-        fullWidth
-      >
+      {/* Delete Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
           Delete Fuel Slip
@@ -1332,7 +1569,11 @@ function FuelSlips() {
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleDeleteCancel} size="small" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+          <Button
+            onClick={handleDeleteCancel}
+            size="small"
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          >
             Cancel
           </Button>
           <Button
@@ -1348,24 +1589,24 @@ function FuelSlips() {
         </DialogActions>
       </Dialog>
 
-      {/* Verify Confirmation Dialog */}
-      <Dialog
-        open={verifyDialogOpen}
-        onClose={handleVerifyCancel}
-        maxWidth="sm"
-        fullWidth
-      >
+      {/* Verify Dialog */}
+      <Dialog open={verifyDialogOpen} onClose={handleVerifyCancel} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           <VerifiedIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'success.main' }} />
           Verify Fuel Slip
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
-            Are you sure you want to verify this fuel slip? This will mark it as verified and cannot be undone.
+            Are you sure you want to verify this fuel slip? This will mark it as verified and
+            cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleVerifyCancel} size="small" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+          <Button
+            onClick={handleVerifyCancel}
+            size="small"
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' } }}
+          >
             Cancel
           </Button>
           <Button
