@@ -910,56 +910,85 @@ const Inventory = () => {
 
 const fetchAllItems = async () => {
   const all = [];
-  for (let page = 0; page < MAX_ITEM_PAGES; page += 1) {
-    const res = await inventoryService.getInventoryItems(page, ITEM_PAGE_SIZE);
-    const rows = toArray(res);
 
-    // Diagnostics on page 0 — visible if the shape is unexpected
-    if (page === 0) {
-      console.log('🔬 Inventory page-0 raw response:', res);
-      console.log('🔬 Inventory page-0 extracted rows:', rows.length);
-      if (rows.length === 0) {
-        const peek = res?.data ?? res;
-        console.warn(
-          '⚠️ Inventory returned 0 rows — inspecting payload. Keys:',
-          peek && typeof peek === 'object' ? Object.keys(peek) : typeof peek
-        );
-        if (peek?.content !== undefined) {
-          console.warn(
-            '  content type:',
-            Array.isArray(peek.content) ? 'array' : typeof peek.content,
-            '| content keys:',
-            peek.content && typeof peek.content === 'object'
-              ? Object.keys(peek.content)
-              : 'N/A'
-          );
-        }
-        console.warn('  full payload (stringified, first 2KB):', JSON.stringify(peek).slice(0, 2000));
+  // ⭐ PAGE 0 first (standard Spring)
+  let res = await inventoryService.getInventoryItems(0, ITEM_PAGE_SIZE);
+  let rows = toArray(res);
+
+  // ⭐ FALLBACK: some backends use 1-based pagination. If page 0 returns
+  //    empty but the total stats show data exists, try page 1 as the
+  //    "first page" and start the loop from there.
+  if (page0IsEmpty(rows)) {
+    console.warn('🔬 Page 0 returned 0 rows — trying page 1 in case the backend is 1-based...');
+    const res1 = await inventoryService.getInventoryItems(1, ITEM_PAGE_SIZE);
+    const rows1 = toArray(res1);
+    if (rows1.length > 0) {
+      console.warn(`✅ Page 1 returned ${rows1.length} rows — backend IS 1-based. Adjusting.`);
+      res = res1;
+      rows = rows1;
+      all.push(...rows);
+
+      // Continue from page 2 onward (still using 1-based numbering on the API)
+      for (let page = 2; page < MAX_ITEM_PAGES; page += 1) {
+        const r = await inventoryService.getInventoryItems(page, ITEM_PAGE_SIZE);
+        const rr = toArray(r);
+        all.push(...rr);
+        if (rr.length < ITEM_PAGE_SIZE) break;
       }
-    }
 
-    all.push(...rows);
+      console.log('📦 Total inventory items loaded (1-based):', all.length);
+      return all;
+    }
+    console.warn('🔬 Page 1 also returned 0 rows. The backend genuinely has no items.');
+  }
 
-    // Extract pagination metadata from whichever layer holds it
-    let meta = res;
-    if (meta?.data !== undefined && (meta?.status !== undefined || meta?.config !== undefined)) {
-      meta = meta.data;
+  // Reset state for diagnostics (only reached if page 0 has data OR both pages empty)
+  all.push(...rows);
+
+  if (rows.length === 0) {
+    // Nothing extractable — dump the real shape for debugging
+    const peek = res?.data ?? res;
+    console.warn(
+      '⚠️ Inventory page-0 returned 0 rows. Keys:',
+      peek && typeof peek === 'object' ? Object.keys(peek) : typeof peek
+    );
+    if (peek?.content !== undefined) {
+      console.warn(
+        '  content type:',
+        Array.isArray(peek.content) ? 'array' : typeof peek.content,
+        '| content keys:',
+        peek.content && typeof peek.content === 'object' ? Object.keys(peek.content) : 'N/A'
+      );
     }
-    if (meta?.data !== undefined && typeof meta.data === 'object' && !Array.isArray(meta.data)) {
-      meta = meta.data;
-    }
+    console.warn('  payload:', JSON.stringify(peek).slice(0, 2000));
+  }
+
+  // Continue with standard 0-based pagination
+  for (let page = 1; page < MAX_ITEM_PAGES; page += 1) {
+    const r = await inventoryService.getInventoryItems(page, ITEM_PAGE_SIZE);
+    const rr = toArray(r);
+    all.push(...rr);
+
+    let meta = r;
+    if (meta?.data !== undefined && (meta?.status !== undefined || meta?.config !== undefined)) meta = meta.data;
+    if (meta?.data !== undefined && typeof meta.data === 'object' && !Array.isArray(meta.data)) meta = meta.data;
 
     const totalPages = Number(meta?.totalPages);
     const isLast =
       meta?.last === true ||
-      rows.length < ITEM_PAGE_SIZE ||
-      rows.length === 0 || // ← critical: stop looping when nothing came back
+      rr.length === 0 ||
+      rr.length < ITEM_PAGE_SIZE ||
       (Number.isFinite(totalPages) && page + 1 >= totalPages);
 
     if (isLast) break;
   }
+
+  console.log('📦 Total inventory items loaded:', all.length);
   return all;
-}; 
+};
+
+// tiny helper used above
+const page0IsEmpty = (rows) => !Array.isArray(rows) || rows.length === 0;
 
   const normalizeItem = (item) => ({
     ...item,
