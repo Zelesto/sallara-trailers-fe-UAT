@@ -60,13 +60,17 @@ import {
    ============================================================ */
 
 /**
- * Unwrap anything the backend (or the service layer) returns:
- *   raw array
- *   | axios wrapper { data: array }
- *   | page { content: [...] }
- *   | axios wrapper { data: page }
- *   | axios wrapper { data: { data: page } }
- * Always returns { content: array, totalElements: number, totalPages: number }.
+ * Unwrap anything the backend (or the service layer) returns into a page:
+ *   { content: [], totalElements: number, totalPages: number }
+ *
+ * Handles:
+ *   - raw array
+ *   - { content: [...] }                                        (Spring Page)
+ *   - { data: [...] } or { data: { content: [...] } }           (axios / extra nesting)
+ *   - { content: { "0": {...}, "1": {...} } }                   (list serialized as map)
+ *   - { content: { items: [...] } }                             (nested under items/list/records/rows/results)
+ *   - { content: null } or { content: {} }                      (empty)
+ *   - axios wrapper around any of the above
  */
 const unwrapPodsPage = (res) => {
   const empty = { content: [], totalElements: 0, totalPages: 0 };
@@ -86,36 +90,58 @@ const unwrapPodsPage = (res) => {
     return { content: payload, totalElements: payload.length, totalPages: 1 };
   }
 
-  // Page object
-  if (payload && Array.isArray(payload.content)) {
-    return {
-      content: payload.content,
-      totalElements: payload.totalElements ?? payload.content.length,
-      totalPages: payload.totalPages ?? 1,
-    };
+  // Some backends wrap the page again under `data`
+  if (
+    payload?.data &&
+    (Array.isArray(payload.data) || Array.isArray(payload.data?.content))
+  ) {
+    payload = payload.data;
   }
 
-  // One more nesting level (axios of axios, or {data: page})
-  if (payload?.data) {
-    if (Array.isArray(payload.data)) {
-      return {
-        content: payload.data,
-        totalElements: payload.data.length,
-        totalPages: 1,
-      };
-    }
-    if (Array.isArray(payload.data.content)) {
-      return {
-        content: payload.data.content,
-        totalElements: payload.data.totalElements ?? payload.data.content.length,
-        totalPages: payload.data.totalPages ?? 1,
-      };
-    }
+  if (!payload || typeof payload !== 'object') {
+    console.warn('⚠️ PODs response is not an object/array:', res);
+    return empty;
   }
 
-  // Unknown shape – log so it's visible, return empty
-  console.warn('⚠️ Unrecognized PODs response shape:', res);
-  return empty;
+  // Extract content from whatever shape it's in
+  let content = payload.content;
+
+  if (content == null) {
+    content = [];
+  } else if (Array.isArray(content)) {
+    // happy path
+  } else if (typeof content === 'object') {
+    // Some backends serialize a list as an object map { "0": {...}, "1": {...} }
+    // or nest it under items/list/records/rows/results.
+    const nestedKey = ['items', 'list', 'records', 'rows', 'results'].find(
+      (k) => Array.isArray(content[k])
+    );
+    if (nestedKey) {
+      content = content[nestedKey];
+    } else {
+      const values = Object.values(content);
+      if (values.length > 0 && values.every((v) => v && typeof v === 'object')) {
+        content = values;
+      } else {
+        // Truly empty or unrecognised object
+        console.warn(
+          '⚠️ PODs content is an object with no extractable array. Raw content:',
+          content
+        );
+        content = [];
+      }
+    }
+  } else {
+    // string / number / boolean — unexpected, treat as empty
+    console.warn('⚠️ PODs content is a scalar, expected array/object:', content);
+    content = [];
+  }
+
+  return {
+    content,
+    totalElements: Number(payload.totalElements) || content.length || 0,
+    totalPages: Number(payload.totalPages) || (content.length > 0 ? 1 : 0),
+  };
 };
 
 /* ============================================================
@@ -162,7 +188,12 @@ const StatCard = React.memo(
           },
         }}
       >
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          spacing={1}
+        >
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="caption"
@@ -241,7 +272,7 @@ const StatCard = React.memo(
 );
 
 /* ============================================================
-   MAIN
+   MAIN COMPONENT
    ============================================================ */
 
 const PODList = () => {
@@ -310,7 +341,7 @@ const PODList = () => {
         isScanned: pod?.source === 'SCANNED' || pod?.status === 'SCANNED',
       }));
 
-      // ✅ Client-side Type filter (was never applied before)
+      // Client-side Type filter
       if (filterType !== 'ALL') {
         transformed = transformed.filter(
           (p) => (p.source || '').toUpperCase() === filterType
@@ -323,7 +354,7 @@ const PODList = () => {
     } catch (err) {
       console.error('Error loading PODs:', err);
       setError(err?.message || 'Failed to load PODs');
-      // ✅ Reset state so a bad response can never leave the grid in a crash state
+      // Reset state so a bad response can never leave the grid in a crash state
       setPods([]);
       setRowCount(0);
       setTotalPages(0);
@@ -341,7 +372,6 @@ const PODList = () => {
   const loadScanningStats = useCallback(async () => {
     try {
       const raw = await podService.getPodStatistics('today');
-      // Statistics response can be {data:{…}} or {…} directly
       const stats =
         raw?.data !== undefined && (raw?.status !== undefined || raw?.config !== undefined)
           ? raw.data
@@ -408,10 +438,8 @@ const PODList = () => {
 
   const handleExport = () => {
     try {
-      // Prefer the env used elsewhere; fall back to axios base (source of truth).
       const baseUrl =
         import.meta.env.VITE_API_BASE_URL ||
-        (typeof window !== 'undefined' && window.__API_BASE_URL__) ||
         'https://trailers-backend.onrender.com/api';
       const timestamp = Date.now();
       const exportUrl = `${String(baseUrl).replace(/\/$/, '')}/pods/export?format=csv&_t=${timestamp}`;
@@ -498,7 +526,10 @@ const PODList = () => {
             label={`#${params.value}`}
             size="small"
             variant="outlined"
-            sx={{ fontSize: { xs: '0.5rem', sm: '0.6rem' }, height: { xs: 16, sm: 18 } }}
+            sx={{
+              fontSize: { xs: '0.5rem', sm: '0.6rem' },
+              height: { xs: 16, sm: 18 },
+            }}
           />
         ),
       },
@@ -632,7 +663,7 @@ const PODList = () => {
   );
 
   /* ============================================================
-     STATS  (guarded – pods is always an array, but double-safety)
+     STATS
      ============================================================ */
 
   const stats = useMemo(() => {
@@ -733,8 +764,12 @@ const PODList = () => {
         </Alert>
       )}
 
-      {/* Stats */}
-      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
+      {/* Stats Cards */}
+      <Grid
+        container
+        spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+        sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}
+      >
         <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
           <StatCard title="Total" value={stats.total} icon={ReceiptIcon} color="primary" />
         </Grid>
@@ -757,7 +792,12 @@ const PODList = () => {
           />
         </Grid>
         <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
-          <StatCard title="Delivered" value={stats.delivered} icon={CheckCircleIcon} color="success" />
+          <StatCard
+            title="Delivered"
+            value={stats.delivered}
+            icon={CheckCircleIcon}
+            color="success"
+          />
         </Grid>
         <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
           <StatCard title="Rejected" value={stats.rejected} icon={CancelIcon} color="error" />
@@ -877,7 +917,7 @@ const PODList = () => {
         </Stack>
       </Paper>
 
-      {/* DataGrid */}
+      {/* Data Grid */}
       <Paper
         elevation={0}
         sx={{
@@ -944,7 +984,9 @@ const PODList = () => {
             },
             '& .MuiTablePagination-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
             '& .MuiTablePagination-select': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
-            '& .MuiTablePagination-displayedRows': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+            '& .MuiTablePagination-displayedRows': {
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
+            },
           }}
         />
       </Paper>
@@ -997,7 +1039,7 @@ const PODList = () => {
         </Stack>
       </Box>
 
-      {/* Delete dialog */}
+      {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
           <DeleteIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'error.main' }} />
