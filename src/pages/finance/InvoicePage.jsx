@@ -73,10 +73,13 @@ const toIsoDate = (date) => {
   return d.toISOString();
 };
 
-const getLoadId = (load) => load?.id ?? load?.loadId ?? load?.loadID ?? null;
+const getLoadId = (load) =>
+  load?.loadId ?? load?.loadID ?? load?.loadNumber ?? load?.id ?? null;
 const getLoadLabel = (load) =>
-  load?.loadNumber || load?.referenceNumber ||
-  (getLoadId(load) !== null ? `Load #${getLoadId(load)}` : 'Load');
+  load?.loadNumber ||
+  load?.loadId ||
+  load?.referenceNumber ||
+  (getLoadId(load) !== null ? `Load ${getLoadId(load)}` : 'Load');
 
 const extractError = (err, fallback) => {
   if (!err) return fallback;
