@@ -105,10 +105,53 @@ const MAX_ITEM_PAGES = 50; // safety cap: 5,000 items
 
 // Accepts a plain array, a Spring page ({ content }), or a wrapped ({ data }) response
 const toArray = (res) => {
+  if (!res) return [];
   if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.content)) return res.content;
-  if (Array.isArray(res?.data)) return res.data;
-  if (Array.isArray(res?.data?.content)) return res.data.content;
+
+  // Peel axios wrapper if present
+  let payload = res;
+  if (
+    payload.data !== undefined &&
+    (payload.status !== undefined || payload.config !== undefined)
+  ) {
+    payload = payload.data;
+  }
+
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.content)) return payload.content;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  if (payload && payload.data && Array.isArray(payload.data.content)) {
+    return payload.data.content;
+  }
+
+  // Fallback: recursively hunt for the first array inside
+  const findArray = (node, depth = 0) => {
+    if (!node || depth > 4) return null;
+    if (Array.isArray(node)) return node;
+    if (typeof node !== 'object') return null;
+
+    const preferred = ['items', 'list', 'records', 'rows', 'results', 'content', 'data'];
+    for (const k of preferred) {
+      if (node[k] !== undefined) {
+        const found = findArray(node[k], depth + 1);
+        if (found) return found;
+      }
+    }
+    const vals = Object.values(node);
+    if (vals.length > 0 && vals.every((v) => v && typeof v === 'object' && !Array.isArray(v))) {
+      return vals;
+    }
+    return null;
+  };
+
+  const found = findArray(payload);
+  if (found) return found;
+
+  // Nothing extractable — log so we can see the real shape
+  console.warn(
+    '⚠️ toArray: no array found in response. Keys:',
+    payload && typeof payload === 'object' ? Object.keys(payload) : typeof payload
+  );
   return [];
 };
 
@@ -865,20 +908,58 @@ const Inventory = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchAllItems = async () => {
-    const all = [];
-    for (let page = 0; page < MAX_ITEM_PAGES; page += 1) {
-      const res = await inventoryService.getInventoryItems(page, ITEM_PAGE_SIZE);
-      const rows = toArray(res);
-      all.push(...rows);
-      const totalPages = Number(res?.totalPages);
-      const isLast = res?.last === true
-        || rows.length < ITEM_PAGE_SIZE
-        || (Number.isFinite(totalPages) && page + 1 >= totalPages);
-      if (isLast) break;
+const fetchAllItems = async () => {
+  const all = [];
+  for (let page = 0; page < MAX_ITEM_PAGES; page += 1) {
+    const res = await inventoryService.getInventoryItems(page, ITEM_PAGE_SIZE);
+    const rows = toArray(res);
+
+    // Diagnostics on page 0 — visible if the shape is unexpected
+    if (page === 0) {
+      console.log('🔬 Inventory page-0 raw response:', res);
+      console.log('🔬 Inventory page-0 extracted rows:', rows.length);
+      if (rows.length === 0) {
+        const peek = res?.data ?? res;
+        console.warn(
+          '⚠️ Inventory returned 0 rows — inspecting payload. Keys:',
+          peek && typeof peek === 'object' ? Object.keys(peek) : typeof peek
+        );
+        if (peek?.content !== undefined) {
+          console.warn(
+            '  content type:',
+            Array.isArray(peek.content) ? 'array' : typeof peek.content,
+            '| content keys:',
+            peek.content && typeof peek.content === 'object'
+              ? Object.keys(peek.content)
+              : 'N/A'
+          );
+        }
+        console.warn('  full payload (stringified, first 2KB):', JSON.stringify(peek).slice(0, 2000));
+      }
     }
-    return all;
-  };
+
+    all.push(...rows);
+
+    // Extract pagination metadata from whichever layer holds it
+    let meta = res;
+    if (meta?.data !== undefined && (meta?.status !== undefined || meta?.config !== undefined)) {
+      meta = meta.data;
+    }
+    if (meta?.data !== undefined && typeof meta.data === 'object' && !Array.isArray(meta.data)) {
+      meta = meta.data;
+    }
+
+    const totalPages = Number(meta?.totalPages);
+    const isLast =
+      meta?.last === true ||
+      rows.length < ITEM_PAGE_SIZE ||
+      rows.length === 0 || // ← critical: stop looping when nothing came back
+      (Number.isFinite(totalPages) && page + 1 >= totalPages);
+
+    if (isLast) break;
+  }
+  return all;
+}; 
 
   const normalizeItem = (item) => ({
     ...item,
