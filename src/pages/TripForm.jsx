@@ -150,21 +150,64 @@ const keepAssigned = (filtered, all, assignedId) => {
   return current ? [current, ...filtered] : filtered;
 };
 
-const personName = (p) =>
-  p?.name ||
-  p?.fullName ||
-  [p?.firstName, p?.lastName].filter(Boolean).join(' ') ||
-  p?.email ||
-  `User #${p?.id}`;
+/**
+ * Extract a display name from a person-like object.
+ * NEVER falls back to email (per requirement).
+ * Handles: name, fullName, displayName, driverName,
+ *          firstName/lastName, firstname/lastname,
+ *          first_name/last_name, givenName/familyName.
+ * Returns '' if no name is available.
+ */
+const personName = (p) => {
+  if (!p) return '';
 
+  // 1) Single-field full name
+  const full =
+    p.name ||
+    p.fullName ||
+    p.displayName ||
+    p.driverName ||
+    p.driver_name ||
+    p.supervisorName;
+  if (full && String(full).trim()) return String(full).trim();
+
+  // 2) First + last, any casing
+  const first =
+    p.firstName ?? p.firstname ?? p.first_name ?? p.givenName ?? p.given_name ?? '';
+  const last =
+    p.lastName ?? p.lastname ?? p.last_name ?? p.familyName ?? p.family_name ?? '';
+  const combined = `${first ?? ''} ${last ?? ''}`.trim();
+  if (combined) return combined;
+
+  // 3) No name available — caller decides how to display this
+  return '';
+};
+
+/**
+ * Build the driver dropdown label.
+ * If no name: use license number, else phone, else id — but never email.
+ */
 const driverLabel = (d) => {
   const name = personName(d);
-  const license = d?.licenseNumber ? ` — ${d.licenseNumber}` : '';
+  const license = d?.licenseNumber || d?.license || d?.license_no || '';
+  const phone = d?.phoneNumber || d?.phone || d?.mobile || d?.cellNumber || '';
   const st = (d?.status || '').toUpperCase();
-  const statusTag =
-    st && st !== 'ACTIVE' && st !== 'AVAILABLE' ? ` (${st})` : '';
-  return `${name}${license}${statusTag}`;
+  const statusTag = st && st !== 'ACTIVE' && st !== 'AVAILABLE' ? ` (${st})` : '';
+
+  if (name) {
+    return license ? `${name} — ${license}${statusTag}` : `${name}${statusTag}`;
+  }
+  // No name — do NOT show email. Prefer license, then phone, then id.
+  if (license) return `Driver (License: ${license})${statusTag}`;
+  if (phone) return `Driver (${phone})${statusTag}`;
+  return `Driver #${d?.id ?? '?'}${statusTag}`;
 };
+
+/**
+ * Optional helper: show a small warning when a driver has no name,
+ * so data-entry issues are visible instead of silently masked.
+ */
+const driverHasName = (d) => personName(d) !== '';
 
 const vehicleLabel = (v) => {
   const reg = v?.registrationNumber || v?.registration || `Vehicle #${v?.id}`;
