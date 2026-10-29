@@ -133,6 +133,22 @@ const localNowIso = (d = new Date()) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
 
+// Format a Date as "YYYY-MM-DDTHH:mm" (the value for <input type="datetime-local">)
+const toDateTimeLocalValue = (d = new Date()) => {
+  if (!d) return '';
+  const date = d instanceof Date ? d : new Date(d);
+  if (isNaN(date.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}`;
+};
+
+// Convert a <input type="datetime-local"> value ("YYYY-MM-DDTHH:mm") into
+// the LocalDateTime string the backend expects ("YYYY-MM-DDTHH:mm:ss").
+const fromDateTimeLocalValue = (v) => {
+  if (!v) return null;
+  return String(v).length === 16 ? `${v}:00` : v;
+};
+
 // Quantity of an issue line still out (issued minus already returned)
 const outstandingQty = (line) => {
   if (!line) return 0;
@@ -152,6 +168,13 @@ const isIssuable = (item, target) => {
   if (target === 'driver') return item.isDriverIssuable !== false;
   return true;
 };
+
+// Resolve the "issue date" shown in the UI, in order of preference:
+//   1. explicit issueDate field (what the user picked when backdating)
+//   2. createdAt (backend auto-timestamp, if it exists)
+//   3. issueDate → fallback so legacy rows still render
+const resolveIssueDate = (issue) =>
+  issue?.issueDate || issue?.createdAt || issue?.transactionDate || null;
 
 // ============================================================
 // STAT CARD - Matching Dashboard
@@ -543,6 +566,7 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
 
   const firstItem = issue.items?.[0];
   const itemName = firstItem?.itemName || inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 'Unknown Item';
+  const issueDate = resolveIssueDate(issue);
 
   return (
     <TableRow hover>
@@ -576,7 +600,7 @@ const VehicleIssueRow = ({ issue, onView, onReturn, onSwap, vehicles, drivers, i
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {issue.issueDate ? new Date(issue.issueDate).toLocaleDateString() : 'N/A'}
+          {issueDate ? new Date(issueDate).toLocaleDateString() : 'N/A'}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -632,6 +656,7 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
 
   const firstItem = issue.items?.[0];
   const itemName = firstItem?.itemName || inventoryItems?.find(i => i.id === firstItem?.itemId)?.name || 'Unknown Item';
+  const issueDate = resolveIssueDate(issue);
 
   return (
     <TableRow hover>
@@ -657,7 +682,7 @@ const DriverIssueRow = ({ issue, onView, onReturn, onSwap, drivers, inventoryIte
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
         <Typography variant="body2" sx={{ fontSize: '0.7rem' }}>
-          {issue.issueDate ? new Date(issue.issueDate).toLocaleDateString() : 'N/A'}
+          {issueDate ? new Date(issueDate).toLocaleDateString() : 'N/A'}
         </Typography>
       </TableCell>
       <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
@@ -791,12 +816,14 @@ const Inventory = () => {
     quantity: 1,
     condition: 'NEW',
     notes: '',
+    issueDate: toDateTimeLocalValue(),
   });
   const [driverIssueFormData, setDriverIssueFormData] = useState({
     driverId: '',
     quantity: 1,
     condition: 'NEW',
     notes: '',
+    issueDate: toDateTimeLocalValue(),
   });
   const [returnFormData, setReturnFormData] = useState({
     quantity: 1,
@@ -1168,6 +1195,7 @@ const Inventory = () => {
       quantity: 1,
       condition: 'NEW',
       notes: '',
+      issueDate: toDateTimeLocalValue(),
     });
     setShowIssueDialog(true);
   };
@@ -1180,6 +1208,7 @@ const Inventory = () => {
       quantity: 1,
       condition: 'NEW',
       notes: '',
+      issueDate: toDateTimeLocalValue(),
     });
     setShowDriverIssueDialog(true);
   };
@@ -1218,10 +1247,24 @@ const Inventory = () => {
       return;
     }
 
+    // Backdate guard: the user may have picked a date or left it as-is.
+    if (!issueFormData.issueDate) {
+      setError('Please select the date and time this issue was actually made');
+      return;
+    }
+    const issueDateIso = fromDateTimeLocalValue(issueFormData.issueDate);
+    if (!issueDateIso) {
+      setError('Invalid issue date');
+      return;
+    }
+
     const payload = {
       vehicleId: Number(issueFormData.vehicleId),
       driverId: Number(issueFormData.driverId),
       tripId: issueFormData.tripId ? parseInt(issueFormData.tripId, 10) : null,
+      // ✅ Explicit issueDate so the backend stores the real time of the issue,
+      //    not the auto-captured createdAt / transaction timestamp.
+      issueDate: issueDateIso,
       items: [{
         itemId: Number(checked.item.id),
         quantity: checked.qty,
@@ -1233,7 +1276,7 @@ const Inventory = () => {
     setSubmitting(true);
     try {
       await vehicleIssueService.createVehicleIssue(payload);
-      showSuccess(`Issued ${checked.qty} × ${checked.item.name} to vehicle`);
+      showSuccess(`Issued ${checked.qty} × ${checked.item.name} to vehicle on ${new Date(issueDateIso).toLocaleString()}`);
       setShowIssueDialog(false);
       resetForms();
       await reloadAfterChange();
@@ -1254,8 +1297,20 @@ const Inventory = () => {
       return;
     }
 
+    if (!driverIssueFormData.issueDate) {
+      setError('Please select the date and time this issue was actually made');
+      return;
+    }
+    const issueDateIso = fromDateTimeLocalValue(driverIssueFormData.issueDate);
+    if (!issueDateIso) {
+      setError('Invalid issue date');
+      return;
+    }
+
     const payload = {
       driverId: Number(driverIssueFormData.driverId),
+      // ✅ Explicit issueDate (same purpose as above)
+      issueDate: issueDateIso,
       items: [{
         itemId: Number(checked.item.id),
         quantity: checked.qty,
@@ -1267,7 +1322,7 @@ const Inventory = () => {
     setSubmitting(true);
     try {
       await vehicleIssueService.createDriverIssue(payload);
-      showSuccess(`Issued ${checked.qty} × ${checked.item.name} to driver`);
+      showSuccess(`Issued ${checked.qty} × ${checked.item.name} to driver on ${new Date(issueDateIso).toLocaleString()}`);
       setShowDriverIssueDialog(false);
       resetForms();
       await reloadAfterChange();
@@ -1548,13 +1603,15 @@ const Inventory = () => {
       tripId: '',
       quantity: 1,
       condition: 'NEW',
-      notes: ''
+      notes: '',
+      issueDate: toDateTimeLocalValue(),
     });
     setDriverIssueFormData({
       driverId: '',
       quantity: 1,
       condition: 'NEW',
-      notes: ''
+      notes: '',
+      issueDate: toDateTimeLocalValue(),
     });
     setReturnFormData({
       itemId: '',
@@ -1669,7 +1726,7 @@ const Inventory = () => {
     { header: 'Item',       value: (r) => itemNameOf(r.items?.[0]),               width: 25 },
     { header: 'Quantity',   value: (r) => r.items?.[0]?.quantityIssued ?? r.items?.[0]?.quantity ?? 0, type: 'number', width: 10 },
     { header: 'Condition',  value: (r) => r.items?.[0]?.condition || '',          width: 12 },
-    { header: 'Issue Date', value: (r) => (r.issueDate ? new Date(r.issueDate).toLocaleDateString() : ''), width: 12 },
+    { header: 'Issue Date', value: (r) => { const d = resolveIssueDate(r); return d ? new Date(d).toLocaleString() : ''; }, width: 20 },
     { header: 'Status',     value: (r) => r.status || 'ISSUED',                   width: 18 },
   ];
 
@@ -1679,7 +1736,7 @@ const Inventory = () => {
     { header: 'Item',       value: (r) => itemNameOf(r.items?.[0]),               width: 25 },
     { header: 'Quantity',   value: (r) => r.items?.[0]?.quantityIssued ?? r.items?.[0]?.quantity ?? 0, type: 'number', width: 10 },
     { header: 'Condition',  value: (r) => r.items?.[0]?.condition || '',          width: 12 },
-    { header: 'Issue Date', value: (r) => (r.issueDate ? new Date(r.issueDate).toLocaleDateString() : ''), width: 12 },
+    { header: 'Issue Date', value: (r) => { const d = resolveIssueDate(r); return d ? new Date(d).toLocaleString() : ''; }, width: 20 },
     { header: 'Status',     value: (r) => r.status || 'ISSUED',                   width: 18 },
   ];
 
@@ -3054,9 +3111,12 @@ const Inventory = () => {
                     </TableContainer>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Date</Typography>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Issue Date (actual)</Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                      {selectedIssue.issueDate ? new Date(selectedIssue.issueDate).toLocaleDateString() : 'N/A'}
+                      {(() => {
+                        const d = resolveIssueDate(selectedIssue);
+                        return d ? new Date(d).toLocaleString() : 'N/A';
+                      })()}
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -3065,6 +3125,14 @@ const Inventory = () => {
                       {selectedIssue.expectedReturnDate ? new Date(selectedIssue.expectedReturnDate).toLocaleDateString() : 'N/A'}
                     </Typography>
                   </Grid>
+                  {selectedIssue.createdAt && selectedIssue.issueDate && (
+                    <Grid size={{ xs: 12 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                        Recorded: {new Date(selectedIssue.createdAt).toLocaleString()}
+                        {' • '}Actual issue date: {new Date(selectedIssue.issueDate).toLocaleString()}
+                      </Typography>
+                    </Grid>
+                  )}
                   {selectedIssue.notes && (
                     <Grid size={{ xs: 12 }}>
                       <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Notes</Typography>
@@ -3123,6 +3191,19 @@ const Inventory = () => {
                     <br />
                     <small>Consumable: {selectedItem.isConsumable !== false ? 'Yes' : 'No'}</small>
                   </Alert>
+
+                  {/* ✅ NEW: Issue Date — editable so the user can backdate an issue
+                      that was physically done but not recorded in the system. */}
+                  <TextField
+                    label="Issue Date & Time *"
+                    type="datetime-local"
+                    value={issueFormData.issueDate}
+                    onChange={(e) => setIssueFormData(prev => ({ ...prev, issueDate: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                    helperText="Defaults to now. Change to backdate an issue that was done earlier."
+                  />
 
                   <FormControl fullWidth size="small" required>
                     <InputLabel sx={{ fontSize: '0.75rem' }}>Vehicle *</InputLabel>
@@ -3219,7 +3300,7 @@ const Inventory = () => {
               size="small"
               onClick={handleSubmitVehicleIssue}
               sx={{ fontSize: '0.8rem' }}
-              disabled={submitting || !selectedItem || !issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0}
+              disabled={submitting || !selectedItem || !issueFormData.vehicleId || !issueFormData.driverId || issueFormData.quantity <= 0 || !issueFormData.issueDate}
             >
               Issue Item
             </Button>
@@ -3266,6 +3347,18 @@ const Inventory = () => {
                     <br />
                     <small>Consumable: {selectedItem.isConsumable !== false ? 'Yes' : 'No'}</small>
                   </Alert>
+
+                  {/* ✅ NEW: Issue Date — backdatable */}
+                  <TextField
+                    label="Issue Date & Time *"
+                    type="datetime-local"
+                    value={driverIssueFormData.issueDate}
+                    onChange={(e) => setDriverIssueFormData(prev => ({ ...prev, issueDate: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                    helperText="Defaults to now. Change to backdate an issue that was done earlier."
+                  />
 
                   <FormControl fullWidth size="small" required>
                     <InputLabel sx={{ fontSize: '0.75rem' }}>Driver *</InputLabel>
@@ -3334,7 +3427,7 @@ const Inventory = () => {
               size="small"
               onClick={handleSubmitDriverIssue}
               sx={{ fontSize: '0.8rem' }}
-              disabled={submitting || !selectedItem || !driverIssueFormData.driverId || driverIssueFormData.quantity <= 0}
+              disabled={submitting || !selectedItem || !driverIssueFormData.driverId || driverIssueFormData.quantity <= 0 || !driverIssueFormData.issueDate}
             >
               Issue to Driver
             </Button>
