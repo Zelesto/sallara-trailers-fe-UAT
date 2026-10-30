@@ -443,96 +443,111 @@ const InvoicePage = () => {
   };
 
   const handleLoadSelect = async (loadId) => {
-    setSelectedLoadId(loadId);
-    setLoadBillingSummary(null);
-    setBillingError('');
+  setSelectedLoadId(loadId);
+  setLoadBillingSummary(null);
+  setBillingError('');
 
-    if (loadId === '' || loadId === null || loadId === undefined) return;
+  if (loadId === '' || loadId === null || loadId === undefined) return;
 
-    // ⭐ CRITICAL: backend requires userId as query param.
-    if (!currentUserId) {
-      setBillingError(
-        'Cannot recalculate billing — the current user ID is unknown. ' +
-        'AuthContext.user.id (or the JWT payload) must contain the logged-in user ID.'
-      );
-      return;
-    }
+  if (!currentUserId) {
+    setBillingError(
+      'Cannot recalculate billing — user ID unknown. ' +
+      'AuthContext.user.id is not populated.'
+    );
+    return;
+  }
 
+  // 1. Try recalculate (creates trip billings — may 500 if backend has a bug)
+  let recalcOk = false;
+  try {
+    await billingService.recalculateLoadBilling(loadId, currentUserId);
+    recalcOk = true;
+    console.log(`✅ Recalculate OK for load ${loadId}`);
+  } catch (err) {
+    console.warn(`⚠️ Recalculate failed for load ${loadId}:`, err?.message);
+
+    // 2. Fall back to /calculate — different code path, aggregates existing
+    //    trip billings without deleting/recreating them
     try {
-      // Use billingService directly — it correctly appends ?userId=<id>
-      await billingService.recalculateLoadBilling(loadId, currentUserId);
-      console.log(`✅ Billing recalculated for load ${loadId} by user ${currentUserId}`);
-    } catch (err) {
-      console.warn(`Recalculate billing for load ${loadId} failed:`, err?.message);
-      const status = err?.response?.status ?? err?.status;
-      if (status === 400) {
-        setBillingError(
-          'The backend rejected the recalculate request (400). Most likely the load has no trips to bill, ' +
-          'or the userId does not exist. Check the console for the exact error body.'
-        );
-        return;
-      }
-      // Fall through — /summary may still work if a prior calculation exists
+      await billingService.calculateLoadBilling(loadId, currentUserId);
+      recalcOk = true;
+      console.log(`✅ /calculate fallback OK for load ${loadId}`);
+    } catch (err2) {
+      console.warn(`⚠️ /calculate also failed for load ${loadId}:`, err2?.message);
+      // Non-fatal — /summary may still work from prior data
     }
+  }
 
-    await fetchLoadBillingSummary(loadId);
-  };
+  // 3. Always try /summary — it uses a different service path (LoadBilling repo
+  //    directly) and succeeds even when recalculate fails
+  await fetchLoadBillingSummary(loadId);
+};
 
   const handleGenerateInvoiceFromBilling = async () => {
-    if (!selectedLoadId) {
-      setBillingError('Please select a load first.');
-      return;
-    }
-    if (!currentUserId) {
-      setBillingError(
-        'Cannot generate invoice — the current user ID is unknown. ' +
-        'AuthContext.user.id must be populated after login.'
-      );
-      return;
-    }
-    setGeneratingInvoice(true);
-    setBillingError('');
+  if (!selectedLoadId) {
+    setBillingError('Please select a load first.');
+    return;
+  }
+  if (!currentUserId) {
+    setBillingError('Cannot generate invoice — user ID unknown.');
+    return;
+  }
+
+  setGeneratingInvoice(true);
+  setBillingError('');
+
+  // Step 1: try recalculate — but DON'T block if it fails.
+  // The /summary call already proved the LoadBilling exists.
+  try {
+    await billingService.recalculateLoadBilling(selectedLoadId, currentUserId);
+    console.log(`✅ Recalculate before invoice OK for load ${selectedLoadId}`);
+  } catch (err) {
+    console.warn(`⚠️ Recalculate before invoice failed for load ${selectedLoadId}:`, err?.message);
     try {
-      // Step 1: ensure a billing record exists
-      try {
-        await billingService.recalculateLoadBilling(selectedLoadId, currentUserId);
-      } catch (err) {
-        console.warn(`Recalculate before invoice failed for load ${selectedLoadId}:`, err?.message);
-      }
-
-      // Step 2: generate the invoice — pass userId explicitly
-      const raw = await billingService.generateInvoiceFromLoad(selectedLoadId, currentUserId);
-      const invoice = unwrapApi(raw);
-      console.log('✅ Invoice generated from billing:', invoice);
-
-      setOpenBillingDialog(false);
-      setSuccessMessage(
-        invoice?.invoiceNumber
-          ? `Invoice ${invoice.invoiceNumber} generated from load ${selectedLoadId} by ${currentUserName}.`
-          : `Invoice generated from load ${selectedLoadId}.`
-      );
-      await fetchInvoices();
-    } catch (err) {
-      console.error('❌ Error generating invoice:', err);
-      const status = err?.response?.status ?? err?.status;
-      if (status === 400) {
-        setBillingError(
-          'The backend rejected the invoice generation (400). Common causes: ' +
-          'the load has no billable trips, no customer assigned, or a duplicate invoice number. ' +
-          'Check the console for the exact error body.'
-        );
-      } else if (status === 500) {
-        setBillingError(
-          'The backend failed while generating the invoice (500). Common causes: ' +
-          'missing AR account, or a null customer/line-item reference.'
-        );
-      } else {
-        setBillingError(extractError(err, 'Failed to generate invoice'));
-      }
-    } finally {
-      setGeneratingInvoice(false);
+      await billingService.calculateLoadBilling(selectedLoadId, currentUserId);
+      console.log(`✅ /calculate fallback before invoice OK`);
+    } catch (err2) {
+      console.warn(`⚠️ /calculate fallback also failed:`, err2?.message);
+      // Continue anyway — invoice may work on existing data
     }
-  };
+  }
+
+  // Step 2: ALWAYS attempt the invoice, regardless of recalc outcome
+  try {
+    const raw = await billingService.generateInvoiceFromLoad(selectedLoadId, currentUserId);
+    const invoice = unwrapApi(raw);
+    console.log('✅ Invoice generated:', invoice);
+
+    setOpenBillingDialog(false);
+    setSuccessMessage(
+      invoice?.invoiceNumber
+        ? `Invoice ${invoice.invoiceNumber} generated from load ${selectedLoadId}.`
+        : `Invoice generated from load ${selectedLoadId}.`
+    );
+    await fetchInvoices();
+  } catch (err) {
+    console.error('❌ Invoice generation failed:', err);
+    const status = err?.response?.status ?? err?.status;
+    const detail =
+      err?.response?.data?.detail ||
+      err?.response?.data?.message ||
+      err?.message ||
+      'unknown error';
+
+    if (status === 500) {
+      setBillingError(
+        `Invoice generation returned 500: "${detail}". ` +
+        `This is a backend bug in InvoiceBillingService.generateInvoiceFromLoad. ` +
+        `Check Render → backend logs for the exact line. ` +
+        `Common causes: no AR account, no customer on the load, or a null field in LoadBilling.`
+      );
+    } else {
+      setBillingError(`Invoice generation failed (${status}): ${detail}`);
+    }
+  } finally {
+    setGeneratingInvoice(false);
+  }
+};
 
   /* ============ DERIVED ============ */
 
