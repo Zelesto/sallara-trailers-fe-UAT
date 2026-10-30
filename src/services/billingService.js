@@ -36,21 +36,122 @@ const toArray = (res) => {
   return findArray(payload) || [];
 };
 
+/* ============================================================
+   ✅ NEW: Resolve userId automatically so callers don't need to
+   import AuthContext. Tries localStorage → JWT payload.
+   ============================================================ */
+
+const decodeJwtPayload = (token) => {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
+const tryParse = (raw) => {
+  try { return JSON.parse(raw); } catch { return null; }
+};
+
+let _cachedUserId = null;
+
+const resolveUserId = () => {
+  // 1) Cache hit
+  if (_cachedUserId !== null) return _cachedUserId;
+
+  // 2) localStorage user object
+  const userKeys = ['user', 'authUser', 'currentUser', 'auth_user', 'loggedInUser'];
+  for (const k of userKeys) {
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    const parsed = tryParse(raw);
+    if (!parsed) continue;
+    const id =
+      parsed?.id ??
+      parsed?.userId ??
+      parsed?.user_id ??
+      parsed?.user?.id ??
+      parsed?.user?.userId;
+    if (id != null) {
+      _cachedUserId = id;
+      return id;
+    }
+  }
+
+  // 3) JWT payload
+  const tokenKeys = ['token', 'authToken', 'access_token', 'jwt', 'auth_token'];
+  for (const k of tokenKeys) {
+    const token = localStorage.getItem(k);
+    if (!token) continue;
+    const payload = decodeJwtPayload(token);
+    if (!payload) continue;
+    const id =
+      payload.userId ??
+      payload.user_id ??
+      payload.id ??
+      (payload.sub && /^\d+$/.test(String(payload.sub)) ? Number(payload.sub) : null);
+    if (id != null) {
+      _cachedUserId = id;
+      return id;
+    }
+  }
+
+  // 4) Session storage fallback (some apps use it)
+  for (const k of [...userKeys, ...tokenKeys]) {
+    const raw = sessionStorage.getItem(k);
+    if (!raw) continue;
+    const parsed = tryParse(raw);
+    if (parsed?.id != null) {
+      _cachedUserId = parsed.id;
+      return parsed.id;
+    }
+    if (parsed?.userId != null) {
+      _cachedUserId = parsed.userId;
+      return parsed.userId;
+    }
+  }
+
+  return null;
+};
+
 /**
- * Backend requires userId as a query parameter on every billing POST.
- * If caller doesn't supply one, we throw — better to fail loudly in
- * the console than to hit the backend and get a cryptic 400.
+ * Clear the cached userId — call this from your logout handler so the next
+ * login picks up the fresh user.
  */
+export const clearBillingUserCache = () => { _cachedUserId = null; };
+
+/* ============================================================
+   withUserParam — now self-sufficient
+   ============================================================ */
+
 const withUserParam = (base, userId, action) => {
-  if (userId === undefined || userId === null || userId === '') {
+  const resolved = userId ?? resolveUserId();
+
+  if (resolved === undefined || resolved === null || resolved === '') {
+    // eslint-disable-next-line no-console
+    console.error(
+      `billingService.${action}: could not resolve userId. ` +
+      `Pass it explicitly, or ensure your login flow stores { id } under ` +
+      `localStorage key "user", "authUser", or "currentUser", or stores a JWT ` +
+      `under key "token" whose payload contains userId/user_id/id/sub. ` +
+      `Current localStorage keys: [${Object.keys(localStorage).join(', ')}]`
+    );
     throw new Error(
-      `billingService.${action}: missing userId. The backend requires it as a query parameter. ` +
-      `Call this with the current user's ID from AuthContext.`
+      `billingService.${action}: missing userId (could not resolve from localStorage or JWT).`
     );
   }
+
   const sep = base.includes('?') ? '&' : '?';
-  return `${base}${sep}userId=${encodeURIComponent(userId)}`;
+  return `${base}${sep}userId=${encodeURIComponent(resolved)}`;
 };
+
+/* ============================================================
+   Public API
+   ============================================================ */
 
 const billingService = {
   getLoadsWithBillings: async () => {
@@ -86,7 +187,7 @@ const billingService = {
     }
   },
 
-  // ⚠️ userId is REQUIRED by the backend — pass it from AuthContext
+  // userId optional — resolves from localStorage/JWT if not passed
   calculateLoadBilling: async (loadId, userId) => {
     try {
       const response = await api.post(
@@ -99,7 +200,7 @@ const billingService = {
     }
   },
 
-  // ⚠️ userId is REQUIRED by the backend — pass it from AuthContext
+  // userId optional — resolves from localStorage/JWT if not passed
   recalculateLoadBilling: async (loadId, userId) => {
     try {
       const response = await api.post(
@@ -112,7 +213,7 @@ const billingService = {
     }
   },
 
-  // ⚠️ userId is REQUIRED by the backend — pass it from AuthContext
+  // userId optional — resolves from localStorage/JWT if not passed
   generateInvoiceFromLoad: async (loadId, userId) => {
     try {
       const response = await api.post(
@@ -171,6 +272,9 @@ const billingService = {
       throw error;
     }
   },
+
+  // ✅ New: expose the resolver so other places can use it too
+  resolveUserId,
 };
 
 export default billingService;
