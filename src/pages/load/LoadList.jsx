@@ -32,7 +32,7 @@ import { customerService } from '../../services/customerService';
 import { tripService } from '../../services/tripService';
 import billingService from '../../services/billingService';
 // ✅ ADDED: auth context — adjust path if your AuthContext lives elsewhere
-import { useAuth } from '../../context/AuthContext';
+//import { useAuth } from '../../context/AuthContext';
 
 import {
   LOAD_STATUSES,
@@ -406,29 +406,27 @@ const LoadList = () => {
      and uses billingService.recalculateLoadBilling directly.
      ============================================================ */
   const handleRecalculateBilling = async (loadId) => {
-    if (!user?.id) {
-      setError('You must be signed in to recalculate billing.');
-      return;
-    }
-    setBillingInProgress(loadId);
-    setError(null);
-    try {
-      await billingService.recalculateLoadBilling(loadId, user.id);
-      setSuccessMessage(
-        `Billing recalculated for load ${loadId}. You can now generate an invoice from Invoice → From Billing.`);
-      await loadLoads();
-    } catch (err) {
-      console.error('Error recalculating billing:', err);
-      const detail =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        err?.message ||
-        'Failed to recalculate billing';
-      setError(detail);
-    } finally {
-      setBillingInProgress(null);
-    }
-  };
+  setBillingInProgress(loadId);
+  setError(null);
+  try {
+    // ✅ userId is resolved automatically inside billingService
+    await billingService.recalculateLoadBilling(loadId);
+    setSuccessMessage(
+      `Billing recalculated for load ${loadId}. You can now generate an invoice from Invoice → From Billing.`
+    );
+    await loadLoads();
+  } catch (err) {
+    console.error('Error recalculating billing:', err);
+    const detail =
+      err?.response?.data?.detail ||
+      err?.response?.data?.message ||
+      err?.message ||
+      'Failed to recalculate billing';
+    setError(detail);
+  } finally {
+    setBillingInProgress(null);
+  }
+};
 
   /* ============================================================
      DERIVED VALUES
