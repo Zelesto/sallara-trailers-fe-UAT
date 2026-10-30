@@ -549,9 +549,42 @@ const Inventory = () => {
     if (vR.status === 'fulfilled') setVehicles(toArray(vR.value));
     else { failed.push('vehicles'); }
     setLoadingVehicles(false);
-    if (dR.status === 'fulfilled') setDrivers(toArray(dR.value));
-    else { failed.push('drivers'); }
-    setLoadingDrivers(false);
+    if (dR.status === 'fulfilled') {
+  const rawDrivers = toArray(dR.value);
+
+  // 🔎 Log the raw shape once so you can see exactly what field holds the name.
+  //    Open DevTools → Console → look for "🔎 Driver object shape".
+  if (rawDrivers.length > 0) {
+    console.log('🔎 Driver object shape (first):', rawDrivers[0]);
+  }
+
+  // ✅ Normalize: every driver gets a `fullName`. All display code
+  //    (dropdowns, tables, exports, issue details) already uses
+  //    `d.fullName` as the first choice, so this makes them all work.
+  setDrivers(rawDrivers.map((d) => {
+    const first = d.firstName ?? d.firstname ?? d.first_name ?? d.givenName ?? d.given_name ?? '';
+    const last  = d.lastName  ?? d.lastname  ?? d.last_name  ?? d.familyName ?? d.family_name ?? '';
+
+    const resolvedName =
+      d.fullName ||
+      d.name ||
+      d.displayName ||
+      d.driverName ||
+      d.driver_name ||
+      (first && last ? `${first} ${last}`.trim() : '') ||
+      (d.surname ? `${first} ${d.surname}`.trim() : '') ||
+      (d.initials ? d.initials : '');
+
+    return {
+      ...d,
+      fullName: resolvedName || `Driver #${d.id}`,   // last-resort fallback
+    };
+  }));
+} else {
+  console.error('Error loading drivers:', dR.reason);
+  failed.push('drivers');
+}
+setLoadingDrivers(false);
     if (sR.status === 'fulfilled') setStats(sR.value);
     await Promise.all([loadVehicleIssues(), loadDriverIssues()]);
     if (failed.length > 0) setError(`Failed: ${failed.join(', ')}`);
