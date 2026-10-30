@@ -266,35 +266,80 @@ const MovementHistory = () => {
   }, []);
 
   const loadMovements = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await inventoryMovementService.getMovementHistory();
+  setLoading(true);
+  setError(null);
 
-      let movementsData = [];
-      if (Array.isArray(data)) {
-        movementsData = data;
-      } else if (data && data.content) {
-        movementsData = data.content;
-      } else if (data && data.data) {
-        movementsData = Array.isArray(data.data) ? data.data : [];
-      } else if (data && typeof data === 'object') {
-        const values = Object.values(data);
-        const arrayProp = values.find(v => Array.isArray(v));
-        movementsData = arrayProp || [];
+  try {
+    const data = await inventoryMovementService.getMovementHistory();
+
+    // Log the shape once so you can verify what's actually returned
+    console.log('[MovementHistory] Raw response:', data);
+
+    // ── Recursive unwrap ────────────────────────────────────────
+    // Handles all shapes the service may return:
+    //   raw array | { content: [...] } | axios { data: [...] }
+    //   | axios { data: { content: [...] } }
+    //   | { data: { data: [...] } }
+    const unwrapList = (res) => {
+      if (!res) return [];
+      if (Array.isArray(res)) return res;
+
+      // peel axios wrapper
+      let payload = res;
+      if (payload.data !== undefined && (payload.status !== undefined || payload.config !== undefined)) {
+        payload = payload.data;
       }
 
-      setMovements(movementsData);
-      calculateStats(movementsData);
-    } catch (err) {
-      console.error('Error loading movements:', err);
-      setError('Failed to load movement history');
-      setMovements([]);
-      calculateStats([]);
-    } finally {
-      setLoading(false);
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.content)) return payload.content;
+      if (payload && Array.isArray(payload.data)) return payload.data;
+      if (payload && payload.data && Array.isArray(payload.data.content)) {
+        return payload.data.content;
+      }
+
+      // last resort: find the first array in the object tree
+      const find = (node, depth = 0) => {
+        if (!node || depth > 4) return null;
+        if (Array.isArray(node)) return node;
+        if (typeof node !== 'object') return null;
+        for (const k of ['content', 'items', 'list', 'records', 'rows', 'results', 'data']) {
+          if (node[k] !== undefined) {
+            const f = find(node[k], depth + 1);
+            if (f) return f;
+          }
+        }
+        return null;
+      };
+      return find(payload) || [];
+    };
+
+    const movementsData = unwrapList(data);
+    console.log(`[MovementHistory] Extracted ${movementsData.length} movements`);
+
+    setMovements(movementsData);
+    calculateStats(movementsData);
+
+    // Surface "backend returns empty" distinctly from "request failed"
+    if (movementsData.length === 0) {
+      console.warn(
+        '[MovementHistory] Backend returned an empty list. ' +
+        'Movements are only created when you issue/return items or record a manual movement.'
+      );
     }
-  };
+  } catch (err) {
+    console.error('Error loading movements:', err);
+    setError(
+      err?.response?.data?.detail ||
+      err?.response?.data?.message ||
+      err?.message ||
+      'Failed to load movement history'
+    );
+    setMovements([]);
+    calculateStats([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleApprove = async () => {
     try {
