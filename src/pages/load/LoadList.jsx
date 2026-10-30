@@ -1,11 +1,36 @@
 // src/pages/load/LoadList.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box, Paper, Typography, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Chip, Button, IconButton, Tooltip, TextField,
-  InputAdornment, Stack, Grid, Card, CardContent, Alert, CircularProgress,
-  MenuItem, FormControl, InputLabel, Select, Dialog, DialogTitle,
-  DialogContent, DialogActions, Tooltip as MuiTooltip,
+  Box,
+  Paper,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  Button,
+  IconButton,
+  Tooltip,
+  TextField,
+  InputAdornment,
+  Stack,
+  Grid,
+  Card,
+  CardContent,
+  Alert,
+  CircularProgress,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip as MuiTooltip,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -31,8 +56,6 @@ import { loadService } from '../../services/loadService';
 import { customerService } from '../../services/customerService';
 import { tripService } from '../../services/tripService';
 import billingService from '../../services/billingService';
-// ✅ ADDED: auth context — adjust path if your AuthContext lives elsewhere
-//import { useAuth } from '../../context/AuthContext';
 
 import {
   LOAD_STATUSES,
@@ -40,21 +63,29 @@ import {
 } from '../../constants';
 
 /* ============================================================
-   UTILITIES  (unchanged from your version)
+   UTILITIES
    ============================================================ */
 
 const getColor = (color) => {
   const colors = {
-    primary: '#4F46E5', success: '#22C55E', warning: '#F59E0B',
-    error: '#EF4444',   info: '#3B82F6',    secondary: '#6B7280',
+    primary: '#4F46E5',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6',
+    secondary: '#6B7280',
   };
   return colors[color] || colors.primary;
 };
 
 const getColorBg = (color) => {
   const colors = {
-    primary: '#EEF2FF', success: '#DCFCE7', warning: '#FEF3C7',
-    error: '#FEE2E2',   info: '#DBEAFE',    secondary: '#F3F4F6',
+    primary: '#EEF2FF',
+    success: '#DCFCE7',
+    warning: '#FEF3C7',
+    error: '#FEE2E2',
+    info: '#DBEAFE',
+    secondary: '#F3F4F6',
   };
   return colors[color] || colors.primary;
 };
@@ -63,76 +94,123 @@ const unwrapList = (res) => {
   try {
     if (!res) return [];
     if (Array.isArray(res)) return res;
+
     const payload =
       res.data !== undefined && (res.status !== undefined || res.config !== undefined)
-        ? res.data : res;
+        ? res.data
+        : res;
+
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.content)) return payload.content;
     if (payload && Array.isArray(payload.data)) return payload.data;
-    if (payload && payload.data && Array.isArray(payload.data.content))
+    if (payload && payload.data && Array.isArray(payload.data.content)) {
       return payload.data.content;
+    }
     return [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 };
 
 const formatDate = (date) => {
   if (!date) return 'N/A';
   try {
     return new Date(date).toLocaleDateString('en-ZA', {
-      day: '2-digit', month: 'short', year: 'numeric',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
     });
-  } catch { return 'N/A'; }
+  } catch {
+    return 'N/A';
+  }
 };
 
 /* ============================================================
-   STAT CARD  (unchanged)
+   STAT CARD
    ============================================================ */
 
 const StatCard = React.memo(({ title, value, icon: Icon, color = 'primary', subtitle }) => {
   const iconColor = getColor(color);
   const bgColor = getColorBg(color);
   const SafeIcon = Icon || LocalShipping;
+
   return (
-    <Card sx={{
-      bgcolor: '#FFFFFF', borderRadius: { xs: '12px', sm: '14px', md: '16px' },
-      border: '1px solid #ECECEC', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      height: '100%', width: '100%',
-      '&:hover': {
-        transform: 'translateY(-4px)', boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-        borderColor: iconColor,
-      },
-    }}>
+    <Card
+      sx={{
+        bgcolor: '#FFFFFF',
+        borderRadius: { xs: '12px', sm: '14px', md: '16px' },
+        border: '1px solid #ECECEC',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        height: '100%',
+        width: '100%',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          borderColor: iconColor,
+        },
+      }}
+    >
       <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="caption" sx={{
-              color: '#6B7280', fontWeight: 600, textTransform: 'uppercase',
-              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
-              letterSpacing: '0.5px', display: 'block', mb: 0.25,
-            }}>{title}</Typography>
-            <Typography variant="h4" sx={{
-              fontWeight: 700, color: '#111827',
-              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
-              lineHeight: 1.2,
-            }}>{value ?? 0}</Typography>
-            {subtitle && (
-              <Typography variant="caption" sx={{
-                color: '#6B7280', display: 'block', mt: 0.25,
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#6B7280',
+                fontWeight: 600,
+                textTransform: 'uppercase',
                 fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
-              }}>{subtitle}</Typography>
+                letterSpacing: '0.5px',
+                display: 'block',
+                mb: 0.25,
+              }}
+            >
+              {title}
+            </Typography>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#111827',
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                lineHeight: 1.2,
+              }}
+            >
+              {value ?? 0}
+            </Typography>
+            {subtitle && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#6B7280',
+                  display: 'block',
+                  mt: 0.25,
+                  fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
+                }}
+              >
+                {subtitle}
+              </Typography>
             )}
           </Box>
-          <Box sx={{
-            bgcolor: bgColor, borderRadius: { xs: '10px', sm: '12px', md: '14px' },
-            p: { xs: 1, sm: 1.25, md: 1.5 },
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, transition: 'all 0.3s ease',
-            '&:hover': { transform: 'scale(1.05)' },
-          }}>
-            <SafeIcon sx={{
-              color: iconColor,
-              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
-            }} />
+          <Box
+            sx={{
+              bgcolor: bgColor,
+              borderRadius: { xs: '10px', sm: '12px', md: '14px' },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'all 0.3s ease',
+              '&:hover': { transform: 'scale(1.05)' },
+            }}
+          >
+            <SafeIcon
+              sx={{
+                color: iconColor,
+                fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+              }}
+            />
           </Box>
         </Stack>
       </CardContent>
@@ -141,62 +219,89 @@ const StatCard = React.memo(({ title, value, icon: Icon, color = 'primary', subt
 });
 
 /* ============================================================
-   STATUS CHIP  (unchanged)
+   STATUS CHIP
    ============================================================ */
 
 const StatusChip = ({ status }) => {
   const config = LOAD_STATUSES.find((s) => s.code === status);
   return (
-    <Chip label={config?.displayName || status || 'Unknown'} size="small" sx={{
-      backgroundColor: config?.color ? `${config.color}20` : '#F3F4F6',
-      color: config?.color || '#6B7280', fontWeight: 600,
-      fontSize: { xs: '0.5rem', sm: '0.6rem' },
-      height: { xs: 18, sm: 22 },
-      border: `1px solid ${config?.color || '#6B7280'}20`,
-      '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
-    }} />
+    <Chip
+      label={config?.displayName || status || 'Unknown'}
+      size="small"
+      sx={{
+        backgroundColor: config?.color ? `${config.color}20` : '#F3F4F6',
+        color: config?.color || '#6B7280',
+        fontWeight: 600,
+        fontSize: { xs: '0.5rem', sm: '0.6rem' },
+        height: { xs: 18, sm: 22 },
+        border: `1px solid ${config?.color || '#6B7280'}20`,
+        '& .MuiChip-label': { px: { xs: 0.75, sm: 1 }, py: 0.25 },
+      }}
+    />
   );
 };
 
 /* ============================================================
-   DISTANCE CHIP  (unchanged)
+   DISTANCE CHIP
    ============================================================ */
 
 const DistanceChip = ({ distance, isZero }) => {
   if (isZero) {
-    return <Chip size="small" label="Last Drop-off" sx={{
-      fontSize: { xs: '0.45rem', sm: '0.55rem' },
-      height: { xs: 16, sm: 20 }, bgcolor: '#EDE9FE', color: '#5B21B6', fontWeight: 500,
-    }} />;
+    return (
+      <Chip
+        size="small"
+        label="Last Drop-off"
+        sx={{
+          fontSize: { xs: '0.45rem', sm: '0.55rem' },
+          height: { xs: 16, sm: 20 },
+          bgcolor: '#EDE9FE',
+          color: '#5B21B6',
+          fontWeight: 500,
+        }}
+      />
+    );
   }
   if (!distance || distance === 0) {
     return <Typography sx={{ fontSize: '0.6rem', color: '#6B7280' }}>-</Typography>;
   }
   return (
     <MuiTooltip title={`${distance} km from depot to pickup`} arrow>
-      <Chip size="small" label={`${distance} km`} sx={{
-        fontSize: { xs: '0.45rem', sm: '0.55rem' },
-        height: { xs: 16, sm: 20 }, bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 500,
-      }} />
+      <Chip
+        size="small"
+        label={`${distance} km`}
+        sx={{
+          fontSize: { xs: '0.45rem', sm: '0.55rem' },
+          height: { xs: 16, sm: 20 },
+          bgcolor: '#D1FAE5',
+          color: '#065F46',
+          fontWeight: 500,
+        }}
+      />
     </MuiTooltip>
   );
 };
 
 /* ============================================================
-   TRIP EXPANDABLE ROW  (unchanged)
+   TRIP EXPANDABLE ROW
    ============================================================ */
 
 const TripExpandableRow = ({ load }) => {
   const [expanded, setExpanded] = useState(false);
-  if (!Array.isArray(load.trips) || load.trips.length === 0) return null;
+
+  if (!Array.isArray(load.trips) || load.trips.length === 0) {
+    return null;
+  }
+
   return (
     <>
       <TableRow>
         <TableCell colSpan={9} sx={{ py: 0.5 }}>
-          <Button size="small"
+          <Button
+            size="small"
             startIcon={expanded ? <ExpandLess /> : <ExpandMore />}
             onClick={() => setExpanded(!expanded)}
-            sx={{ fontSize: '0.65rem', color: '#6B7280' }}>
+            sx={{ fontSize: '0.65rem', color: '#6B7280' }}
+          >
             {expanded ? 'Hide' : 'Show'} {load.trips.length} Trips
           </Button>
         </TableCell>
@@ -207,12 +312,13 @@ const TripExpandableRow = ({ load }) => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  {['Trip #', 'Status', 'Origin', 'Destination',
-                    'Pickup Distance', 'Route Distance', 'Total'].map(h => (
-                    <TableCell key={h} sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>
-                      {h}
-                    </TableCell>
-                  ))}
+                  <TableCell sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>Trip #</TableCell>
+                  <TableCell sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>Status</TableCell>
+                  <TableCell sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>Origin</TableCell>
+                  <TableCell sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>Destination</TableCell>
+                  <TableCell sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>Pickup Distance</TableCell>
+                  <TableCell sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>Route Distance</TableCell>
+                  <TableCell sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#6B7280' }}>Total</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -265,8 +371,7 @@ const TripExpandableRow = ({ load }) => {
 
 const LoadList = () => {
   const navigate = useNavigate();
-  // ✅ FIX: pull current user so we can pass userId to billing
-  const { user } = useAuth();
+  // ✅ NO useAuth() — userId is resolved inside billingService
 
   const [loads, setLoads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -277,17 +382,26 @@ const LoadList = () => {
 
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeData, setMergeData] = useState({
-    customerId: '', plannedDate: new Date().toISOString().slice(0, 10),
+    customerId: '',
+    plannedDate: new Date().toISOString().slice(0, 10),
   });
   const [mergeLoading, setMergeLoading] = useState(false);
   const [mergeResult, setMergeResult] = useState(null);
 
   const [customers, setCustomers] = useState([]);
   const [stats, setStats] = useState({
-    total: 0, pending: 0, inProgress: 0, completed: 0, cancelled: 0,
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    completed: 0,
+    cancelled: 0,
   });
 
   const [billingInProgress, setBillingInProgress] = useState(null);
+
+  /* ============================================================
+     DATA LOADING
+     ============================================================ */
 
   const loadCustomers = async () => {
     try {
@@ -306,26 +420,32 @@ const LoadList = () => {
       const response = await loadService.getAllLoads();
       const loadsData = unwrapList(response);
 
-      const enrichedLoads = await Promise.all(loadsData.map(async (load) => {
-        if (!Array.isArray(load?.trips) || load.trips.length === 0) {
-          return { ...load, trips: [] };
-        }
-        const enrichedTrips = await Promise.all(load.trips.map(async (trip) => {
-          if (trip?.pickupDistance !== undefined) return trip;
-          try {
-            const tripDetails = await tripService.getTripById(trip.id);
-            return {
-              ...trip,
-              pickupDistance: tripDetails?.pickupDistance || 0,
-              routeDistance: tripDetails?.totalDistance || trip?.totalDistance || 0,
-              pickupFromLastDropOff: tripDetails?.pickupFromLastDropOff || false,
-              originLocation: tripDetails?.originLocation || trip?.originLocation,
-              destinationLocation: tripDetails?.destinationLocation || trip?.destinationLocation,
-            };
-          } catch { return trip; }
-        }));
-        return { ...load, trips: enrichedTrips };
-      }));
+      const enrichedLoads = await Promise.all(
+        loadsData.map(async (load) => {
+          if (!Array.isArray(load?.trips) || load.trips.length === 0) {
+            return { ...load, trips: [] };
+          }
+          const enrichedTrips = await Promise.all(
+            load.trips.map(async (trip) => {
+              if (trip?.pickupDistance !== undefined) return trip;
+              try {
+                const tripDetails = await tripService.getTripById(trip.id);
+                return {
+                  ...trip,
+                  pickupDistance: tripDetails?.pickupDistance || 0,
+                  routeDistance: tripDetails?.totalDistance || trip?.totalDistance || 0,
+                  pickupFromLastDropOff: tripDetails?.pickupFromLastDropOff || false,
+                  originLocation: tripDetails?.originLocation || trip?.originLocation,
+                  destinationLocation: tripDetails?.destinationLocation || trip?.destinationLocation,
+                };
+              } catch {
+                return trip;
+              }
+            })
+          );
+          return { ...load, trips: enrichedTrips };
+        })
+      );
 
       setLoads(enrichedLoads);
       calculateStats(enrichedLoads);
@@ -343,8 +463,10 @@ const LoadList = () => {
     const safe = Array.isArray(data) ? data : [];
     const count = (status) => safe.filter((l) => l?.status === status).length;
     setStats({
-      total: safe.length, pending: count('PENDING'),
-      inProgress: count('IN_PROGRESS'), completed: count('COMPLETED'),
+      total: safe.length,
+      pending: count('PENDING'),
+      inProgress: count('IN_PROGRESS'),
+      completed: count('COMPLETED'),
       cancelled: count('CANCELLED'),
     });
   };
@@ -368,7 +490,9 @@ const LoadList = () => {
     setError(null);
     try {
       const response = await loadService.smartMergeTrips(
-        mergeData.customerId, mergeData.plannedDate);
+        mergeData.customerId,
+        mergeData.plannedDate
+      );
       setMergeResult(response);
       setShowMergeDialog(false);
       setSuccessMessage('Trips merged successfully.');
@@ -388,7 +512,8 @@ const LoadList = () => {
       const response = await loadService.recalculateAllDistances();
       if (response?.success) {
         setSuccessMessage(
-          `Batch recalculation started (Job ID: ${response.jobId}). Refresh shortly to see updated distances.`);
+          `Batch recalculation started (Job ID: ${response.jobId}). Refresh shortly to see updated distances.`
+        );
         setTimeout(() => loadLoads(), 3000);
       } else {
         throw new Error(response?.message || 'Failed to start recalculation');
@@ -401,32 +526,31 @@ const LoadList = () => {
     }
   };
 
-  /* ============================================================
-     ✅ FIXED: Recalculate billing now passes the current userId
-     and uses billingService.recalculateLoadBilling directly.
-     ============================================================ */
+  /**
+   * ✅ Recalculate billing — userId resolved automatically inside
+   *    billingService (from localStorage or JWT). No useAuth needed.
+   */
   const handleRecalculateBilling = async (loadId) => {
-  setBillingInProgress(loadId);
-  setError(null);
-  try {
-    // ✅ userId is resolved automatically inside billingService
-    await billingService.recalculateLoadBilling(loadId);
-    setSuccessMessage(
-      `Billing recalculated for load ${loadId}. You can now generate an invoice from Invoice → From Billing.`
-    );
-    await loadLoads();
-  } catch (err) {
-    console.error('Error recalculating billing:', err);
-    const detail =
-      err?.response?.data?.detail ||
-      err?.response?.data?.message ||
-      err?.message ||
-      'Failed to recalculate billing';
-    setError(detail);
-  } finally {
-    setBillingInProgress(null);
-  }
-};
+    setBillingInProgress(loadId);
+    setError(null);
+    try {
+      await billingService.recalculateLoadBilling(loadId);
+      setSuccessMessage(
+        `Billing recalculated for load ${loadId}. You can now generate an invoice from Invoice → From Billing.`
+      );
+      await loadLoads();
+    } catch (err) {
+      console.error('Error recalculating billing:', err);
+      const detail =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to recalculate billing';
+      setError(detail);
+    } finally {
+      setBillingInProgress(null);
+    }
+  };
 
   /* ============================================================
      DERIVED VALUES
@@ -449,63 +573,132 @@ const LoadList = () => {
     const totalPickupDistance = load.totalFromDepotKm || 0;
     const totalToDepot = load.totalToDepotKm || 0;
     const totalRouteDistance =
-      load.totalCalculatedDistanceKm || load.totalCalculatedDistance ||
-      load.totalDistanceKm || 0;
+      load.totalCalculatedDistanceKm ||
+      load.totalCalculatedDistance ||
+      load.totalDistanceKm ||
+      0;
     const totalDistance = totalPickupDistance + totalToDepot + totalRouteDistance;
     return { totalPickupDistance, totalToDepot, totalRouteDistance, totalDistance };
   };
 
   /* ============================================================
-     RENDER  (unchanged except the Recalculate billing button wiring)
+     RENDER
      ============================================================ */
 
   return (
-    <Box sx={{
-      bgcolor: '#F7F7FC', minHeight: '100vh', height: '100%',
-      display: 'flex', flexDirection: 'column',
-      p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 }, width: '100%', overflowX: 'hidden',
-    }}>
-      <Box sx={{
-        maxWidth: '1600px', margin: '0 auto', flex: 1, width: '100%',
-        display: 'flex', flexDirection: 'column',
-      }}>
+    <Box
+      sx={{
+        bgcolor: '#F7F7FC',
+        minHeight: '100vh',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
+        width: '100%',
+        overflowX: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          maxWidth: '1600px',
+          margin: '0 auto',
+          flex: 1,
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* Header */}
-        <Stack direction={{ xs: 'column', sm: 'row' }}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
           alignItems={{ xs: 'flex-start', sm: 'center' }}
           mb={{ xs: 2, sm: 2.5, md: 3 }}
-          spacing={{ xs: 1, sm: 0 }}>
+          spacing={{ xs: 1, sm: 0 }}
+        >
           <Box>
-            <Typography variant="h5" fontWeight="700"
-              sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.4rem', lg: '1.5rem' } }}>
+            <Typography
+              variant="h5"
+              fontWeight="700"
+              sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.4rem', lg: '1.5rem' } }}
+            >
               Load Management
             </Typography>
-            <Typography variant="body2" color="text.secondary"
-              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.85rem' } }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.85rem' } }}
+            >
               Manage and track all loads • {stats.total} total loads
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="contained" startIcon={<RefreshIcon />}
-              onClick={handleRecalcAllDistances} size="small"
-              sx={{ borderRadius: '10px', textTransform: 'none',
-                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)' }}>
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={handleRecalcAllDistances}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                },
+              }}
+            >
               Recalc All Distances
             </Button>
-            <Button variant="outlined" startIcon={<MergeIcon />}
-              onClick={() => setShowMergeDialog(true)} size="small"
-              sx={{ borderRadius: '10px', textTransform: 'none' }}>
+            <Button
+              variant="outlined"
+              startIcon={<MergeIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={() => setShowMergeDialog(true)}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+              }}
+            >
               Smart Merge
             </Button>
-            <Button variant="outlined" startIcon={<RefreshIcon />}
-              onClick={loadLoads} size="small"
-              sx={{ borderRadius: '10px', textTransform: 'none' }}>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={loadLoads}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+              }}
+            >
               Refresh
             </Button>
-            <Button variant="contained" startIcon={<AddIcon />}
-              onClick={() => navigate('/loads/new')} size="small"
-              sx={{ borderRadius: '10px', textTransform: 'none',
-                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)' }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              onClick={() => navigate('/loads/new')}
+              size="small"
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1.5, sm: 2 },
+                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                },
+              }}
+            >
               New Load
             </Button>
           </Stack>
@@ -513,17 +706,30 @@ const LoadList = () => {
 
         {/* Alerts */}
         {error && (
-          <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }}
-            onClose={() => setError(null)}>{error}</Alert>
+          <Alert
+            severity="error"
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }}
+            onClose={() => setError(null)}
+          >
+            {error}
+          </Alert>
         )}
         {successMessage && (
-          <Alert severity="success" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }}
-            onClose={() => setSuccessMessage(null)}>{successMessage}</Alert>
+          <Alert
+            severity="success"
+            sx={{ mb: 2, borderRadius: '12px', fontSize: '0.75rem' }}
+            onClose={() => setSuccessMessage(null)}
+          >
+            {successMessage}
+          </Alert>
         )}
 
         {/* Stats */}
-        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
-          sx={{ mb: { xs: 2, sm: 2.5, md: 3 }, width: '100%', margin: 0 }}>
+        <Grid
+          container
+          spacing={{ xs: 1.5, sm: 2, md: 2.5, lg: 3 }}
+          sx={{ mb: { xs: 2, sm: 2.5, md: 3 }, width: '100%', margin: 0 }}
+        >
           <Grid size={{ xs: 6, sm: 2.4 }} sx={{ display: 'flex' }}>
             <StatCard title="Total Loads" value={stats.total} icon={LocalShipping} color="primary" />
           </Grid>
@@ -542,58 +748,117 @@ const LoadList = () => {
         </Grid>
 
         {/* Filters */}
-        <Paper elevation={0} sx={{
-          p: { xs: 1.5, sm: 2 }, mb: { xs: 2, sm: 2.5, md: 3 },
-          borderRadius: { xs: '12px', sm: '16px' }, border: '1px solid #ECECEC',
-          bgcolor: '#FFFFFF', width: '100%',
-        }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 1.5, sm: 2 },
+            mb: { xs: 2, sm: 2.5, md: 3 },
+            borderRadius: { xs: '12px', sm: '16px' },
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+            width: '100%',
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
             spacing={{ xs: 1, sm: 1.5 }}
             alignItems={{ xs: 'stretch', sm: 'center' }}
-            flexWrap="wrap" useFlexGap>
-            <TextField size="small" placeholder="Search loads..."
-              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ flex: 1, minWidth: { xs: '100%', sm: 200 } }}
+            flexWrap="wrap"
+            useFlexGap
+          >
+            <TextField
+              size="small"
+              placeholder="Search loads..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                flex: 1,
+                minWidth: { xs: '100%', sm: 200 },
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.65rem', sm: '0.75rem' } },
+                '& .MuiInputBase-root': {
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  borderRadius: '10px',
+                },
+              }}
               InputProps={{
                 startAdornment: (
-                  <InputAdornment position="start"><SearchIcon /></InputAdornment>
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />
+                  </InputAdornment>
                 ),
-              }} />
+              }}
+            />
             <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
-              <InputLabel>Status</InputLabel>
-              <Select value={filterStatus}
+              <InputLabel sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>Status</InputLabel>
+              <Select
+                value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                label="Status">
-                <MenuItem value="ALL">All Status</MenuItem>
-                {(LOAD_STATUS_OPTIONS || []).map((o) => (
-                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                label="Status"
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, borderRadius: '10px' }}
+              >
+                <MenuItem value="ALL" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                  All Status
+                </MenuItem>
+                {(LOAD_STATUS_OPTIONS || []).map((option) => (
+                  <MenuItem
+                    key={option.value}
+                    value={option.value}
+                    sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                  >
+                    {option.label}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
-            <Button onClick={() => { setSearchTerm(''); setFilterStatus('ALL'); }}
+            <Button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterStatus('ALL');
+              }}
               disabled={!searchTerm && filterStatus === 'ALL'}
-              variant="outlined" size="small" startIcon={<ClearIcon />}
-              sx={{ borderRadius: '10px', textTransform: 'none' }}>
+              variant="outlined"
+              size="small"
+              startIcon={<ClearIcon sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' } }} />}
+              sx={{
+                borderRadius: '10px',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                textTransform: 'none',
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 1.5 },
+              }}
+            >
               Clear
             </Button>
           </Stack>
         </Paper>
 
         {/* Table */}
-        <Paper elevation={0} sx={{
-          borderRadius: { xs: '12px', sm: '16px' }, border: '1px solid #ECECEC',
-          bgcolor: '#FFFFFF', width: '100%', overflow: 'hidden',
-        }}>
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: { xs: '12px', sm: '16px' },
+            border: '1px solid #ECECEC',
+            bgcolor: '#FFFFFF',
+            width: '100%',
+            overflow: 'hidden',
+          }}
+        >
           <TableContainer>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#F9FAFB' }}>
                 <TableRow>
-                  {['Load #', 'Customer', 'Status', 'Trips', 'Pickup Distance',
-                    'Route Distance', 'Total Distance', 'Date', 'Actions'].map(l => (
-                    <TableCell key={l} sx={{
-                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                      fontWeight: 600, color: '#6B7280', py: 1.5,
-                    }}>{l}</TableCell>
+                  {['Load #', 'Customer', 'Status', 'Trips', 'Pickup Distance', 'Route Distance', 'Total Distance', 'Date', 'Actions'].map((label) => (
+                    <TableCell
+                      key={label}
+                      sx={{
+                        fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                        fontWeight: 600,
+                        color: '#6B7280',
+                        py: 1.5,
+                      }}
+                    >
+                      {label}
+                    </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
@@ -609,10 +874,27 @@ const LoadList = () => {
                     <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                       <Box sx={{ textAlign: 'center' }}>
                         <LocalShipping sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-                        <Typography variant="body1" color="text.secondary">
+                        <Typography
+                          variant="body1"
+                          color="text.secondary"
+                          sx={{ fontSize: '0.9rem' }}
+                        >
                           {searchTerm || filterStatus !== 'ALL'
-                            ? 'No loads match your filters' : 'No loads found'}
+                            ? 'No loads match your filters'
+                            : 'No loads found'}
                         </Typography>
+                        {(searchTerm || filterStatus !== 'ALL') && (
+                          <Button
+                            onClick={() => {
+                              setSearchTerm('');
+                              setFilterStatus('ALL');
+                            }}
+                            sx={{ mt: 1, fontSize: '0.7rem' }}
+                            size="small"
+                          >
+                            Clear Filters
+                          </Button>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -626,63 +908,155 @@ const LoadList = () => {
                       <React.Fragment key={load.id}>
                         <TableRow hover sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
                           <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
-                            <Typography fontWeight="600"
-                              sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#4F46E5' }}>
+                            <Typography
+                              fontWeight="600"
+                              sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: '#4F46E5' }}
+                            >
                               {load.loadNumber}
                             </Typography>
+                            {load.description && (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontSize: { xs: '0.5rem', sm: '0.55rem' },
+                                  color: '#6B7280',
+                                  display: 'block',
+                                }}
+                              >
+                                {load.description.length > 30
+                                  ? load.description.substring(0, 30) + '...'
+                                  : load.description}
+                              </Typography>
+                            )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 1 }}>
                             <Stack direction="row" alignItems="center" spacing={0.5}>
                               <BusinessIcon sx={{ fontSize: '0.7rem', color: '#6B7280' }} />
-                              <Typography>{load.customerName || 'N/A'}</Typography>
+                              <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                                {load.customerName || 'N/A'}
+                              </Typography>
                             </Stack>
                           </TableCell>
-                          <TableCell><StatusChip status={load.status} /></TableCell>
-                          <TableCell>
-                            <Chip label={load.trips?.length || 0} size="small" color="primary" variant="outlined" />
+                          <TableCell sx={{ py: 0.5 }}>
+                            <StatusChip status={load.status} />
                           </TableCell>
-                          <TableCell>
-                            {totalPickupDistance > 0
-                              ? <Chip size="small" label={`${totalPickupDistance} km`}
-                                  sx={{ bgcolor: '#DBEAFE', color: '#1E40AF' }} />
-                              : <Typography sx={{ color: '#6B7280' }}>-</Typography>}
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
+                            <Chip
+                              label={load.trips?.length || 0}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              sx={{
+                                height: { xs: 16, sm: 20 },
+                                fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                                fontWeight: 600,
+                              }}
+                            />
                           </TableCell>
-                          <TableCell>
-                            {totalRouteDistance > 0
-                              ? <Chip size="small" label={`${totalRouteDistance} km`}
-                                  sx={{ bgcolor: '#FEF3C7', color: '#92400E' }} />
-                              : <Typography sx={{ color: '#6B7280' }}>-</Typography>}
+                          <TableCell sx={{ py: 0.5 }}>
+                            {totalPickupDistance > 0 ? (
+                              <Chip
+                                size="small"
+                                label={`${totalPickupDistance} km`}
+                                sx={{
+                                  fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                                  height: { xs: 16, sm: 20 },
+                                  bgcolor: '#DBEAFE',
+                                  color: '#1E40AF',
+                                  fontWeight: 500,
+                                }}
+                              />
+                            ) : (
+                              <Typography sx={{ fontSize: '0.6rem', color: '#6B7280' }}>-</Typography>
+                            )}
                           </TableCell>
-                          <TableCell>
-                            <Chip size="small" label={`${totalDistance} km`}
-                              sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 600 }} />
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
+                            {totalRouteDistance > 0 ? (
+                              <Chip
+                                size="small"
+                                label={`${totalRouteDistance} km`}
+                                sx={{
+                                  fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                                  height: { xs: 16, sm: 20 },
+                                  bgcolor: '#FEF3C7',
+                                  color: '#92400E',
+                                  fontWeight: 500,
+                                }}
+                              />
+                            ) : (
+                              <Typography sx={{ fontSize: '0.6rem', color: '#6B7280' }}>-</Typography>
+                            )}
                           </TableCell>
-                          <TableCell>{load.loadingDate ? formatDate(load.loadingDate) : 'N/A'}</TableCell>
-                          <TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
+                            <Chip
+                              size="small"
+                              label={`${totalDistance} km`}
+                              sx={{
+                                fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                                height: { xs: 16, sm: 20 },
+                                bgcolor: '#D1FAE5',
+                                color: '#065F46',
+                                fontWeight: 600,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, py: 0.5 }}>
+                            {load.loadingDate ? formatDate(load.loadingDate) : 'N/A'}
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
                             <Stack direction="row" spacing={0.25}>
                               <Tooltip title="View Details">
-                                <IconButton size="small" color="primary"
-                                  onClick={() => navigate(`/loads/${load.loadNumber}`)}>
-                                  <VisibilityIcon />
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => navigate(`/loads/${load.loadNumber}`)}
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <VisibilityIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Edit Load">
-                                <IconButton size="small" color="secondary"
-                                  onClick={() => navigate(`/loads/${load.id}/edit`)}>
-                                  <EditIcon />
+                                <IconButton
+                                  size="small"
+                                  color="secondary"
+                                  onClick={() => navigate(`/loads/${load.id}/edit`)}
+                                  sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                >
+                                  <EditIcon sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Recalculate Billing">
                                 <span>
-                                  <IconButton size="small" color="success"
+                                  <IconButton
+                                    size="small"
+                                    color="success"
                                     onClick={() => handleRecalculateBilling(load.id)}
-                                    disabled={isRecalculating}>
-                                    {isRecalculating
-                                      ? <CircularProgress size={14} />
-                                      : <AttachMoney />}
+                                    disabled={isRecalculating}
+                                    sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                                  >
+                                    {isRecalculating ? (
+                                      <CircularProgress size={14} />
+                                    ) : (
+                                      <AttachMoney sx={{ fontSize: { xs: '0.7rem', sm: '0.9rem' } }} />
+                                    )}
                                   </IconButton>
                                 </span>
                               </Tooltip>
+                              {Array.isArray(load.trips) && load.trips.length > 0 && (
+                                <Tooltip title={`${load.trips.length} trips`}>
+                                  <Chip
+                                    size="small"
+                                    label={`${load.trips.length}`}
+                                    sx={{
+                                      height: { xs: 16, sm: 20 },
+                                      fontSize: { xs: '0.45rem', sm: '0.55rem' },
+                                      bgcolor: '#EEF2FF',
+                                      color: '#4F46E5',
+                                      fontWeight: 500,
+                                    }}
+                                  />
+                                </Tooltip>
+                              )}
                             </Stack>
                           </TableCell>
                         </TableRow>
@@ -698,48 +1072,94 @@ const LoadList = () => {
         </Paper>
 
         {/* Smart Merge Dialog */}
-        <Dialog open={showMergeDialog} onClose={() => setShowMergeDialog(false)}
-          maxWidth="sm" fullWidth
-          PaperProps={{ sx: { borderRadius: { xs: '12px', sm: '16px' } } }}>
-          <DialogTitle sx={{
-            py: 1.5, px: 2.5, borderBottom: 1, borderColor: 'divider', bgcolor: '#F9FAFB',
-          }}>
+        <Dialog
+          open={showMergeDialog}
+          onClose={() => setShowMergeDialog(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: { xs: '12px', sm: '16px' } } }}
+        >
+          <DialogTitle
+            sx={{
+              py: 1.5,
+              px: 2.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+              bgcolor: '#F9FAFB',
+            }}
+          >
             <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-              <MergeIcon sx={{ mr: 0.5, verticalAlign: 'middle' }} /> Smart Merge Trips
+              <MergeIcon sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+              Smart Merge Trips
             </Typography>
           </DialogTitle>
           <DialogContent sx={{ p: 2.5 }}>
             <Alert severity="info" sx={{ mb: 2, borderRadius: '12px', fontSize: '0.8rem' }}>
-              This will find all trips for the selected customer on the specified date and merge them into a single load.
+              This will find all trips for the selected customer on the specified date and merge
+              them into a single load.
             </Alert>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Customer *</InputLabel>
-                <Select value={mergeData.customerId}
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Customer *</InputLabel>
+                <Select
+                  value={mergeData.customerId}
                   onChange={(e) => setMergeData({ ...mergeData, customerId: e.target.value })}
-                  label="Customer *">
-                  <MenuItem value="">Select Customer</MenuItem>
-                  {(customers || []).map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {c.name} ({c.customerCode})
+                  label="Customer *"
+                  sx={{ fontSize: '0.8rem' }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.8rem' }}>
+                    Select Customer
+                  </MenuItem>
+                  {(customers || []).map((customer) => (
+                    <MenuItem key={customer.id} value={customer.id} sx={{ fontSize: '0.8rem' }}>
+                      {customer.name} ({customer.customerCode})
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-              <TextField fullWidth label="Planned Date *" type="date" size="small"
+              <TextField
+                fullWidth
+                label="Planned Date *"
+                type="date"
+                size="small"
                 value={mergeData.plannedDate}
                 onChange={(e) => setMergeData({ ...mergeData, plannedDate: e.target.value })}
-                InputLabelProps={{ shrink: true }} />
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' } }}
+              />
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
-            <Button onClick={() => setShowMergeDialog(false)} size="small"
-              sx={{ color: '#6B7280' }}>Cancel</Button>
-            <Button onClick={handleSmartMerge} variant="contained" size="small"
+            <Button
+              onClick={() => setShowMergeDialog(false)}
+              size="small"
+              sx={{ fontSize: '0.8rem', color: '#6B7280' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSmartMerge}
+              variant="contained"
+              color="primary"
+              size="small"
               disabled={!mergeData.customerId || !mergeData.plannedDate || mergeLoading}
-              startIcon={mergeLoading ? <CircularProgress size={16} /> : <MergeIcon />}
-              sx={{ borderRadius: '10px', textTransform: 'none',
-                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)' }}>
+              startIcon={
+                mergeLoading ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <MergeIcon sx={{ fontSize: '0.9rem' }} />
+                )
+              }
+              sx={{
+                fontSize: '0.8rem',
+                borderRadius: '10px',
+                textTransform: 'none',
+                background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #4338CA 0%, #4F46E5 100%)',
+                },
+              }}
+            >
               {mergeLoading ? 'Merging...' : 'Merge Trips'}
             </Button>
           </DialogActions>
