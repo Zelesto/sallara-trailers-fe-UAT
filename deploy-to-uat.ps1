@@ -4,6 +4,7 @@
 
 param(
     [switch]$DryRun,
+    [switch]$Force,
     [switch]$Verbose
 )
 
@@ -12,6 +13,9 @@ Write-Host "================" -ForegroundColor Cyan
 
 if ($DryRun) {
     Write-Host "DRY RUN MODE - No changes will be made" -ForegroundColor Yellow
+}
+if ($Force) {
+    Write-Host "FORCE MODE - UAT will be backed up before replacing its main branch" -ForegroundColor Yellow
 }
 
 # Set paths
@@ -72,25 +76,53 @@ function Deploy-Repo {
             return $false
         }
 
-        git merge-base --is-ancestor origin/main HEAD
+        $uatCommit = git rev-parse uat/main
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Local main does not contain the latest origin/main for $Name"
-            return $false
-        }
-        git merge-base --is-ancestor uat/main HEAD
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "UAT has commits not present in the deployment commit for $Name; refusing a non-fast-forward deployment"
+            Write-Error "Could not resolve the current UAT commit for $Name"
             return $false
         }
 
+        if (!$Force) {
+            git merge-base --is-ancestor origin/main HEAD
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Local main does not contain the latest origin/main for $Name"
+                return $false
+            }
+            git merge-base --is-ancestor uat/main HEAD
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "UAT has commits not present in the deployment commit for $Name; refusing a non-fast-forward deployment"
+                return $false
+            }
+        }
+
+        $deploymentCommit = git rev-parse --short HEAD
         if ($DryRun) {
-            Write-Host "[DRY RUN] Would deploy $(git rev-parse --short HEAD) to $Name UAT" -ForegroundColor Yellow
+            if ($Force) {
+                $backupSuffix = [guid]::NewGuid().ToString('N').Substring(0, 6)
+                $backupBranch = "backup-before-uat-$($Name.ToLowerInvariant())-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$backupSuffix"
+                Write-Host "[DRY RUN] Would back up UAT commit $uatCommit to $backupBranch, then replace main with $deploymentCommit" -ForegroundColor Yellow
+            } else {
+                Write-Host "[DRY RUN] Would deploy $deploymentCommit to $Name UAT" -ForegroundColor Yellow
+            }
             return $true
         }
 
-        git push uat HEAD:main
+        if ($Force) {
+            $backupSuffix = [guid]::NewGuid().ToString('N').Substring(0, 6)
+            $backupBranch = "backup-before-uat-$($Name.ToLowerInvariant())-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$backupSuffix"
+            git push uat "uat/main:refs/heads/$backupBranch"
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Could not create UAT backup branch $backupBranch for $Name"
+                return $false
+            }
+
+            $lease = "--force-with-lease=refs/heads/main:$uatCommit"
+            git push uat $lease "HEAD:refs/heads/main"
+        } else {
+            git push uat HEAD:main
+        }
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Fast-forward push to $Name UAT failed"
+            Write-Error "Push to $Name UAT failed"
             return $false
         }
 
