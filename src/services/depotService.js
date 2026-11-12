@@ -1,23 +1,13 @@
 // src/services/depotService.js
-import api from './api';
+import api, { unwrapApiResponse } from './api';
 
 export const depotService = {
   getAllDepots: async () => {
     try {
       const response = await api.get('/depots');
-      console.log('📦 Depot response:', response);
-      
-      // Handle different response formats
-      if (Array.isArray(response)) {
-        return response;
-      }
-      if (response?.content) {
-        return response.content;
-      }
-      if (response?.data) {
-        return Array.isArray(response.data) ? response.data : [];
-      }
-      return [];
+      const data = unwrapApiResponse(response, []);
+      console.log('📦 Depot response:', data);
+      return data;
     } catch (error) {
       console.error('Error fetching depots:', error);
       return [];

@@ -1,5 +1,5 @@
 // src/services/inventoryService.js
-import api from './api';
+import api, { unwrapApiResponse, normalizePagedResponse } from './api';
 
 export const inventoryService = {
   // =============================================
@@ -16,31 +16,18 @@ getInventoryItems: async (page = 0, size = 20, search = '') => {
     } else {
       response = await api.get(`/inventory/items?page=${page}&size=${size}`);
     }
-    
-    // The response should be the paginated object directly from the interceptor
+
     console.log('Inventory items response:', response);
-    
-    // If response has content, return the whole object
-    if (response && response.content !== undefined) {
-      return response;
-    }
-    
-    // If response is already an array, wrap it
-    if (Array.isArray(response)) {
-      return {
-        content: response,
-        totalElements: response.length,
-        totalPages: 1,
-        size: response.length,
-        number: 0,
-        first: true,
-        last: true,
-        empty: response.length === 0
-      };
-    }
-    
-    // Fallback
-    return { content: [], totalElements: 0, totalPages: 0, size: 0, number: 0 };
+    return normalizePagedResponse(response, {
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      size: 0,
+      number: 0,
+      first: true,
+      last: true,
+      empty: true,
+    });
   } catch (error) {
     console.error('Error fetching inventory items:', error);
     throw error;

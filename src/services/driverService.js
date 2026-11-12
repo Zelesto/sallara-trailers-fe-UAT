@@ -1,5 +1,5 @@
 // src/services/driverService.js
-import api from './api';
+import api, { unwrapApiResponse } from './api';
 
 const toSnakeCase = (data) => {
   if (!data || typeof data !== 'object') return data;
@@ -200,18 +200,19 @@ export const driverService = {
   getAllDrivers: async (params = {}) => {
     try {
       const response = await api.get('/drivers', { params });
-      console.log('Driver Service Response:', response);
-      
-      if (Array.isArray(response)) {
-        return response.map(driver => toCamelCase(driver));
+      const data = unwrapApiResponse(response, []);
+      console.log('Driver Service Response:', data);
+
+      if (Array.isArray(data)) {
+        return data.map(driver => toCamelCase(driver));
       }
-      if (response?.content) {
+      if (data?.content) {
         return {
-          ...response,
-          content: response.content.map(driver => toCamelCase(driver))
+          ...data,
+          content: data.content.map(driver => toCamelCase(driver))
         };
       }
-      return response || [];
+      return data || [];
     } catch (error) {
       console.error('Error fetching drivers:', error);
       throw error;

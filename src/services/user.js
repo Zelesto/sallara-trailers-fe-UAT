@@ -1,23 +1,13 @@
 // src/services/user.js
-import api from "./api";
+import api, { unwrapApiResponse } from "./api";
 
 const userService = {
   getAllUsers: async () => {
     try {
       const response = await api.get("/users");
-      console.log("📦 Users response:", response);
-      
-      // Handle different response formats
-      if (Array.isArray(response)) {
-        return response;
-      }
-      if (response && response.data && Array.isArray(response.data)) {
-        return response.data;
-      }
-      if (response && response.content && Array.isArray(response.content)) {
-        return response.content;
-      }
-      return [];
+      const data = unwrapApiResponse(response, []);
+      console.log("📦 Users response:", data);
+      return data;
     } catch (error) {
       console.error("❌ Error fetching users:", error);
       throw error;

@@ -1,5 +1,5 @@
 // src/services/podService.js
-import api from './api';
+import api, { unwrapApiResponse, normalizePagedResponse } from './api';
 
 export const podService = {
   /**
@@ -354,26 +354,14 @@ export const podService = {
       console.log('📡 Fetching PODs with params:', params);
       const response = await api.get('/pods', { params });
       console.log('✅ getAllPods response:', response);
-      
-      if (response?.content !== undefined) {
-        return response;
-      }
-      if (Array.isArray(response)) {
-        return {
-          content: response,
-          totalElements: response.length,
-          totalPages: 1,
-          number: 0,
-          size: response.length,
-        };
-      }
-      return {
-        content: response || [],
+
+      return normalizePagedResponse(response, {
+        content: [],
         totalElements: 0,
         totalPages: 1,
         number: 0,
         size: 0,
-      };
+      });
     } catch (error) {
       console.error('❌ Error fetching PODs:', error);
       

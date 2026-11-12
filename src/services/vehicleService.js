@@ -1,5 +1,5 @@
 // src/services/vehicleService.js
-import api from './api';
+import api, { unwrapApiResponse } from './api';
 
 const toSnakeCase = (data) => {
   if (!data || typeof data !== 'object') return data;
@@ -145,18 +145,17 @@ export const vehicleService = {
   getAllVehicles: async (params = {}) => {
     try {
       const response = await api.get('/vehicles', { params });
-      console.log('Vehicle Service Response:', response);
-      
-      const data = response?.data || response;
-      
+      const data = unwrapApiResponse(response, []);
+      console.log('Vehicle Service Response:', data);
+
+      if (Array.isArray(data)) {
+        return data.map(vehicle => toCamelCase(vehicle));
+      }
       if (data?.content !== undefined) {
         return {
           ...data,
           content: data.content.map(vehicle => toCamelCase(vehicle))
         };
-      }
-      if (Array.isArray(data)) {
-        return data.map(vehicle => toCamelCase(vehicle));
       }
       return toCamelCase(data) || [];
     } catch (error) {

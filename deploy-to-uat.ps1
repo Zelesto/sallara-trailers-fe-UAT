@@ -4,100 +4,104 @@
 
 param(
     [switch]$DryRun,
-    [switch]$Verbose
+    [switch]$Verbose,
+    [switch]$Force
 )
 
-Write-Host "DEPLOYING TO UAT" -ForegroundColor Cyan
-Write-Host "================" -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
+
+$backendPath = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\trailers-backend-main\trailers-backend-main"))
+$repositories = @(
+    @{
+        Name = "Backend"
+        Path = $backendPath
+        UatUrl = "https://github.com/Zelesto/sallara-trailers-be-UAT.git"
+    },
+    @{
+        Name = "Frontend"
+        Path = $PSScriptRoot
+        UatUrl = "https://github.com/Zelesto/sallara-trailers-fe-UAT.git"
+    }
+)
 
 if ($DryRun) {
-    Write-Host "DRY RUN MODE - No changes will be made" -ForegroundColor Yellow
+    Write-Host "DRY RUN - no backup branches or pushes will be created." -ForegroundColor Yellow
 }
 
-# Set paths
-$backendPath = "C:\Users\theo.zwane\trailers\trailers-backend"
-$frontendPath = "C:\Users\theo.zwane\trailers\trailers"
+if ($Force) {
+    Write-Host "Force-with-lease enabled; each existing UAT main will be backed up first." -ForegroundColor Yellow
+}
 
-# Function to deploy a repository
-function Deploy-Repo {
-    param($Path, $Name, $DevUrl, $UatUrl)
-    
-    Write-Host ""
-    Write-Host "Processing $Name..." -ForegroundColor Cyan
-    
-    # Check if repo exists
-    if (!(Test-Path $Path)) {
-        Write-Host "Repository not found at $Path. Cloning..." -ForegroundColor Yellow
-        git clone $DevUrl $Path
+foreach ($repository in $repositories) {
+    if (-not (Test-Path $repository.Path)) {
+        throw "$($repository.Name) repository was not found at $($repository.Path)."
+    }
+
+    Push-Location $repository.Path
+    try {
+        $branch = git branch --show-current
+        if ($LASTEXITCODE -ne 0 -or $branch -ne "main") {
+            throw "$($repository.Name) must be checked out on main before deployment."
+        }
+
+        $changes = git status --porcelain
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Failed to clone repository" -ForegroundColor Red
-            return $false
+            throw "Could not inspect $($repository.Name) worktree."
         }
-    }
-    
-    Push-Location $Path
-    
-    Write-Host "Current branch: $(git branch --show-current)" -ForegroundColor Gray
-    
-    # Fetch latest
-    Write-Host "Fetching latest..." -ForegroundColor Gray
-    git fetch --all --prune
-    
-    # Create backup if UAT branch exists
-    $backupBranch = "backup-before-uat-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    $uatExists = git rev-parse --verify uat/main 2>$null
-    if ($uatExists) {
-        Write-Host "Creating backup: $backupBranch" -ForegroundColor Gray
-        git branch -D $backupBranch 2>$null
-        git checkout -b $backupBranch uat/main
-        git push uat $backupBranch --force 2>$null
-        git checkout main 2>$null
-    }
-    
-    # Get latest DEV
-    Write-Host "Pulling latest DEV..." -ForegroundColor Gray
-    git checkout main
-    git pull origin main --ff-only
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Fast-forward failed, resetting..." -ForegroundColor Yellow
-        git reset --hard origin/main
-    }
-    
-    # Push to UAT
-    if ($DryRun) {
-        Write-Host "[DRY RUN] Would push to UAT" -ForegroundColor Yellow
-    } else {
-        Write-Host "Pushing to UAT..." -ForegroundColor Gray
-        git push uat main --force
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "SUCCESS: $Name deployed successfully!" -ForegroundColor Green
+        if ($changes) {
+            throw "$($repository.Name) has uncommitted changes; commit or stash them before deployment."
+        }
+
+        $head = git rev-parse HEAD
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not resolve $($repository.Name) HEAD."
+        }
+
+        $remoteMain = git ls-remote --heads $repository.UatUrl refs/heads/main
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not read the $($repository.Name) UAT main branch."
+        }
+        $remoteHead = $null
+        if ($remoteMain) {
+            $remoteHead = ($remoteMain -split "\s+")[0]
+        }
+
+        Write-Host "$($repository.Name): $head -> $($repository.UatUrl) (main)"
+        if ($DryRun) {
+            continue
+        }
+
+        if ($remoteHead) {
+            git fetch --no-tags $repository.UatUrl refs/heads/main
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not fetch the $($repository.Name) UAT main branch."
+            }
+            $fetchedHead = git rev-parse FETCH_HEAD
+            if ($LASTEXITCODE -ne 0 -or $fetchedHead -ne $remoteHead) {
+                throw "$($repository.Name) UAT main changed during deployment; retry after reviewing the new head."
+            }
+        }
+
+        if ($Force -and $remoteHead) {
+            $backupBranch = "backup-before-uat-redeploy-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            git push $repository.UatUrl "${remoteHead}:refs/heads/$backupBranch"
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not create the $($repository.Name) UAT backup branch."
+            }
+            git push "--force-with-lease=refs/heads/main:$remoteHead" $repository.UatUrl "${head}:refs/heads/main"
         } else {
-            Write-Host "FAILED: $Name deployment failed!" -ForegroundColor Red
+            git push $repository.UatUrl "${head}:refs/heads/main"
         }
+        if ($LASTEXITCODE -ne 0) {
+            throw "$($repository.Name) UAT push failed."
+        }
+
+        $deployedHead = git ls-remote --heads $repository.UatUrl refs/heads/main
+        if ($LASTEXITCODE -ne 0 -or ($deployedHead -split "\s+")[0] -ne $head) {
+            throw "$($repository.Name) UAT main did not resolve to the requested commit."
+        }
+        Write-Host "$($repository.Name) UAT main updated successfully." -ForegroundColor Green
+    } finally {
+        Pop-Location
     }
-    
-    Pop-Location
-    return $true
 }
-
-# Deploy both repos
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Starting deployment..." -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-
-# Deploy Backend
-Deploy-Repo -Path $backendPath -Name "Backend" -DevUrl "https://github.com/Zelesto/trailers-backend.git" -UatUrl "https://github.com/Zelesto/sallara-trailers-be-UAT.git"
-
-# Deploy Frontend
-Deploy-Repo -Path $frontendPath -Name "Frontend" -DevUrl "https://github.com/Zelesto/trailers.git" -UatUrl "https://github.com/Zelesto/sallara-trailers-fe-UAT.git"
-
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Deployment complete!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Repository URLs:"
-Write-Host "  Backend UAT: https://github.com/Zelesto/sallara-trailers-be-UAT"
-Write-Host "  Frontend UAT: https://github.com/Zelesto/sallara-trailers-fe-UAT"

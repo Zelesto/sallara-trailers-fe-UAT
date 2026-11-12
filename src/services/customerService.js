@@ -1,5 +1,5 @@
 // src/services/customerService.js
-import api from './api';
+import api, { unwrapApiResponse, normalizePagedResponse } from './api';
 
 export const customerService = {
   // Get all customers with pagination
@@ -10,9 +10,9 @@ export const customerService = {
       params.append('size', size);
       if (filters.search) params.append('search', filters.search);
       if (filters.status) params.append('status', filters.status);
-      
+
       const response = await api.get(`/customers?${params.toString()}`);
-      return response;
+      return normalizePagedResponse(response, { content: [], totalElements: 0, totalPages: 1, number: 0, size: 0 });
     } catch (error) {
       console.error('Error fetching customers:', error);
       throw error;
@@ -45,7 +45,7 @@ export const customerService = {
   getActiveCustomers: async () => {
     try {
       const response = await api.get('/customers/active');
-      return response;
+      return unwrapApiResponse(response, []);
     } catch (error) {
       console.error('Error fetching active customers:', error);
       throw error;

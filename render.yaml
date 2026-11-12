@@ -1,21 +1,18 @@
 services:
   - type: web
-    name: trailers-frontend
+    name: sallara-trailers-fe-uat
     env: node
     buildCommand: npm ci && npm run build
-    startCommand: npm start
+    startCommand: npm run preview -- --host 0.0.0.0 --port $PORT
     envVars:
       - key: NODE_VERSION
         value: 22.22.0
-    # ✅ Add this for caching
+      - key: VITE_API_BASE_URL
+        value: https://sallara-trailers-be-uat.onrender.com/api
     buildFilter:
       paths:
         - package.json
         - package-lock.json
+        - render.yaml
         - src/**/*
         - public/**/*
-    # ✅ Cache node_modules between builds
-    cache:
-      paths:
-        - node_modules
-        - .npm

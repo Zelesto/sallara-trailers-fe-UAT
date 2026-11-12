@@ -17,6 +17,7 @@ const api = axios.create({
 });
 
 export const unwrapApiResponse = (payload, fallback = []) => {
+  if (payload === undefined || payload === null) return fallback;
   if (Array.isArray(payload)) return payload;
 
   if (payload && payload.data !== undefined) {
@@ -24,10 +25,12 @@ export const unwrapApiResponse = (payload, fallback = []) => {
     if (Array.isArray(data)) return data;
     if (Array.isArray(data.content)) return data.content;
     if (Array.isArray(data.items)) return data.items;
+    if (data && typeof data === 'object') return data;
   }
 
   if (payload && Array.isArray(payload.content)) return payload.content;
   if (payload && Array.isArray(payload.items)) return payload.items;
+  if (payload && typeof payload === 'object') return payload;
   return fallback;
 };
 
@@ -36,6 +39,39 @@ export const unwrapSingleApiResponse = (payload, fallback = null) => {
     return payload.data ?? fallback;
   }
   return payload ?? fallback;
+};
+
+export const normalizePagedResponse = (payload, fallback = { content: [], totalElements: 0, totalPages: 1, number: 0, size: 0 }) => {
+  const data = payload && payload.data !== undefined ? payload.data : payload;
+
+  if (Array.isArray(data)) {
+    return {
+      content: data,
+      totalElements: data.length,
+      totalPages: 1,
+      number: 0,
+      size: data.length,
+      empty: data.length === 0,
+      first: true,
+      last: true,
+    };
+  }
+
+  if (data && Array.isArray(data.content)) {
+    return {
+      ...data,
+      content: data.content,
+    };
+  }
+
+  if (data && Array.isArray(data.items)) {
+    return {
+      ...data,
+      content: data.items,
+    };
+  }
+
+  return fallback;
 };
 
 // Flag to prevent multiple redirects
@@ -94,11 +130,14 @@ api.interceptors.response.use(
       console.log(`✅ Download ${response.config.url}`);
       return response;
     }
-    
+
     console.log(
       `✅ ${response.config.method?.toUpperCase()} ${response.config.url}`
     );
-    return response;
+
+    // Return the actual API payload instead of the full Axios response object so
+    // consumers can safely call array methods like .map() and .filter().
+    return response.data;
   },
   (error) => {
     console.group('❌ API Error');
