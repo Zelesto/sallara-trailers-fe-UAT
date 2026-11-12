@@ -67,7 +67,6 @@ import {
   Close as CloseIcon,
   WhatsApp as WhatsAppIcon,
   Sms as SmsIcon,
-  Gmail as GmailIcon,
   DesktopMac as DesktopIcon,
   PhoneIphone as MobileIcon,
   TabletMac as TabletIcon,

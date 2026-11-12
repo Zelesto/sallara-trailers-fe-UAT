@@ -273,9 +273,6 @@ import {
 import {
   DataGrid,
   GridActionsCellItem,
-  GridColDef,
-  GridRenderCellParams,
-  GridRowParams,
   GridToolbar,
   GridToolbarContainer,
   GridToolbarColumnsButton,
@@ -283,11 +280,7 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
   GridToolbarQuickFilter,
-  useGridApiRef,
-  GridEventListener,
-  GridCellEditStopReason,
-  GridCellModesModel,
-  GridRowModesModel
+  useGridApiRef
 } from '@mui/x-data-grid';
 
 import {

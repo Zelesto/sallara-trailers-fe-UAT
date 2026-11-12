@@ -15,70 +15,90 @@ if ($DryRun) {
 }
 
 # Set paths
-$backendPath = "C:\Users\theo.zwane\trailers\trailers-backend"
-$frontendPath = "C:\Users\theo.zwane\trailers\trailers"
+$backendPath = Join-Path $PSScriptRoot 'trailers-backend'
+$frontendPath = $PSScriptRoot
 
 # Function to deploy a repository
 function Deploy-Repo {
-    param($Path, $Name, $DevUrl, $UatUrl)
+    param(
+        [string]$Path,
+        [string]$Name,
+        [string]$DevUrl,
+        [string]$UatUrl
+    )
     
     Write-Host ""
     Write-Host "Processing $Name..." -ForegroundColor Cyan
     
-    # Check if repo exists
-    if (!(Test-Path $Path)) {
-        Write-Host "Repository not found at $Path. Cloning..." -ForegroundColor Yellow
-        git clone $DevUrl $Path
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Failed to clone repository" -ForegroundColor Red
-            return $false
-        }
+    if (!(Test-Path (Join-Path $Path '.git'))) {
+        Write-Error "Repository not found at $Path"
+        return $false
     }
     
     Push-Location $Path
-    
-    Write-Host "Current branch: $(git branch --show-current)" -ForegroundColor Gray
-    
-    # Fetch latest
-    Write-Host "Fetching latest..." -ForegroundColor Gray
-    git fetch --all --prune
-    
-    # Create backup if UAT branch exists
-    $backupBranch = "backup-before-uat-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    $uatExists = git rev-parse --verify uat/main 2>$null
-    if ($uatExists) {
-        Write-Host "Creating backup: $backupBranch" -ForegroundColor Gray
-        git branch -D $backupBranch 2>$null
-        git checkout -b $backupBranch uat/main
-        git push uat $backupBranch --force 2>$null
-        git checkout main 2>$null
-    }
-    
-    # Get latest DEV
-    Write-Host "Pulling latest DEV..." -ForegroundColor Gray
-    git checkout main
-    git pull origin main --ff-only
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Fast-forward failed, resetting..." -ForegroundColor Yellow
-        git reset --hard origin/main
-    }
-    
-    # Push to UAT
-    if ($DryRun) {
-        Write-Host "[DRY RUN] Would push to UAT" -ForegroundColor Yellow
-    } else {
-        Write-Host "Pushing to UAT..." -ForegroundColor Gray
-        git push uat main --force
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "SUCCESS: $Name deployed successfully!" -ForegroundColor Green
-        } else {
-            Write-Host "FAILED: $Name deployment failed!" -ForegroundColor Red
+    try {
+        $branch = git branch --show-current
+        if ($branch -ne 'main') {
+            Write-Error "$Name must be on main; current branch is '$branch'"
+            return $false
         }
+
+        $originUrl = git remote get-url origin
+        $uatUrl = git remote get-url uat
+        if ($originUrl -ne $DevUrl -or $uatUrl -ne $UatUrl) {
+            Write-Error "$Name remotes do not match the expected source and UAT repositories"
+            return $false
+        }
+
+        $changedPaths = @(git diff --name-only) + @(git diff --cached --name-only)
+        $unsafeChanges = @($changedPaths | Where-Object {
+            $_ -notmatch '^(dist/|trailers/?$|trailers-backend/?$)'
+        })
+        if ($unsafeChanges.Count -gt 0) {
+            Write-Error "$Name has uncommitted source changes. Commit or resolve them before deployment."
+            $unsafeChanges | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+            return $false
+        }
+
+        Write-Host "Fetching source and UAT branches..." -ForegroundColor Gray
+        git fetch origin main
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Could not fetch origin/main for $Name"
+            return $false
+        }
+        git fetch uat main
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Could not fetch uat/main for $Name"
+            return $false
+        }
+
+        git merge-base --is-ancestor origin/main HEAD
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Local main does not contain the latest origin/main for $Name"
+            return $false
+        }
+        git merge-base --is-ancestor uat/main HEAD
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "UAT has commits not present in the deployment commit for $Name; refusing a non-fast-forward deployment"
+            return $false
+        }
+
+        if ($DryRun) {
+            Write-Host "[DRY RUN] Would deploy $(git rev-parse --short HEAD) to $Name UAT" -ForegroundColor Yellow
+            return $true
+        }
+
+        git push uat HEAD:main
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Fast-forward push to $Name UAT failed"
+            return $false
+        }
+
+        Write-Host "SUCCESS: $Name deployed successfully!" -ForegroundColor Green
+        return $true
+    } finally {
+        Pop-Location
     }
-    
-    Pop-Location
-    return $true
 }
 
 # Deploy both repos
@@ -88,12 +108,17 @@ Write-Host "Starting deployment..." -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # Deploy Backend
-Deploy-Repo -Path $backendPath -Name "Backend" -DevUrl "https://github.com/Zelesto/trailers-backend.git" -UatUrl "https://github.com/Zelesto/sallara-trailers-be-UAT.git"
+$backendDeployed = Deploy-Repo -Path $backendPath -Name "Backend" -DevUrl "https://github.com/Zelesto/trailers-backend.git" -UatUrl "https://github.com/Zelesto/sallara-trailers-be-UAT.git"
 
 # Deploy Frontend
-Deploy-Repo -Path $frontendPath -Name "Frontend" -DevUrl "https://github.com/Zelesto/trailers.git" -UatUrl "https://github.com/Zelesto/sallara-trailers-fe-UAT.git"
+$frontendDeployed = Deploy-Repo -Path $frontendPath -Name "Frontend" -DevUrl "https://github.com/Zelesto/trailers.git" -UatUrl "https://github.com/Zelesto/sallara-trailers-fe-UAT.git"
 
 Write-Host ""
+if (!$backendDeployed -or !$frontendDeployed) {
+    Write-Host "Deployment did not complete successfully." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Deployment complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
